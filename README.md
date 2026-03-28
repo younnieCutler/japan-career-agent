@@ -43,10 +43,83 @@
 - **Anti-Hallucination** — 모든 평가는 사용자가 제공한 텍스트에서 명시적인 근거를 인용해야만 점수로 인정
 - **Cross-Skill Pipeline** — 에이전트 간 YAML 데이터를 기반으로 구직자 프로필과 기업 프로필을 손실 없이 매칭 연동
 
+### 설치 가이드
+
+#### ZIP으로 빠르게 설치 (권장)
+
+[`japan-recruit-ai-agent-skills.zip`](https://github.com/jeongyun-kim/japan-recruit-ai-agent-skills/releases) 파일을 다운로드한 후 플랫폼별 안내를 따르세요.
+
+---
+
+**Claude Code** (슬래시 커맨드로 등록)
+
+```bash
+# ZIP을 Claude Code 전역 skills 디렉토리에 압축 해제
+unzip japan-recruit-ai-agent-skills.zip -d ~/.claude/skills/
+
+# 이후 Claude Code 채팅창에서 바로 호출
+# /job-seeker-agent
+# /hiring-manager-agent
+# /matching-simulator
+# /company-battlecard
+# /kigyou-bunseki
+```
+
+또는 특정 스킬만 파일로 직접 참조:
+```
+@~/.claude/skills/job-seeker-agent/SKILL.md
+```
+
+---
+
+**Gemini CLI** (`gemini` 명령어)
+
+```bash
+# ZIP 압축 해제
+unzip japan-recruit-ai-agent-skills.zip -d ~/japan-recruit-skills/
+
+# SKILL.md를 시스템 프롬프트로 주입하여 실행
+gemini --system "$(cat ~/japan-recruit-skills/job-seeker-agent/SKILL.md)"
+```
+
+또는 프로젝트 루트에 `GEMINI.md`로 복사하면 자동으로 컨텍스트에 포함됩니다:
+```bash
+cp ~/japan-recruit-skills/job-seeker-agent/SKILL.md ./GEMINI.md
+gemini
+```
+
+---
+
+**OpenAI Codex CLI** (`codex` 명령어)
+
+```bash
+# ZIP 압축 해제
+unzip japan-recruit-ai-agent-skills.zip -d ~/japan-recruit-skills/
+
+# SKILL.md를 AGENTS.md로 복사 (Codex가 자동 참조)
+cp ~/japan-recruit-skills/job-seeker-agent/SKILL.md ./AGENTS.md
+codex
+
+# 또는 --instructions 플래그로 직접 지정
+codex --instructions "$(cat ~/japan-recruit-skills/job-seeker-agent/SKILL.md)"
+```
+
+---
+
+**Claude Desktop** (Projects 기능 활용)
+
+1. Claude Desktop에서 **Projects → 새 프로젝트** 생성
+2. ZIP을 압축 해제 후 사용할 스킬의 `SKILL.md` 파일을 **Project Knowledge**에 업로드
+3. 프로젝트 채팅창에서 이력서를 붙여넣어 시작
+
+> 또는: **설정 → 커스텀 지침**에 `SKILL.md` 전체 내용을 붙여넣기
+
+---
+
 ### 사용법
 
-1. 레포지토리를 클론하거나 필요한 에이전트 폴더를 다운로드합니다.
-2. AI 에디터나 채팅창(Claude Code, ChatGPT, Gemini 등)에 해당 폴더의 `SKILL.md` 파일을 참조시키세요. (예: `@job-seeker-agent/SKILL.md`)
+1. 레포지토리를 클론하거나 위 설치 가이드를 따라 스킬을 설치합니다.
+2. AI 에디터나 채팅창에서 해당 스킬을 호출합니다. (Claude Code: `/job-seeker-agent`, 기타 플랫폼: `@SKILL.md` 참조)
 3. 에이전트가 호출되면, 내 이력서 파일(예: `@경력기술서.md`)을 전달합니다. (타겟 구인공고 JD가 있다면 함께 첨부하면 갭 분석(Gap Analysis)이 즉시 발동됩니다.)
 
 이후에는 AI가 던지는 진단 질문에 답변하며 컨설팅을 진행하면 됩니다.
@@ -115,10 +188,83 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 - **アンチハルシネーション** — すべての評価は、ユーザーが提供したテキストから明示的な根拠を引用した場合のみスコアとして認定
 - **クロススキルパイプライン** — エージェント間のYAMLデータをベースに、求職者プロフィールと企業プロフィールをロスなくマッチング連携
 
+### インストールガイド
+
+#### ZIPで素早くインストール（推奨）
+
+[`japan-recruit-ai-agent-skills.zip`](https://github.com/jeongyun-kim/japan-recruit-ai-agent-skills/releases) をダウンロードし、プラットフォーム別の手順に従ってください。
+
+---
+
+**Claude Code**（スラッシュコマンドとして登録）
+
+```bash
+# ZIPをClaude Codeのグローバルskillsディレクトリに展開
+unzip japan-recruit-ai-agent-skills.zip -d ~/.claude/skills/
+
+# チャット画面でそのまま呼び出し可能
+# /job-seeker-agent
+# /hiring-manager-agent
+# /matching-simulator
+# /company-battlecard
+# /kigyou-bunseki
+```
+
+または特定のスキルのみファイルで直接参照：
+```
+@~/.claude/skills/job-seeker-agent/SKILL.md
+```
+
+---
+
+**Gemini CLI**（`gemini` コマンド）
+
+```bash
+# ZIPを展開
+unzip japan-recruit-ai-agent-skills.zip -d ~/japan-recruit-skills/
+
+# SKILL.mdをシステムプロンプトとして注入して実行
+gemini --system "$(cat ~/japan-recruit-skills/job-seeker-agent/SKILL.md)"
+```
+
+またはプロジェクトルートに `GEMINI.md` としてコピーすると自動でコンテキストに含まれます：
+```bash
+cp ~/japan-recruit-skills/job-seeker-agent/SKILL.md ./GEMINI.md
+gemini
+```
+
+---
+
+**OpenAI Codex CLI**（`codex` コマンド）
+
+```bash
+# ZIPを展開
+unzip japan-recruit-ai-agent-skills.zip -d ~/japan-recruit-skills/
+
+# SKILL.mdをAGENTS.mdとしてコピー（Codexが自動参照）
+cp ~/japan-recruit-skills/job-seeker-agent/SKILL.md ./AGENTS.md
+codex
+
+# または --instructions フラグで直接指定
+codex --instructions "$(cat ~/japan-recruit-skills/job-seeker-agent/SKILL.md)"
+```
+
+---
+
+**Claude Desktop**（Projects機能を活用）
+
+1. Claude Desktopで **Projects → 新しいプロジェクト** を作成
+2. ZIPを展開後、使用するスキルの `SKILL.md` ファイルを **Project Knowledge** にアップロード
+3. プロジェクトのチャット画面で職務経歴書を貼り付けてスタート
+
+> または：**設定 → カスタム指示** に `SKILL.md` の全文を貼り付け
+
+---
+
 ### 使い方
 
-1. リポジトリをクローンするか、必要なエージェントフォルダをダウンロードします。
-2. AIエディタやチャット画面（Claude Code、ChatGPT、Geminiなど）で、該当フォルダの `SKILL.md` ファイルを参照させてください。（例：`@job-seeker-agent/SKILL.md`）
+1. リポジトリをクローンするか、上記のインストールガイドに従ってスキルをインストールします。
+2. AIエディタやチャット画面でスキルを呼び出してください。（Claude Code: `/job-seeker-agent`、他のプラットフォーム：`@SKILL.md` 参照）
 3. エージェントが呼び出されたら、自分の職務経歴書ファイル（例：`@職務経歴書.md`）を渡します。（ターゲットの求人票JDがある場合は一緒に添付すると、ギャップ分析（Gap Analysis）がすぐに発動します。）
 
 あとはAIが投げかける診断質問に答えながらコンサルティングを進めてください。
@@ -187,10 +333,83 @@ Automatically extracts company data from major Japanese job and review site URLs
 - **Anti-Hallucination** — Every evaluation only counts as a score if it explicitly cites evidence from the text provided by the user
 - **Cross-Skill Pipeline** — Seamlessly connects candidate profiles and company profiles via YAML data across agents, with zero information loss
 
+### Installation Guide
+
+#### Quick Install via ZIP (Recommended)
+
+Download [`japan-recruit-ai-agent-skills.zip`](https://github.com/jeongyun-kim/japan-recruit-ai-agent-skills/releases) and follow the platform-specific instructions below.
+
+---
+
+**Claude Code** (Register as slash commands)
+
+```bash
+# Extract ZIP into Claude Code's global skills directory
+unzip japan-recruit-ai-agent-skills.zip -d ~/.claude/skills/
+
+# Then invoke directly from the Claude Code chat
+# /job-seeker-agent
+# /hiring-manager-agent
+# /matching-simulator
+# /company-battlecard
+# /kigyou-bunseki
+```
+
+Or reference a specific skill file directly:
+```
+@~/.claude/skills/job-seeker-agent/SKILL.md
+```
+
+---
+
+**Gemini CLI** (`gemini` command)
+
+```bash
+# Extract ZIP
+unzip japan-recruit-ai-agent-skills.zip -d ~/japan-recruit-skills/
+
+# Inject SKILL.md as the system prompt at startup
+gemini --system "$(cat ~/japan-recruit-skills/job-seeker-agent/SKILL.md)"
+```
+
+Or copy to `GEMINI.md` in your project root — Gemini CLI picks it up automatically:
+```bash
+cp ~/japan-recruit-skills/job-seeker-agent/SKILL.md ./GEMINI.md
+gemini
+```
+
+---
+
+**OpenAI Codex CLI** (`codex` command)
+
+```bash
+# Extract ZIP
+unzip japan-recruit-ai-agent-skills.zip -d ~/japan-recruit-skills/
+
+# Copy SKILL.md as AGENTS.md (Codex reads it automatically)
+cp ~/japan-recruit-skills/job-seeker-agent/SKILL.md ./AGENTS.md
+codex
+
+# Or specify via --instructions flag
+codex --instructions "$(cat ~/japan-recruit-skills/job-seeker-agent/SKILL.md)"
+```
+
+---
+
+**Claude Desktop** (via Projects)
+
+1. In Claude Desktop, go to **Projects → New Project**
+2. Extract the ZIP, then upload the desired `SKILL.md` file as **Project Knowledge**
+3. Open the project chat and paste your resume to begin
+
+> Alternatively: go to **Settings → Custom Instructions** and paste the full contents of `SKILL.md`
+
+---
+
 ### How to Use
 
-1. Clone the repository or download the agent folder you need.
-2. Reference the `SKILL.md` file from the relevant folder in your AI editor or chat interface (Claude Code, ChatGPT, Gemini, etc.). (e.g., `@job-seeker-agent/SKILL.md`)
+1. Clone the repository or install the skills using the guide above.
+2. Invoke the skill from your AI chat interface. (Claude Code: `/job-seeker-agent`; other platforms: reference `@SKILL.md`)
 3. Once the agent is invoked, provide your resume file (e.g., `@resume.md`). (If you have a target job description, attach it together — Gap Analysis will trigger immediately.)
 
 From there, simply answer the diagnostic questions the AI asks to proceed with your consultation.
