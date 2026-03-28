@@ -16,6 +16,8 @@ iteration-*/
 eval-*/
 grading.json
 analysis.md
+.agents/*
+
 
 # Artifacts & Temporary Files
 *.webp

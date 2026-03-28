@@ -95,7 +95,7 @@ It is a reference tool for identifying tendencies — use Recruit's official ser
 
 ## 2. Portable Skills: 8 Core Elements
 
-A framework defined by Pasona Research Institute, also used in the Japanese Ministry of Health, Labour and Welfare's career transition tools.
+A framework defined by Persol Career Research Institute, also used in the Japanese Ministry of Health, Labour and Welfare's career transition tools.
 Classifies universal competencies that remain transferable across job types and industries into 8 elements.
 
 ### 3 Domains × 8 Elements
@@ -151,7 +151,7 @@ Each element is rated 1–5 based on STAR analysis of the resume/career history.
 
 ## 3. Skill Ontology Mapping Table
 
-A mapping table based on the skill ontology concept used by Pasona/doda.
+A mapping table based on the skill ontology concept used by Persol Career/doda.
 Automatically maps individual technical skills (Hard Skills) to higher-level competencies (Capabilities) to expand matching scope.
 
 ### IT Skill Ontology
@@ -194,7 +194,7 @@ Compares a candidate's current skills against the required skills for a target r
 
 ## 4. Hataraku Well-being Index
 
-A metric that quantifies Pasona Group's "Work-and-Smile" vision.
+A metric that quantifies Persol Career Group's "Work-and-Smile" vision.
 Measures the fit between a candidate's values and a company's organizational culture to predict retention.
 
 ### 4 Measurement Elements
@@ -249,7 +249,7 @@ M_total = Σ(S_i × w_i) + α × P_fit + β × H_model
 - α: Latent competency weight (default 0.3)
 - β: High-performer similarity weight (default 0.2)
 
-### Pasona Style (Semantic Similarity + Bonus Model)
+### Persol Career Style (Semantic Similarity + Bonus Model)
 
 ```
 M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable

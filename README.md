@@ -34,6 +34,8 @@
 **5. kigyou-bunseki (기업 분석)**
 일본 내 주요 구직/리뷰 사이트(OpenWork, doda, Wantedly 등)의 URL을 입력받아 기업 데이터를 자동 추출합니다. 3단계 추출 파이프라인(curl ➔ read_url_content ➔ search_web)을 통해 접속 차단을 우회하며, 연봉, 잔업시간, 평점 등 객관적 지표 위주의 '기업 칼테' 및 '배틀카드'를 생성합니다.
 
+> ⚠️ **크롤링 불가 플랫폼**: `jp.indeed.com`(봇 완전 차단), `linkedin.com`(로그인 필수)은 URL만으로 분석 불가. 스크린샷 혹은 회사명과 직종명을 직접 입력해주세요.
+
 ### 핵심 매칭 포인트
 
 - **100% 알고리즘 기반** — 감성적인 칭찬을 배제하고 철저히 데이터와 근거(Evidence)에 기반한 냉정한 전략적 산출
@@ -104,6 +106,8 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 **5. kigyou-bunseki（企業分析）**
 日本国内の主要な求人・口コミサイト（OpenWork、doda、Wantedlyなど）のURLから企業データを自動抽出します。3段階の抽出パイプライン（curl ➔ read_url_content ➔ search_web）によりアクセス制限を回避し、年収、残業時間、スコアなどの客観的指標に基づいた「企業カルテ」および「バトルカード」を生成します。
 
+> ⚠️ **クロール不可プラットフォーム**: `jp.indeed.com`（ボット完全ブロック）、`linkedin.com`（ログイン必須）はURLのみでの分析不可。スクリーンショットあるいは企業名と職種名を直接入力してください。
+
 ### 主要マッチングポイント
 
 - **100%アルゴリズムベース** — 感情的な称賛を排除し、データと根拠（Evidence）に基づいた冷静な戦略的アウトプット
@@ -173,6 +177,8 @@ Compares 2+ companies head-to-head across 5 dimensions: SPI3 culture fit, skill 
 
 **5. kigyou-bunseki (Company Analysis)**
 Automatically extracts company data from major Japanese job and review site URLs (OpenWork, doda, Wantedly, etc.). Using a 3-tier extraction pipeline (curl ➔ read_url_content ➔ search_web), it bypasses access blocks to generate structured "Company Cards" and "Battlecards" focused on objective metrics like salary, overtime, and ratings.
+
+> ⚠️ **Unsupported platforms**: `jp.indeed.com` (full bot block) and `linkedin.com` (login required) cannot be analyzed from URL alone. Please provide Screenshot or the company name and job title directly.
 
 ### Core Matching Points
 

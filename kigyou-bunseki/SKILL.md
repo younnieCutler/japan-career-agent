@@ -1,11 +1,10 @@
 ---
 name: kigyou-bunseki
 description: >
-  日本の求人サイト（OpenWork, LinkedIn, Indeed, doda, Wantedly, en転職, マイナビ転職,
-  Green, キャリアトレック, Glassdoor Japan etc.）の求人URL・企業ページURLを受け取り、
-  企業情報を抽出して構造化分析を行うスキル。1社の単独分析も、2社以上のURL比較も対応。
-  OpenWorkの社員クチコミ・評点、dodaの求人要件、Wantedlyのカルチャー情報など、
-  サイトごとに異なるデータを統合して「企業カルテ」として出力する。
+  日本の求人・企業URLから企業情報を高速で抽出・分析するスキル。
+  処理速度を最優先し、まずは対象URLから企業名・職種名を特定後、企業の公式ホームページを直接探索します。
+  公式ホームページから「企業理念（Mission/Vision）」と「採用関連情報」を抽出できれば即座に分析を完了します。
+  公式情報が不足する場合のみ、他の外部プラットフォームを調査対象とする軽量・高速なワークフローです。
 
   Use this skill when:
   - User pastes any Japanese job site URL (openwork.jp, doda.jp, wantedly.com, etc.)
@@ -29,76 +28,66 @@ a head-to-head "⚔️ Battlecard" for multi-company comparison.
 
 The output is numbers and facts. There is no "both are great companies."
 
-## How Data Extraction Works
+## How Data Extraction Works (3-Phase Hard Gate)
 
-Every URL goes through a 3-tier extraction pipeline. Each tier is a fallback for the previous one.
-Try them in order — move to the next tier only when the current one fails.
+**RULE: Each phase must fully complete AND fail before the next phase begins. If a phase succeeds, output immediately — do NOT proceed to the next phase.**
 
-### Tier 1: curl (fastest, ~1 second)
+---
 
-Use curl with a browser User-Agent to fetch the raw HTML. This works for most sites
-that render on the server (SSR). Extract data from `<title>`, `<meta>`, and visible text.
+### PHASE 1 — Input URL Only (MAX 1 fetch)
+
+Fetch the provided URL ONCE to extract **Company Name** and **Job Title**.
 
 ```bash
-curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" "[URL]"
+curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" "[URL]" | grep -iE "<title>|<meta name=\"description\""
 ```
 
-**What to extract from raw HTML:**
-- `<title>` tag → company name, job title, sometimes salary range
-- `<meta name="description">` → job summary, key requirements
-- `<meta property="og:title">` and `og:description` → structured preview data
-- Visible text patterns → salary ranges (年収XXX万), work style (リモート, フレックス), requirements
+**Known blocked sites — skip curl, go straight to search:**
+- `jp.indeed.com` — blocks all bots (both `?jk=` and `?vjk=` URL formats). Use `search_web "[URL domain] [job ID from URL]"` to find a cached version or the company name.
+- `openwork.jp` — returns 403 for most pages.
+- `linkedin.com` — login wall.
 
-If the response contains meaningful company/job data, parse it and proceed to the Scoring step.
-If the response is empty, a login wall, or 403/captcha, move to Tier 2.
+**Phase 1 success condition:** Company name extracted.
+**→ If success: proceed to Phase 2.**
+**→ If fail after 1 attempt: proceed to Phase 2 using URL path/domain to guess company name.**
 
-### Tier 2: read_url_content (medium speed, ~3 seconds)
+---
 
-Use the `read_url_content` tool to fetch and convert the page to markdown.
-This handles JavaScript-rendered pages better than raw curl.
+### PHASE 2 — Official Homepage Only (MAX 2 fetches)
 
-If this also fails (empty response, login required, blocked), move to Tier 3.
+Search for the official homepage once, then fetch it once.
 
-### Tier 3: search_web (always works)
+```bash
+# Search
+search_web "[Company Name] 株式会社 公式サイト"
 
-Use `search_web` to find the company data indirectly. This is the universal fallback
-that works regardless of any site's security measures.
+# Fetch official homepage + /recruit or /about subpage (1-2 URLs max)
+read_url_content "[official domain]/recruit"
+read_url_content "[official domain]/about"
+```
 
-**Search strategy by site:**
+Extract **ONLY these two items**:
+1. **企業理念 / ミッション・ビジョン** (Philosophy / Mission / Vision)
+2. **採用関連情報 / 募集要項** (Recruitment info / Requirements / Work Style from the input URL)
+
+**Phase 2 success condition:** Both items extracted with meaningful content.
+**→ ✅ SUCCESS: STOP ALL CRAWLING. Format output immediately. Do not open any additional URLs.**
+**→ If only one item found: still count as success. Mark missing item as "データなし".**
+**→ If zero items found after 2 fetches: proceed to Phase 3.**
+
+---
+
+### PHASE 3 — Fallback Platforms (Only if Phase 2 fails)
+
+Search third-party platforms for missing data. Limit to **2 search queries total**.
 
 | Site | Search Query Template |
 |------|----------------------|
 | OpenWork | `"OpenWork [company name] 総合評価 年収 残業"` |
 | doda | `"doda [company name] 求人 年収 仕事内容"` |
 | Wantedly | `"Wantedly [company name] カルチャー ミッション"` |
-| LinkedIn | `"LinkedIn [company name] Japan employees reviews"` |
-| Indeed | `"Indeed Japan [company name] 年収 口コミ"` |
-| en転職 | `"en転職 [company name] 年収 口コミ 評判"` |
-| Green | `"Green [company name] 求人 エンジニア"` |
-| Glassdoor | `"Glassdoor [company name] Japan rating salary"` |
-| Generic | `"[company name] 評判 年収 残業 口コミ"` |
 
-The company name is extracted from the URL using Tier 1 (`<title>` tag) before searching.
-If the title tag itself is blocked, extract the company ID from the URL path and search for it.
-
-### Tier 3.5: gstack browser (optional, when available)
-
-If the `$B` (gstack browse) tool is available, it can be used as an additional option
-between Tier 2 and Tier 3. It runs a real headless browser that can handle
-JavaScript-rendered content.
-
-```bash
-$B goto "[URL]"
-$B text
-```
-
-If blocked (403, captcha), use `cookie-import-browser` to import the user's real browser session:
-```bash
-$B cookie-import-browser chrome --domain .[site-domain]
-```
-
-Only suggest this if the user has gstack installed and explicitly wants deeper crawling.
-Do not make gstack a hard dependency — the 3-tier pipeline above handles 95% of cases.
+**→ After 2 searches: STOP regardless of result. Format output with whatever data was collected.**
 
 ## Site-Specific Extraction Patterns
 
@@ -110,19 +99,16 @@ missing dimensions as "データなし" rather than guessing.
 
 | Data Point | Japanese | Priority | Common Sources |
 |------------|----------|----------|----------------|
-| Company name | 企業名 | Required | All sites |
-| Job title | 職種名 | Required | Job posting URLs |
-| Salary range | 年収範囲 | High | OpenWork, doda, Indeed, en転職 |
-| Overall score | 総合評価 | High | OpenWork, Glassdoor |
-| Avg overtime | 平均残業時間 | High | OpenWork |
-| Turnover rate | 離職率 | High | OpenWork, job postings |
-| Work style | 勤務形態 | Medium | All job postings |
-| Required skills | 必須スキル | Medium | Job posting URLs |
-| Company size | 企業規模 | Medium | Most sites |
-| Industry | 業界 | Medium | Most sites |
-| Culture keywords | 社風キーワード | Medium | OpenWork, Wantedly |
-| Benefits | 福利厚生 | Low | Job postings, OpenWork |
-| Founded year | 設立年 | Low | Company pages |
+| Company name | 企業名 | Required | Provided URL / Official |
+| Job title | 職種名 | Required | Provided URL / Official |
+| Corp Philosophy | 企業理念/ミッション | High | Official Homepage |
+| Job Requirements| 採用要件/必須条件 | High | Official Homepage / JD |
+| Salary range | 年収範囲 | Medium | Official / doda, Indeed |
+| Work style | 勤務形態 | Medium | Official / JD |
+| Benefits | 福利厚生 | Low | Official / JD |
+| Overall score | 総合評価 | Fallback Only | OpenWork, Glassdoor |
+| Avg overtime | 平均残業時間 | Fallback Only | OpenWork |
+| Turnover rate | 離職率 | Fallback Only | OpenWork |
 
 ## Output Formats
 
@@ -133,38 +119,27 @@ When the user provides 1 URL:
 ```
 📋 企業カルテ: [Company Name]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏢 基本情報
+🏢 基本情報・理念 (公式データ)
   企業名:     [name]
   業界:       [industry]
   企業規模:   [size / employee count]
-  設立:       [year]
-  上場:       [listed / unlisted]
+  企業理念:   [philosophy / mission / vision]
 
-💰 待遇・環境
-  年収範囲:   [salary range]
-  平均残業:   [hours/month]
-  離職率:     [%]
-  勤務形態:   [remote/hybrid/office]
-  福利厚生:   [key benefits]
-
-📊 評価 (OpenWork系データ)
-  総合評価:   [X.X / 5.0]
-  待遇満足度: [X.X]
-  社員の士気: [X.X]
-  風通し:     [X.X]
-  20代成長:   [X.X]
-  人材育成:   [X.X]
-  法令順守:   [X.X]
-  人事評価:   [X.X]
-
-🎯 求人要件 (JDデータ)
+🎯 採用・求人要件 (公式・対象URLデータ)
+  職種名:     [job title]
   必須スキル: [list]
   歓迎スキル: [list]
-  経験年数:   [required years]
+  勤務形態:   [remote/hybrid/office]
+  年収範囲:   [salary range]
+  福利厚生:   [key benefits]
 
-🏷️ 社風キーワード: [extracted culture indicators]
+📊 外部評価・口コミ (※公式データで不足した場合のみ取得)
+  総合評価:   [X.X / 5.0]
+  平均残業:   [hours/month]
+  離職率:     [%]
+  社風ワード: [extracted culture indicators]
 
-⚠️ データソース: [which sites provided which data]
+⚠️ データソース: [which sites provided which data - e.g. "公式ホームページ", "Indeed"]
 ⚠️ 未取得項目:  [dimensions where data was unavailable]
 ```
 
@@ -255,6 +230,22 @@ Same anti-sentiment rules as the rest of the skill suite:
 | URL is not a recognized site | Try curl → read_url_content → search_web anyway. The pipeline is site-agnostic. |
 | Company name can't be determined | Ask the user: "企業名を教えてください" |
 | Data is too old | Note the data freshness in the output: "⚠️ データ取得日: [date]" |
+
+## ⚠️ Unsupported Platforms (Crawling Impossible)
+
+The following platforms **cannot be analyzed** by this skill. When a user pastes a URL from these sites, **immediately ask for the company name and job title** — do not attempt any fetch or search.
+
+| Platform | Why Unsupported |
+|----------|----------------|
+| **jp.indeed.com** | Blocks all bots. `vjk=` and `jk=` URL formats both inaccessible. Sponsored listing URLs (`?vjk=`) are not indexed by search engines. |
+| **linkedin.com/jobs/collections/recommended/** | Personalized page requiring login. `currentJobId=` parameter content is invisible without authentication. |
+| **linkedin.com** (general) | Full login wall. No meaningful data accessible without session cookies. |
+
+**Action when these URLs are provided:**
+```
+「このURLはログインが必要なため分析できません。
+会社名と職種名を教えていただければ、すぐに分析します。」
+```
 
 ## Reference Files
 

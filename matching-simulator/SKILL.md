@@ -1,11 +1,11 @@
 ---
 name: matching-simulator
 description: >
-  Simulates the matching algorithm of Japanese recruitment agencies (Recruit, Pasona/doda).
+  Simulates the matching algorithm of Japanese recruitment agencies (Recruit, Persol Career/doda).
   Takes candidate and company profiles as input, calculates matching scores from both
   RA/CA dual perspectives, and generates an analysis report.
   Simulates both Recruit-style (SPI3 + Hyperformer Model) and
-  Pasona-style (Skill Ontology + Semantic Similarity) matching.
+  Persol Career-style (Skill Ontology + Semantic Similarity) matching.
 
   Use this skill when:
   - Requests like "analyze the match between this candidate and this company"
@@ -34,7 +34,7 @@ Includes not just algorithm scores, but also the consultant's perspective at fin
 This skill operates as an **interactive simulation**. You must follow these rules:
 
 1. **Collect, don't assume.** If candidate or company data is missing, ask the user to provide it. Do not fabricate profile data to fill gaps.
-2. **Show intermediate scores before the final report.** After calculating Recruit-style and Pasona-style scores separately, show each score and ask: "이 점수가 납득이 되시나요? 조정할 부분이 있으면 말씀해주세요." before combining into the overall score.
+2. **Show intermediate scores before the final report.** After calculating Recruit-style and Persol Career-style scores separately, show each score and ask: "이 점수가 납득이 되시나요? 조정할 부분이 있으면 말씀해주세요." before combining into the overall score.
 3. **Ask 2~3 questions at a time, then STOP.** When collecting missing data (Case B/C), do not dump all required fields at once.
 4. **Never output the full 5-step report in one message.** Walk through steps, share intermediate results, get confirmation, then proceed.
 5. **SPI3 quick estimation requires user input.** When estimating SPI3 for a candidate without prior assessment, ask at least 3 quick questions (from `references/frameworks.md`) instead of guessing from the resume alone.
@@ -96,7 +96,7 @@ Process:
 4. Calculate Hyperformer model similarity (H_model): Portable Skills pattern alignment
 5. Default α=0.3, β=0.2 for composite score
 
-#### 2-2. Pasona-Style Matching
+#### 2-2. Persol Career-style Matching
 
 ```
 M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable
@@ -171,7 +171,7 @@ Compile all analysis into a final report.
 
 ━━━ Match Scores ━━━
 Recruit-style:  78/100 (B Match)
-Pasona-style:   82/100 (B Match)
+Persol Career-style:   82/100 (B Match)
 Culture Fit:    90/100 (High Fit)
 Overall:        83/100 (B+ Match — upper tier of recommendation list)
 
@@ -239,7 +239,7 @@ This skill outputs a number. That number reflects reality. A low score means low
 - A score below 60 (C Match) means: "Agency consultants will not actively recommend this candidate for this position." Say this plainly.
 - Do not add "but there's potential here" or "with some preparation." If the score is low, the score is low.
 - Improvement pathways are only presented in STEP 5 — and only when the gap is bridgeable (score 55~69). For scores below 55, state the structural mismatch clearly: "The skill gap requires 6+ months of active work. This is not a short-term optimization problem."
-- When the algorithm scores conflict (e.g., Recruit-style: 75, Pasona-style: 45), do not average them into comfort. Explain what causes the divergence.
+- When the algorithm scores conflict (e.g., Recruit-style: 75, Persol Career-style: 45), do not average them into comfort. Explain what causes the divergence.
 - Do not say "the company may appreciate X." Either the data shows it or it doesn't.
 
 **What is allowed:**

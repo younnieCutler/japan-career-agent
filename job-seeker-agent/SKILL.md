@@ -24,7 +24,7 @@ description: >
 ## Overview
 
 This skill reverse-engineers the internal matching logic of major Japanese recruitment agencies
-(Recruit, Pasona/doda) so that candidates can assess their own strengths and weaknesses
+(Recruit, Persol Career/doda) so that candidates can assess their own strengths and weaknesses
 from an agency's perspective and prepare strategically.
 
 Core principle: **Evaluate yourself the same way the agency algorithm evaluates you — before they do.**

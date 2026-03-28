@@ -13,7 +13,7 @@ To ensure the extraction pipeline and analysis formatting are working correctly,
 ## Test Case 2: Multi-Company Battlecard (doda vs Wantedly)
 **Objective**: Test comparing two differently structured sites (JD driven vs Culture driven).
 - **Inputs**:
-  - doda URL: `https://doda.jp/DodaFront/View/JobSearchDetail/j_jid__3010508608/` (example, use any active doda URL)
+  - doda URL: `https://doda.jp/DodaFront/View/JobSearchDetail/j_jid__XX/` (example, use any active doda URL)
   - Wantedly URL: `https://www.wantedly.com/projects/1234567` (example, use any active wantedly job URL)
 - **Criteria**:
   - Agent creates a side-by-side ⚔️ 企業バトルカード.
@@ -25,8 +25,8 @@ To ensure the extraction pipeline and analysis formatting are working correctly,
 - **Input Text**:
 ```
 Please compare these links:
-1. https://www.openwork.jp/a0910000000FqjR/recruit_agent?j=effc6cd3ccdc259490
-2. https://www.openwork.jp/a0910000000FrMN/recruit_agent?j=85493d55614c66209a
+1. https://www.openwork.jp/a0910000000FqjR/recruit_agent?j=XX
+2. https://www.openwork.jp/a0910000000FrMN/recruit_agent?j=XX
 
 # === CANDIDATE_PROFILE (machine-readable, do not edit) ===
 candidate_name: "Test User"

@@ -137,29 +137,30 @@ Each section documents: what data is available, where it lives in the HTML, and 
 ## 5. Indeed Japan (jp.indeed.com)
 
 **Data richness: ★★★★☆** — Good for salary and job requirements.
-
-### Available Data
-- 求人タイトル (job title)
-- 年収/給与 (salary)
-- 仕事内容 (job description)
-- 応募条件 (requirements)
-- 勤務地 (location)
-- 企業クチコミ (company reviews — separate section)
-- 企業評価 (company rating)
+**⚠️ Bot blocking: SEVERE** — curl and read_url_content both fail. Skip direct fetch entirely.
 
 ### URL Patterns
-- Job posting: `jp.indeed.com/viewjob?jk=XXXXXXXXXXXX`
+- Standard job posting: `jp.indeed.com/viewjob?jk=XXXXXXXXXXXX`
+- Sponsored/featured listing: `jp.indeed.com/?vjk=XXXXXXXXXXXX&advn=XXXXXXXXXXXXX`
+  → `vjk` (view job key) is the job ID in sponsored listings — extract for search queries.
 - Company reviews: `jp.indeed.com/cmp/[company-name]/reviews`
 
 ### Access Restrictions
-- **Mostly accessible** — Indeed is relatively open.
-- `read_url_content` works well for job posting pages.
-- Reviews may require pagination.
+- **ALL direct fetch methods fail**: curl returns bot-detection page, read_url_content gets blocked.
+- This applies to both `?jk=` and `?vjk=` URL formats.
+- Do NOT attempt curl or read_url_content for jp.indeed.com URLs.
 
-### Extraction Strategy
-1. `read_url_content` → structured job data
-2. `curl` → title + meta for quick extraction
-3. `search_web "Indeed [company name] 年収 口コミ"` as fallback
+### Extraction Strategy (Indeed-specific)
+1. Extract job ID from URL: `jk=XXXX` or `vjk=XXXX`
+2. Extract any readable slug/company hint from the URL path or `advn=` parameter
+3. `search_web "Indeed Japan [job ID] [any company hint from URL]"` → may surface cached job title
+4. If company name not found: `search_web` using the job ID as the query string
+5. Once company name is known → proceed to Phase 2 (official homepage) immediately
+
+### Available Data (via search only)
+- 求人タイトル (job title) — from search result snippets
+- 年収/給与 (salary) — sometimes in search snippet
+- 企業名 (company name) — from search result title
 
 ---
 

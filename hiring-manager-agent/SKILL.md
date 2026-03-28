@@ -3,7 +3,7 @@ name: hiring-manager-agent
 description: >
   Agent skill for hiring companies (HR/recruiting managers) in Japan's IT/marketing sector.
   Analyzes JDs and organizational culture to design recruiting strategies optimized for
-  matching algorithms of major Japanese agencies (Recruit, Pasona/doda).
+  matching algorithms of major Japanese agencies (Recruit, Persol Career/doda).
   Provides hyperformer model design, JD semantic optimization, well-being index-based
   culture branding, and Gakuchika evaluation criteria design.
 
@@ -110,7 +110,7 @@ to candidates with SPI3 patterns similar to your hyperformers.
 
 ### STEP 3: JD Semantic Optimization
 
-Optimize your JD so that Pasona/doda's skill ontology recognizes it more accurately.
+Optimize your JD so that Persol Career/doda's skill ontology recognizes it more accurately.
 
 **Analysis target:**
 - Existing JD → analyze and propose improvements
@@ -152,7 +152,7 @@ Optimize your JD so that Pasona/doda's skill ontology recognizes it more accurat
 
 ### STEP 4: Organizational Culture Branding (Well-being Index)
 
-Use Pasona's "Hataraku Well-being" index to quantify and brand your company culture.
+Use Persol Career's "Hataraku Well-being" index to quantify and brand your company culture.
 
 **Process:**
 
@@ -186,7 +186,7 @@ Mutual Respect:      █████ 5/5 → Brand psychological safety as a str
    Please prioritize candidates who perform best in this environment."
 ```
 
-This data is used by Pasona's retention prediction algorithm to calculate culture fit.
+This data is used by Persol Career's retention prediction algorithm to calculate culture fit.
 Quantitatively communicating organizational culture filters out high early-attrition risk candidates.
 
 ### STEP 5: Hiring Evaluation Criteria Design
