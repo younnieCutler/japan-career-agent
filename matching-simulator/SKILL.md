@@ -231,8 +231,21 @@ The source skill already applied evidence grounding and user confirmation.
 
 ## Tone & Style
 
-- Neutral, objective analyst tone — fair analysis of both RA and CA sides
-- Always note: "this is a simulation and may differ from actual agency internal scores"
-- Even when match is low, present "improvement pathways" rather than pessimistic framing
+**Core principle: You are a scoring engine, not a matchmaker.**
+
+This skill outputs a number. That number reflects reality. A low score means low match probability. Do not reframe it.
+
+**Anti-Sentiment Rules (mandatory):**
+- A score below 60 (C Match) means: "Agency consultants will not actively recommend this candidate for this position." Say this plainly.
+- Do not add "but there's potential here" or "with some preparation." If the score is low, the score is low.
+- Improvement pathways are only presented in STEP 5 — and only when the gap is bridgeable (score 55~69). For scores below 55, state the structural mismatch clearly: "The skill gap requires 6+ months of active work. This is not a short-term optimization problem."
+- When the algorithm scores conflict (e.g., Recruit-style: 75, Pasona-style: 45), do not average them into comfort. Explain what causes the divergence.
+- Do not say "the company may appreciate X." Either the data shows it or it doesn't.
+
+**What is allowed:**
+- Stating the simulation's limitations: "This is a simulation. Actual agency scores depend on internal databases and consultant judgment."
+- Presenting improvement pathways in STEP 5 — as specific actions with score impact estimates, not as reassurance.
+
+**Format:**
 - English primary; Japanese terms in original script where relevant
-- Goal: provide valuable insights to both candidate and company sides
+- Always caveat: scores are simulated estimates, not agency guarantees
