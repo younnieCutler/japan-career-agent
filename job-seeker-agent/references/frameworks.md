@@ -1,270 +1,270 @@
-# 일본 채용 에이전시 프레임워크 참조 데이터
+# Japanese Recruitment Agency Framework Reference Data
 
-이 파일은 3개 채용 에이전트 스킬이 공통으로 참조하는 프레임워크 정의입니다.
-법적 수치나 시장 데이터는 변동 가능하므로 웹 검색으로 최신 정보를 확인하세요.
-
----
-
-## 1. SPI3 성격 사분면 모델
-
-리크루트가 개발한 적성검사 도구. 후보자의 성격 특성을 4개 사분면으로 분류합니다.
-
-### 사분면 정의
-
-| 사분면 | 일본어 | 핵심 특성 | 높은 점수의 행동 패턴 |
-|--------|--------|-----------|----------------------|
-| 창조 (Creation) | 創造 | 변화 수용, 새로운 방식 선호, 독창성 | 기존 룰에 의문을 제기, 새로운 접근법을 시도, 정해진 답이 없는 문제에 흥미 |
-| 결과 (Result) | 結果 | 목표 달성 의지, 논리적 판단, 효율성 | 수치 목표를 스스로 설정, 비효율을 참지 못함, 결과로 증명하려는 성향 |
-| 조화 (Harmony) | 調和 | 대인 관계, 협업, 공감 능력 | 팀 분위기에 민감, 갈등 조율 역할, 타인의 감정을 빠르게 파악 |
-| 질서 (Order) | 秩序 | 절차 중시, 안정성, 꼼꼼함 | 매뉴얼/프로세스를 먼저 확인, 변경사항에 신중, 품질과 정확성을 우선시 |
-
-### IT/마케팅 직군별 SPI3 매칭 기준
-
-| 직군 | 우선 사분면 | 보조 사분면 | 매칭 근거 |
-|------|------------|------------|-----------|
-| 신규 서비스 기획 | 창조 | 결과 | 아이디어 발상 + 실행력 |
-| 그로스 해킹 마케팅 | 창조 | 결과 | 실험 문화 + 데이터 드리븐 |
-| 퍼포먼스 마케팅 | 결과 | 질서 | KPI 달성 + 데이터 정확성 |
-| PM / PjM | 결과 | 조화 | 일정 관리 + 이해관계자 조율 |
-| 프론트엔드 개발 | 창조 | 조화 | UX 감각 + 디자이너 협업 |
-| 백엔드 / 인프라 | 질서 | 결과 | 시스템 안정성 + 성능 최적화 |
-| 데이터 엔지니어 | 질서 | 창조 | 데이터 정합성 + 파이프라인 설계 |
-| 데이터 분석가 | 결과 | 창조 | 인사이트 도출 + 가설 검증 |
-| 클라이언트 에이전시 마케터 | 조화 | 결과 | 고객 관계 + 성과 보고 |
-| 팀 기반 애자일 개발 | 조화 | 창조 | 스프린트 협업 + 기술 제안 |
-| 시스템 운영/보수 | 질서 | 조화 | 절차 준수 + 팀 커뮤니케이션 |
-| 데이터 거버넌스 | 질서 | 결과 | 규정 준수 + 품질 메트릭 관리 |
-
-### SPI3 간이 진단 문항 (10문항)
-
-각 문항은 2개의 선택지(A/B)를 제시합니다. 어느 쪽이 더 자신에 가까운지 고릅니다.
-점수 산출: 각 사분면의 선택 횟수를 합산하여 상대적 강도를 측정합니다.
-
-**Q1. 새 프로젝트를 시작할 때:**
-- A) 기존 사례를 조사하고 검증된 방법으로 시작한다 → 질서 +1
-- B) 우선 아이디어를 자유롭게 내고 새로운 접근을 시도한다 → 창조 +1
-
-**Q2. 팀 회의에서 의견 충돌이 발생했을 때:**
-- A) 양쪽 의견을 들어보고 합의점을 찾으려 한다 → 조화 +1
-- B) 어느 쪽이 더 효과적인지 데이터로 판단한다 → 결과 +1
-
-**Q3. 업무에서 가장 보람을 느끼는 순간:**
-- A) 목표를 달성하고 수치로 성과가 증명됐을 때 → 결과 +1
-- B) 팀원들과 함께 성장했다고 느꼈을 때 → 조화 +1
-
-**Q4. 예상치 못한 문제가 발생했을 때:**
-- A) 매뉴얼이나 과거 대응 사례를 먼저 확인한다 → 질서 +1
-- B) 즉석에서 새로운 해결책을 생각해낸다 → 창조 +1
-
-**Q5. 일하는 스타일을 고르라면:**
-- A) 명확한 기한과 목표가 있는 환경 → 결과 +1
-- B) 자유롭게 시행착오를 반복할 수 있는 환경 → 창조 +1
-
-**Q6. 동료가 실수를 했을 때:**
-- A) 먼저 감정을 헤아리고 조심스럽게 이야기한다 → 조화 +1
-- B) 재발 방지를 위해 프로세스 개선을 제안한다 → 질서 +1
-
-**Q7. 가장 자신 있는 역할:**
-- A) 아이디어를 내고 방향을 제시하는 역할 → 창조 +1
-- B) 계획을 세우고 실행을 관리하는 역할 → 결과 +1
-
-**Q8. 스트레스를 받는 상황:**
-- A) 규칙이 자주 바뀌고 일관성이 없을 때 → 질서 +1
-- B) 혼자 일해야 하고 협업이 없을 때 → 조화 +1
-
-**Q9. 성과 보고를 할 때 가장 강조하는 것:**
-- A) 구체적인 숫자와 달성률 → 결과 +1
-- B) 과정에서의 발견과 학습 → 창조 +1
-
-**Q10. 이상적인 상사:**
-- A) 명확한 지시와 피드백을 주는 사람 → 질서 +1
-- B) 경청하고 팀원을 존중하는 사람 → 조화 +1
-
-### 점수 해석 기준
-
-| 사분면 점수 | 강도 레벨 |
-|------------|----------|
-| 0~1점 | 약함 (Low) |
-| 2점 | 보통 (Medium) |
-| 3점 이상 | 강함 (High) |
-
-주의: 이 간이 진단은 실제 SPI3를 대체하지 않습니다.
-경향성 파악을 위한 참고 도구이며, 정식 진단은 리크루트 공식 서비스를 이용하세요.
+This file contains common framework definitions referenced by the 3 recruitment agent skills.
+Legal figures and market data are subject to change — verify with web search for the latest information.
 
 ---
 
-## 2. 포터블 스킬 8대 요소
+## 1. SPI3 Personality Quadrant Model
 
-파솔 종합연구소가 정의하고, 일본 후생노동성의 커리어 전환 도구에서도 활용되는 프레임워크.
-직종/업종이 바뀌어도 통용되는 범용 능력을 8가지로 분류합니다.
+An aptitude assessment tool developed by Recruit. Classifies candidate personality traits into 4 quadrants.
 
-### 3대 영역 × 8대 요소
+### Quadrant Definitions
 
-**대(對) 과제력** — 문제를 발견하고 해결하는 능력
-1. **분석력 (分析力)**: 현상의 인과관계를 파악하고 구조화하는 능력
-   - 평가 포인트: 데이터 기반 원인 분석, 문제의 본질 파악 속도, 복잡한 상황의 구조화
-   - STAR 면접 질문 예: "복잡한 문제를 분석하여 해결한 경험을 들려주세요"
+| Quadrant | Japanese | Core Traits | High-Score Behavior Patterns |
+|----------|----------|-------------|------------------------------|
+| Creation | 創造 | Embraces change, prefers new approaches, originality | Questions existing rules, tries new approaches, interested in open-ended problems |
+| Result | 結果 | Goal achievement drive, logical judgment, efficiency | Sets numerical targets independently, intolerant of inefficiency, motivated to prove through outcomes |
+| Harmony | 調和 | Interpersonal skills, collaboration, empathy | Sensitive to team atmosphere, mediates conflicts, quickly reads others' emotions |
+| Order | 秩序 | Process-oriented, stability, thoroughness | Checks manuals/processes first, cautious about changes, prioritizes quality and accuracy |
 
-2. **계획력 (計画力)**: 목표 달성을 위해 치밀한 프로세스를 설계하는 능력
-   - 평가 포인트: 마일스톤 설정, 리소스 배분, 리스크 예측
-   - STAR 면접 질문 예: "한정된 시간/자원으로 목표를 달성한 경험은?"
+### SPI3 Matching Criteria by IT/Marketing Role
 
-3. **추진력 (推進力)**: 목표를 향해 조직을 움직이고 성과를 도출하는 힘
-   - 평가 포인트: 실행 속도, 장애물 돌파, 주도적 행동
-   - STAR 면접 질문 예: "주변의 반대에도 불구하고 추진한 경험이 있나요?"
+| Role | Primary Quadrant | Secondary Quadrant | Matching Rationale |
+|------|-----------------|-------------------|-------------------|
+| New Service Planning | Creation | Result | Ideation + execution |
+| Growth Hacking Marketing | Creation | Result | Experimentation culture + data-driven |
+| Performance Marketing | Result | Order | KPI achievement + data accuracy |
+| PM / PjM | Result | Harmony | Schedule management + stakeholder coordination |
+| Frontend Development | Creation | Harmony | UX sensibility + designer collaboration |
+| Backend / Infrastructure | Order | Result | System stability + performance optimization |
+| Data Engineer | Order | Creation | Data integrity + pipeline design |
+| Data Analyst | Result | Creation | Insight generation + hypothesis testing |
+| Client Agency Marketer | Harmony | Result | Client relationships + performance reporting |
+| Team-Based Agile Development | Harmony | Creation | Sprint collaboration + technical proposals |
+| System Operations/Maintenance | Order | Harmony | Process adherence + team communication |
+| Data Governance | Order | Result | Compliance + quality metrics management |
 
-4. **변혁력 (変革力)**: 기존 방식에 의문을 제기하고 개선을 시도하는 역량
-   - 평가 포인트: 현상 유지에 대한 문제 의식, 개선 제안 빈도, 변화 수용도
-   - STAR 면접 질문 예: "기존의 방식을 바꿔서 더 나은 결과를 만든 경험은?"
+### SPI3 Quick Diagnostic (10 Questions)
 
-**대(對) 인력** — 사람과의 관계에서 발휘하는 능력
-5. **기동력 (機動力)**: 상황 변화에 기민하게 반응하고 실행에 옮기는 속도
-   - 평가 포인트: 우선순위 전환 속도, 불확실한 상황에서의 판단력
-   - STAR 면접 질문 예: "갑작스러운 상황 변화에 대응한 경험을 들려주세요"
+Each question presents 2 choices (A/B). Select whichever is closer to your natural tendency.
+Scoring: Sum the selections for each quadrant to measure relative strength.
 
-6. **협상력 (交渉力)**: 이해관계자 간의 조율을 통해 합의를 이끌어내는 기술
-   - 평가 포인트: Win-Win 해결, 이해관계 조정, 설득 로직
-   - STAR 면접 질문 예: "서로 다른 입장의 사람들을 조율한 경험은?"
+**Q1. When starting a new project:**
+- A) Research past cases and start with proven methods → Order +1
+- B) Freely generate ideas first and try new approaches → Creation +1
 
-7. **코칭력 (コーチング力)**: 팀원의 성장을 지원하고 동기를 부여하는 능력
-   - 평가 포인트: 후배/동료 성장 지원, 피드백 방식, 위임 능력
-   - STAR 면접 질문 예: "다른 사람의 성장을 도운 경험이 있나요?"
+**Q2. When a conflict arises in a team meeting:**
+- A) Listen to both sides and try to find common ground → Harmony +1
+- B) Decide which is more effective based on data → Result +1
 
-**대(對) 자기력** — 자기 자신을 관리하는 능력
-8. **감정 조절 (感情制御)**: 압박감 속에서도 평정심을 유지하는 자기 통제력
-   - 평가 포인트: 스트레스 상황에서의 퍼포먼스, 감정적 반응 빈도
-   - STAR 면접 질문 예: "큰 압박감 속에서 성과를 낸 경험을 들려주세요"
+**Q3. When you feel most rewarded at work:**
+- A) When a goal is achieved and results are proven in numbers → Result +1
+- B) When you feel you've grown together with teammates → Harmony +1
 
-### 포터블 스킬 점수화 기준
+**Q4. When an unexpected problem occurs:**
+- A) Check the manual or past response cases first → Order +1
+- B) Come up with a new solution on the spot → Creation +1
 
-이력서/경력서의 STAR 분석 결과를 기반으로 각 요소를 1~5점으로 평가합니다.
+**Q5. If you were to choose a working style:**
+- A) An environment with clear deadlines and goals → Result +1
+- B) An environment where you can freely iterate through trial and error → Creation +1
 
-| 점수 | 기준 |
-|------|------|
-| 1 | 관련 경험 없음 또는 매우 약함 |
-| 2 | 기초적 수준, 지시에 따라 수행 |
-| 3 | 독립적으로 수행 가능, 일정 수준의 성과 |
-| 4 | 높은 수준, 타인을 지도 가능, 반복적 성과 |
-| 5 | 전문가 수준, 조직 변화를 주도, 탁월한 성과 |
+**Q6. When a colleague makes a mistake:**
+- A) First consider their feelings and approach carefully → Harmony +1
+- B) Propose process improvements to prevent recurrence → Order +1
 
----
+**Q7. The role you're most confident in:**
+- A) Generating ideas and setting direction → Creation +1
+- B) Planning and managing execution → Result +1
 
-## 3. 스킬 온톨로지 매핑 테이블
+**Q8. Situations that cause stress:**
+- A) When rules change frequently and there's no consistency → Order +1
+- B) When working alone with no collaboration → Harmony +1
 
-파솔/doda가 사용하는 스킬 온톨로지 개념을 기반으로 한 매핑 테이블입니다.
-개별 기술(Hard Skill)을 상위 역량(Capability)으로 자동 치환하여 매칭 범위를 확장합니다.
+**Q9. What you emphasize most in performance reports:**
+- A) Specific numbers and achievement rates → Result +1
+- B) Discoveries and learnings throughout the process → Creation +1
 
-### IT 스킬 온톨로지
+**Q10. Your ideal manager:**
+- A) Someone who gives clear instructions and feedback → Order +1
+- B) Someone who listens and respects team members → Harmony +1
 
-| 기술 (Skill) | 상위 역량 (Capability) | 전이 가능 직군 |
-|-------------|----------------------|---------------|
-| Python | 데이터 분석, AI 모델링 기초, 자동화 스크립트 | 데이터 엔지니어, ML 엔지니어, 백엔드 |
-| SQL | 데이터 추출/가공, 비즈니스 인텔리전스 | 데이터 분석가, BI 엔지니어 |
-| JavaScript | 프론트엔드 개발, 풀스택 가능성 | 프론트엔드, 풀스택, Node.js 백엔드 |
-| React | 컴포넌트 기반 아키텍처 이해, SPA 구축 | Vue.js, Angular 등 타 프레임워크 전환 |
-| Vue.js | 컴포넌트 기반 아키텍처 이해, SPA 구축 | React, Angular 등 타 프레임워크 전환 |
-| AWS | 클라우드 인프라 설계, IaC | GCP, Azure 전환, SRE |
-| Docker/K8s | 컨테이너 오케스트레이션, CI/CD | DevOps, SRE, 플랫폼 엔지니어 |
-| dbt | 데이터 변환, 분석 엔지니어링 | 데이터 엔지니어, 분석 엔지니어 |
-| Terraform | IaC, 인프라 자동화 | 클라우드 엔지니어, SRE |
-| Excel (고급) | 데이터 리터러시, 비즈니스 분석 기초 | 데이터 분석 입문, BizOps |
+### Score Interpretation
 
-### 마케팅 스킬 온톨로지
+| Quadrant Score | Strength Level |
+|----------------|---------------|
+| 0–1 | Low |
+| 2 | Medium |
+| 3+ | High |
 
-| 기술 (Skill) | 상위 역량 (Capability) | 전이 가능 직군 |
-|-------------|----------------------|---------------|
-| Google Analytics | 데이터 분석, 유저 행동 이해 | 프로덕트 매니저, 그로스 |
-| SEO | 콘텐츠 전략, 검색 알고리즘 이해 | 콘텐츠 마케터, 프로덕트 |
-| SNS 운용 | 커뮤니티 관리, 브랜드 커뮤니케이션 | PR, 브랜드 매니저 |
-| 리스팅 광고 | 퍼포먼스 마케팅, ROI 분석 | 데이터 분석, 사업 기획 |
-| MA 툴 (HubSpot 등) | 리드 관리, 고객 여정 설계 | CRM, 인사이드 세일즈 |
-| Figma | UI/UX 감각, 프로토타이핑 | UX 리서처, 프로덕트 디자이너 |
-
-### 스킬셋 시프트 판정 기준
-
-후보자의 현재 스킬과 목표 직군의 필요 스킬을 온톨로지 상에서 비교합니다.
-
-| 전이 거리 | 판정 | 설명 |
-|-----------|------|------|
-| 동일 역량 | 직접 매칭 | 같은 상위 역량을 공유 (React → Vue.js) |
-| 인접 역량 | 전환 가능 | 1단계 상위로 올라가면 연결 (Excel → 데이터 분석) |
-| 원거리 역량 | 부트캠프 필요 | 2단계 이상, 별도 학습 필요 (SNS 운용 → 백엔드) |
+Note: This quick diagnostic does not replace the official SPI3.
+It is a reference tool for identifying tendencies — use Recruit's official service for formal assessment.
 
 ---
 
-## 4. 하타라쿠 웰빙 (Hataraku Well-being) 지수
+## 2. Portable Skills: 8 Core Elements
 
-파솔 그룹의 'Work-and-Smile' 비전을 수치화한 지표입니다.
-후보자의 가치관과 기업의 조직문화 적합도를 측정하여 리텐션(근속)을 예측합니다.
+A framework defined by Pasona Research Institute, also used in the Japanese Ministry of Health, Labour and Welfare's career transition tools.
+Classifies universal competencies that remain transferable across job types and industries into 8 elements.
 
-### 4대 측정 요소
+### 3 Domains × 8 Elements
 
-| 요소 | 일본어 | 정의 | 높을 때 적합한 기업 유형 |
-|------|--------|------|------------------------|
-| 자기 결정감 | 自己決定感 | 업무 방식/내용을 스스로 선택할 수 있는 실감 | 스타트업, 자율 근무 IT 기업, 리모트 환경 |
-| 사회 공헌감 | 社会貢献感 | 자신의 일이 타인/사회에 도움이 된다는 느낌 | B2C 서비스, 사회적 기업, 교육/헬스케어 |
-| 상사 매니지먼트 | 上司のマネジメント | 긍정적 피드백, 경청, 공정한 평가 | 1on1 문화, 코칭형 리더십 조직 |
-| 조직 내 상호 존중 | 組織内の相互尊重 | 동료 간 존중과 협력 분위기 | 애자일 팀, 플랫 조직, 심리적 안전성 높은 팀 |
+**Task Competency** — Ability to identify and solve problems
+1. **Analytical Thinking (分析力)**: Ability to grasp cause-and-effect relationships and structure complex situations
+   - Evaluation points: Data-based root cause analysis, speed of identifying core issues, structuring complex situations
+   - STAR interview question: "Tell me about a time you analyzed a complex problem and solved it."
 
-### 웰빙 점수화 기준
+2. **Planning Ability (計画力)**: Ability to design meticulous processes for achieving goals
+   - Evaluation points: Milestone setting, resource allocation, risk anticipation
+   - STAR interview question: "Tell me about a time you achieved a goal with limited time/resources."
 
-구직자에게 4대 요소의 중요도를 물어서 1~5점으로 평가합니다.
-기업 측도 동일한 4대 요소에 대해 자사 현황을 1~5점으로 자가평가합니다.
-두 점수의 일치도가 컬처핏 스코어가 됩니다.
+3. **Drive (推進力)**: Ability to mobilize an organization toward goals and produce results
+   - Evaluation points: Execution speed, overcoming obstacles, proactive action
+   - STAR interview question: "Have you ever pushed forward despite opposition from others?"
 
-| 일치도 | 판정 |
-|--------|------|
-| 차이 합계 0~4 | 매우 적합 (High Fit) |
-| 차이 합계 5~8 | 보통 (Medium Fit) |
-| 차이 합계 9 이상 | 부적합 (Low Fit) — 조기 퇴사 리스크 |
+4. **Reform Mindset (変革力)**: Ability to question existing approaches and drive improvements
+   - Evaluation points: Problem awareness about the status quo, frequency of improvement proposals, change adaptability
+   - STAR interview question: "Tell me about a time you changed an existing approach to produce better results."
+
+**People Competency** — Ability demonstrated in relationships with others
+5. **Agility (機動力)**: Speed of reacting to situational changes and moving to action
+   - Evaluation points: Speed of reprioritization, judgment in uncertain situations
+   - STAR interview question: "Tell me about a time you responded to a sudden change in circumstances."
+
+6. **Negotiation (交渉力)**: Skill to coordinate among stakeholders and reach consensus
+   - Evaluation points: Win-Win resolution, interest alignment, persuasion logic
+   - STAR interview question: "Tell me about a time you coordinated between people with different positions."
+
+7. **Coaching (コーチング力)**: Ability to support team members' growth and motivate them
+   - Evaluation points: Supporting junior/colleague growth, feedback style, delegation ability
+   - STAR interview question: "Have you helped someone else grow?"
+
+**Self-Management Competency** — Ability to manage oneself
+8. **Emotional Regulation (感情制御)**: Self-control to maintain composure under pressure
+   - Evaluation points: Performance under stress, frequency of emotional reactions
+   - STAR interview question: "Tell me about a time you delivered results under significant pressure."
+
+### Portable Skills Scoring Criteria
+
+Each element is rated 1–5 based on STAR analysis of the resume/career history.
+
+| Score | Criteria |
+|-------|----------|
+| 1 | No relevant experience or very weak |
+| 2 | Basic level, performs under instruction |
+| 3 | Can perform independently, some level of results |
+| 4 | High level, can coach others, consistent results |
+| 5 | Expert level, drives organizational change, exceptional results |
 
 ---
 
-## 5. 가쿠치카 (学チカ) 평가 프레임워크
+## 3. Skill Ontology Mapping Table
 
-신입(2027년 졸) 채용에서 사용하는 평가 기준입니다.
-학생의 정성적 경험을 4대 항목으로 정량화합니다.
+A mapping table based on the skill ontology concept used by Pasona/doda.
+Automatically maps individual technical skills (Hard Skills) to higher-level competencies (Capabilities) to expand matching scope.
 
-| 평가 항목 | 데이터 포인트 | 점수 기준 (1~5) |
-|-----------|-------------|-----------------|
-| 임팩트 | 결과의 규모, 영향을 받은 사람 수 | 5: 100명+ 영향 / 1: 개인 수준 |
-| 목표 달성 | 목표의 난이도, 완수 여부 | 5: 높은 난이도 100% 달성 / 1: 목표 미설정 |
-| 리더십 | 협력 이끌어낸 방식, 갈등 해결 | 5: 팀 리더로 성과 도출 / 1: 개인 작업만 |
-| 도전 정신 | 새로운 시도, 실패로부터의 학습 | 5: 반복 실패 후 성공 / 1: 안전한 선택만 |
+### IT Skill Ontology
+
+| Skill | Capability | Transferable Roles |
+|-------|-----------|-------------------|
+| Python | Data analysis, AI modeling fundamentals, automation scripting | Data Engineer, ML Engineer, Backend |
+| SQL | Data extraction/processing, Business Intelligence | Data Analyst, BI Engineer |
+| JavaScript | Frontend development, full-stack potential | Frontend, Full-Stack, Node.js Backend |
+| React | Component-based architecture, SPA development | Vue.js, Angular and other framework transitions |
+| Vue.js | Component-based architecture, SPA development | React, Angular and other framework transitions |
+| AWS | Cloud infrastructure design, IaC | GCP, Azure transitions, SRE |
+| Docker/K8s | Container orchestration, CI/CD | DevOps, SRE, Platform Engineer |
+| dbt | Data transformation, analytics engineering | Data Engineer, Analytics Engineer |
+| Terraform | IaC, infrastructure automation | Cloud Engineer, SRE |
+| Excel (Advanced) | Data literacy, business analysis fundamentals | Data analysis entry-level, BizOps |
+
+### Marketing Skill Ontology
+
+| Skill | Capability | Transferable Roles |
+|-------|-----------|-------------------|
+| Google Analytics | Data analysis, user behavior understanding | Product Manager, Growth |
+| SEO | Content strategy, search algorithm understanding | Content Marketer, Product |
+| Social Media Management | Community management, brand communication | PR, Brand Manager |
+| Listing Ads | Performance marketing, ROI analysis | Data Analysis, Business Planning |
+| MA Tools (HubSpot, etc.) | Lead management, customer journey design | CRM, Inside Sales |
+| Figma | UI/UX sensibility, prototyping | UX Researcher, Product Designer |
+
+### Skillset Shift Assessment Criteria
+
+Compares a candidate's current skills against the required skills for a target role on the ontology.
+
+| Transfer Distance | Judgment | Description |
+|------------------|----------|-------------|
+| Same capability | Direct match | Shares the same higher-level capability (React → Vue.js) |
+| Adjacent capability | Transferable | Connected by moving up one level (Excel → Data Analysis) |
+| Distant capability | Bootcamp needed | 2+ levels apart, separate learning required (Social Media → Backend) |
 
 ---
 
-## 6. 매칭 스코어 산출 공식
+## 4. Hataraku Well-being Index
 
-### 리크루트 스타일 (가중치 합산 모델)
+A metric that quantifies Pasona Group's "Work-and-Smile" vision.
+Measures the fit between a candidate's values and a company's organizational culture to predict retention.
+
+### 4 Measurement Elements
+
+| Element | Japanese | Definition | Best-Fit Company Type (High Score) |
+|---------|----------|------------|-------------------------------------|
+| Autonomy | 自己決定感 | Sense of being able to choose how and what to work on | Startups, autonomous IT companies, remote environments |
+| Social Contribution | 社会貢献感 | Feeling that one's work helps others/society | B2C services, social enterprises, education/healthcare |
+| Manager Quality | 上司のマネジメント | Positive feedback, listening, fair evaluation | 1-on-1 culture, coaching-style leadership organizations |
+| Mutual Respect | 組織内の相互尊重 | Atmosphere of respect and collaboration among colleagues | Agile teams, flat organizations, high psychological safety |
+
+### Well-being Scoring Criteria
+
+Ask the job seeker to rate the importance of each of the 4 elements on a 1–5 scale.
+The company also self-rates their current state on the same 4 elements on a 1–5 scale.
+The degree of alignment between the two scores becomes the culture fit score.
+
+| Alignment | Judgment |
+|-----------|----------|
+| Total difference 0–4 | Highly compatible (High Fit) |
+| Total difference 5–8 | Moderate (Medium Fit) |
+| Total difference 9+ | Incompatible (Low Fit) — early turnover risk |
+
+---
+
+## 5. Gakuchika (学チカ) Evaluation Framework
+
+Evaluation criteria used in new graduate (Class of 2027) recruiting.
+Quantifies a student's qualitative experiences across 4 categories.
+
+| Evaluation Item | Data Points | Scoring Criteria (1–5) |
+|----------------|-------------|------------------------|
+| Impact | Scale of results, number of people affected | 5: 100+ people impacted / 1: individual level |
+| Goal Achievement | Difficulty of goal, completion status | 5: high difficulty 100% achieved / 1: no goal set |
+| Leadership | How collaboration was led, conflict resolution | 5: delivered results as team leader / 1: individual work only |
+| Challenger Spirit | New attempts, learning from failure | 5: succeeded after repeated failures / 1: only safe choices |
+
+---
+
+## 6. Matching Score Calculation Formula
+
+### Recruit Style (Weighted Sum Model)
 
 ```
 M_total = Σ(S_i × w_i) + α × P_fit + β × H_model
 ```
 
-- S_i: 개별 기술 스택 점수 (0~100)
-- w_i: 해당 직무에서의 기술 중요도 가중치 (0~1, 합계 = 1)
-- P_fit: SPI3 잠재 역량 적합도 (0~100)
-- H_model: 하이퍼포머 모델 유사도 (0~100)
-- α: 잠재 역량 가중치 (기본값 0.3)
-- β: 하이퍼포머 유사도 가중치 (기본값 0.2)
+- S_i: Individual skill stack score (0–100)
+- w_i: Skill importance weight for the role (0–1, sum = 1)
+- P_fit: SPI3 latent competency fit (0–100)
+- H_model: High-performer model similarity (0–100)
+- α: Latent competency weight (default 0.3)
+- β: High-performer similarity weight (default 0.2)
 
-### 파솔 스타일 (시맨틱 유사도 + 보너스 모델)
+### Pasona Style (Semantic Similarity + Bonus Model)
 
 ```
 M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable
 ```
 
-- V_candidate: 후보자 스킬 벡터 (온톨로지 매핑 후)
-- V_job: 직무 요구 스킬 벡터
-- cos(): 코사인 유사도 (0~1)
-- Bonus_transferable: 전이 가능 스킬 보너스 (0~20)
+- V_candidate: Candidate skill vector (after ontology mapping)
+- V_job: Job requirement skill vector
+- cos(): Cosine similarity (0–1)
+- Bonus_transferable: Transferable skill bonus (0–20)
 
-### 종합 스코어 해석
+### Overall Score Interpretation
 
-| 스코어 범위 | 판정 | 에이전시 액션 |
-|------------|------|-------------|
-| 85~100 | A 매칭 | 즉시 추천, RA에게 우선 보고 |
-| 70~84 | B 매칭 | 추천 리스트 포함, 조건 조율 필요 |
-| 55~69 | C 매칭 | 스킬셋 시프트 검토, 교육 투자 제안 |
-| 54 이하 | D 매칭 | 매칭 보류, 다른 포지션 탐색 |
+| Score Range | Judgment | Agency Action |
+|-------------|----------|--------------|
+| 85–100 | A Match | Recommend immediately, priority report to RA |
+| 70–84 | B Match | Include in recommendation list, conditions need adjustment |
+| 55–69 | C Match | Consider skillset shift, propose training investment |
+| 54 or below | D Match | Hold matching, explore other positions |
