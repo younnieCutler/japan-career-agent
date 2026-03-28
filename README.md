@@ -17,7 +17,7 @@
 
 ### Agent Skills
 
-4개의 에이전트 스킬이 각각의 폴더에 `SKILL.md` 파일로 존재합니다.
+5개의 에이전트 스킬이 각각의 폴더에 `SKILL.md` 파일로 존재합니다.
 
 **1. job-seeker-agent (구직자 에이전트)**
 후보자 담당 컨설턴트(CA)의 시점으로 내 이력서를 분석합니다. 대화형으로 진행되는 SPI3 진단과 포터블 스킬(Portable Skills) 분석을 통해 진짜 강점을 찾아내고, 이력서를 전략적으로 리프레이밍합니다.
@@ -30,6 +30,9 @@
 
 **4. company-battlecard (기업 비교 배틀카드)**
 2개 이상의 기업을 SPI3 문화 적합도, 스킬 매칭, 웰빙 지표, 성장 가능성, 실용 조건(연봉/리모트/비자)의 5개 차원에서 수치로 비교합니다. `job-seeker-agent`의 YAML 프로파일을 입력으로 받아 후보자 맞춤형 승패를 판정합니다.
+
+**5. kigyou-bunseki (기업 분석)**
+일본 내 주요 구직/리뷰 사이트(OpenWork, doda, Wantedly 등)의 URL을 입력받아 기업 데이터를 자동 추출합니다. 3단계 추출 파이프라인(curl ➔ read_url_content ➔ search_web)을 통해 접속 차단을 우회하며, 연봉, 잔업시간, 평점 등 객관적 지표 위주의 '기업 칼테' 및 '배틀카드'를 생성합니다.
 
 ### 핵심 매칭 포인트
 
@@ -54,6 +57,7 @@
 | **특정 공고(JD) 합격 확률 시뮬레이션** | `/job-seeker-agent` 진행 후 ➔ `/matching-simulator` |
 | **A사 vs B사 어디에 지원할까?** | `/job-seeker-agent` ➔ `/company-battlecard` |
 | **기업에서 매력적인 구인공고(JD) 작성** | `/hiring-manager-agent` 단독 실행 |
+| **특정 기업의 실질적 데이터(연봉/잔업) 분석** | `/kigyou-bunseki` 단독 실행 |
 
 ### 기술 및 프레임워크 기반
 
@@ -83,7 +87,7 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 
 ### Agent Skills
 
-4つのエージェントスキルが、それぞれのフォルダに `SKILL.md` ファイルとして存在します。
+5つのエージェントスキルが、それぞれのフォルダに `SKILL.md` ファイルとして存在します。
 
 **1. job-seeker-agent（求職者エージェント）**
 候補者担当コンサルタント（CA）の視点から履歴書・職務経歴書を分析します。対話形式で進めるSPI3診断とポータブルスキル分析を通じて真の強みを発掘し、職務経歴書を戦略的にリフレーミングします。
@@ -96,6 +100,9 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 
 **4. company-battlecard（企業比較バトルカード）**
 2社以上の企業をSPI3カルチャーフィット、スキルマッチ、ウェルビーイング指標、成長可能性、実用条件（年収/リモート/ビザ）の5次元でスコア比較します。`job-seeker-agent`のYAMLプロファイルを入力として受け取り、候補者に最適な企業を数値で判定します。
+
+**5. kigyou-bunseki（企業分析）**
+日本国内の主要な求人・口コミサイト（OpenWork、doda、Wantedlyなど）のURLから企業データを自動抽出します。3段階の抽出パイプライン（curl ➔ read_url_content ➔ search_web）によりアクセス制限を回避し、年収、残業時間、スコアなどの客観的指標に基づいた「企業カルテ」および「バトルカード」を生成します。
 
 ### 主要マッチングポイント
 
@@ -120,6 +127,7 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 | **特定求人（JD）の合格確率シミュレーション** | `/job-seeker-agent` 実行後 ➔ `/matching-simulator` |
 | **A社 vs B社、どちらに応募すべき？** | `/job-seeker-agent` ➔ `/company-battlecard` |
 | **企業として魅力的な求人票（JD）の作成** | `/hiring-manager-agent` 単独実行 |
+| **特定企業の実質的データ（年収/残業）分析** | `/kigyou-bunseki` 単独実行 |
 
 ### 技術・フレームワーク基盤
 
@@ -149,7 +157,7 @@ A collection of AI agent skills that reverse-engineer and simulate the internal 
 
 ### Agent Skills
 
-4 agent skills exist as `SKILL.md` files in their respective folders.
+5 agent skills exist as `SKILL.md` files in their respective folders.
 
 **1. job-seeker-agent**
 Analyzes your resume from the perspective of a Candidate Advisor (CA). Through an interactive SPI3 diagnostic and Portable Skills analysis, it uncovers your true strengths and strategically reframes your resume.
@@ -162,6 +170,9 @@ Integrates data from both sides (CA/RA) to simulate a final matching score and a
 
 **4. company-battlecard**
 Compares 2+ companies head-to-head across 5 dimensions: SPI3 culture fit, skill stack match, well-being alignment, growth trajectory, and practical factors (salary/remote/visa). Consumes the YAML profile from `job-seeker-agent` for personalized scoring.
+
+**5. kigyou-bunseki (Company Analysis)**
+Automatically extracts company data from major Japanese job and review site URLs (OpenWork, doda, Wantedly, etc.). Using a 3-tier extraction pipeline (curl ➔ read_url_content ➔ search_web), it bypasses access blocks to generate structured "Company Cards" and "Battlecards" focused on objective metrics like salary, overtime, and ratings.
 
 ### Core Matching Points
 
@@ -186,6 +197,7 @@ From there, simply answer the diagnostic questions the AI asks to proceed with y
 | **Simulate acceptance probability for a specific JD** | Run `/job-seeker-agent` first ➔ then `/matching-simulator` |
 | **Compare Company A vs B — which to apply?** | `/job-seeker-agent` ➔ `/company-battlecard` |
 | **Write an attractive job description as a company** | Run `/hiring-manager-agent` standalone |
+| **Analyze real-world data (salary/overtime) for a company** | Run `/kigyou-bunseki` standalone |
 
 ### Technology & Framework Basis
 
