@@ -1,0 +1,31 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# User's Private Information
+職務経歴書.md
+
+# Iteration Workspaces & Test Data
+job-seeker-agent-workspace/
+iteration-*/
+eval-*/
+grading.json
+analysis.md
+
+# Artifacts & Temporary Files
+*.webp
+tmp/
+.gemini/
+.claude/
+.agents/logs/
+
+# Python / Node Junk (if any)
+__pycache__/
+node_modules/
+dist/
+build/
