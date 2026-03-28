@@ -40,9 +40,9 @@
 
 | 상황 | 추천 에이전트 로드맵 |
 |------|-----------|
-| **내 이력서 강점 분석 및 리프레이밍** | `job-seeker-agent` 단독 실행 |
-| **특정 공고(JD) 합격 확률 시뮬레이션** | `job-seeker-agent` 진행 후 ➔ `matching-simulator` |
-| **기업에서 매력적인 구인공고(JD) 작성** | `hiring-manager-agent` 단독 실행 |
+| **내 이력서 강점 분석 및 리프레이밍** | `/job-seeker-agent` 단독 실행 |
+| **특정 공고(JD) 합격 확률 시뮬레이션** | `/job-seeker-agent` 진행 후 ➔ `/matching-simulator` |
+| **기업에서 매력적인 구인공고(JD) 작성** | `/hiring-manager-agent` 단독 실행 |
 
 ## 기술 및 프레임워크 기반
 
