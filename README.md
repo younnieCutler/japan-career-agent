@@ -17,7 +17,7 @@
 
 ### Agent Skills
 
-3개의 에이전트 스킬이 각각의 폴더에 `SKILL.md` 파일로 존재합니다.
+4개의 에이전트 스킬이 각각의 폴더에 `SKILL.md` 파일로 존재합니다.
 
 **1. job-seeker-agent (구직자 에이전트)**
 후보자 담당 컨설턴트(CA)의 시점으로 내 이력서를 분석합니다. 대화형으로 진행되는 SPI3 진단과 포터블 스킬(Portable Skills) 분석을 통해 진짜 강점을 찾아내고, 이력서를 전략적으로 리프레이밍합니다.
@@ -27,6 +27,9 @@
 
 **3. matching-simulator (매칭 시뮬레이터)**
 양측(CA/RA)의 시점과 데이터를 통합하여 최종 매칭 스코어와 합격 확률을 시뮬레이션합니다. 리쿠르트 방식(SPI3)과 파솔 방식(시맨틱 유사도)의 알고리즘을 모두 사용하여 체계적인 결과를 제공합니다.
+
+**4. company-battlecard (기업 비교 배틀카드)**
+2개 이상의 기업을 SPI3 문화 적합도, 스킬 매칭, 웰빙 지표, 성장 가능성, 실용 조건(연봉/리모트/비자)의 5개 차원에서 수치로 비교합니다. `job-seeker-agent`의 YAML 프로파일을 입력으로 받아 후보자 맞춤형 승패를 판정합니다.
 
 ### 핵심 매칭 포인트
 
@@ -49,6 +52,7 @@
 |------|-----------|
 | **내 이력서 강점 분석 및 리프레이밍** | `/job-seeker-agent` 단독 실행 |
 | **특정 공고(JD) 합격 확률 시뮬레이션** | `/job-seeker-agent` 진행 후 ➔ `/matching-simulator` |
+| **A사 vs B사 어디에 지원할까?** | `/job-seeker-agent` ➔ `/company-battlecard` |
 | **기업에서 매력적인 구인공고(JD) 작성** | `/hiring-manager-agent` 단독 실행 |
 
 ### 기술 및 프레임워크 기반
@@ -79,7 +83,7 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 
 ### Agent Skills
 
-3つのエージェントスキルが、それぞれのフォルダに `SKILL.md` ファイルとして存在します。
+4つのエージェントスキルが、それぞれのフォルダに `SKILL.md` ファイルとして存在します。
 
 **1. job-seeker-agent（求職者エージェント）**
 候補者担当コンサルタント（CA）の視点から履歴書・職務経歴書を分析します。対話形式で進めるSPI3診断とポータブルスキル分析を通じて真の強みを発掘し、職務経歴書を戦略的にリフレーミングします。
@@ -89,6 +93,9 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 
 **3. matching-simulator（マッチングシミュレーター）**
 両者（CA/RA）の視点とデータを統合し、最終マッチングスコアと合格確率をシミュレーションします。リクルート方式（SPI3）とパーソル方式（意味的類似度）のアルゴリズムを両方使用して体系的な結果を提供します。
+
+**4. company-battlecard（企業比較バトルカード）**
+2社以上の企業をSPI3カルチャーフィット、スキルマッチ、ウェルビーイング指標、成長可能性、実用条件（年収/リモート/ビザ）の5次元でスコア比較します。`job-seeker-agent`のYAMLプロファイルを入力として受け取り、候補者に最適な企業を数値で判定します。
 
 ### 主要マッチングポイント
 
@@ -111,6 +118,7 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 |------|-----------|
 | **自分の経歴の強み分析・リフレーミング** | `/job-seeker-agent` 単独実行 |
 | **特定求人（JD）の合格確率シミュレーション** | `/job-seeker-agent` 実行後 ➔ `/matching-simulator` |
+| **A社 vs B社、どちらに応募すべき？** | `/job-seeker-agent` ➔ `/company-battlecard` |
 | **企業として魅力的な求人票（JD）の作成** | `/hiring-manager-agent` 単独実行 |
 
 ### 技術・フレームワーク基盤
@@ -141,7 +149,7 @@ A collection of AI agent skills that reverse-engineer and simulate the internal 
 
 ### Agent Skills
 
-3 agent skills exist as `SKILL.md` files in their respective folders.
+4 agent skills exist as `SKILL.md` files in their respective folders.
 
 **1. job-seeker-agent**
 Analyzes your resume from the perspective of a Candidate Advisor (CA). Through an interactive SPI3 diagnostic and Portable Skills analysis, it uncovers your true strengths and strategically reframes your resume.
@@ -151,6 +159,9 @@ Optimizes a job description (JD) from the perspective of a Recruiting Advisor (R
 
 **3. matching-simulator**
 Integrates data from both sides (CA/RA) to simulate a final matching score and acceptance probability. Uses both the Recruit method (SPI3) and the Persol method (semantic similarity) to deliver systematic results.
+
+**4. company-battlecard**
+Compares 2+ companies head-to-head across 5 dimensions: SPI3 culture fit, skill stack match, well-being alignment, growth trajectory, and practical factors (salary/remote/visa). Consumes the YAML profile from `job-seeker-agent` for personalized scoring.
 
 ### Core Matching Points
 
@@ -173,6 +184,7 @@ From there, simply answer the diagnostic questions the AI asks to proceed with y
 |-----------|--------------------------|
 | **Analyze and reframe your resume's strengths** | Run `/job-seeker-agent` standalone |
 | **Simulate acceptance probability for a specific JD** | Run `/job-seeker-agent` first ➔ then `/matching-simulator` |
+| **Compare Company A vs B — which to apply?** | `/job-seeker-agent` ➔ `/company-battlecard` |
 | **Write an attractive job description as a company** | Run `/hiring-manager-agent` standalone |
 
 ### Technology & Framework Basis
