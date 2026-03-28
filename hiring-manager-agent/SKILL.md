@@ -77,7 +77,7 @@ Ask the user:
 **These 3 questions are mandatory. Ask them and STOP. Wait for the user's answers before generating the Hyperformer Profile.**
 Do not infer answers from the company description or JD. The user's own words are the most valuable input.
 
-After receiving answers, map them to SPI3 quadrants and 8 Portable Skills in `../../shared/references/frameworks.md`.
+After receiving answers, map them to SPI3 quadrants and 8 Portable Skills in `references/frameworks.md`.
 
 **Evidence Grounding Rule (Anti-Hallucination):**
 Every trait in the Hyperformer Profile must cite which user answer it came from.
@@ -120,7 +120,7 @@ Optimize your JD so that Pasona/doda's skill ontology recognizes it more accurat
 
 1. **Skill list → capability description**
    Convert from "Python required" to descriptions that connect to higher-order capabilities
-   in the agency ontology. Refer to "Skill Ontology Mapping Table" in `../../shared/references/frameworks.md`.
+   in the agency ontology. Refer to "Skill Ontology Mapping Table" in `references/frameworks.md`.
 
    ```
    ❌ Before: "Python, SQL, AWS experience required"
@@ -157,7 +157,7 @@ Use Pasona's "Hataraku Well-being" index to quantify and brand your company cult
 **Process:**
 
 Ask the user to self-rate on the 4 well-being factors from 1~5.
-(Refer to "Hataraku Well-being" section in `../../shared/references/frameworks.md`)
+(Refer to "Hataraku Well-being" section in `references/frameworks.md`)
 
 **These ratings must come from the user. Do not assume or pre-fill values.**
 Present the 4 factors, explain each briefly, then STOP and wait for the user's ratings.
@@ -195,7 +195,7 @@ Design evaluation criteria based on the target hire type.
 
 #### 5-1. New Graduate (新卒) Hiring: Gakuchika Evaluation Criteria
 
-Using the "Gakuchika Evaluation Framework" in `../../shared/references/frameworks.md`,
+Using the "Gakuchika Evaluation Framework" in `references/frameworks.md`,
 set custom weights aligned with your company's talent profile.
 
 ```
@@ -273,7 +273,7 @@ This block is consumed by `matching-simulator` — accuracy here directly affect
 ## Reference Files
 
 Always read and apply criteria from:
-- `../../shared/references/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index, Gakuchika
+- `references/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index, Gakuchika
 
 ## Tone & Style
 

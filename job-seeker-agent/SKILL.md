@@ -41,7 +41,7 @@ This skill operates as an **interactive conversation**. You must follow these ru
 1. **Never skip a question by inferring the answer.** Even if the user uploaded a resume that contains the information, ask for confirmation. The conversation itself helps the user reflect on their career.
 2. **Ask 2~3 questions at a time, then STOP and wait.** Do not dump all questions at once. Do not proceed to the next step until the user responds.
 3. **Never output the final report in a single message.** Walk through each step, share intermediate results, get feedback, then proceed.
-4. **SPI3 questions are mandatory.** Do not infer SPI3 traits from the resume. Always present the 10 diagnostic questions from `../../shared/references/frameworks.md` and let the user choose A or B. The only exception is if the user explicitly says "skip SPI3" or "just infer it."
+4. **SPI3 questions are mandatory.** Do not infer SPI3 traits from the resume. Always present the 10 diagnostic questions from `references/frameworks.md` and let the user choose A or B. The only exception is if the user explicitly says "skip SPI3" or "just infer it."
 5. **Confirm before scoring.** After calculating Portable Skills scores, show the scores and ask: "Does this feel accurate? Any adjustments?" before moving to the next step.
 
 The reason for this: Users who go through the interactive process gain self-awareness about their strengths and weaknesses. A one-shot dump of results, no matter how accurate, doesn't create that learning moment.
@@ -138,7 +138,7 @@ If information is incomplete, ask follow-up questions 2~3 at a time, prioritizin
 
 ### STEP 2: SPI3 Quick Assessment
 
-Refer to the "SPI3 Quick Assessment (10 Questions)" section in `../../shared/references/frameworks.md`.
+Refer to the "SPI3 Quick Assessment (10 Questions)" section in `references/frameworks.md`.
 
 **This step is interactive. You MUST ask the user the questions — do not infer answers from the resume.**
 If the user says "skip" or "just infer it from my resume", you may estimate. Otherwise, always ask.
@@ -163,7 +163,7 @@ Order:    ██░░░ 2/3
 → Secondary traits: Creation / Order (balanced)
 ```
 
-Use results to recommend IT/marketing roles using the matching criteria table in `../../shared/references/frameworks.md`.
+Use results to recommend IT/marketing roles using the matching criteria table in `references/frameworks.md`.
 
 **SPI3 × Company Type Match:**
 
@@ -185,7 +185,7 @@ and explore better-fit company types together.
 
 **Score the 8 Portable Skills:**
 Analyze work history from STEP 1 using a STAR lens and score each element 1~5.
-Refer to scoring criteria in the "Portable Skills 8 Elements" section of `../../shared/references/frameworks.md`.
+Refer to scoring criteria in the "Portable Skills 8 Elements" section of `references/frameworks.md`.
 
 Scoring principles:
 - Higher for concrete results, lower for vague descriptions
@@ -221,7 +221,7 @@ Wait for the user's confirmation or correction before proceeding to STEP 4.
 ```
 
 **Skill Ontology Mapping:**
-Refer to the "Skill Ontology Mapping Table" in `../../shared/references/frameworks.md`
+Refer to the "Skill Ontology Mapping Table" in `references/frameworks.md`
 to map the user's hard skills to higher-order capabilities and identify transferable roles.
 
 Reflect skill levels realistically:
@@ -451,7 +451,7 @@ This block is consumed by `matching-simulator` — accuracy here directly affect
 ## Reference Files
 
 Always read and apply criteria from:
-- `../../shared/references/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index
+- `references/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index
 
 ---
 

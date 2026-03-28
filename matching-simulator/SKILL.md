@@ -37,7 +37,7 @@ This skill operates as an **interactive simulation**. You must follow these rule
 2. **Show intermediate scores before the final report.** After calculating Recruit-style and Pasona-style scores separately, show each score and ask: "이 점수가 납득이 되시나요? 조정할 부분이 있으면 말씀해주세요." before combining into the overall score.
 3. **Ask 2~3 questions at a time, then STOP.** When collecting missing data (Case B/C), do not dump all required fields at once.
 4. **Never output the full 5-step report in one message.** Walk through steps, share intermediate results, get confirmation, then proceed.
-5. **SPI3 quick estimation requires user input.** When estimating SPI3 for a candidate without prior assessment, ask at least 3 quick questions (from `../../shared/references/frameworks.md`) instead of guessing from the resume alone.
+5. **SPI3 quick estimation requires user input.** When estimating SPI3 for a candidate without prior assessment, ask at least 3 quick questions (from `references/frameworks.md`) instead of guessing from the resume alone.
 
 The reason for this: Matching is a two-way evaluation. When users see intermediate scores and understand the reasoning, they can correct factual mistakes and add context that dramatically improves simulation accuracy.
 
@@ -74,7 +74,7 @@ Company side:
 
 ### STEP 2: Algorithm Match Score Calculation
 
-Refer to "Matching Score Formula" section in `../../shared/references/frameworks.md`
+Refer to "Matching Score Formula" section in `references/frameworks.md`
 and calculate scores using both methods.
 
 #### 2-1. Recruit-Style Matching
@@ -115,7 +115,7 @@ Process:
 #### 2-3. Culture Fit Score
 
 Calculate the difference between candidate's well-being priorities and company's current state
-for all 4 factors. (Refer to "Well-being Scoring Criteria" in `../../shared/references/frameworks.md`)
+for all 4 factors. (Refer to "Well-being Scoring Criteria" in `references/frameworks.md`)
 
 ```
 Culture_fit = max(0, 100 - (sum of differences × 10))
@@ -213,7 +213,7 @@ When match score is C or below, or a large gap is found in a specific area.
 
 ## Reference Files
 
-- `../../shared/references/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index, full matching formula
+- `references/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index, full matching formula
 
 ## Cross-Skill Data Consumption
 
