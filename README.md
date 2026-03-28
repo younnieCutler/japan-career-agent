@@ -1,139 +1,62 @@
-# Japan Recruit AI Agent (for Claude Code / Gemini)
+# Japan Recruit AI Agent
 
-> **Reverse-engineer Agency Matching Algorithms.**  
-> Interactive AI skills simulating Japanese IT recruitment logic (SPI3, Portable Skills, Skill Ontology).
+일본 IT/마케팅 전직 시장에서 대형 에이전트(리쿠르트, 파소나, doda 등)의 내부 매칭 알고리즘을 역공학하여 시뮬레이션하는 AI 에이전트 스킬 모음입니다.
 
-[**日本語**](#-japanese) | [**한국어**](#-korean) | [**English**](#-english)
+> **Reverse-engineer Agency Matching Algorithms.**
+> 
+> 단순한 이력서 첨삭을 넘어, 지원 전 에이전트의 내부 시선으로 나를 먼저 객관화하세요.
 
----
+## Agent Skills
 
-## 🌏 Overview
+3개의 에이전트 스킬이 각각의 폴더에 `SKILL.md` 파일로 존재합니다.
 
-This repository provides a set of AI Agent Skills (MCP compatible instructions) designed to help candidates and hiring managers navigate the Japanese IT recruitment ecosystem. It simulates the internal logic of top-tier Japanese agencies.
+### 1. job-seeker-agent (구직자 에이전트)
+후보자 담당 컨설턴트(CA)의 시점으로 내 이력서를 분석합니다. 대화형으로 진행되는 SPI3 진단과 포터블 스킬(Portable Skills) 분석을 통해 진짜 강점을 찾아내고, 이력서를 전략적으로 리프레이밍합니다.
 
-### Key Features
-- **Algorithm Transparency**: Understand how Skill Ontology and SPI3 affect your matching score.
-- **Interactive Coaching**: Agents walk you through career reflection step-by-step.
-- **Data Synergy**: Seamlessly transfer data between candidate profiling, JD optimization, and matching simulation.
+### 2. hiring-manager-agent (채용 매니저 에이전트)
+기업 담당 컨설턴트(RA)의 시점으로 구인공고(JD)를 최적화합니다. 팀 내 하이퍼포머(Hyperformer)를 모델링하고, 에이전시의 스킬 온톨로지(Ontology)가 잘 인식할 수 있도록 JD를 재작성합니다.
 
----
+### 3. matching-simulator (매칭 시뮬레이터)
+양측(CA/RA)의 시점과 데이터를 통합하여 최종 매칭 스코어와 합격 확률을 시뮬레이션합니다. 리쿠르트 방식(SPI3)과 파솔 방식(시맨틱 유사도)의 알고리즘을 모두 사용하여 체계적인 결과를 제공합니다.
 
-## 🇯🇵 Japanese
+## 핵심 매칭 포인트
 
-### このツールについて
-日本の大手エージェント（リクルート、パソナ/doda等）の内部ロジックをシミュレーションし、**「書類選考・面談の前に自分を客観視する」**ためのAIツールセットです。
+일반적인 이력서 리뷰 프롬프트와의 주요 차이점:
 
-### 📜 使い方 (Detailed Usage)
+- **100% 알고리즘 기반** — 감성적인 칭찬을 배제하고 철저히 데이터와 근거(Evidence)에 기반한 냉정한 전략적 산출
+- **Interactive Mode** — 일방적인 출력이 아닌, 실제 컨설팅처럼 질문하고 답을 기다리는 대화형 진단 프로세스 (한 번에 2~3개 질문)
+- **Anti-Hallucination** — 모든 평가는 사용자가 제공한 텍스트에서 명시적인 근거를 인용해야만 점수로 인정
+- **Cross-Skill Pipeline** — 에이전트 간 YAML 데이터를 기반으로 구직자 프로필과 기업 프로필을 손실 없이 매칭 연동
 
-エージェントとの対話を通じて、段階的に診断を進めます。
+## 사용법
 
-1. **スキルの起動**: 
-   `/job-seeker-agent` と入力して実行します。
-2. **ファイルの添付**: 
-   自分の職務経歴書（Markdown/PDF/Text）を添付します。Claude Codeの場合は `@ファイル名` (例: `@resume.md`) を使用してファイルを参照させます。
-3. **インタラクティブ診断**: 
-   - **STEP 0 (Gap Analysis)**: 応募したいJDがある場合は、そのURLやテキストを渡して条件を満たしているか確認します。
-   - **STEP 1~3**: AIが経歴を読み取り、SPI3やポータブルスキルの診断質問（2〜3問ずつ）を投げかけます。それに回答することで、精度の高いスコアが算出されます。
-4. **最終レポート**: 
-   最後に「エージェント視点での推薦状」と「改善戦略」が提案されます。
+1. 레포지토리를 클론하거나 필요한 에이전트 폴더를 다운로드합니다.
+2. AI 에디터나 채팅창(Claude Code, ChatGPT, Gemini 등)에 해당 폴더의 `SKILL.md` 파일을 참조시키세요. (예: `@job-seeker-agent/SKILL.md`)
+3. 에이전트가 호출되면, 내 이력서 파일(예: `@경력기술서.md`)을 전달합니다. (타겟 구인공고 JD가 있다면 함께 첨부하면 갭 분석(Gap Analysis)이 즉시 발동됩니다.)
 
-### 構成スキル
-- **`job-seeker-agent`**: 候補者担当(CA)の視点で経歴書を数値化。SPI3診断、ポータブルスキル分析。
-- **`hiring-manager-agent`**: 企業担当(RA)の視点で求人票(JD)を最適化。ハイパーフォーマー定義。
-- **`matching-simulator`**: 両者のデータを統合し、エージェント内部の「マッチングスコア」を算出。
+이후에는 AI가 던지는 진단 질문에 답변하며 컨설팅을 진행하면 됩니다.
 
-### 導入方法
-1. **Claude Code**: `~/.claude/skills/` に各フォルダをコピー。
-2. **ブラウザAI**: 各スキルの `SKILL.md` の内容をコピーしてチャットに貼り付けてください。
+### 추천 실행 조합
 
----
+| 상황 | 추천 에이전트 로드맵 |
+|------|-----------|
+| **내 이력서 강점 분석 및 리프레이밍** | `job-seeker-agent` 단독 실행 |
+| **특정 공고(JD) 합격 확률 시뮬레이션** | `job-seeker-agent` 진행 후 ➔ `matching-simulator` |
+| **기업에서 매력적인 구인공고(JD) 작성** | `hiring-manager-agent` 단독 실행 |
 
-## 🇰🇷 Korean
+## 기술 및 프레임워크 기반
 
-### 프로젝트 소개
-일본 대형 채용 에이전트의 매칭 알고리즘을 역공학하여, **"지원 전 AI로 나를 먼저 평가"**해볼 수 있는 에이전트 스킬셋입니다. 에이전트 담당자에게 연락이 가기 전, 알고리즘 단계에서 필터링되는 리스크를 최소화합니다.
+각 에이전트는 일본 채용 시장의 표준 프레임워크를 기반으로 작동하도록 폴더 내 `references/frameworks.md`를 자체 참조합니다:
 
-### 주요 기능
-- **인터랙티브 대화 모드**: AI가 일방적으로 분석하는 것이 아니라, 대화를 통해 사용자의 강점을 끌어냅니다.
-- **증거 기반 채점 (Evidence Grounding)**: 근거 없는 칭찬이 아닌, 이력서의 실제 텍스트에 기반한 객관적 스코어링을 수행합니다.
-- **에이전트 시뮬레이션**: 리쿠르트 방식(SPI3 가중치)과 파솔 방식(시맨틱 유사도)의 매칭 점수를 모두 산출합니다.
+- **SPI3** (성격/직무 적합도 진단)
+- **포터블 스킬 8요소** (후생노동성/리쿠르트 표준 직무 수행 능력)
+- **Hataraku Well-being Index** (파솔그룹 조직 문화 지표)
+- **Skill Ontology Mapping** (직무 역량 의미 연결망)
 
-### 📜 사용 방법 (Detailed Usage)
+## 기여 및 피드백
 
-이 스킬은 단순한 결과 출력이 아닌, 에이전트와의 **'1:1 컨설팅 대화'**로 진행됩니다.
+- GitHub Issue 또는 Pull Request를 통해 다양한 프레임워크나 엣지 케이스 추가를 환영합니다.
 
-1. **에이전트 호출**: 
-   `/job-seeker-agent` 등의 명령어를 입력하여 대화를 시작합니다.
-2. **이력서/경력기술서 첨부**: 
-   분석하고 싶은 자신의 문서를 첨부합니다. Claude Code 사용 시 `@파일명` (예: `@경력기술서.md`)을 입력하여 AI가 파일을 읽게 합니다.
-3. **단계별 진단 진행 (Interactive Mode)**:
-   - **STEP 0 (갭 분석)**: 지원하려는 공고(JD)가 있다면 먼저 입력하세요. 필수 요건 미달 여부를 즉시 알려줍니다.
-   - **SPI3 및 역량 진단**: AI가 한 번에 답변을 내놓지 않고, 사용자에게 2~3개씩 질문을 던집니다. (예: "A와 B 중 자신의 성향에 가까운 것은?") 이 질문에 성실히 답할수록 매칭 정확도가 올라갑니다.
-4. **결과 확인 및 데이터 연동**: 
-   진단이 끝나면 상세 보고서와 함께 하단에 기계가 읽을 수 있는 `CANDIDATE_PROFILE` 데이터가 출력됩니다. 이 내용을 `matching-simulator`에 그대로 전달하여 합격 확률을 시뮬레이션할 수 있습니다.
+## 라이선스
 
----
-
-### 구성 요소
-
-## 🚀 Getting Started
-
-### 1. Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
-cd japan-recruit-ai-agent
-```
-
-### 2. Usage by Environment
-
-#### 🤖 Clause Code (Recommended)
-Install as native skills to use short commands (`/job-seeker-agent`).
-
-```bash
-# Copy agents to global skill directory
-cp -r job-seeker-agent ~/.claude/skills/
-cp -r hiring-manager-agent ~/.claude/skills/
-cp -r matching-simulator ~/.claude/skills/
-
-# Restart Claude Code and run:
-> /job-seeker-agent
-```
-
-#### ✨ Gemini CLI
-Inject the `SKILL.md` as context for your session.
-
-```bash
-# Point to the specific skill you want to use
-gemini --context job-seeker-agent/SKILL.md
-```
-
-#### 🌐 Browser-based AI (ChatGPT, Gemini, etc.)
-1.  Open `${agent_name}/SKILL.md` in a text editor.
-2.  Copy the entire content and paste it into the AI chat box.
-3.  **Wait for the AI to acknowledge the instructions** before starting your data input (Resume/JD).
-
----
-
-### 3. Testing with Mocks
-Quickly verify the scoring logic using our sample profiles:
-```bash
-# For Claude Code
-> /job-seeker-agent [attached_resume.md]
-
-# For Testing
-/job-seeker-agent @job-seeker-agent/mock/chuto-park-minjun.md
-```
-
----
-
-## ⚖️ Disclaimer
-
-이 도구의 스코어는 공개된 정보를 바탕으로 한 **추정값**입니다. 실제 에이전트의 내부 판정과 다를 수 있으니 전략 수립의 참고용으로만 사용해 주세요.  
-本ツールのスコアは推定値であり、実際のエージェント判定結果を保証するものではありません。
-
----
-
-## 📄 License
-MIT License. Free to use, modify, and distribute.
+MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
