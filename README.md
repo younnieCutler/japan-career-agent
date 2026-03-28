@@ -1,6 +1,6 @@
 # Japan Recruit AI Agent
 
-일본 IT/마케팅 전직 시장에서 대형 에이전트(리쿠르트, 파소나, doda 등)의 내부 매칭 알고리즘을 역공학하여 시뮬레이션하는 AI 에이전트 스킬 모음입니다.
+일본 IT/마케팅 전직 시장에서 대형 에이전트(리쿠르트, 파소나, doda 등)의 내부 매칭 알고리즘을 리버스 엔지니어링하여 시뮬레이션하는 AI 에이전트 스킬 모음입니다.
 
 > **Reverse-engineer Agency Matching Algorithms.**
 > 
