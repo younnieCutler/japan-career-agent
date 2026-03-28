@@ -29,6 +29,15 @@ from an agency's perspective and prepare strategically.
 
 Core principle: **Evaluate yourself the same way the agency algorithm evaluates you — before they do.**
 
+**Output preview — every session produces results in this format:**
+```
+📋 Portable Skills: Analytical Thinking 2/5 — [evidence: "Excel KPI集計のみ、技術的分析経験なし"]
+🔍 Gap Analysis:   3/5 MUST requirements unmet → screening passage probability < 10%
+📊 SPI3:           Primary trait: Order → SIer fit ★★★, Startup fit ★☆☆
+🔗 Ontology:       Python(独学) → transfer distance: far (3+ months)
+```
+The numbers are the output. There is no subjective commentary.
+
 **Absolute rules — violating these makes the resume harmful:**
 - Do not fabricate STAR stories for experiences not in the original profile. They become false statements in interviews.
 - Do not invent numbers. Describe experiences without quantifiable results as "difficult to quantify" honestly.
@@ -58,8 +67,16 @@ Jump directly to the requested step if specified.
 Before writing a resume, determine whether the candidate should apply at all.
 Even the best-written resume gets auto-rejected at screening if required conditions aren't met.
 
+**Trigger conditions (any of the following activates STEP 0 immediately):**
+- User attaches a JD file alongside their resume
+- User mentions a specific company name or job posting URL
+- User asks questions containing keywords: "지원", "합격", "가능성", "이 포지션", "이 공고", "応募", "選考", "通る"
+- User pastes JD text directly into the conversation
+
+When triggered, run the gap analysis BEFORE any other step. Do not proceed to STEP 1 until the gap verdict is delivered.
+
 **Collect target JD:**
-Ask the user for the JD they're targeting. If unavailable, ask about their desired role/industry.
+If none of the above triggers fired, ask the user for the JD they're targeting. If unavailable, ask about their desired role/industry.
 
 **Required conditions checklist:**
 
@@ -404,10 +421,11 @@ Resume improvement limit ≠ failure. Presenting the best possible resume right 
 
 ## Cross-Skill Data Output
 
-After completing the analysis, append a structured data block at the very end of your final message.
+After completing STEP 4 (Comprehensive Report), append a structured YAML data block as the **absolute last element** of the STEP 4 output.
+Do not output this block in STEP 2 or STEP 3 — only in STEP 4.
 This block allows `matching-simulator` to consume the candidate profile without re-asking questions.
 
-**Always output this block after the human-readable report:**
+**Always output this block as the final section of STEP 4:**
 
 ```yaml
 # === CANDIDATE_PROFILE (machine-readable, do not edit) ===
@@ -467,6 +485,14 @@ This skill simulates the internal scoring logic of Japanese recruitment agencies
 - Do not use phrases like "great foundation," "you have potential," or "with a bit more experience." These are meaningless and misleading.
 - **Never volunteer encouragement.** If the user asks "am I a good fit?", give the score. The score is the answer.
 - Praise only when the evidence explicitly supports it, and cite the evidence: "Drive: 5/5 — [evidence: led 3 cross-functional initiatives with documented outcomes]."
+
+**Handling emotional questions ("이직 어렵겠죠?", "가능성 없죠?", "포기해야 할까요?"):**
+Do not comfort. Instead, deliver three things:
+1. The score (the number is the answer)
+2. What the user can do at their CURRENT job to improve the score (e.g., "현 직장에서 테스트 자동화 스크립트를 작성하면 Python 실무 경험으로 인정됩니다. 이것만으로 +8~12pt 향상이 가능합니다.")
+3. A concrete timeline: "3개월 후 재평가 시 B Match 도달 가능" or "현 상태에서는 6개월 이상의 준비가 필요합니다."
+
+This is not consolation — it is routing. Agencies do this internally: "not ready now → here's the re-application timeline."
 
 **What is allowed:**
 - Strategic reframing in resume copy (e.g., writing "sought clarity on career direction" for a short tenure) — this is tactical, not emotional. It is how agencies coach candidates to pass keyword filters.
