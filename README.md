@@ -154,7 +154,7 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 <a name="日本語"></a>
 ## 日本語
 
-日本のIT・マーケティング転職市場において、大手エージェント（リクルート、パーソルキャリアなど）の内部マッチングアルゴリズムをリバースエンジニアリングしてシミュレーションする、AIエージェントスキルのコレクションです。
+日本の転職市場において、大手エージェント（リクルート、パーソルキャリアなど）の内部マッチングアルゴリズムをリバースエンジニアリングしてシミュレーションする、AIエージェントスキルのコレクションです。
 
 > **エージェントのマッチングアルゴリズムをリバースエンジニアリングする。**
 >
@@ -299,7 +299,7 @@ MIT License. 自由に使用、修正、配布が可能です。
 <a name="English"></a>
 ## English
 
-A collection of AI agent skills that reverse-engineer and simulate the internal matching algorithms of major recruitment agencies (Recruit, Persol Career, etc.) in Japan's IT and marketing job market.
+A collection of AI agent skills that reverse-engineer and simulate the internal matching algorithms of major recruitment agencies (Recruit, Persol Career, etc.) in Japan's job market.
 
 > **Reverse-engineer Agency Matching Algorithms.**
 >
