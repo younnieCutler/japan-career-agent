@@ -47,7 +47,7 @@
 
 #### ZIP으로 빠르게 설치 (권장)
 
-[`japan-recruit-ai-agent-skills.zip`](https://github.com/jeongyun-kim/japan-recruit-ai-agent-skills/releases) 파일을 다운로드한 후 플랫폼별 안내를 따르세요.
+[`japan-recruit-ai-agent-skills.zip`](https://github.com/younnieCutler/japan-recruit-ai-agent/releases) 파일을 다운로드한 후 플랫폼별 안내를 따르세요.
 
 ---
 
@@ -192,7 +192,7 @@ MIT License. 자유롭게 사용, 수정, 배포가 가능합니다.
 
 #### ZIPで素早くインストール（推奨）
 
-[`japan-recruit-ai-agent-skills.zip`](https://github.com/jeongyun-kim/japan-recruit-ai-agent-skills/releases) をダウンロードし、プラットフォーム別の手順に従ってください。
+[`japan-recruit-ai-agent-skills.zip`](https://github.com/younnieCutler/japan-recruit-ai-agent/releases) をダウンロードし、プラットフォーム別の手順に従ってください。
 
 ---
 
@@ -337,7 +337,7 @@ Automatically extracts company data from major Japanese job and review site URLs
 
 #### Quick Install via ZIP (Recommended)
 
-Download [`japan-recruit-ai-agent-skills.zip`](https://github.com/jeongyun-kim/japan-recruit-ai-agent-skills/releases) and follow the platform-specific instructions below.
+Download [`japan-recruit-ai-agent-skills.zip`](https://github.com/younnieCutler/japan-recruit-ai-agent/releases) and follow the platform-specific instructions below.
 
 ---
 

@@ -1,0 +1,13 @@
+{
+  "name": "Japan Recruit AI Agent Skills",
+  "description": "Reverse-engineer Japanese recruitment agency matching algorithms. Simulate the internal scoring logic of Recruit and Persol Career to evaluate candidates and companies from an agency's perspective.",
+  "skills": [
+    "company-battlecard",
+    "job-seeker-agent",
+    "kigyou-bunseki",
+    "matching-simulator"
+  ],
+  "author": "younnieCutler",
+  "license": "MIT",
+  "tags": ["japan", "job-search", "recruitment", "career", "matching"]
+}
