@@ -1,0 +1,48 @@
+# Stop tracking everything except for the skill folders and core repository files
+
+# Ignore everything in the root
+/*
+
+# Exception: Core repository files
+!/.gitignore
+!/README.md
+!/LICENSE
+!/marketplace.json
+!/CLAUDE.md
+
+# Exception: Shared infrastructure
+!/_shared/
+
+# Exception: Skill folders
+!/company-battlecard/
+!/hiring-manager-agent/
+!/job-seeker-agent/
+!/kigyou-bunseki/
+!/matching-simulator/
+!/tenshoku-strategy/
+
+# data/ is gitignored — contains personal resume/profile data
+# Only the README files inside data/ are tracked
+!/data/
+/data/candidate_profile.yml
+/data/match_history.md
+/data/company_profiles/*.yml
+
+# OS and other generated files (still in ignore list)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+__pycache__/
+node_modules/
+dist/
+build/
+.gstack/
+.gemini/
+.claude/
+.agents/
+tmp/
+*.webp

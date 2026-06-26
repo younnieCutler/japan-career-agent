@@ -1,0 +1,103 @@
+# Japan Recruit AI Agent — Shared Schema Contract
+# Single source of truth for inter-skill YAML data formats.
+#
+# When modifying a schema here, update all skills that produce or consume it:
+#   CANDIDATE_PROFILE: job-seeker-agent (producer), matching-simulator / company-battlecard / tenshoku-strategy (consumers)
+#   COMPANY_PROFILE:   hiring-manager-agent / kigyou-bunseki (producers), matching-simulator / company-battlecard (consumers)
+#   MATCH_HISTORY:     matching-simulator (producer)
+
+schema_version: "1.1"
+
+# ─────────────────────────────────────────────
+# CANDIDATE_PROFILE
+# Produced by: job-seeker-agent (STEP 4)
+# Consumed by: matching-simulator, company-battlecard, tenshoku-strategy
+# ─────────────────────────────────────────────
+candidate_profile:
+  required:
+    - candidate_name      # string: "박민준"
+    - spi3                # object: see spi3_schema
+    - portable_skills     # object: see portable_skills_schema
+    - target_role         # string: "Data Engineer"
+    - jlpt_level          # string: "N1" | "N2" | "N3" | "N4" | "None" | null
+
+  optional:
+    - skill_stack         # list of objects: see skill_stack_schema
+    - wellbeing_priorities  # object: see wellbeing_schema
+    - target_company_type   # string: "self-developed" | "SIer" | "SES" | "consulting" | "startup" | "large enterprise" | null
+    - visa_status           # string: "PR" | "Engineer/Specialist" | "Student" | null
+    - track                 # string: "shinsotsu" | "chuto"
+
+spi3_schema:
+  creation: "float 0–10 | null"
+  result:   "float 0–10 | null"
+  harmony:  "float 0–10 | null"
+  order:    "float 0–10 | null"
+  primary_trait: "string: highest-scoring quadrant name | null"
+
+portable_skills_schema:
+  # All values: integer 1–5 | null
+  analytical_thinking: ~
+  planning:            ~
+  drive:               ~
+  innovation:          ~   # maps to "Reform Mindset (変革力)"
+  agility:             ~
+  negotiation:         ~
+  coaching:            ~
+  emotional_regulation: ~
+
+skill_stack_schema:
+  # List of objects with these fields:
+  - name:       "string: skill name"
+    level:      "string: basic | intermediate | advanced | expert"
+    capability: "string: mapped capability from ontology (e.g., 'data analysis')"
+
+wellbeing_schema:
+  # All values: integer 1–5 | null
+  # 1 = not important at all / 5 = essential
+  autonomy:             ~   # 自己決定感
+  social_contribution:  ~   # 社会貢献感
+  management_quality:   ~   # 上司のマネジメント
+  mutual_respect:       ~   # 組織内の相互尊重
+
+# ─────────────────────────────────────────────
+# COMPANY_PROFILE
+# Produced by: hiring-manager-agent, kigyou-bunseki
+# Consumed by: matching-simulator, company-battlecard
+# ─────────────────────────────────────────────
+company_profile:
+  required:
+    - company_name        # string
+    - position            # string: job title
+    - required_skills     # list of strings
+
+  optional:
+    - industry            # string
+    - headcount           # integer | null
+    - company_type        # string: "self-developed" | "SIer" | "SES" | "consulting" | "startup" | "large enterprise"
+    - chuto_saiyo_ratio   # number 0–100 | null: mid-career hire ratio (中途採用比率), from kigyou-bunseki when available
+    - hyperformer_spi3    # object: same structure as spi3_schema
+    - hyperformer_portable_skills  # object: same structure as portable_skills_schema
+    - accepted_adjacent_skills     # list of strings
+    - wellbeing_scores             # object: same structure as wellbeing_schema
+    - salary_range        # object: { min: integer, max: integer, currency: "JPY" }
+    - remote_policy       # string: "full-remote" | "hybrid" | "on-site"
+    - visa_sponsorship    # boolean | null
+
+# ─────────────────────────────────────────────
+# MATCH_HISTORY
+# Appended to: data/match_history.md
+# Produced by: matching-simulator (STEP 4)
+# ─────────────────────────────────────────────
+match_history_entry:
+  - date                  # string: "YYYY-MM-DD"
+  - candidate_name        # string
+  - company_name          # string
+  - position_title        # string
+  - recruit_style_score   # integer 0–100 (approximate, ±10)
+  - persol_style_score    # integer 0–100 (approximate, ±10)
+  - culture_fit_score     # integer 0–100 (approximate, ±10)
+  - overall_score         # integer 0–100 (approximate, ±10)
+  - overall_grade         # string: "A" | "B" | "C" | "D"
+  - platform              # string: platform simulated (e.g., "Recruit / Levtech")
+  - report_file           # string: path to markdown report if saved (e.g., "career-docs/match-xyz.md")
