@@ -153,10 +153,6 @@ cp -r ~/japan-recruit-skills/_shared ~/.claude/_shared
 - **Gakuchika** framework (new-grad)
 - **Company-Type Evaluation** — 6 types (自社開発 / SIer / SES / コンサル / スタートアップ / 大企業) with per-type lenses (`_shared/frameworks.md` §7)
 
-### Acknowledgements
-
-Job-change know-how informed by the public **大企業転職チャンネル【sincereed】** YouTube channel (titles/chapters only — no transcripts). Interview-prep, application-tracking, ghost-job, and follow-up patterns adapted from **career-ops** (MIT, github/santifer/career-ops), localized to the Japanese 転職 context. The `jiko-bunseki` depth layer draws on Schein's career anchors and Savickas's career-construction theory (concepts only, not a validated instrument).
-
 ### License
 
 MIT License.
@@ -271,10 +267,6 @@ Claude Desktop は Projects に `SKILL.md` をアップロード、または設�
 - **学チカ**（新卒）
 - **企業タイプ別評価** — 6 タイプ（自社開発／SIer／SES／コンサル／スタートアップ／大企業、`_shared/frameworks.md` §7）
 
-### 謝辞
-
-転職ノウハウは公開 YouTube **大企業転職チャンネル【sincereed】**（タイトル・チャプターのみ、字幕は不使用）を参考。面接対策・選考トラッキング・ゴーストジョブ・フォローアップの枠組みは **career-ops**（MIT, github/santifer/career-ops）を日本の転職文脈にローカライズして採用。`jiko-bunseki` の深掘り層は Schein のキャリアアンカー、Savickas のキャリア構成理論を参考（概念のみ・検証済み測定器ではない）。
-
 ### ライセンス
 
 MIT License.
@@ -388,10 +380,6 @@ Claude Desktop은 Projects에 `SKILL.md` 업로드, 또는 설정 → 커스텀 
 - **스킬 온톨로지 매핑**
 - **가쿠치카**(신졸)
 - **기업 유형별 평가** — 6종(自社開発/SIer/SES/コンサル/스타트업/대기업, `_shared/frameworks.md` §7)
-
-### 감사의 말
-
-전직 노하우는 공개 유튜브 **大企業転職チャンネル【sincereed】**(제목·챕터만, 자막 미사용)을 참고. 면접 대비·선고 트래킹·유령 채용·후속 연락 프레임워크는 **career-ops**(MIT, github/santifer/career-ops)를 일본 전직 맥락으로 로컬라이즈해 채용. `jiko-bunseki` 심층 레이어는 Schein의 커리어 앵커, Savickas의 커리어 구성 이론을 참고(개념만, 검증된 측정 도구 아님).
 
 ### 라이선스
 
