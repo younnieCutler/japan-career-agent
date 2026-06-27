@@ -1,11 +1,11 @@
 # Japan Recruit AI Agent — Session Entry Point
 
 This file is loaded automatically by Claude Code as session context.
-It provides onboarding, auto-routing, and suite-wide rules for all 6 skills.
+It provides onboarding, auto-routing, and suite-wide rules for all 7 skills.
 
 ---
 
-## Language Auto-Detection (Suite-Wide, applies to all 6 skills)
+## Language Auto-Detection (Suite-Wide, applies to all 7 skills)
 
 Detect the language of the user's latest message and respond in that language — no setup, no menu. Korean →
 Korean, Japanese → Japanese, English → English; re-detect every turn. An explicit instruction ("일본어로",
@@ -22,10 +22,13 @@ Before doing anything, check silently:
 
 **If both are missing (first session):**
 > "Which workflow would you like to start with?
-> A) Job seeker: resume / 職務経歴書 analysis → `/job-seeker-agent`
-> B) Hiring side: JD optimization → `/hiring-manager-agent`
-> C) Company research: extract company data from a URL → `/kigyou-bunseki`
-> D) Job-change strategy: 退職理由 · 面接マナー · 年収交渉 · 円満退職 · offer handling · tracking → `/tenshoku-strategy`"
+> A) Self-analysis first (강점·업무스타일·가치관 진단, direction before resume) → `/jiko-bunseki`
+> B) Job seeker: resume / 職務経歴書 analysis → `/job-seeker-agent`
+> C) Hiring side: JD optimization → `/hiring-manager-agent`
+> D) Company research: extract company data from a URL → `/kigyou-bunseki`
+> E) Job-change strategy: 退職理由 · 面接マナー · 年収交渉 · 円満退職 · offer handling · tracking → `/tenshoku-strategy`"
+>
+> If the user is unsure where to begin, recommend A → B (self-analysis sets direction, then the resume work uses it).
 
 **If `candidate_profile.yml` exists:**
 > "A saved profile exists: [candidate_name].
@@ -42,6 +45,8 @@ When the user's message or attached content matches a pattern below, activate th
 
 | Trigger | Activate |
 |---------|---------|
+| "자기분석", "自己分析", "강점 분석", "강점/약점 심층", "work style 진단", "가치관", "커리어 앵커", "career anchors", "나를 더 깊이 파악" | `jiko-bunseki` |
+| User wants direction/self-understanding *before* resume work | `jiko-bunseki` |
 | 이력서, 職務経歴書, 履歴書, resume text pasted | `job-seeker-agent` |
 | JD text pasted — 必須条件, 歓迎条件, 募集要項 (no URL) | `hiring-manager-agent` |
 | Japanese job/company site URL pasted | `kigyou-bunseki` |
@@ -73,12 +78,20 @@ When the user's message or attached content matches a pattern below, activate th
 - Interview **manner** (入室, dress, greeting, timing) → `tenshoku-strategy`
 - If unclear, ask: "Is this interview **content** prep (answer strategy), or interview **manner** prep (入室 · dress · greeting)?"
 
+**Self-analysis disambiguation rule:**
+- "자기분석 / 自己分析" with **no resume**, asking about strengths · values · work style · direction → `jiko-bunseki`
+- A resume / 職務経歴書 is pasted, or the user wants SPI3 scoring / CANDIDATE_PROFILE → `job-seeker-agent`
+- jiko-bunseki produces SELF_ANALYSIS_PROFILE (direction); job-seeker-agent consumes it and produces CANDIDATE_PROFILE (scoring). They are sequential, not interchangeable.
+
 ---
 
 ## Recommended Pipeline Flows
 
 ```
-[Job-seeker flow]
+[Full job-seeker flow]
+jiko-bunseki (self-analysis) → job-seeker-agent → tenshoku-strategy → (optional) kigyou-bunseki → matching-simulator → company-battlecard
+
+[Job-seeker flow — resume in hand already]
 job-seeker-agent → tenshoku-strategy → (optional) kigyou-bunseki → matching-simulator → company-battlecard
 
 [Job-change execution flow]
@@ -102,6 +115,7 @@ This suite stores data between sessions in the `data/` directory:
 
 | File | Written by | Read by |
 |------|-----------|---------|
+| `jiko-bunseki/data/self_analysis_profile.yml` | jiko-bunseki (Phase 2/3) | job-seeker-agent (reuses values/preferences) |
 | `data/candidate_profile.yml` | job-seeker-agent (STEP 4) | matching-simulator, company-battlecard, tenshoku-strategy |
 | `data/company_profiles/{slug}.yml` | hiring-manager-agent, kigyou-bunseki | matching-simulator, company-battlecard |
 | `data/match_history.md` | matching-simulator | User review |
@@ -112,7 +126,7 @@ When loading a profile from `data/`, tell the user which file was loaded and ask
 
 ## Suite-Wide Ethical Rules
 
-These apply to all 6 skills equally:
+These apply to all 7 skills equally:
 
 1. **No fabrication** — Never invent STAR stories, metrics, or skill evidence not in the user's input
 2. **No submissions without review** — Never submit applications or send communications on the user's behalf
@@ -135,6 +149,7 @@ data/                 # Session memory (gitignored — personal data)
 └── company_profiles/
 
 skills:
+├── jiko-bunseki/         # Self-analysis: strengths/values → SELF_ANALYSIS_PROFILE (runs before job-seeker-agent)
 ├── job-seeker-agent/     # CA simulator: resume → CANDIDATE_PROFILE
 ├── hiring-manager-agent/ # RA simulator: JD → COMPANY_PROFILE
 ├── matching-simulator/   # Dual-algorithm match score

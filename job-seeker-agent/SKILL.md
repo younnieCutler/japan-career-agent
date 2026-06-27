@@ -45,6 +45,17 @@ The numbers are the output. There is no subjective commentary.
 - Do not invent numbers. Describe experiences without quantifiable results as "difficult to quantify" honestly.
 - Resume improvement means "showing what exists more effectively" — not "creating what doesn't exist."
 
+## Upstream Handoff — SELF_ANALYSIS_PROFILE (optional)
+
+If the user ran `jiko-bunseki` first, a `SELF_ANALYSIS_PROFILE` YAML may be present (in the conversation
+or at `jiko-bunseki/data/self_analysis_profile.yml`). When it exists, reuse its `work_style`,
+`wellbeing_priorities`, `preferred_company_type`, `self_pr_seeds`, and Phase-3 `career_anchors` /
+`career_theme` to skip redundant questions and to seed 自己PR / 志望動機 / 転職軸.
+
+But this skill still **owns SPI3 and Portable-Skills scoring** — do not infer those from the
+self-analysis. The self-analysis sets direction; the candidate scoring is yours. If no profile exists,
+proceed normally; consider suggesting `/jiko-bunseki` first only when the user seems unsure of direction.
+
 ## Interactive Mode (Required)
 
 This skill operates as an **interactive conversation**. You must follow these rules:

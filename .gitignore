@@ -16,10 +16,15 @@
 # Exception: Skill folders
 !/company-battlecard/
 !/hiring-manager-agent/
+!/jiko-bunseki/
 !/job-seeker-agent/
 !/kigyou-bunseki/
 !/matching-simulator/
 !/tenshoku-strategy/
+
+# jiko-bunseki writes personal self-analysis output — keep runtime output out of git
+/jiko-bunseki/data/
+/jiko-bunseki/career-docs/
 
 # data/ is gitignored — contains personal resume/profile data
 # Only the README files inside data/ are tracked

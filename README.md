@@ -1,8 +1,42 @@
-# Japan Recruit AI Agent
+<div align="center">
+
+# 🎯 Japan Recruit AI Agent
+
+**Evaluate yourself through the agency's lens — before they do.**
+
+A suite of Claude Code skills that reverse-engineer the internal matching algorithms of Japan's major
+recruitment agencies (Recruit, Persol Career…) and run the full Japanese job-change (転職) playbook —
+from self-analysis to the first day at your new job.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Skills](https://img.shields.io/badge/skills-7-blue.svg)](#agent-skills)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-skills-8A2BE2.svg)](https://claude.com/claude-code)
+[![Languages](https://img.shields.io/badge/output-KO%20%7C%20JA%20%7C%20EN-orange.svg)](#core-features)
+[![Track](https://img.shields.io/badge/track-新卒%20%2F%20中途-lightgrey.svg)](#agent-skills)
+
+**[English](#English) · [日本語](#日本語) · [한국어](#한국어)**
+
+</div>
 
 ---
 
-**[English](#English) | [日本語](#日本語) | [한국어](#한국어)**
+## 🔁 Suite Pipeline
+
+```mermaid
+flowchart LR
+    J["🧭 jiko-bunseki<br/>self-analysis"] --> S["📄 job-seeker-agent<br/>resume → CANDIDATE_PROFILE"]
+    H["📝 hiring-manager-agent<br/>JD → COMPANY_PROFILE"] --> M
+    U["🔎 kigyou-bunseki<br/>URL → 企業カルテ"] --> B
+    S --> M["📊 matching-simulator<br/>score 0–100"]
+    S --> B["⚖️ company-battlecard<br/>A vs B"]
+    U --> M
+    M --> T["🚀 tenshoku-strategy<br/>interview · 年収 · offer · 退職"]
+    B --> T
+```
+
+> **Job seeker:** `jiko-bunseki` → `job-seeker-agent` → `matching-simulator` / `company-battlecard` → `tenshoku-strategy`
+> **Hiring side:** `hiring-manager-agent` → `matching-simulator`
+> **Company research:** `kigyou-bunseki` → `company-battlecard`
 
 ---
 
@@ -15,26 +49,29 @@ A collection of AI agent skills that reverse-engineer and simulate the internal 
 
 ### Agent Skills
 
-6 agent skills, each a `SKILL.md` file in its own folder.
+7 agent skills, each a `SKILL.md` file in its own folder.
 
-**1. job-seeker-agent** — *Candidate Advisor (CA) lens*
+**1. jiko-bunseki (Self-Analysis)** — *Direction, before the resume*
+The pre-step for everything else. Runs a quantitative snapshot (24 forced-choice strength pairs → 12 strengths → 4 clusters · executing / strategic-thinking / relationship-building / influencing; 6 work-style + 4 well-being Likert items) into a scored profile, then an **optional Phase 3 depth dive** that adds the four things a quantitative test can't reach: **career anchors** (Schein), **derailers** (where each top strength turns dangerous when overused), an **energy map** ("good at" vs "wants to do"), and a one-line **career theme** (Savickas). Supports 新卒 and 中途 tracks. Outputs a `SELF_ANALYSIS_PROFILE` YAML that `job-seeker-agent` reuses to skip redundant questions and seed 自己PR / 志望動機 / 転職軸.
+
+**2. job-seeker-agent** — *Candidate Advisor (CA) lens*
 Analyzes your background. Supports **mid-career (転職) and new-graduate (新卒) tracks** (an A/B question at session start routes you). Mid-career: gap analysis → SPI3 (12 statements) → 8 Portable Skills → skill-ontology mapping → **職務経歴書 reproducibility rewrite** (担当業務 → 役割 / 工夫 / 成果 / 再現性) → **志望動機 in a forced 3-part structure** (会社理解 → 自分の経験 → 入社後貢献) with **転職軸** and the **4-WHY consistency chain** (なぜ転職 / なぜこの会社 / なぜこの職種 / なぜ今) → **audience-segmented interview prep** (カジュアル面談 / 一次 / 二次 / 技術・ケース / 最終). New-grad: 学チカ scoring + self-PR / ES. Outputs a `CANDIDATE_PROFILE` YAML.
 
-**2. hiring-manager-agent** — *Recruiting Advisor (RA) lens*
+**3. hiring-manager-agent** — *Recruiting Advisor (RA) lens*
 Models the team's top performer (hyperformer), then rewrites the JD so the agency's skill ontology matches it accurately. Designs well-being culture branding and Gakuchika / Portable-Skills interview rubrics. Outputs a `COMPANY_PROFILE` YAML.
 
-**3. matching-simulator**
+**4. matching-simulator**
 Combines CA/RA data into a final matching score and acceptance probability. Applies both the Recruit method (SPI3 + hyperformer) and the Persol method (skill-ontology semantic similarity), normalized to 0–100. Includes visa-risk simulation for non-PR foreign nationals (category mismatch, renewal timing, compounded short-tenure refund risk).
 
-**4. company-battlecard**
+**5. company-battlecard**
 Compares 2+ companies across 5 dimensions: SPI3 culture fit, skill-stack match, well-being alignment, growth trajectory, and practical factors (salary / remote / visa). Consumes the candidate's `CANDIDATE_PROFILE` for personalized scoring.
 
-**5. kigyou-bunseki (Company Analysis)**
+**6. kigyou-bunseki (Company Analysis)**
 Extracts company data from Japanese job/review-site URLs via a 3-tier pipeline (curl ➔ read_url ➔ search_web) and produces a structured **企業カルテ**. Surfaces objective metrics (salary, overtime, ratings, **中途採用比率**) and a **求人の真正性 (ghost-job legitimacy)** assessment.
 
 > ⚠️ **Unsupported from URL alone:** `jp.indeed.com` (bot-blocked) and `linkedin.com` (login). Provide a screenshot or the company name + job title.
 
-**6. tenshoku-strategy (Job-Change Strategy)**
+**7. tenshoku-strategy (Job-Change Strategy)**
 The execution playbook from "decided to leave" to "first day at the new job": 退職理由 reframing, 面接マナー (入室/着席/退室), **面接後フォロー (お礼メール)**, 年収交渉 (with a 報酬-terminology table and 業務委託 vs 正社員 comparison), **内定対応 (オファー面談 / 内定辞退 / 回答期限 / 入社日)**, 円満退職, 2025–2026 market positioning, and **選考トラッキング + rejection-pattern analysis**.
 
 ### Core Features
@@ -44,7 +81,7 @@ The execution playbook from "decided to leave" to "first day at the new job": �
 - **Fixed step sequence (Rule B)** — everyone goes through the same ordered steps; background (新卒/中途, 自社開発/SIer/SES/コンサル/スタートアップ/大企業) branches a step's *content*, never its *order*.
 - **Dual track** — mid-career & new-graduate, auto-routed.
 - **Conversational diagnosis** — 2–3 questions at a time, then STOP and wait.
-- **Cross-skill pipeline** — candidate/company data passed as YAML with no information loss.
+- **Cross-skill pipeline** — self-analysis / candidate / company data passed as YAML with no information loss.
 - **Auto-documentation** — results saved to `career-docs/`.
 - **No fabrication** — never invent STAR stories, metrics, offers, or evidence not in your input.
 
@@ -67,12 +104,19 @@ The execution playbook from "decided to leave" to "first day at the new job": �
 
 ```bash
 git clone https://github.com/younnieCutler/japan-recruit-ai-agent ~/japan-recruit-skills
-cp -r ~/japan-recruit-skills/*-agent \
-       ~/japan-recruit-skills/matching-simulator \
-       ~/japan-recruit-skills/company-battlecard \
-       ~/japan-recruit-skills/kigyou-bunseki \
-       ~/japan-recruit-skills/tenshoku-strategy \
-       ~/.claude/skills/
+
+# Copy the 7 skill folders
+cp -r ~/japan-recruit-skills/jiko-bunseki \
+      ~/japan-recruit-skills/job-seeker-agent \
+      ~/japan-recruit-skills/hiring-manager-agent \
+      ~/japan-recruit-skills/matching-simulator \
+      ~/japan-recruit-skills/company-battlecard \
+      ~/japan-recruit-skills/kigyou-bunseki \
+      ~/japan-recruit-skills/tenshoku-strategy \
+      ~/.claude/skills/
+
+# Copy shared frameworks/schemas (skills reference ../../_shared/)
+cp -r ~/japan-recruit-skills/_shared ~/.claude/_shared
 ```
 
 **Claude Desktop** (via Projects): upload the desired `SKILL.md` as Project Knowledge, then paste your resume to begin. (Or paste the full `SKILL.md` into Settings → Custom Instructions.)
@@ -80,7 +124,7 @@ cp -r ~/japan-recruit-skills/*-agent \
 ### How to Use
 
 1. Install per above.
-2. Invoke a skill (Claude Code: `/job-seeker-agent`).
+2. Invoke a skill (Claude Code: `/jiko-bunseki` to start, or `/job-seeker-agent` if your resume is ready).
 3. Provide your resume (e.g. `@resume.md`); attach a target JD to trigger Gap Analysis immediately.
 4. Answer the diagnostic questions — in any language; the skill replies in yours.
 
@@ -88,6 +132,7 @@ cp -r ~/japan-recruit-skills/*-agent \
 
 | Situation | Path |
 |-----------|------|
+| Unsure of direction (strengths / values first) | `/jiko-bunseki` ➔ `/job-seeker-agent` |
 | New-grad (学チカ → self-PR → ES) | `/job-seeker-agent` → A. 新卒 |
 | Mid-career resume analysis & reframing | `/job-seeker-agent` → B. 中途 |
 | Acceptance probability for a JD | `/job-seeker-agent` ➔ `/matching-simulator` |
@@ -99,6 +144,8 @@ cp -r ~/japan-recruit-skills/*-agent \
 
 ### Framework Basis
 
+- **Strength clusters** — 24 forced-choice pairs → 12 strengths → 4 clusters (Executing / Strategic Thinking / Relationship Building / Influencing); `jiko-bunseki`
+- **Career anchors** (Schein) & **career theme** (Savickas) — `jiko-bunseki` Phase 3 depth layer
 - **SPI3** — 12 agreement-scale statements, 4 quadrants (Creation / Result / Harmony / Order)
 - **8 Portable Skills** (MHLW / Recruit standard) — behavioral-anchor rubric, 1–5
 - **Hataraku Well-being Index** (Persol) — 4 factors (Autonomy / Social Contribution / Manager Quality / Mutual Respect)
@@ -108,7 +155,7 @@ cp -r ~/japan-recruit-skills/*-agent \
 
 ### Acknowledgements
 
-Job-change know-how informed by the public **大企業転職チャンネル【sincereed】** YouTube channel (titles/chapters only — no transcripts). Interview-prep, application-tracking, ghost-job, and follow-up patterns adapted from **career-ops** (MIT, github/santifer/career-ops), localized to the Japanese 転職 context.
+Job-change know-how informed by the public **大企業転職チャンネル【sincereed】** YouTube channel (titles/chapters only — no transcripts). Interview-prep, application-tracking, ghost-job, and follow-up patterns adapted from **career-ops** (MIT, github/santifer/career-ops), localized to the Japanese 転職 context. The `jiko-bunseki` depth layer draws on Schein's career anchors and Savickas's career-construction theory (concepts only, not a validated instrument).
 
 ### License
 
@@ -125,26 +172,29 @@ MIT License.
 
 ### Agent Skills
 
-6 つのスキル。各フォルダに `SKILL.md` として存在します。
+7 つのスキル。各フォルダに `SKILL.md` として存在します。
 
-**1. job-seeker-agent（求職者・CA視点）**
+**1. jiko-bunseki（自己分析）— 履歴書の前に「方向」を決める**
+すべての前段ステップ。定量スナップショット（強み24ペアの強制選択 → 12の強み → 4クラスター・実行/戦略思考/関係構築/影響力、仕事スタイル6項目＋ウェルビーイング4項目）をスコア化し、続いて**任意の Phase 3 深掘り**で、定量テストでは届かない4点を補う：**キャリアアンカー**（Schein）、**デレイラー**（強みが過剰使用で毒になる地点）、**エネルギーマップ**（「得意」vs「やりたい」）、一行の**キャリアテーマ**（Savickas）。新卒・中途の両トラック対応。`SELF_ANALYSIS_PROFILE` YAML を出力し、`job-seeker-agent` が再利用して重複質問を省き、自己PR／志望動機／転職軸の種にします。
+
+**2. job-seeker-agent（求職者・CA視点）**
 経歴を分析。**中途・新卒の 2 トラック**対応（開始時の A/B 質問で分岐）。中途：ギャップ分析 → SPI3（12 問）→ ポータブルスキル 8 要素 → スキルオントロジー → **職務経歴書の再現性リライト**（担当業務 → 役割／工夫／成果／再現性）→ **志望動機の 3 部構成強制**（会社理解 → 自分の経験 → 入社後貢献）＋**転職軸**＋**4-WHY 一貫性**（なぜ転職／なぜこの会社／なぜこの職種／なぜ今）→ **相手別の面接対策**（カジュアル面談／一次／二次／技術・ケース／最終）。新卒：学チカ評価＋自己PR／ES。`CANDIDATE_PROFILE` YAML を出力。
 
-**2. hiring-manager-agent（採用側・RA視点）**
+**3. hiring-manager-agent（採用側・RA視点）**
 ハイパフォーマーをモデル化し、エージェントのスキルオントロジーが正確に認識できるよう求人票を最適化。ウェルビーイングによるカルチャーブランディング、学チカ／ポータブルスキルの評価ルーブリックを設計。`COMPANY_PROFILE` YAML を出力。
 
-**3. matching-simulator**
+**4. matching-simulator**
 CA/RA 両データを統合し、マッチングスコアと合格確率を算出。リクルート方式（SPI3＋ハイパフォーマー）とパーソル方式（オントロジー意味類似度）を 0〜100 に正規化。非PR外国人のビザリスク（職種カテゴリ不一致・更新時期・短期在籍の複合返金リスク）も評価。
 
-**4. company-battlecard**
+**5. company-battlecard**
 2 社以上を 5 次元（SPI3 カルチャー適合・スキル一致・ウェルビーイング・成長性・実用条件 年収/リモート/ビザ）で比較。`CANDIDATE_PROFILE` を取り込み候補者別にスコアリング。
 
-**5. kigyou-bunseki（企業分析）**
+**6. kigyou-bunseki（企業分析）**
 日本の求人・口コミサイト URL から 3 段階パイプライン（curl ➔ read_url ➔ search_web）で企業データを抽出し、構造化「**企業カルテ**」を生成。年収・残業・評価・**中途採用比率**などの客観指標と、**求人の真正性（ゴーストジョブ判定）**を提示。
 
 > ⚠️ URL 単体で不可：`jp.indeed.com`（ボット遮断）、`linkedin.com`（ログイン必須）。スクリーンショットか企業名＋職種名を直接入力。
 
-**6. tenshoku-strategy（転職戦略）**
+**7. tenshoku-strategy（転職戦略）**
 「転職を決めてから初出社まで」の実行プレイブック：退職理由リフレーミング、面接マナー（入室/着席/退室）、**面接後フォロー（お礼メール）**、年収交渉（**報酬用語表**・業務委託 vs 正社員）、**内定対応（オファー面談／内定辞退／回答期限／入社日）**、円満退職、2025–2026 市場ポジショニング、**選考トラッキング＋不合格パターン分析**。
 
 ### 主要な特徴
@@ -175,24 +225,32 @@ CA/RA 両データを統合し、マッチングスコアと合格確率を算�
 
 ```bash
 git clone https://github.com/younnieCutler/japan-recruit-ai-agent ~/japan-recruit-skills
-cp -r ~/japan-recruit-skills/*-agent \
-       ~/japan-recruit-skills/matching-simulator \
-       ~/japan-recruit-skills/company-battlecard \
-       ~/japan-recruit-skills/kigyou-bunseki \
-       ~/japan-recruit-skills/tenshoku-strategy \
-       ~/.claude/skills/
+
+# 7 つのスキルフォルダをコピー
+cp -r ~/japan-recruit-skills/jiko-bunseki \
+      ~/japan-recruit-skills/job-seeker-agent \
+      ~/japan-recruit-skills/hiring-manager-agent \
+      ~/japan-recruit-skills/matching-simulator \
+      ~/japan-recruit-skills/company-battlecard \
+      ~/japan-recruit-skills/kigyou-bunseki \
+      ~/japan-recruit-skills/tenshoku-strategy \
+      ~/.claude/skills/
+
+# 共有フレームワーク/スキーマをコピー（各スキルは ../../_shared/ を参照）
+cp -r ~/japan-recruit-skills/_shared ~/.claude/_shared
 ```
 
 Claude Desktop は Projects に `SKILL.md` をアップロード、または設定 → カスタム指示に貼り付け。
 
 ### 使い方
 
-1. 上記でインストール。2. スキル起動（`/job-seeker-agent`）。3. 職務経歴書を渡す（求人票も添付するとギャップ分析が即実行）。4. どの言語で答えてもスキルはその言語で返答。
+1. 上記でインストール。2. スキル起動（まず `/jiko-bunseki`、職務経歴書があれば `/job-seeker-agent`）。3. 職務経歴書を渡す（求人票も添付するとギャップ分析が即実行）。4. どの言語で答えてもスキルはその言語で返答。
 
 ### 推奨ワークフロー
 
 | 状況 | パス |
 |------|------|
+| 方向性が未定（強み・価値観から） | `/jiko-bunseki` ➔ `/job-seeker-agent` |
 | 新卒（学チカ→自己PR→ES） | `/job-seeker-agent` → A. 新卒 |
 | 中途の職務経歴書分析・リフレーミング | `/job-seeker-agent` → B. 中途 |
 | 特定求人の合格確率 | `/job-seeker-agent` ➔ `/matching-simulator` |
@@ -204,6 +262,8 @@ Claude Desktop は Projects に `SKILL.md` をアップロード、または設�
 
 ### 技術・フレームワーク基盤
 
+- **強みクラスター** — 強制選択24ペア → 12の強み → 4クラスター（実行／戦略思考／関係構築／影響力）；`jiko-bunseki`
+- **キャリアアンカー**（Schein）＆**キャリアテーマ**（Savickas）— `jiko-bunseki` Phase 3 深掘り層
 - **SPI3**（12 問同意スケール、4 象限 創造/結果/調和/秩序）
 - **ポータブルスキル 8 要素**（厚労省・リクルート標準、行動基準 1–5）
 - **Hataraku Well-being Index**（パーソル、4 要素）
@@ -213,7 +273,7 @@ Claude Desktop は Projects に `SKILL.md` をアップロード、または設�
 
 ### 謝辞
 
-転職ノウハウは公開 YouTube **大企業転職チャンネル【sincereed】**（タイトル・チャプターのみ、字幕は不使用）を参考。面接対策・選考トラッキング・ゴーストジョブ・フォローアップの枠組みは **career-ops**（MIT, github/santifer/career-ops）を日本の転職文脈にローカライズして採用。
+転職ノウハウは公開 YouTube **大企業転職チャンネル【sincereed】**（タイトル・チャプターのみ、字幕は不使用）を参考。面接対策・選考トラッキング・ゴーストジョブ・フォローアップの枠組みは **career-ops**（MIT, github/santifer/career-ops）を日本の転職文脈にローカライズして採用。`jiko-bunseki` の深掘り層は Schein のキャリアアンカー、Savickas のキャリア構成理論を参考（概念のみ・検証済み測定器ではない）。
 
 ### ライセンス
 
@@ -230,26 +290,29 @@ MIT License.
 
 ### Agent Skills
 
-6개 스킬, 각 폴더에 `SKILL.md`로 존재.
+7개 스킬, 각 폴더에 `SKILL.md`로 존재.
 
-**1. job-seeker-agent (구직자·CA 시점)**
+**1. jiko-bunseki (자기분석) — 이력서 전에 '방향'을 정한다**
+모든 단계의 전(前)단계. 정량 스냅샷(강점 24쌍 강제선택 → 12강점 → 4클러스터·실행/전략사고/관계구축/영향력, 업무스타일 6 + 웰빙 4 리커트)을 점수화하고, 이어 **선택적 Phase 3 심층**에서 정량 테스트가 못 잡는 4가지를 보강: **커리어 앵커**(Schein), **디레일러**(강점이 과사용으로 독이 되는 지점), **에너지 맵**("잘하는 일" vs "하고 싶은 일"), 한 줄 **커리어 테마**(Savickas). 신졸·중도 양 트랙 지원. `SELF_ANALYSIS_PROFILE` YAML을 출력하고, `job-seeker-agent`가 이를 재사용해 중복 질문을 줄이고 自己PR/志望動機/転職軸의 씨앗으로 삼습니다.
+
+**2. job-seeker-agent (구직자·CA 시점)**
 경력 분석. **중도·신졸 2트랙** 지원(시작 A/B 질문 분기). 중도: 갭분석 → SPI3(12문항) → 포터블 스킬 8요소 → 스킬 온톨로지 → **職務経歴書 재현성 리라이트**(担当業務 → 역할/工夫/성과/재현성) → **志望動機 3단 구조 강제**(会社理解 → 自分の経験 → 入社後貢献) + **転職軸** + **4-WHY 일관성**(왜 전직/왜 이 회사/왜 이 직종/왜 지금) → **상대별 면접 대비**(カジュアル面談/一次/二次/기술·케이스/最終). 신졸: 가쿠치카 평가 + 자기PR/ES. `CANDIDATE_PROFILE` YAML 출력.
 
-**2. hiring-manager-agent (채용측·RA 시점)**
+**3. hiring-manager-agent (채용측·RA 시점)**
 하이퍼포머 모델링 후, 에이전시 스킬 온톨로지가 정확히 인식하도록 구인표 최적화. 웰빙 컬처 브랜딩, 가쿠치카/포터블 스킬 평가 루브릭 설계. `COMPANY_PROFILE` YAML 출력.
 
-**3. matching-simulator**
+**4. matching-simulator**
 CA/RA 데이터 통합으로 매칭 스코어·합격 확률 산출. 리쿠르트 방식(SPI3+하이퍼포머)과 파솔 방식(온톨로지 의미 유사도)을 0~100 정규화. 비PR 외국인 비자 리스크(직종 불일치·갱신 시기·단기 재직 복합 환불 리스크) 평가.
 
-**4. company-battlecard**
+**5. company-battlecard**
 2개 이상 기업을 5차원(SPI3 문화적합·스킬매칭·웰빙·성장성·실용조건 연봉/리모트/비자)으로 비교. `CANDIDATE_PROFILE`을 받아 후보자 맞춤 스코어링.
 
-**5. kigyou-bunseki (기업 분석)**
+**6. kigyou-bunseki (기업 분석)**
 일본 구직/리뷰 사이트 URL을 3단계 파이프라인(curl ➔ read_url ➔ search_web)으로 추출해 구조화 「**企業カルテ**」 생성. 연봉·잔업·평점·**中途採用比率** 등 객관 지표와 **求人の真正性(유령 채용 판정)** 제시.
 
 > ⚠️ URL만으로 불가: `jp.indeed.com`(봇 차단), `linkedin.com`(로그인). 스크린샷이나 회사명+직종명 직접 입력.
 
-**6. tenshoku-strategy (이직 전략)**
+**7. tenshoku-strategy (이직 전략)**
 "이직 결심부터 첫 출근까지"의 실행 플레이북: 退職理由 리프레이밍, 面接マナー(입실/착석/퇴실), **面接後フォロー(お礼メール)**, 年収交渉(**報酬 용어표**·業務委託 vs 正社員), **内定対応(オファー面談/内定辞退/回答期限/入社日)**, 円満退職, 2025–2026 시장 포지셔닝, **選考トラッキング + 거절 패턴 분석**.
 
 ### 핵심 특징
@@ -280,24 +343,32 @@ CA/RA 데이터 통합으로 매칭 스코어·합격 확률 산출. 리쿠르�
 
 ```bash
 git clone https://github.com/younnieCutler/japan-recruit-ai-agent ~/japan-recruit-skills
-cp -r ~/japan-recruit-skills/*-agent \
-       ~/japan-recruit-skills/matching-simulator \
-       ~/japan-recruit-skills/company-battlecard \
-       ~/japan-recruit-skills/kigyou-bunseki \
-       ~/japan-recruit-skills/tenshoku-strategy \
-       ~/.claude/skills/
+
+# 7개 스킬 폴더 복사
+cp -r ~/japan-recruit-skills/jiko-bunseki \
+      ~/japan-recruit-skills/job-seeker-agent \
+      ~/japan-recruit-skills/hiring-manager-agent \
+      ~/japan-recruit-skills/matching-simulator \
+      ~/japan-recruit-skills/company-battlecard \
+      ~/japan-recruit-skills/kigyou-bunseki \
+      ~/japan-recruit-skills/tenshoku-strategy \
+      ~/.claude/skills/
+
+# 공유 프레임워크/스키마 복사 (각 스킬은 ../../_shared/ 참조)
+cp -r ~/japan-recruit-skills/_shared ~/.claude/_shared
 ```
 
 Claude Desktop은 Projects에 `SKILL.md` 업로드, 또는 설정 → 커스텀 지침에 붙여넣기.
 
 ### 사용법
 
-1. 위 설치. 2. 스킬 호출(`/job-seeker-agent`). 3. 이력서 전달(타겟 JD 첨부 시 갭분석 즉시). 4. 어떤 언어로 답하든 스킬은 그 언어로 응답.
+1. 위 설치. 2. 스킬 호출(먼저 `/jiko-bunseki`, 이력서가 있으면 `/job-seeker-agent`). 3. 이력서 전달(타겟 JD 첨부 시 갭분석 즉시). 4. 어떤 언어로 답하든 스킬은 그 언어로 응답.
 
 ### 추천 워크플로우
 
 | 상황 | 경로 |
 |------|------|
+| 방향이 막막(강점·가치관부터) | `/jiko-bunseki` ➔ `/job-seeker-agent` |
 | 신졸(가쿠치카→자기PR→ES) | `/job-seeker-agent` → A. 신졸 |
 | 중도 경력기술서 분석·리프레이밍 | `/job-seeker-agent` → B. 중도 |
 | 특정 공고 합격 확률 | `/job-seeker-agent` ➔ `/matching-simulator` |
@@ -309,6 +380,8 @@ Claude Desktop은 Projects에 `SKILL.md` 업로드, 또는 설정 → 커스텀 
 
 ### 프레임워크 기반
 
+- **강점 클러스터** — 강제선택 24쌍 → 12강점 → 4클러스터(실행/전략사고/관계구축/영향력); `jiko-bunseki`
+- **커리어 앵커**(Schein) & **커리어 테마**(Savickas) — `jiko-bunseki` Phase 3 심층 레이어
 - **SPI3**(12문항 동의 척도, 4사분면 창조/성과/조화/질서)
 - **포터블 스킬 8요소**(후생노동성·리쿠르트 표준, 행동 기준 1–5)
 - **Hataraku Well-being Index**(파솔, 4요소)
@@ -318,7 +391,7 @@ Claude Desktop은 Projects에 `SKILL.md` 업로드, 또는 설정 → 커스텀 
 
 ### 감사의 말
 
-전직 노하우는 공개 유튜브 **大企業転職チャンネル【sincereed】**(제목·챕터만, 자막 미사용)을 참고. 면접 대비·선고 트래킹·유령 채용·후속 연락 프레임워크는 **career-ops**(MIT, github/santifer/career-ops)를 일본 전직 맥락으로 로컬라이즈해 채용.
+전직 노하우는 공개 유튜브 **大企業転職チャンネル【sincereed】**(제목·챕터만, 자막 미사용)을 참고. 면접 대비·선고 트래킹·유령 채용·후속 연락 프레임워크는 **career-ops**(MIT, github/santifer/career-ops)를 일본 전직 맥락으로 로컬라이즈해 채용. `jiko-bunseki` 심층 레이어는 Schein의 커리어 앵커, Savickas의 커리어 구성 이론을 참고(개념만, 검증된 측정 도구 아님).
 
 ### 라이선스
 

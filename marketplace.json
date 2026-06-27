@@ -1,9 +1,10 @@
 {
   "name": "Japan Recruit AI Agent Skills",
-  "description": "Reverse-engineer Japanese recruitment agency matching algorithms. Simulate the internal scoring logic of Recruit and Persol Career to evaluate candidates and companies from an agency's perspective, then execute the full job-change playbook (resume, interview, negotiation, offer handling, resignation, application tracking).",
+  "description": "Reverse-engineer Japanese recruitment agency matching algorithms. Start with self-analysis (strengths, work style, career anchors), simulate the internal scoring logic of Recruit and Persol Career to evaluate candidates and companies from an agency's perspective, then execute the full job-change playbook (resume, interview, negotiation, offer handling, resignation, application tracking).",
   "skills": [
     "company-battlecard",
     "hiring-manager-agent",
+    "jiko-bunseki",
     "job-seeker-agent",
     "kigyou-bunseki",
     "matching-simulator",
@@ -11,5 +12,5 @@
   ],
   "author": "younnieCutler",
   "license": "MIT",
-  "tags": ["japan", "job-search", "recruitment", "career", "matching", "tenshoku"]
+  "tags": ["japan", "job-search", "recruitment", "career", "matching", "tenshoku", "self-analysis"]
 }

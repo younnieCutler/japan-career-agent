@@ -2,11 +2,61 @@
 # Single source of truth for inter-skill YAML data formats.
 #
 # When modifying a schema here, update all skills that produce or consume it:
+#   SELF_ANALYSIS_PROFILE: jiko-bunseki (producer), job-seeker-agent (consumer)
 #   CANDIDATE_PROFILE: job-seeker-agent (producer), matching-simulator / company-battlecard / tenshoku-strategy (consumers)
 #   COMPANY_PROFILE:   hiring-manager-agent / kigyou-bunseki (producers), matching-simulator / company-battlecard (consumers)
 #   MATCH_HISTORY:     matching-simulator (producer)
 
-schema_version: "1.1"
+schema_version: "1.2"
+
+# ─────────────────────────────────────────────
+# SELF_ANALYSIS_PROFILE
+# Produced by: jiko-bunseki (Phase 2; Phase 3 fields stay null until the depth-dive runs)
+# Consumed by: job-seeker-agent (reuses values/preferences; still owns SPI3 + scoring)
+# Pipeline position: runs BEFORE job-seeker-agent for direction-setting.
+# ─────────────────────────────────────────────
+self_analysis_profile:
+  required:
+    - candidate_name       # string
+    - language_preference  # string: "ko" | "ja"
+    - track                # string: "shinsotsu" | "chuto"
+    - top_strengths        # list of objects: see top_strength_schema
+    - strength_clusters    # object: see strength_cluster_schema
+    - work_style           # object: see self_work_style_schema
+    - wellbeing_priorities # object: same structure as wellbeing_schema (1–5)
+
+  optional:
+    - preferred_company_type     # string: "SIer" | "self-developed startup" | "large enterprise" | null
+    - preferred_role_environment # list of strings (e.g., "high-autonomy", "fast-feedback")
+    - recommended_role_clusters  # list of strings
+    - risk_flags                 # list of strings (evidence-based only; omit if none)
+    - self_pr_seeds              # list of strings: reusable in self-PR / interview
+    # --- Phase 3 depth layer (null until Phase 3 runs) ---
+    - career_anchors    # object: { primary: string, secondary: list, will_not_give_up: string } | null
+    - derailers         # list of objects: { strength, overuse_risk, watch_signal } | null
+    - energy_map        # object: { energizes: list, drains: list, misfit_flag: string|null } | null
+    - career_theme      # string: one line connecting past to future | null
+
+top_strength_schema:
+  - name:    "string: strength id (e.g., 'ownership', 'analysis')"
+    score:   "integer 0–16"
+    cluster: "string: executing | strategic_thinking | relationship_building | influencing"
+
+strength_cluster_schema:
+  # All values: integer 0–100 (normalized)
+  executing:              ~
+  strategic_thinking:     ~
+  relationship_building:  ~
+  influencing:            ~
+
+self_work_style_schema:
+  # All values: integer 1–5
+  autonomy:                 ~
+  structure_preference:     ~
+  speed_preference:         ~
+  change_tolerance:         ~
+  collaboration_preference: ~
+  feedback_frequency:       ~
 
 # ─────────────────────────────────────────────
 # CANDIDATE_PROFILE
