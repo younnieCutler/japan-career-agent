@@ -4,7 +4,7 @@ description: >
   Simulates the matching algorithm of Japanese recruitment agencies (Recruit, Persol Career/doda).
   Takes candidate and company profiles as input, calculates matching scores from both
   RA/CA dual perspectives, and generates an analysis report with a numerical score (0–100).
-  Simulates both Recruit-style (SPI3 + Hyperformer Model) and
+  Simulates both Recruit-style (SPI3 personality fit + behavioral signal approximation) and
   Persol Career-style (Skill Ontology + Semantic Similarity) matching.
 
   Use this skill when:
@@ -142,14 +142,14 @@ Every score component must cite its source. Do not invent skill levels.
 - If no data exists for a required skill, set `S_i = 0` and note: `[no evidence]`
 
 ```
-M_total = Σ(S_i × w_i) + α × P_fit + β × H_model
+M_total = Σ(S_i × w_i) + α × P_fit + β × B_behavioral
 ```
 
 Process:
 1. Extract required skills from JD, set importance weight (w_i) 0~1 for each
 2. Evaluate candidate's skill level per skill 0~100 (S_i)
 3. Calculate SPI3 fit (P_fit): alignment between company's primary quadrant and candidate's dominant quadrant
-4. Calculate Hyperformer model similarity (H_model): Portable Skills pattern alignment
+4. Estimate behavioral signal score (B_behavioral): approximates Recruit's CTR/collaborative filtering on browse/application history (use 50 as neutral default if no behavioral data available)
 5. Default α=0.3, β=0.2 for composite score
 
 #### 2-2. Persol Career-style Matching
@@ -157,6 +157,8 @@ Process:
 ```
 M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable
 ```
+
+*(Approximation — actual doda セカンドマッチ uses supervised ML trained on 選考通過実績, with BERT skill extraction from 職務経歴書. Cosine similarity approximates the "match similar capability vectors" goal.)*
 
 Process:
 1. Map candidate skills to ontology higher-order capabilities → generate capability vector

@@ -118,47 +118,26 @@ Because each quadrant is rated independently, a person can score high in multipl
 
 ---
 
-## 2. Portable Skills: 8 Core Elements
+## 2. Portable Skills: 9 Elements (MHLW Official)
 
-A framework defined by Persol Career Research Institute, also used in the Japanese Ministry of Health, Labour and Welfare's career transition tools.
-Classifies universal competencies that remain transferable across job types and industries into 8 elements.
+A framework published by the Japanese Ministry of Health, Labour and Welfare (厚生労働省) and used in Persol Career's career transition evaluation. Classifies universal competencies transferable across job types and industries into 9 elements across 2 domains.
 
-### 3 Domains × 8 Elements
+> Source: MHLW official Portable Skills definition (厚生労働省 2023, mhlw.go.jp/content/11800000/000935264.pdf). Persol Career Research Institute may use a proprietary variant; this follows the MHLW standard.
 
-**Task Competency** — Ability to identify and solve problems
-1. **Analytical Thinking (分析力)**: Ability to grasp cause-and-effect relationships and structure complex situations
-   - Evaluation points: Data-based root cause analysis, speed of identifying core issues, structuring complex situations
-   - STAR interview question: "Tell me about a time you analyzed a complex problem and solved it."
+### 2 Domains × 9 Elements
 
-2. **Planning Ability (計画力)**: Ability to design meticulous processes for achieving goals
-   - Evaluation points: Milestone setting, resource allocation, risk anticipation
-   - STAR interview question: "Tell me about a time you achieved a goal with limited time/resources."
+**仕事のし方 (5 elements — how you do work)**
+1. **現状の把握**: Continuously collect and evaluate/analyze information about the current situation
+2. **課題の設定**: Set improvement/solution strategies based on own problem awareness
+3. **計画の立案**: Design effective scenarios toward goals; create concrete action plans
+4. **課題の遂行**: Commit to growth/goal achievement; meet deadlines; execute reliably
+5. **状況への対応**: Adapt flexibly to any change in circumstances
 
-3. **Drive (推進力)**: Ability to mobilize an organization toward goals and produce results
-   - Evaluation points: Execution speed, overcoming obstacles, proactive action
-   - STAR interview question: "Have you ever pushed forward despite opposition from others?"
-
-4. **Reform Mindset (変革力)**: Ability to question existing approaches and drive improvements
-   - Evaluation points: Problem awareness about the status quo, frequency of improvement proposals, change adaptability
-   - STAR interview question: "Tell me about a time you changed an existing approach to produce better results."
-
-**People Competency** — Ability demonstrated in relationships with others
-5. **Agility (機動力)**: Speed of reacting to situational changes and moving to action
-   - Evaluation points: Speed of reprioritization, judgment in uncertain situations
-   - STAR interview question: "Tell me about a time you responded to a sudden change in circumstances."
-
-6. **Negotiation (交渉力)**: Skill to coordinate among stakeholders and reach consensus
-   - Evaluation points: Win-Win resolution, interest alignment, persuasion logic
-   - STAR interview question: "Tell me about a time you coordinated between people with different positions."
-
-7. **Coaching (コーチング力)**: Ability to support team members' growth and motivate them
-   - Evaluation points: Supporting junior/colleague growth, feedback style, delegation ability
-   - STAR interview question: "Have you helped someone else grow?"
-
-**Self-Management Competency** — Ability to manage oneself
-8. **Emotional Regulation (感情制御)**: Self-control to maintain composure under pressure
-   - Evaluation points: Performance under stress, frequency of emotional reactions
-   - STAR interview question: "Tell me about a time you delivered results under significant pressure."
+**人との関わり方 (4 elements — how you engage with people)**
+6. **社内対応**: Coordinate with internal stakeholders with different values/interests; reach consensus
+7. **社外対応**: Coordinate with external stakeholders (clients, partners); reach consensus
+8. **上司対応**: Report upward; provide opinion/proposals to superiors
+9. **部下マネジメント**: Understand subordinates' strengths, assign work, develop/coach
 
 ### Portable Skills Scoring Criteria
 
@@ -166,61 +145,68 @@ Each element is rated 1–5 based on STAR analysis of the resume/career history.
 
 **Scoring rule:** Score at the **highest level where ALL conditions are met**. When in doubt between two levels, score the lower one (conservatism bias). Never score 4 or 5 without a concrete STAR example as evidence.
 
-#### Analytical Thinking (分析力)
+#### 現状の把握 (Situation Assessment)
 | Score | Evidence Required |
 |-------|-----------------|
 | 1 | Describes what happened, not why. No causal reasoning present. |
 | 3 | Identified primary cause using available data. Structured problem into 2–3 factors. Presented findings to someone. |
 | 5 | Built multi-variable causal model. Identified non-obvious root cause. Designed new data collection approach. Findings changed a decision or process. |
 
-#### Planning (計画力)
-| Score | Evidence Required |
-|-------|-----------------|
-| 1 | No milestone setting. Works task-by-task. Missed deadlines without early warning. |
-| 3 | Set milestones for own work. Flagged a risk in advance. Delivered within scope despite one unexpected change. |
-| 5 | Managed multi-team dependencies. Allocated buffer proactively. Plan survived 2+ unexpected changes. Others relied on the plan. |
-
-#### Drive (推進力)
-| Score | Evidence Required |
-|-------|-----------------|
-| 1 | Waits for instruction. Does not act without explicit approval. |
-| 3 | Initiated action within own scope. Escalated blockers. Saw task to completion despite one obstacle. |
-| 5 | Drove cross-team initiative. Navigated stakeholder resistance. Delivered despite 3+ blocking obstacles. Changed org-level behavior as a result. |
-
-#### Reform Mindset / Innovation (変革力)
+#### 課題の設定 (Problem Setting)
 | Score | Evidence Required |
 |-------|-----------------|
 | 1 | Follows existing process without questioning. Avoids change. |
 | 3 | Proposed improvement to own workflow. Implemented change with manager support. Others adopted the change. |
 | 5 | Redesigned a process affecting other teams. Built buy-in for major change independently. Change persisted after departure. |
 
-#### Agility (機動力)
+#### 計画の立案 (Planning)
+| Score | Evidence Required |
+|-------|-----------------|
+| 1 | No milestone setting. Works task-by-task. Missed deadlines without early warning. |
+| 3 | Set milestones for own work. Flagged a risk in advance. Delivered within scope despite one unexpected change. |
+| 5 | Managed multi-team dependencies. Allocated buffer proactively. Plan survived 2+ unexpected changes. Others relied on the plan. |
+
+#### 課題の遂行 (Task Execution)
+| Score | Evidence Required |
+|-------|-----------------|
+| 1 | Waits for instruction. Does not act without explicit approval. |
+| 3 | Initiated action within own scope. Escalated blockers. Saw task to completion despite one obstacle. |
+| 5 | Drove cross-team initiative. Navigated stakeholder resistance. Delivered despite 3+ blocking obstacles. Changed org-level behavior as a result. |
+
+#### 状況への対応 (Situational Agility)
 | Score | Evidence Required |
 |-------|-----------------|
 | 1 | Struggles to reprioritize. Needs significant lead time to absorb change. |
 | 3 | Reprioritized within same day. Delivered acceptable output under new constraints. |
 | 5 | Delivered high-quality output under sudden full-scope change. Kept team calm and aligned through the pivot. |
 
-#### Negotiation (交渉力)
+#### 社内対応 (Internal Coordination)
 | Score | Evidence Required |
 |-------|-----------------|
-| 1 | Avoids disagreement. Accepts others' position without pushback. |
-| 3 | Stated own position clearly. Found a compromise meeting core needs of both parties. |
-| 5 | Resolved conflict between parties with fundamentally different goals. Created win-win through interest reframing. |
+| 1 | Avoids disagreement with internal stakeholders. Accepts others' position without pushback. |
+| 3 | Stated own position clearly. Found a compromise meeting core needs of both parties within the organization. |
+| 5 | Resolved cross-department conflict between parties with fundamentally different goals. Created win-win through interest reframing. |
 
-#### Coaching (コーチング力)
+#### 社外対応 (External Coordination)
+| Score | Evidence Required |
+|-------|-----------------|
+| 1 | Avoids conflict with clients or partners. Takes instructions without negotiating scope or terms. |
+| 3 | Negotiated a change in client scope or timeline. Found a mutually acceptable outcome. |
+| 5 | Managed a difficult client escalation or partnership conflict to a win-win resolution. Relationship preserved or strengthened. |
+
+#### 上司対応 (Upward Communication)
+| Score | Evidence Required |
+|-------|-----------------|
+| 1 | Reports only when asked. Never pushes back or proposes alternatives to superiors. |
+| 3 | Proactively flagged a risk or proposed an alternative to a superior. Received receptive response. |
+| 5 | Influenced a senior decision through data-backed proposal. Changed the direction of a project or strategy through upward communication. |
+
+#### 部下マネジメント (Subordinate Management)
 | Score | Evidence Required |
 |-------|-----------------|
 | 1 | No experience developing others. Works independently only. |
 | 3 | Onboarded or mentored at least one junior. Gave actionable feedback. Junior made visible progress. |
 | 5 | Developed multiple team members to next skill level. Built a team learning system (docs, structured reviews, 1:1s). |
-
-#### Emotional Regulation (感情制御)
-| Score | Evidence Required |
-|-------|-----------------|
-| 1 | Visible emotional reactions under pressure. Performance dropped significantly in a high-stress situation. |
-| 3 | Maintained composure under moderate stress. Recognized triggers. Recovered and delivered within the same day. |
-| 5 | Steady performance under severe or sustained pressure. Modeled composure for the team. Zero incidents of destabilizing behavior. |
 
 ---
 
@@ -314,22 +300,24 @@ Quantifies a student's qualitative experiences across 4 categories.
 ### Recruit Style (Weighted Sum Model)
 
 ```
-M_total = Σ(S_i × w_i) + α × P_fit + β × H_model
+M_total = Σ(S_i × w_i) + α × P_fit + β × B_behavioral
 ```
 
 - S_i: Individual skill stack score (0–100)
 - w_i: Skill importance weight for the role (0–1, sum = 1)
-- P_fit: SPI3 latent competency fit (0–100)
-- H_model: High-performer model similarity (0–100)
-- α: Latent competency weight (default 0.3)
-- β: High-performer similarity weight (default 0.2)
+- P_fit: SPI3 personality fit — alignment between candidate's dominant quadrant and role's primary quadrant (0–100)
+- B_behavioral: Behavioral signal score — approximates Recruit's CTR/collaborative filtering on browse/application history (0–100)
+- α: Personality fit weight (default 0.3)
+- β: Behavioral signal weight (default 0.2)
+
+> **Evidence note:** The actual Recruit Agent/リクナビNEXT system uses CTR prediction + collaborative filtering on behavioral data (browse history, 「気になる」clicks, application history) — not a direct SPI3-quadrant weighted sum. The formula above is a useful approximation for self-evaluation. α=0.3, β=0.2 are simulation defaults, not Recruit's actual weights. SPI3 is a separate product sold by Recruit Management Solutions; its real-time integration into リクナビNEXT matching is not publicly confirmed. Source: Recruit Data Blog 2021 ML competition description + リクナビNEXT privacy policy.
 
 **Normalization (required — keeps output in 0–100 range):**
 
 Without normalization, M_raw can exceed 100 (max = 100 + 30 + 20 = 150). Always divide by (1 + α + β):
 
 ```
-M_total = (Σ(S_i × w_i) + α × P_fit + β × H_model) / (1 + α + β)
+M_total = (Σ(S_i × w_i) + α × P_fit + β × B_behavioral) / (1 + α + β)
 ```
 
 With defaults (α=0.3, β=0.2): `M_total = M_raw / 1.5`
@@ -344,7 +332,7 @@ With defaults (α=0.3, β=0.2): `M_total = M_raw / 1.5`
 | **Σ(S_i × w_i)** | | **1.0** | **63.0** |
 
 P_fit (SPI3 Order+Creation vs. role primary Order) = 75
-H_model (Portable Skills pattern similarity) = 60
+B_behavioral (estimated behavioral signal from application/browse history) = 60
 
 M_raw = 63.0 + (0.3 × 75) + (0.2 × 60) = 63 + 22.5 + 12 = **97.5**
 M_total = 97.5 / 1.5 = **65 → C Match**
@@ -359,6 +347,8 @@ M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable
 - V_job: Job requirement skill vector
 - cos(): Cosine similarity (0–1)
 - Bonus_transferable: Transferable skill bonus (0–20)
+
+> **Evidence note:** doda's actual セカンドマッチ system (3rd-generation, ~2020) uses supervised ML trained on 選考通過実績 (historical screening outcomes), with BERT extracting skill tags from 職務経歴書 as input features. The cosine similarity formula above is a useful academic approximation of the "match similar skill vectors" goal, but not the exact implementation. The system also models bidirectionality: both "will the candidate be interested" AND "will the company select this candidate." Source: Persol techtekt engineering blog (techtekt.persol-career.co.jp).
 
 ### Overall Score Interpretation
 

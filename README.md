@@ -4,8 +4,8 @@
 
 **Evaluate yourself through the agency's lens — before they do.**
 
-A suite of Claude Code skills that reverse-engineer the internal matching algorithms of Japan's major
-recruitment agencies (Recruit, Persol Career…) and run the full Japanese job-change (転職) playbook —
+A suite of Claude Code skills that simulate the matching logic of Japan's major
+recruitment agencies (Recruit, Persol Career…) using publicly available frameworks — and run the full Japanese job-change (転職) playbook
 from self-analysis to the first day at your new job.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
@@ -43,7 +43,7 @@ flowchart LR
 <a name="English"></a>
 ## English
 
-A collection of AI agent skills that reverse-engineer and simulate the internal matching algorithms of major Japanese recruitment agencies (Recruit, Persol Career, etc.) — and then execute the full Japanese job-change (転職) playbook end to end.
+A collection of AI agent skills that simulate the matching logic of major Japanese recruitment agencies (Recruit, Persol Career, etc.) using publicly available frameworks (SPI3, Portable Skills, Skill Ontology) — and then execute the full Japanese job-change (転職) playbook end to end.
 
 > **Evaluate yourself through the agency's lens — before they do.**
 
@@ -166,7 +166,7 @@ MIT License.
 <a name="日本語"></a>
 ## 日本語
 
-日本の転職市場で、大手エージェント（リクルート、パーソルキャリア等）の内部マッチングアルゴリズムをリバースエンジニアリングしてシミュレートし、さらに転職の実行プレイブックを最初から最後まで提供する AI エージェントスキル集です。
+日本の転職市場で、大手エージェント（リクルート、パーソルキャリア等）のマッチングロジックを公開フレームワーク（SPI3・ポータブルスキル・スキルオントロジー）に基づきシミュレートし、さらに転職の実行プレイブックを最初から最後まで提供する AI エージェントスキル集です。
 
 > **エージェントが自分を評価する前に、エージェントの視点で自分を評価する。**
 
@@ -284,7 +284,7 @@ MIT License.
 <a name="한국어"></a>
 ## 한국어
 
-일본 전직 시장에서 대형 에이전트(리쿠르트, 파솔커리어 등)의 내부 매칭 알고리즘을 리버스 엔지니어링해 시뮬레이션하고, 나아가 전직 실행 플레이북을 처음부터 끝까지 제공하는 AI 에이전트 스킬 모음입니다.
+일본 전직 시장에서 대형 에이전트(리쿠르트, 파솔커리어 등)의 매칭 로직을 공개 프레임워크(SPI3, 포터블 스킬, 스킬 온톨로지)로 시뮬레이션하고, 나아가 전직 실행 플레이북을 처음부터 끝까지 제공하는 AI 에이전트 스킬 모음입니다.
 
 > **에이전시가 나를 평가하기 전에, 에이전시의 시선으로 나를 먼저 평가하세요.**
 
