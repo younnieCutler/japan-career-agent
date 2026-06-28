@@ -2,22 +2,17 @@
 name: matching-simulator
 description: >
   Simulates the matching algorithm of Japanese recruitment agencies (Recruit, Persol Career/doda).
-  Takes candidate and company profiles as input, calculates matching scores from both
-  RA/CA dual perspectives, and generates an analysis report with a numerical score (0–100).
-  Simulates both Recruit-style (SPI3 personality fit + behavioral signal approximation) and
-  Persol Career-style (Skill Ontology + Semantic Similarity) matching.
+  Takes candidate and company profiles as input, calculates matching scores from both RA/CA
+  dual perspectives, and generates an analysis report with a numerical score (0–100).
+  Simulates Recruit-style (SPI3 personality fit) and Persol Career-style (skill ontology +
+  semantic similarity) matching.
 
-  Use this skill when:
+  Use when:
   - Any question about match probability between a candidate and a job or company
-  - "이 JD에 붙을 수 있을까?", "この求人に合格できる?", "am I a good fit for this role?"
-  - A job seeker wants to know their screening probability for a specific JD
-  - A company or recruiter wants to evaluate a candidate's fit score
-  - "エージェントはどう評価する?", "how would an agency score this match?"
+  - "am I a good fit for this role?", "what are my chances of passing screening?"
+  - "how would an agency score this match?", "from the RA/CA perspective"
   - Combining output from job-seeker-agent (CANDIDATE_PROFILE) and hiring-manager-agent (COMPANY_PROFILE)
-  - "From the RA perspective" or "from the CA perspective" role-based analysis
-  - Any question containing keywords: 合格, 通過, マッチ, 推薦, 선발, 합격, match, fit, score, screening
-  Always activate this skill when the user is wondering whether a specific candidate and a specific
-  role/company are a good match — even if they phrase it casually or don't use the word "match."
+  Always activate when the user wonders whether a specific candidate and a specific role are a good match.
 ---
 
 # Matching Simulator — Agency Matching Simulator

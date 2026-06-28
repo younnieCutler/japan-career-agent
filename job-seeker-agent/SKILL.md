@@ -1,24 +1,20 @@
 ---
 name: job-seeker-agent
 description: >
-  Agent skill for job seekers in Japan's IT/marketing sector.
-  Analyzes resumes/work histories, conducts a quick SPI3 personality assessment (12 statements),
-  scores the 8 Portable Skills, performs skill ontology mapping, and delivers
-  resume improvement recommendations, interview prep, and career transition (skillset shift) guidance.
+  Agent skill for job seekers in Japan's IT/marketing sector. Analyzes resumes and work
+  histories, conducts a quick SPI3 personality assessment (12 statements), scores the 8
+  Portable Skills, performs skill ontology mapping, and delivers resume improvement,
+  interview prep, and career transition (skillset shift) guidance.
   Outputs a CANDIDATE_PROFILE YAML block for use with matching-simulator and company-battlecard.
 
-  Use this skill when:
-  - User shares a resume, 職務経歴書, or career history in any format
-  - "일본 이직하고 싶어", "転職したい", "I want to find a job in Japan"
-  - "내 이력서 봐줘", "履歴書を見てほしい", "review my resume"
-  - "에이전트가 나를 어떻게 평가할까?", "エージェントにどう評価される?"
-  - "자기소개서 써줘", "自己PRを書いて", "help me write a self-introduction"
-  - "면접 준비", "面接対策", "interview prep"
-  - SPI3, portable skills, skillset shift, 学チカ, 자기분석 questions
-  - Any mention of doda, Recruit, Persol Career, リクルート in a job-search context
-  - User pastes a JD and asks whether they qualify or how to apply
-  Always activate for any Japan IT/marketing job-search context — even casual questions
-  like "어떤 직종이 나한테 맞을까?" or "日本でエンジニアになれる?" trigger this skill.
+  Use when:
+  - User shares a resume or career history in any format
+  - "I want to find a job in Japan", "review my resume", "how do agencies evaluate me?"
+  - "help me write a self-introduction (自己PR)", "interview prep"
+  - SPI3, portable skills, skillset shift, Gakuchika (student activity) questions
+  - Any mention of doda, Recruit, or Persol Career in a job-search context
+  - User pastes a job description and asks whether they qualify or how to apply
+  Always activate for any Japan IT/marketing job-search context.
 ---
 
 # Job Seeker Agent — Japan IT/Marketing Career Analysis Agent

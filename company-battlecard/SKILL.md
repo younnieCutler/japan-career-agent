@@ -1,21 +1,18 @@
 ---
 name: company-battlecard
 description: >
-  Compare two (or more) companies head-to-head from a job seeker's perspective in Japan's
-  IT/marketing sector. Scores each company across SPI3 culture fit, skill stack match,
-  well-being alignment, growth trajectory, and practical factors (salary, remote, visa).
-  Outputs a structured battlecard table with a clear winner per dimension and a verdict.
+  Compare two or more companies head-to-head from a job seeker's perspective in Japan's
+  IT/marketing sector. Scores each company across skill match, SPI3 culture fit, well-being
+  alignment, growth trajectory, and practical factors (salary, remote, visa).
+  Outputs a structured battlecard table with a clear winner per dimension and a final verdict.
 
-  Use this skill when:
-  - User mentions two or more companies in a job-search context — even casually
-  - "A사 vs B사", "どっちがいい?", "which offer should I take?", "어디 지원할까?"
-  - "내가 어느 회사에 더 맞을까?", "どちらの会社が自分に合う?"
-  - User has multiple JDs or offers and seems undecided
-  - "연봉은 A가 높은데 B가 성장할 것 같아서", "A社は給与高いけどB社は成長できそう"
-  - Post-job-seeker-agent: user got their CANDIDATE_PROFILE and now needs to choose
-  - Any "help me decide between companies" question, even phrased indirectly
-  Always activate when a user names two or more companies while discussing a job search —
-  they don't need to say "compare" or "battlecard" for this skill to be the right tool.
+  Use when:
+  - User names two or more companies in a job-search context
+  - "which offer should I take?", "which company fits me better?"
+  - User has multiple job descriptions or offers and needs to decide
+  - Post-job-seeker-agent: CANDIDATE_PROFILE exists and user needs to choose between companies
+  Always activate when two or more companies are mentioned in a job-search context —
+  no need for the user to say "compare" or "battlecard" explicitly.
 ---
 
 # Company Battlecard — Japan IT/Marketing Company Comparison Agent

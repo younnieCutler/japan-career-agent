@@ -1,25 +1,23 @@
 ---
 name: tenshoku-strategy
 description: >
-  Japanese job-change (転職) execution-strategy skill. Covers 退職理由 reframing (negative → positive),
-  面接マナー (入室/着席/退室 protocol, dress, timing), 年収交渉 (timing/phrasing/counter-offer),
-  内定対応 (offer handling), 円満退職 (graceful resignation), 2025-2026 labor-market positioning,
-  and 選考トラッキング (application tracking + rejection-pattern analysis).
+  Japanese job-change (転職) execution-strategy skill. Covers resignation reason reframing
+  (negative → positive), interview manner protocol (room entry/exit, dress, timing), salary
+  negotiation, offer handling, graceful resignation, 2025-2026 labor-market positioning,
+  and application tracking with rejection-pattern analysis.
   Consumes CANDIDATE_PROFILE to output role/skill-tailored strategy.
 
-  Use this skill when:
-  - "퇴직 사유", "退職理由", "resignation reason", "why I left"
-  - "면접 매너", "面接マナー", "interview etiquette", "입실", "入室", "退室"
-  - "연봉 협상", "年収交渉", "salary negotiation", "希望年収"
-  - "원만 퇴직", "円満退職", "how to resign", "퇴직 절차", "인수인계", "引き継ぎ"
-  - "이직 시장", "転職市場", "job market trend", "2025 채용", "2026 채용"
-  - "카운터 오퍼", "counter-offer", "引き止め", "퇴직 만류"
-  - "면접 복장", "服装", "dress code", "what to wear"
-  - "오퍼 면담", "オファー面談", "offer meeting", "내정 사퇴", "内定辞退", "decline offer", "回答期限", "입사일 조정", "入社日"
-  - "면접 후", "お礼メール", "thank-you mail", "면접 후속", "面接後フォロー", "follow-up"
-  - "지원 관리", "선고 추적", "応募管理", "選考トラッキング", "application tracker", "거절 패턴", "선고 패턴 분석"
-  Activate for any question about the HOW of executing the job-change process.
-  Resume CONTENT (WHAT) and matching SCORE (WHETHER) belong to job-seeker-agent and matching-simulator respectively.
+  Use when:
+  - "why I left", resignation reason reframing
+  - Interview etiquette: room entry/exit protocol, dress code, timing
+  - Salary negotiation, counter-offer handling
+  - Offer meetings, declining an offer, adjusting the start date
+  - How to resign gracefully, handover planning
+  - Job market trends (2025-2026)
+  - Post-interview thank-you emails, follow-up cadence
+  - Application tracking, rejection pattern analysis
+  Use for HOW to execute the job-change process.
+  Resume content → job-seeker-agent. Match score → matching-simulator.
 ---
 
 # tenshoku-strategy — Japanese Job-Change Execution Strategy

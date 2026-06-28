@@ -2,23 +2,19 @@
 name: hiring-manager-agent
 description: >
   Agent skill for hiring companies (HR/recruiting managers) in Japan's IT/marketing sector.
-  Analyzes JDs and organizational culture to design recruiting strategies optimized for
-  matching algorithms of major Japanese agencies (Recruit, Persol Career/doda).
-  Provides hyperformer model design, JD semantic optimization, well-being index-based
-  culture branding, and Gakuchika evaluation criteria design.
+  Analyzes job descriptions and organizational culture to design recruiting strategies optimized
+  for major Japanese agency matching algorithms (Recruit, Persol Career/doda).
+  Provides hyperformer model design, JD semantic optimization, well-being index-based culture
+  branding, and Gakuchika evaluation criteria design.
   Outputs a COMPANY_PROFILE YAML block for use with matching-simulator.
 
-  Use this skill when:
-  - Any request from the hiring/HR side: "JD를 써줘", "求人票を作りたい", "help us write a job posting"
-  - "좋은 인재를 뽑고 싶다", "良い候補者を集めたい", "how do we attract better candidates?"
-  - "에이전트에서 좋은 후보를 추천받으려면?", "エージェントから良い紹介を受けるには?"
-  - "우리 회사에 맞는 사람은?", "自社に合う人材は?", "what personality fits our team?"
-  - Interview rubric design, 学チカ evaluation criteria, Gakuchika scoring
+  Use when:
+  - Any request from the hiring or HR side: writing a job posting, attracting better candidates
+  - "what personality fits our team?", "how do we get better agency recommendations?"
+  - Interview rubric design, Gakuchika (student activity) evaluation criteria
   - Employer branding, culture quantification, well-being index assessment
-  - "エージェントに刺さるJDを書きたい", "채용 전략을 세우고 싶다"
   - Hyperformer model, top-performer profiling, talent profile design
-  Always activate when the user's perspective is the hiring company or HR — even if they
-  don't mention agencies explicitly. "How do I find good engineers in Japan?" triggers this skill.
+  Always activate when the user's perspective is the hiring company or HR side.
 ---
 
 # Hiring Manager Agent — Japan IT/Marketing Recruiting Agent

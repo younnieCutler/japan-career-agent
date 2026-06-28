@@ -1,21 +1,19 @@
 ---
 name: kigyou-bunseki
 description: >
-  日本の求人・企業URLから企業情報を高速で抽出・分析するスキル。
-  URLから企業名・職種名を特定し、公式HPの企業理念（Mission/Vision）と採用情報を抽出して
-  構造化された「企業カルテ」を出力します。company-battlecardやmatching-simulatorへの
-  データ供給源として機能します。
+  Extracts and analyzes company information from Japanese job listing and company page URLs.
+  Identifies company name, role title, official mission/vision, and hiring requirements, then
+  outputs a structured company card (企業カルテ). Feeds data into company-battlecard and
+  matching-simulator.
 
-  Use this skill when:
+  Use when:
   - User pastes any URL that looks like a job posting or company page
-  - doda.jp, wantedly.com, openwork.jp, green-japan.com, type.jp, mynavi.jp, recruit.co.jp, etc.
-  - "이 회사 어때?", "この会社どう?", "이 링크 분석해줘", "このURL見て"
-  - "企業分析して", "기업분석", "company analysis", "会社について調べて"
-  - User sends 2+ URLs to compare companies: "비교해줘", "比較して"
+  - Supported sites: doda.jp, wantedly.com, openwork.jp, green-japan.com, mynavi.jp, etc.
+  - "analyze this company", "what do you think of this company?", "company research"
+  - User sends 2+ URLs to compare companies side-by-side
   - User is researching a company before applying or interviewing
-  - Any URL in a job-search conversation — even if the user just pastes the link with no text
-  Always activate the moment a URL appears in a job-search conversation. Do not wait for the
-  user to explicitly say "analyze this" — a bare URL paste is sufficient trigger.
+  Always activate the moment a URL appears in a job-search conversation —
+  a bare URL paste with no text is a sufficient trigger.
 ---
 
 # Kigyou Bunseki — Japan Company Analysis & Comparison Agent

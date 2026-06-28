@@ -1,14 +1,17 @@
 ---
 name: jiko-bunseki
 description: >
-  Conduct Japan job-hunting self-analysis for both shinsotsu and chuto candidates. Identify
-  work strengths, work style, wellbeing priorities, preferred company environment, and self-PR
-  seeds, then save a SELF_ANALYSIS_PROFILE YAML for downstream use by job-seeker-agent. Includes an
-  optional Phase 3 depth layer adding career anchors (Schein), derailers, energy map, and career
-  theme for a far deeper individual portrait. Use when the user asks for 자기분석, 自己分析, strengths
-  analysis, work style diagnosis, values clarification, company-type fit, career anchors, 강점/약점
-  심층 분석, "나를 더 깊이 파악", or wants to start the Japan job-search workflow before resume
-  analysis.
+  Self-analysis skill for Japan job hunting (new graduates and mid-career). Identifies work
+  strengths, work style, well-being priorities, preferred company environment, and self-PR seeds.
+  Saves a SELF_ANALYSIS_PROFILE YAML for downstream use by job-seeker-agent.
+  Includes an optional Phase 3 depth layer adding career anchors (Schein), derailers,
+  energy map, and career theme for a deeper individual portrait.
+
+  Use when:
+  - User wants self-analysis, strengths diagnosis, or work-style clarification before resume work
+  - User wants to clarify values, preferred company type, or career direction
+  - User wants to start the Japan job-search workflow from scratch (no resume yet)
+  - User asks to "understand myself more deeply" before applying anywhere
 ---
 
 # Jiko Bunseki
