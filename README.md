@@ -61,7 +61,7 @@ Analyzes your background. Supports **mid-career (転職) and new-graduate (新�
 Models the team's top performer (hyperformer), then rewrites the JD so the agency's skill ontology matches it accurately. Designs well-being culture branding and Gakuchika / Portable-Skills interview rubrics. Outputs a `COMPANY_PROFILE` YAML.
 
 **4. matching-simulator**
-Combines CA/RA data into a final matching score and acceptance probability. Applies both the Recruit method (SPI3 + hyperformer) and the Persol method (skill-ontology semantic similarity), normalized to 0–100. Includes visa-risk simulation for non-PR foreign nationals (category mismatch, renewal timing, compounded short-tenure refund risk).
+Combines CA/RA data into a final matching score and acceptance probability. Applies both the Recruit method (SPI3 + hyperformer) and the Persol method (skill-ontology semantic similarity), normalized to 0–100. Includes visa-risk simulation for non-PR foreign nationals (category mismatch, renewal timing, compounded short-tenure refund risk). Now includes three integrated layers: **posting legitimacy check** (ghost-job signals before running the simulation), **STAR+R interview story mapping** (evidence-grounded stories tied to JD requirements, with a mandatory Reflection column), and **職務経歴書 customization plan** (gap-driven rewrite suggestions with ATS keyword mirroring).
 
 **5. company-battlecard**
 Compares 2+ companies across 5 dimensions: SPI3 culture fit, skill-stack match, well-being alignment, growth trajectory, and practical factors (salary / remote / visa). Consumes the candidate's `CANDIDATE_PROFILE` for personalized scoring.

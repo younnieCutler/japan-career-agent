@@ -50,8 +50,10 @@ Detect the language of the user's latest message and respond in that language. N
 
 Every run follows the SAME ordered steps, for every user, regardless of platform. Branching changes the
 CONTENT of a step — never its ORDER or existence.
-- Always run STEP 0 (Target Platform Selection) first; it is the fixed entry point. Then STEP 1 → 2 → 3 → 4
-  (→ 5 if C-match or below).
+- Always run STEP 0 (Target Platform Selection) first; it is the fixed entry point. Then STEP 0.5 (Posting
+  Legitimacy) → STEP 1 → 2 → 3 → 4 (→ 5 if C-match or below).
+- STEP 0.5 is skipped only when the user provides no URL and no JD text (e.g., hypothetical scenario).
+  In all other cases it runs before STEP 1 — a ghost job must not consume a full simulation.
 - Branch points are fixed and explicit: STEP 0 platform — agent platforms (Recruit / doda / MyNavi / Levtech)
   run full RA + CA dual analysis in STEP 3; direct-apply platforms (Green / BizReach) replace CA with
   Hiring Manager Direct Evaluation. The branch decides *what* STEP 3 runs, not *whether* the step runs.
@@ -83,6 +85,50 @@ If the user already named a company or role strongly associated with one platfor
 Store the selected platform as `target_platform`. This variable controls the modifier tables in STEP 2 and the perspective scope in STEP 3.
 
 **Direct-apply platforms (E, F):** Green and BizReach have no CA layer. For these, STEP 3 RA analysis is replaced by "Hiring Manager Direct Evaluation" — see STEP 3 for details.
+
+---
+
+### STEP 0.5: Posting Legitimacy Check
+
+Run this before collecting any profile data. A ghost job must never consume a full simulation.
+
+**Skip condition:** User provided neither a URL nor JD text (pure hypothetical). In that case, note "legitimacy unverifiable" and proceed.
+
+#### When a URL is provided
+
+Navigate to the URL and read the page content. Classify the posting:
+
+- **Active:** Job title + real description + apply/応募 path visible → proceed to STEP 1
+- **Closed:** "No longer accepting", expired notice, redirect to generic careers/search page, 404/410 → stop here. Tell the user the posting is closed. Do not run a simulation on a dead posting.
+
+#### When only JD text is provided (no URL)
+
+Freshness cannot be verified. Note this and proceed; the description quality signals below still apply.
+
+#### Signals to assess
+
+**1. Description Quality** (from JD text):
+- Names specific technologies, frameworks, tools?
+- Mentions team size, reporting structure, or first-90-days scope?
+- Requirements realistic? (e.g., 5 years experience in a 2-year-old framework = red flag)
+- Salary range disclosed?
+- Ratio of role-specific content vs generic boilerplate?
+
+**2. Company Hiring Context** (qualitative, no search required):
+- Does the role make sense for this company's stage and business?
+- Is this a common role that fills in 4–6 weeks, or a legitimately hard-to-fill senior position?
+
+**3. Output — three tiers:**
+
+| Tier | Meaning |
+|------|---------|
+| **High Confidence** | Active URL + specific JD + no concerning signals |
+| **Proceed with Caution** | Mixed signals — worth noting before investing time |
+| **Suspicious** | Multiple ghost-job indicators — user should verify directly before applying |
+
+Present a brief signals table (signal / finding / weight: Positive / Neutral / Concerning) and the tier verdict. Then ask: "Should I continue with the simulation?" before proceeding to STEP 1.
+
+**Ethical framing (mandatory):** Present observations, not accusations. Every signal has legitimate explanations. The user decides how to weigh them.
 
 ---
 
@@ -223,6 +269,20 @@ Overall:        83/100 (B+ Match — upper tier of recommendation list)
 ━━━ Action Items ━━━
 Candidate: [pre-interview preparation]
 Company:   [points to verify in interview]
+
+━━━ Interview Stories (STAR+R) ━━━
+Map 3–5 stories from the candidate's experience to the JD's top requirements.
+One story per row. Reflection column is mandatory — it signals seniority.
+
+| # | JD Requirement | Story Title | S (Situation) | T (Task) | A (Action) | R (Result) | Reflection |
+|---|----------------|-------------|---------------|----------|------------|------------|------------|
+| 1 | [requirement]  | [1 line]    | [context]     | [goal]   | [what done]| [outcome]  | [learned / do differently] |
+
+Rules:
+- Do NOT fabricate stories. Only use experiences the candidate confirmed in this session or in CANDIDATE_PROFILE.
+- If a required story cannot be backed by actual experience, mark the cell: [no evidence — gap]
+- Reflection distinguishes senior candidates from junior ones: juniors describe what happened, seniors extract the lesson.
+- Red-flag questions: include 1–2 likely hard questions for this role (e.g., short tenure, gap, career change) with a recommended framing.
 ```
 
 ### STEP 5: Improvement Recommendations
@@ -233,6 +293,20 @@ When match score is C or below, or a large gap is found in a specific area.
 - How to address skill gaps (learning roadmap, certifications)
 - Which resume/work history points to emphasize to raise the score
 - Alternative positions with higher match using the same skill set
+
+**職務経歴書 Customization Plan** (for this specific role):
+
+Generate a table of up to 5 targeted changes to maximize the candidate's match score for this posting.
+Base changes on the skill gaps and score breakdown from STEP 2 — not on generic best practices.
+
+| # | Section | Current state | Proposed change | Why (links to gap/score) |
+|---|---------|---------------|-----------------|--------------------------|
+| 1 | Summary | ... | ... | ... |
+
+Rules:
+- Only suggest changes grounded in the candidate's actual experience. Do not invent metrics or claims.
+- "Reorder" and "reframe" are allowed. "Fabricate" is not.
+- Include 5–8 JD keywords to mirror in the 職務経歴書 for ATS compatibility.
 
 **Company-side improvements:**
 - Which JD elements are narrowing the matching range
