@@ -14,27 +14,44 @@ Korean, Japanese → Japanese, English → English; re-detect every turn. An exp
 material, not a language instruction. The onboarding/disambiguation prompts below are written in English for
 readability — render them in the user's detected language.
 
+## Output Contract (Suite-Wide Rule C, applies to all 7 skills)
+
+All artifacts are written **relative to the directory where the session was invoked (CWD)** — the same
+layout for every user on every machine:
+
+- `./career-docs/` — human-readable reports (profiles, strategies, match reports, 企業カルテ, trackers)
+- `./data/` — machine-readable state (`self_analysis_profile.yml`, `candidate_profile.yml`,
+  `company_profiles/*.yml`, `match_history.md`)
+
+Never write into the skill's install directory, and never to an absolute personal path. Create the folders
+on first use. **After every save, print the file's absolute path and verify it exists (e.g., `ls -la <path>`)**
+so the user can confirm the output on disk. If a target file already exists, ask before overwriting.
+
 ## Onboarding Check (Run Silently on Every Session Start)
 
-Before doing anything, check silently:
+Before doing anything, check silently (paths relative to CWD):
 1. Does `data/candidate_profile.yml` exist and have a non-null `candidate_name`?
 2. Does `data/company_profiles/` contain any `.yml` files?
 
-**If both are missing (first session):**
-> "Which workflow would you like to start with?
-> A) Self-analysis first (강점·업무스타일·가치관 진단, direction before resume) → `/jiko-bunseki`
-> B) Job seeker: resume / 職務経歴書 analysis → `/job-seeker-agent`
-> C) Hiring side: JD optimization → `/hiring-manager-agent`
-> D) Company research: extract company data from a URL → `/kigyou-bunseki`
-> E) Job-change strategy: 退職理由 · 面接マナー · 年収交渉 · 円満退職 · offer handling · tracking → `/tenshoku-strategy`"
+**If both are missing (first session):** ask where the user stands in the real market flow —
+
+> "Where are you in the 転職 / 就活 process right now?
+> 0) No direction yet — self-analysis first (강점·업무스타일·가치관 진단) → `/jiko-bunseki`
+> 1) Preparing documents — resume / 職務経歴書 / 履歴書 → `/job-seeker-agent`
+> 2) Researching companies — company URL → 企業カルテ, fit scoring → `/kigyou-bunseki` · `/matching-simulator`
+> 3) Applying / interviewing — 面接マナー · 面接後フォロー · 応募 tracking → `/tenshoku-strategy`
+> 4) Offer stage — オファー面談 · 年収交渉 · 内定対応 · comparing offers → `/tenshoku-strategy` · `/company-battlecard`
+> 5) Resigning — 円満退職 · 引き継ぎ · counter-offer 대응 → `/tenshoku-strategy`
+> H) Hiring side — JD optimization → `/hiring-manager-agent`"
 >
-> If the user is unsure where to begin, recommend A → B (self-analysis sets direction, then the resume work uses it).
+> If the user is unsure, recommend 0 → 1 (direction first, then documents — the order the Japanese market
+> expects: agents ask your 転職軸 in the very first CA meeting).
 
 **If `candidate_profile.yml` exists:**
 > "A saved profile exists: [candidate_name].
-> Continue from here? Recommended next steps:
+> Continue from here? Tell me which market stage you're at (書類 / 応募 / 面接 / 内定 / 退職) and I'll route:
 > - matching-simulator or company-battlecard (match / compare)
-> - tenshoku-strategy (退職理由 · 面接マナー · 年収交渉 · 円満退職 · offer handling strategy)"
+> - tenshoku-strategy (退職理由 · 面接マナー · 年収交渉 · 円満退職 · offer handling · tracking)"
 
 ---
 
@@ -85,42 +102,53 @@ When the user's message or attached content matches a pattern below, activate th
 
 ---
 
-## Recommended Pipeline Flows
+## Japan 転職 Market Flow (Suite Backbone)
+
+The suite mirrors the real Japanese mid-career hiring process. Every user moves through the same stages;
+skills are tools attached to stages. When the user asks "what should I do next?", answer from this map —
+name the stage they are at and the stage that comes next.
+
+| Stage | Market reality | Typical duration | Skill |
+|-------|---------------|------------------|-------|
+| 0. 自己分析 | Direction before documents — agents (CA) probe your 転職軸 in the first meeting | 1–2 weeks | `jiko-bunseki` |
+| 1. 書類準備 | 履歴書 + 職務経歴書; recruiters scan ~6 seconds; 書類通過率 roughly 30–50% depending on route | 1–2 weeks | `job-seeker-agent` |
+| 2. 情報収集・企業研究 | Channel choice: 転職サイト / エージェント (RA/CA) / スカウト / リファラル; research via OpenWork · 転職会議 | parallel with 1 | `kigyou-bunseki`, `matching-simulator` |
+| 3. 応募・書類選考 | Multiple parallel applications are the norm; track every one, watch rejection patterns | 1–2 weeks per company | `tenshoku-strategy` STEP 6 (tracking) |
+| 4. 面接 | カジュアル面談 → 一次 (現場) → (二次 部長級) → 最終 (役員); ~1–2 weeks per round; お礼メール within 24h | 3–6 weeks | `job-seeker-agent` STEP 4-3 (content), `tenshoku-strategy` STEP 2 / 2-2 (manner / follow-up) |
+| 5. 内定・オファー面談 | 回答期限 is typically about 1 week; 年収交渉 happens here — not during interviews | ~1 week | `tenshoku-strategy` STEP 3 / 3-2, `company-battlecard` (multiple offers) |
+| 6. 退職交渉・引き継ぎ | 民法627条 = 2 weeks minimum; practice = 1–2 months notice; counter-offer (引き止め) is expected — decide your answer before announcing | 1–2 months | `tenshoku-strategy` STEP 4 |
+| 7. 入社 | 在留資格 change if applicable; start date coordinated at the オファー面談 | — | — |
+
+Typical end-to-end: **3–6 months**. Stages 0–2 overlap; stages 3–5 run per-company in parallel.
+Durations and pass rates are market rules of thumb (wide margins) — verify current figures with your agent.
+
+**Compressed skill chains (same map, chain form):**
 
 ```
-[Full job-seeker flow]
-jiko-bunseki (self-analysis) → job-seeker-agent → tenshoku-strategy → (optional) kigyou-bunseki → matching-simulator → company-battlecard
-
-[Job-seeker flow — resume in hand already]
-job-seeker-agent → tenshoku-strategy → (optional) kigyou-bunseki → matching-simulator → company-battlecard
-
-[Job-change execution flow]
-tenshoku-strategy (standalone — 退職理由 · 面接マナー · 年収交渉 · 円満退職 work even without a profile)
-
-[After accepting an offer]
-company-battlecard (decide) → tenshoku-strategy STEP 3+4 (negotiate + resign)
-
-[Hiring-side flow]
-hiring-manager-agent → matching-simulator
-
-[Company-research flow]
-kigyou-bunseki → company-battlecard
+[Full job-seeker flow]     jiko-bunseki → job-seeker-agent → kigyou-bunseki → matching-simulator → tenshoku-strategy → company-battlecard
+[Resume already in hand]   job-seeker-agent → kigyou-bunseki → matching-simulator → tenshoku-strategy → company-battlecard
+[Execution only]           tenshoku-strategy standalone — 退職理由 · 面接マナー · 年収交渉 · 円満退職 work without a profile
+[After an offer]           company-battlecard (decide) → tenshoku-strategy STEP 3+3-2 (negotiate) → STEP 4 (resign)
+[Hiring side]              hiring-manager-agent → matching-simulator
+[Company research]         kigyou-bunseki → company-battlecard
 ```
 
 ---
 
 ## Data Persistence (Session Memory)
 
-This suite stores data between sessions in the `data/` directory:
+This suite stores data between sessions in the `data/` directory **under the invocation directory (CWD)** —
+see the Output Contract (Rule C) above:
 
 | File | Written by | Read by |
 |------|-----------|---------|
-| `jiko-bunseki/data/self_analysis_profile.yml` | jiko-bunseki (Phase 2/3) | job-seeker-agent (reuses values/preferences) |
+| `data/self_analysis_profile.yml` | jiko-bunseki (Phase 2/3) | job-seeker-agent (reuses values/preferences) |
 | `data/candidate_profile.yml` | job-seeker-agent (STEP 4) | matching-simulator, company-battlecard, tenshoku-strategy |
 | `data/company_profiles/{slug}.yml` | hiring-manager-agent, kigyou-bunseki | matching-simulator, company-battlecard |
 | `data/match_history.md` | matching-simulator | User review |
 
 When loading a profile from `data/`, tell the user which file was loaded and ask if it's still current.
+When writing any of these, follow Rule C: print the absolute path and confirm the file exists.
 
 ---
 

@@ -211,6 +211,19 @@ Always output in this exact format:
 - No "follow your heart" — the comparison is the answer.
 - If the user's top-choice company scores lower, state it plainly. Do not soften.
 
+## Document Save (Required)
+
+After outputting the battlecard, always save it to:
+
+```
+Save path: career-docs/battlecard-[companyA]-vs-[companyB]-[YYYYMMDD].md
+Contents: Full battlecard table, per-dimension justification, verdict
+```
+
+If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
+the skill's install directory. After saving, print the file's absolute path and confirm it exists
+(e.g., `ls -la <path>`) so the user can verify the output on disk.
+
 ## Reference Files
 
 This skill uses the same frameworks as the suite:

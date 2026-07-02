@@ -44,7 +44,7 @@ The numbers are the output. There is no subjective commentary.
 ## Upstream Handoff — SELF_ANALYSIS_PROFILE (optional)
 
 If the user ran `jiko-bunseki` first, a `SELF_ANALYSIS_PROFILE` YAML may be present (in the conversation
-or at `jiko-bunseki/data/self_analysis_profile.yml`). When it exists, reuse its `work_style`,
+or at `data/self_analysis_profile.yml`, CWD-relative). When it exists, reuse its `work_style`,
 `wellbeing_priorities`, `preferred_company_type`, `self_pr_seeds`, and Phase-3 `career_anchors` /
 `career_theme` to skip redundant questions and to seed 自己PR / 志望動機 / 転職軸.
 
@@ -121,7 +121,8 @@ New-graduate hiring uses completely different criteria from mid-career. Candidat
 - 自己PR and ES (Entry Sheet) generation.
 - Target company type recommendation and CANDIDATE_PROFILE YAML generation.
 
-If the `career-docs/` folder does not exist, create it at the workspace root.
+If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
+the skill's install directory. After saving, print the file's absolute path and confirm it exists.
 
 ---
 
@@ -395,8 +396,9 @@ Save path: career-docs/profile-[name]-[YYYYMMDD].md
 Contents: Gap Analysis results, SPI3 results, Portable Skills scores, resume improvements, interview prep, CANDIDATE_PROFILE YAML
 ```
 
-If the `career-docs/` folder does not exist, create it at the workspace root.
-Tell the user the path after saving.
+If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
+the skill's install directory. After saving, print the file's absolute path and confirm it exists
+(e.g., `ls -la <path>`) so the user can verify the output on disk.
 
 ---
 
@@ -406,8 +408,9 @@ After completing STEP 4 (Comprehensive Report), append a structured YAML data bl
 Do not output this block in STEP 2 or STEP 3 — only in STEP 4.
 This block allows `matching-simulator` to consume the candidate profile without re-asking questions.
 
-**Data Persistence:** After outputting the CANDIDATE_PROFILE block, also write it to `data/candidate_profile.yml`.
-If the file already exists, ask: "Overwrite the existing profile?" before overwriting.
+**Data Persistence:** After outputting the CANDIDATE_PROFILE block, also write it to `data/candidate_profile.yml`
+(CWD-relative — create `data/` in the invocation directory if missing, then print the absolute path and
+confirm the file exists). If the file already exists, ask: "Overwrite the existing profile?" before overwriting.
 This allows future sessions to skip profile re-entry.
 
 **Always output this block as the final section of STEP 4:**

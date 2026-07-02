@@ -44,11 +44,29 @@ The quantitative instrument measures what a person *can* do. It cannot reach fou
 - **Energy map** — "good at" vs "wants to do"; a strength they hate using is a trap
 - **Career theme** (Savickas) — the narrative that connects past to future
 
-For excavating a single motive that stays contradictory even after Phase 3, hand off to `naked-me`, which runs a stricter one-question-at-a-time interrogation.
+For excavating a single motive that stays contradictory even after Phase 3, hand off to `naked-me` (an external skill — only if it is installed), which runs a stricter one-question-at-a-time interrogation. If it is not installed, continue the probe inside Phase 3 instead.
 
 ## Language Rule
 
 Write this skill in English internally, but run the user session in the user's selected language.
+
+## Fixed Step Sequence (Workflow Standardization)
+
+Every run follows the SAME ordered phases, for every user. Branching changes the CONTENT of a phase —
+never its ORDER or existence.
+- Always run in order: Phase 1 (existing-profile check → language → checklist handoff, then STOP) →
+  Phase 2 (parse → score → interpret → output + save) → Phase 3 (optional depth layer, offer once) →
+  Downstream Handoff.
+- Branch points are fixed and explicit: track (新卒/中途) changes how role directions are phrased;
+  language changes the rendering. Neither reorders or skips a phase.
+- Never begin analysis before the checklist JSON arrives. Never skip the save-and-verify step.
+
+## Output Contract (Suite Rule C)
+
+All files this skill writes go **under the directory where the session was invoked (CWD)** — never under
+the skill's install directory, never to an absolute personal path. Machine state → `./data/`,
+human-readable reports → `./career-docs/`. Create the folders if missing. After every save, print the
+file's absolute path and confirm it exists (e.g., `ls -la <path>`) so the user can verify it on disk.
 
 ## Files To Load
 
@@ -280,14 +298,17 @@ If a field was not assessed, set it to `null`. The Phase 3 block stays `null` un
 
 Then:
 
-- Save the YAML to `data/self_analysis_profile.yml`. If the file already exists, ask before overwriting.
-- Save the human-readable summary:
-  - CWD가 /Documents/Jeongyun 이면: `{CWD}/04-areas/Career/Matching/self-analysis-[name]-[YYYYMMDD].md`
-  - 그 외: `{CWD}/Matching/self-analysis-[name]-[YYYYMMDD].md`
+- Save the YAML to `data/self_analysis_profile.yml` (CWD-relative, per the Output Contract).
+  If the file already exists, ask before overwriting.
+- Save the human-readable summary to `career-docs/self-analysis-[name]-[YYYYMMDD].md`.
+- After both saves, print each file's absolute path and confirm it exists (`ls -la <path>`).
 
-After saving, offer Phase 3:
+After saving, offer Phase 3 (render in the user's language):
 
-> 정량 분석은 끝났습니다. 더 깊이 들어가면 정량 점수가 못 잡는 4가지 — 절대 포기 못하는 조건(커리어 앵커), 강점이 독이 되는 지점(디레일러), 살리는 일 vs 빠는 일(에너지 맵), 과거-미래를 잇는 테마 — 를 파악할 수 있습니다. 진행할까요?
+> "The quantitative analysis is done. Going deeper captures four things the scores cannot: the one
+> condition you refuse to give up (career anchor), where your strengths turn against you (derailers),
+> work that energizes vs. drains you (energy map), and the theme connecting your past to your future.
+> Proceed?"
 
 If the user declines, go to Downstream Handoff. If yes, run Phase 3.
 
@@ -308,9 +329,10 @@ Run conversationally, one block at a time, in the user's language. This is not a
 
 After the opted-in blocks finish:
 
-1. Write a 3-5 sentence **Deep Career Portrait** (Korean) integrating quant + anchor + derailer + energy + theme.
+1. Write a 3-5 sentence **Deep Career Portrait** (in the user's language) integrating quant + anchor + derailer + energy + theme.
 2. Update the YAML `career_anchors`, `derailers`, `energy_map`, `career_theme` fields. Set skipped blocks to `null`.
-3. Re-save both the YAML and the human-readable summary, appending a `## Phase 3 — 심층 분석` section.
+3. Re-save both the YAML and the human-readable summary, appending a `## Phase 3 — Depth Analysis` section.
+   Print the absolute paths and confirm the files exist, per the Output Contract.
 
 **Cross-check obligation:** if Phase 3 surfaces a conflict with Phase 2 (e.g., anchor=자율 vs preferred_company_type=SIer, or a top strength sitting in the DRAINS column), state it plainly. These contradictions are the most valuable output — they explain why a "high-fit" job on paper still feels wrong.
 
@@ -325,7 +347,7 @@ Explain the handoff clearly:
 - `jiko-bunseki` = self-understanding and direction setting (Phase 3 adds anchors, derailers, theme)
 - `job-seeker-agent` = resume, self-PR, SPI3, portable skills, and candidate profile generation
 - `matching-simulator` = job-specific fit scoring after the candidate profile exists
-- `naked-me` = stricter single-motive excavation when a Phase 3 contradiction stays unresolved
+- `naked-me` (external, only if installed) = stricter single-motive excavation when a Phase 3 contradiction stays unresolved
 
 Phase 3 outputs feed directly downstream: derailers become evidence-based 약점 answers, the career theme becomes the spine of 自己PR and 志望動機, and anchors give `tenshoku-strategy` an honest 転職理由.
 

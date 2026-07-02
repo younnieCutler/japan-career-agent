@@ -247,7 +247,9 @@ The 企業カルテ output feeds directly into `company-battlecard`. Field mappi
 After outputting the 企業カルテ, if `data/candidate_profile.yml` exists or CANDIDATE_PROFILE is in conversation, ask:
 > "company-battlecard で候補者との適合度スコアを計算しますか？ (y/n)"
 
-Also save extracted data to `data/company_profiles/{company-name-slug}.yml` for future sessions.
+Also save extracted data to `data/company_profiles/{company-name-slug}.yml` for future sessions
+(CWD-relative — create the folder in the invocation directory if missing, print the absolute path,
+and confirm the file exists).
 
 ## Tone & Style
 
@@ -297,8 +299,9 @@ Multiple companies: career-docs/battlecard-[companyA]-vs-[companyB]-[YYYYMMDD].m
 
 Contents: Full 企業カルテ output (Mission/Vision, requirements, external ratings, data sources, missing items).
 
-If the `career-docs/` folder does not exist, create it at the workspace root.
-Tell the user the path after saving.
+If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
+the skill's install directory. After saving, print the file's absolute path and confirm it exists
+(e.g., `ls -la <path>`) so the user can verify the output on disk.
 
 ## Reference Files
 

@@ -248,7 +248,9 @@ After completing the consultation, append a structured data block at the very en
 This block allows `matching-simulator` to consume the company profile without re-asking questions.
 
 **Data Persistence:** After outputting the COMPANY_PROFILE block, also write it to
-`data/company_profiles/{company-name-slug}.yml` (e.g., `data/company_profiles/bloom-tech.yml`).
+`data/company_profiles/{company-name-slug}.yml` (e.g., `data/company_profiles/bloom-tech.yml`),
+CWD-relative — create the folder in the invocation directory if missing, never inside the skill's
+install directory. Print the absolute path and confirm the file exists so the user can verify it.
 This allows future sessions to load the company profile without re-entry.
 
 **Always output this block after the human-readable deliverables:**

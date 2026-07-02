@@ -332,6 +332,11 @@ After the relevant STEPs are done, consolidate the full strategy into a single s
 career-docs/strategy-[name]-[YYYYMMDD].md
 ```
 
+If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
+the skill's install directory. After saving, print the file's absolute path and confirm it exists
+(e.g., `ls -la <path>`) so the user can verify the output on disk. The same rule applies to the
+`career-docs/applications.md` tracker in STEP 6.
+
 ### Document structure
 ```markdown
 # 転職戦略レポート — [Name]

@@ -79,10 +79,12 @@ The execution playbook from "decided to leave" to "first day at the new job": �
 - **Score-based evaluation** — every score cites explicit evidence from your input. No praise, no guessing.
 - **Language auto-detection (Rule A)** — reply in the user's language automatically (KO / JA / EN); pasted Japanese material never forces Japanese output; domain terms (職務経歴書, 志望動機, 年収…) stay in Japanese.
 - **Fixed step sequence (Rule B)** — everyone goes through the same ordered steps; background (新卒/中途, 自社開発/SIer/SES/コンサル/スタートアップ/大企業) branches a step's *content*, never its *order*.
+- **Output contract (Rule C)** — every generated file lands under the directory you invoked the session from: reports in `./career-docs/`, machine state in `./data/`; after each save the absolute path is printed and verified on disk.
+- **Market-stage backbone** — the suite follows the real Japanese 転職 process (自己分析 → 書類 → 企業研究 → 応募 → 面接 → 内定・交渉 → 円満退職 → 入社); onboarding asks which stage you're at and routes you there.
 - **Dual track** — mid-career & new-graduate, auto-routed.
 - **Conversational diagnosis** — 2–3 questions at a time, then STOP and wait.
 - **Cross-skill pipeline** — self-analysis / candidate / company data passed as YAML with no information loss.
-- **Auto-documentation** — results saved to `career-docs/`.
+- **Auto-documentation** — results saved to `career-docs/` (in your working directory).
 - **No fabrication** — never invent STAR stories, metrics, offers, or evidence not in your input.
 
 ### Supported Platforms
@@ -198,10 +200,12 @@ CA/RA 両データを統合し、マッチングスコアと合格確率を算�
 - **スコアベース評価** — すべての点数は入力テキストの明示的根拠から。称賛も推測もしない。
 - **言語自動検出（ルール A）** — ユーザーの言語（KO/JA/EN）で自動応答。貼り付けた日本語資料に引きずられない。ドメイン用語（職務経歴書・志望動機・年収…）は日本語のまま。
 - **固定ステップ順序（ルール B）** — 誰でも同じ順序。背景（新卒/中途、自社開発/SIer/SES/コンサル/スタートアップ/大企業）はステップの**内容**だけ分岐し、順序は不変。
+- **出力契約（ルール C）** — 生成ファイルはすべてセッション起動ディレクトリ配下に保存（レポート → `./career-docs/`、機械可読データ → `./data/`）。保存後は絶対パスを表示し実在を確認。
+- **市場ステージ主導** — 実際の転職プロセス（自己分析 → 書類 → 企業研究 → 応募 → 面接 → 内定・交渉 → 円満退職 → 入社）に沿って進行。オンボーディングで現在地を確認しルーティング。
 - **中途・新卒デュアルトラック**（自動分岐）
 - **対話型診断** — 一度に 2〜3 問、そこで STOP。
 - **クロススキル YAML 連携**（情報ロスなし）
-- **自動ドキュメント化**（`career-docs/`）
+- **自動ドキュメント化**（作業ディレクトリ内の `career-docs/`）
 - **捏造禁止** — 入力にない STAR・数値・オファー・根拠を作らない。
 
 ### 対応プラットフォーム
@@ -312,10 +316,12 @@ CA/RA 데이터 통합으로 매칭 스코어·합격 확률 산출. 리쿠르�
 - **스코어 기반 평가** — 모든 점수는 입력 텍스트의 명시적 근거에서만. 칭찬·추측 없음.
 - **언어 자동 감지 (Rule A)** — 사용자 언어(KO/JA/EN)로 자동 응답. 붙여넣은 일본어 자료에 끌려가지 않음. 도메인 용어(職務経歴書·志望動機·年収…)는 일본어 원문 유지.
 - **고정 스텝 순서 (Rule B)** — 누가 하든 같은 순서. 배경(신졸/중도, 自社開発/SIer/SES/コンサル/스타트업/대기업)은 스텝의 **내용**만 분기, 순서 불변.
+- **출력 계약 (Rule C)** — 생성 파일은 전부 세션을 실행한 디렉토리 아래에 저장(리포트 → `./career-docs/`, 기계용 데이터 → `./data/`). 저장 후 절대경로 출력 + 실재 확인.
+- **시장 스테이지 기반** — 실제 転職 프로세스(自己分析 → 書類 → 企業研究 → 応募 → 面接 → 内定·교섭 → 円満退職 → 入社) 순서대로 진행. 온보딩에서 현재 단계를 묻고 라우팅.
 - **중도·신졸 듀얼 트랙**(자동 분기)
 - **대화형 진단** — 한 번에 2~3문항, 그리고 STOP.
 - **크로스 스킬 YAML 연계**(정보 손실 없음)
-- **자동 문서화**(`career-docs/`)
+- **자동 문서화**(작업 디렉토리의 `career-docs/`)
 - **날조 금지** — 입력에 없는 STAR·수치·오퍼·근거 생성 금지.
 
 ### 지원 플랫폼

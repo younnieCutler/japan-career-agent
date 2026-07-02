@@ -399,8 +399,10 @@ Save path: career-docs/match-[company]-[YYYYMMDD].md
 
 Contents: Full match report including scores (Recruit/Persol/Culture Fit/Overall), score breakdown, RA opinion, CA opinion, final judgment, and action items.
 
-If the `career-docs/` folder does not exist, create it at the workspace root.
-Tell the user the path after saving.
+If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
+the skill's install directory. After saving, print the file's absolute path and confirm it exists
+(e.g., `ls -la <path>`) so the user can verify the output on disk.
 
-**Match History:** After saving the report, also append a summary entry to `data/match_history.md`.
+**Match History:** After saving the report, also append a summary entry to `data/match_history.md`
+(CWD-relative — create `data/` in the invocation directory if missing).
 Use the `match_history_entry` schema from `../../_shared/schemas.yml`. Include the `report_file` path.
