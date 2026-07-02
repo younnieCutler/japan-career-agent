@@ -6,8 +6,10 @@
 #   CANDIDATE_PROFILE: job-seeker-agent (producer), matching-simulator / company-battlecard / tenshoku-strategy (consumers)
 #   COMPANY_PROFILE:   hiring-manager-agent / kigyou-bunseki (producers), matching-simulator / company-battlecard (consumers)
 #   MATCH_HISTORY:     matching-simulator (producer)
+#   PIPELINE:          kigyou-bunseki / matching-simulator / tenshoku-strategy / company-battlecard (writers),
+#                      CLAUDE.md onboarding + tenshoku-strategy STEP 6 (readers)
 
-schema_version: "1.2"
+schema_version: "1.3"
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
@@ -151,3 +153,35 @@ match_history_entry:
   - overall_grade         # string: "A" | "B" | "C" | "D"
   - platform              # string: platform simulated (e.g., "Recruit / Levtech")
   - report_file           # string: path to markdown report if saved (e.g., "career-docs/match-xyz.md")
+
+# ─────────────────────────────────────────────
+# PIPELINE
+# File: data/pipeline.yml (CWD-relative, per Output Contract / Rule C)
+# The per-company job-search state hub. One entry per company, keyed by slug.
+# Written by: kigyou-bunseki (entry + kyujin_legitimacy), matching-simulator (match_score),
+#             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines),
+#             company-battlecard (history event)
+# Read by:    CLAUDE.md onboarding (session-resume kanban), tenshoku-strategy STEP 6
+#             (funnel / pattern analysis; renders career-docs/applications.md as a view)
+#
+# Upsert rules (all writers): read the whole file → modify → rewrite. Match entries by `slug`.
+# Never delete an entry — closed entries feed funnel analysis. Set `closed: true` instead.
+# Every write follows Rule C: create data/ in the invocation directory if missing, then print
+# the absolute path and verify the file exists.
+# ─────────────────────────────────────────────
+pipeline:
+  updated: "string: YYYY-MM-DD — date of last write"
+  companies:
+    - slug:          "string: same slug as data/company_profiles/{slug}.yml — the join key"
+      name:          "string: display name"
+      stage:         "integer 0–7: CLAUDE.md Japan 転職 Market Stage Map"
+      status:        "string: free-text detail (e.g., '一次面接 scheduled 2026-07-10')"
+      channel:       "string: site | agent | scout | referral | null"
+      match_score:   "integer 0–100 (latest from matching-simulator, ±10) | null"
+      kyujin_legitimacy: "string: green (信頼度高) | yellow (要注意) | red (要確認) — kigyou-bunseki 求人の真正性 tiers | null"
+      next_action:   "string | null"
+      deadline:      "string YYYY-MM-DD: nearest date — 面接日, 回答期限, … | null"
+      closed:        "boolean: true on 内定承諾 / 内定辞退 / お見送り / 自ら見送り"
+      closed_reason: "string | null"
+      history:       # append-only event log — funnel analysis source
+        - { date: "YYYY-MM-DD", event: "string (e.g., '応募 via doda', '書類通過')" }

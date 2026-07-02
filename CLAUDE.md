@@ -32,6 +32,17 @@ so the user can confirm the output on disk. If a target file already exists, ask
 Before doing anything, check silently (paths relative to CWD):
 1. Does `data/candidate_profile.yml` exist and have a non-null `candidate_name`?
 2. Does `data/company_profiles/` contain any `.yml` files?
+3. Does `data/pipeline.yml` exist with any `closed: false` entries?
+
+**If `data/pipeline.yml` has active entries (takes priority over the menus below):** greet with a
+kanban summary — one line per active company: name, stage number + stage label from the Market Stage
+Map, status, deadline. List any deadline within 3 days FIRST with a ⚠️ marker. Then ask which company
+to continue with, or whether to add a new one. Example shape:
+
+> "Active pipeline:
+> ⚠️ Bloom Tech — stage 5 内定・オファー面談, 回答期限 2026-07-04 (in 2 days)
+> Acme KK — stage 4 面接, 一次面接 2026-07-10
+> Continue with which company, or add a new one?"
 
 **If both are missing (first session):** ask where the user stands in the real market flow —
 
@@ -121,6 +132,8 @@ name the stage they are at and the stage that comes next.
 
 Typical end-to-end: **3–6 months**. Stages 0–2 overlap; stages 3–5 run per-company in parallel.
 Durations and pass rates are market rules of thumb (wide margins) — verify current figures with your agent.
+Per-company progress lives in `data/pipeline.yml` (PIPELINE schema in `_shared/schemas.yml`) — each
+company carries its own stage number from this map.
 
 **Compressed skill chains (same map, chain form):**
 
@@ -146,6 +159,7 @@ see the Output Contract (Rule C) above:
 | `data/candidate_profile.yml` | job-seeker-agent (STEP 4) | matching-simulator, company-battlecard, tenshoku-strategy |
 | `data/company_profiles/{slug}.yml` | hiring-manager-agent, kigyou-bunseki | matching-simulator, company-battlecard |
 | `data/match_history.md` | matching-simulator | User review |
+| `data/pipeline.yml` | kigyou-bunseki, matching-simulator, tenshoku-strategy, company-battlecard | Onboarding (session-resume kanban), tenshoku-strategy STEP 6 |
 
 When loading a profile from `data/`, tell the user which file was loaded and ask if it's still current.
 When writing any of these, follow Rule C: print the absolute path and confirm the file exists.

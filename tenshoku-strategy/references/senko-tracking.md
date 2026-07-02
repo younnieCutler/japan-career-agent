@@ -13,38 +13,51 @@ not invent results that are not there.
 
 ---
 
-## 1. Tracker file (career-docs/applications.md)
+## 1. Storage: `data/pipeline.yml` (source of truth) + `career-docs/applications.md` (rendered view)
 
-Run it as a single markdown table following the existing `career-docs/` convention. Append one row per application.
+The tracker's source of truth is **`data/pipeline.yml`** — the suite-wide per-company state hub
+(PIPELINE schema in `_shared/schemas.yml`). One entry per company, keyed by `slug` (same slug as
+`data/company_profiles/{slug}.yml`). Other skills also write it: kigyou-bunseki (entry +
+`kyujin_legitimacy`), matching-simulator (`match_score`), company-battlecard (history events).
+This STEP owns stage transitions, `history` events, `next_action`, `deadline`, and `closed`.
+
+Upsert rules: read the whole file → modify → rewrite. Match by `slug`. Never delete an entry —
+set `closed: true` + `closed_reason` instead (closed entries feed the funnel analysis below).
+Both files follow the Output Contract (Rule C): CWD-relative, create folders if missing, print the
+absolute path after every write and confirm the file exists.
+
+`career-docs/applications.md` is a **rendered view** — regenerate the whole table from pipeline.yml
+after every tracking session (do not hand-edit rows; the yml is authoritative):
 
 ```markdown
-# 応募トラッカー
+# 応募トラッカー (rendered from data/pipeline.yml — do not edit by hand)
 
 | # | 日付 | 企業 | 職種 | プラットフォーム | スコア | ステータス | 求人真正性 | メモ |
 |---|------|------|------|----------------|--------|-----------|-----------|------|
 | 1 | 2026-06-26 | A社 | DE | doda | 78 | 一次 | 信頼度高 | 中途比率45% |
 ```
 
-- **スコア:** the `matching-simulator` result (0–100), or blank if not run.
-- **求人真正性:** the `kigyou-bunseki` 求人の真正性 tier (信頼度高/要注意/要確認).
-- If the file is missing, create it at the workspace root under `career-docs/`. Tell the user the path after saving.
+- **日付:** first `history` event date. **スコア:** `match_score` (blank if null).
+- **ステータス:** from the state machine below. **求人真正性:** `kyujin_legitimacy` tier.
 
 ---
 
 ## 2. ステータス state machine (fixed 8+ states)
 
 career-ops's 8 states mapped to the Japanese job-change flow. Use this order/naming as fixed.
+Each state maps onto the pipeline entry's `stage` (CLAUDE.md Market Stage Map, 0–7) and `closed` flag —
+record the state name itself as a `history` event and in `status`.
 
-| ステータス | Meaning | outcome class |
-|-----------|---------|---------------|
-| `評価済` | only matching/battlecard done (not applied) | Pending (no action) |
-| `応募` | documents submitted | Positive |
-| `書類通過` | passed document screening | Positive |
-| `一次` / `二次` / `最終` | each interview stage | Positive |
-| `内定` | offer received | Positive |
-| `内定辞退` | you declined (→ `naitei-taiou.md`) | Self-filtered |
-| `お見送り` | the company rejected | Negative |
-| `見送り(自己)` | you did not apply / withdrew | Self-filtered |
+| ステータス | Meaning | pipeline mapping | outcome class |
+|-----------|---------|-----------------|---------------|
+| `評価済` | only matching/battlecard done (not applied) | stage 2, closed: false | Pending (no action) |
+| `応募` | documents submitted | stage 3 | Positive |
+| `書類通過` | passed document screening | stage 3 → 4 | Positive |
+| `一次` / `二次` / `最終` | each interview stage | stage 4 (round in `status`) | Positive |
+| `内定` | offer received | stage 5 (deadline = 回答期限) | Positive |
+| `内定辞退` | you declined (→ `naitei-taiou.md`) | closed: true, reason 内定辞退 | Self-filtered |
+| `お見送り` | the company rejected | closed: true, reason お見送り | Negative |
+| `見送り(自己)` | you did not apply / withdrew | closed: true, reason 自己見送り | Self-filtered |
 
 **outcome classes (for analysis):** Positive = 応募~内定 / Negative = お見送り / Self-filtered = 辞退·自己見送り /
 Pending = 評価済.
@@ -53,13 +66,13 @@ Pending = 評価済.
 
 ## 3. Pattern analysis (on-demand at ≥5 entries)
 
-If `career-docs/applications.md` has **5+ confirmed-outcome entries** (excluding 評価済), analysis is possible.
+If `data/pipeline.yml` has **5+ confirmed-outcome entries** (excluding 評価済), analysis is possible.
 If fewer:
 > "Not enough data — only {N}/5 have moved past evaluation. Apply more and I'll analyze when there's more."
 then exit.
 
-Aggregation is **done by the LLM reading the table directly** (no Node script). Add a "±approximate, sample {N}"
-disclaimer to every figure.
+Aggregation is **done by the LLM reading pipeline.yml directly** — entries plus their `history` event
+logs (no Node script). Add a "±approximate, sample {N}" disclaimer to every figure.
 
 ### Output structure (career-docs/pattern-analysis-[YYYYMMDD].md)
 

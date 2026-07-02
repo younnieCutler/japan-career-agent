@@ -81,6 +81,7 @@ The execution playbook from "decided to leave" to "first day at the new job": �
 - **Fixed step sequence (Rule B)** — everyone goes through the same ordered steps; background (新卒/中途, 自社開発/SIer/SES/コンサル/スタートアップ/大企業) branches a step's *content*, never its *order*.
 - **Output contract (Rule C)** — every generated file lands under the directory you invoked the session from: reports in `./career-docs/`, machine state in `./data/`; after each save the absolute path is printed and verified on disk.
 - **Market-stage backbone** — the suite follows the real Japanese 転職 process (自己分析 → 書類 → 企業研究 → 応募 → 面接 → 内定・交渉 → 円満退職 → 入社); onboarding asks which stage you're at and routes you there.
+- **Per-company pipeline** — `data/pipeline.yml` tracks every company's stage, match score, 求人 legitimacy, deadlines, and event history in parallel; a new session resumes with a kanban summary ("A社 stage 4 面接, ⚠️ B社 回答期限 in 2 days").
 - **Dual track** — mid-career & new-graduate, auto-routed.
 - **Conversational diagnosis** — 2–3 questions at a time, then STOP and wait.
 - **Cross-skill pipeline** — self-analysis / candidate / company data passed as YAML with no information loss.
@@ -202,6 +203,7 @@ CA/RA 両データを統合し、マッチングスコアと合格確率を算�
 - **固定ステップ順序（ルール B）** — 誰でも同じ順序。背景（新卒/中途、自社開発/SIer/SES/コンサル/スタートアップ/大企業）はステップの**内容**だけ分岐し、順序は不変。
 - **出力契約（ルール C）** — 生成ファイルはすべてセッション起動ディレクトリ配下に保存（レポート → `./career-docs/`、機械可読データ → `./data/`）。保存後は絶対パスを表示し実在を確認。
 - **市場ステージ主導** — 実際の転職プロセス（自己分析 → 書類 → 企業研究 → 応募 → 面接 → 内定・交渉 → 円満退職 → 入社）に沿って進行。オンボーディングで現在地を確認しルーティング。
+- **企業別パイプライン** — `data/pipeline.yml` が各社のステージ・マッチスコア・求人真正性・期限・イベント履歴を並行トラッキング。新セッションはカンバン要約から再開（「A社 stage 4 面接、⚠️ B社 回答期限まで2日」）。
 - **中途・新卒デュアルトラック**（自動分岐）
 - **対話型診断** — 一度に 2〜3 問、そこで STOP。
 - **クロススキル YAML 連携**（情報ロスなし）
@@ -318,6 +320,7 @@ CA/RA 데이터 통합으로 매칭 스코어·합격 확률 산출. 리쿠르�
 - **고정 스텝 순서 (Rule B)** — 누가 하든 같은 순서. 배경(신졸/중도, 自社開発/SIer/SES/コンサル/스타트업/대기업)은 스텝의 **내용**만 분기, 순서 불변.
 - **출력 계약 (Rule C)** — 생성 파일은 전부 세션을 실행한 디렉토리 아래에 저장(리포트 → `./career-docs/`, 기계용 데이터 → `./data/`). 저장 후 절대경로 출력 + 실재 확인.
 - **시장 스테이지 기반** — 실제 転職 프로세스(自己分析 → 書類 → 企業研究 → 応募 → 面接 → 内定·교섭 → 円満退職 → 入社) 순서대로 진행. 온보딩에서 현재 단계를 묻고 라우팅.
+- **회사별 파이프라인** — `data/pipeline.yml`이 회사마다 스테이지·매치 스코어·求人 진정성·기한·이벤트 이력을 병렬 추적. 새 세션은 칸반 요약으로 재개("A社 stage 4 面接, ⚠️ B社 回答期限 2일 전").
 - **중도·신졸 듀얼 트랙**(자동 분기)
 - **대화형 진단** — 한 번에 2~3문항, 그리고 STOP.
 - **크로스 스킬 YAML 연계**(정보 손실 없음)

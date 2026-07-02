@@ -251,6 +251,13 @@ Also save extracted data to `data/company_profiles/{company-name-slug}.yml` for 
 (CWD-relative — create the folder in the invocation directory if missing, print the absolute path,
 and confirm the file exists).
 
+**Pipeline upsert:** then upsert the company's entry in `data/pipeline.yml` (PIPELINE schema in
+`_shared/schemas.yml`), using the same `{company-name-slug}` as the join key: set `name` and
+`kyujin_legitimacy` (green/yellow/red from the 求人の真正性 assessment). Ask the user:
+> "Have you applied to this company? Which stage are you at? (未応募=企業研究 / 応募済 / 面接中 / 内定)"
+Default to `stage: 2` (企業研究) if not applied. Upsert rules: read whole file → modify → rewrite,
+match by `slug`, never delete entries. Follow the Output Contract (print path, verify exists).
+
 ## Tone & Style
 
 Same anti-sentiment rules as the rest of the skill suite:

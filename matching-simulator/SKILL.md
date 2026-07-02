@@ -404,5 +404,12 @@ the skill's install directory. After saving, print the file's absolute path and 
 (e.g., `ls -la <path>`) so the user can verify the output on disk.
 
 **Match History:** After saving the report, also append a summary entry to `data/match_history.md`
-(CWD-relative — create `data/` in the invocation directory if missing).
+(CWD-relative — create `data/` in the invocation directory if missing). match_history.md is the
+append-only log of every run; the pipeline entry below holds only the latest score.
+
+**Pipeline upsert:** also upsert the company's entry in `data/pipeline.yml` (PIPELINE schema in
+`_shared/schemas.yml`): set `match_score` to the overall score. If no entry exists, create one at
+`stage: 2` (評価済 — evaluated, not applied) using the same slug as `data/company_profiles/`.
+Upsert rules: read whole file → modify → rewrite, match by `slug`, never delete entries.
+Follow the Output Contract (print path, verify exists).
 Use the `match_history_entry` schema from `../../_shared/schemas.yml`. Include the `report_file` path.

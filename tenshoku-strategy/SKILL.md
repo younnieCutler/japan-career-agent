@@ -205,6 +205,12 @@ CONTENT of a step — never its ORDER or existence.
 
 5. **Alternatives:** if salary itself is hard → negotiate other conditions (remote, review timing, grade/level).
 
+### Pipeline update
+If the negotiation concerns a specific company, upsert its entry in `data/pipeline.yml` (PIPELINE schema
+in `_shared/schemas.yml`): set `stage: 5`, `deadline` = 回答期限 if known, and append a `history` event
+(e.g., "年収交渉 script prepared"). Follow the Output Contract: print the absolute path and confirm the
+file exists after writing.
+
 ### Honesty Gate
 - Do not inflate current salary. Companies may request a 源泉徴収票 (withholding slip).
 - Do not fabricate a non-existent competing offer.
@@ -234,6 +240,10 @@ CONTENT of a step — never its ORDER or existence.
 4. **入社日 negotiation:** adjust the start date based on current 就業規則 + handover. Warn that careless
    delay = wobbling 内定 (法律 vs 就業規則 ties into `enman-taishoku.md`).
 5. **Via-agent branch:** if via a CA, advise consulting the CA first on schedule / negotiation / 辞退.
+6. **Pipeline update:** upsert the company's entry in `data/pipeline.yml`: offer received → `stage: 5`
+   with `deadline` = 回答期限; offer declined → `closed: true`, `closed_reason: "内定辞退"`; joining
+   confirmed → `stage: 6` (退職交渉 begins) and close all other active entries the user abandons.
+   Append a `history` event for each change. Follow the Output Contract (print path, verify exists).
 
 ### Structural Problem Flag
 - Unemployed + single offer but demanding a long 回答期限 → warn: no leverage, offer-rescind risk.
@@ -310,13 +320,21 @@ Point out structural problems directly when present:
 > single-shot modules).
 
 ### Process
-1. **Tracker:** a `career-docs/applications.md` markdown table (# / 日付 / 企業 / 職種 / プラットフォーム /
-   スコア / ステータス / 求人真正性 / メモ). Append one row per application.
-2. **States:** 評価済 → 応募 → 書類通過 → 一次 → 二次 → 最終 → 内定 / 内定辞退 · お見送り · 見送り(self).
-3. **Pattern analysis (≥5 entries):** funnel · score-vs-outcome · Japan-specific blockers (ビザ/JLPT/県外onsite/
-   35歳/skill/短期離職) · top-3 recommendations. **LLM aggregation, no Node script, with a "±approximate, sample
-   N" disclaimer.**
-4. **Action suggestions:** filters / score threshold / target adjustment (after user approval).
+1. **Source of truth:** `data/pipeline.yml` (PIPELINE schema in `_shared/schemas.yml`) — one entry per
+   company, keyed by `slug`. This STEP owns stage transitions (0–7, per the CLAUDE.md Market Stage Map),
+   `history` events, `next_action`, `deadline`, and `closed`/`closed_reason`. Upsert: read whole file →
+   modify → rewrite; never delete entries (closed entries feed the funnel).
+2. **Rendered view:** after every tracking session, regenerate `career-docs/applications.md`
+   (# / 日付 / 企業 / 職種 / プラットフォーム / スコア / ステータス / 求人真正性 / メモ) from pipeline.yml.
+   The yml is authoritative; the markdown is for human review only.
+3. **States:** 評価済 → 応募 → 書類通過 → 一次 → 二次 → 最終 → 内定 / 内定辞退 · お見送り · 見送り(self) —
+   stage/closed mapping in `references/senko-tracking.md` §2.
+4. **Pattern analysis (≥5 confirmed-outcome entries in pipeline.yml):** funnel · score-vs-outcome ·
+   Japan-specific blockers (ビザ/JLPT/県外onsite/35歳/skill/短期離職) · top-3 recommendations.
+   **LLM aggregation, no Node script, with a "±approximate, sample N" disclaimer.**
+5. **Action suggestions:** filters / score threshold / target adjustment (after user approval).
+6. Both files follow the Output Contract: CWD-relative, print the absolute path after each write and
+   confirm the file exists.
 
 ### Honesty Gate
 - Do not fill missing results with inference. With a small sample, give "direction," not a verdict.

@@ -224,6 +224,12 @@ If the `career-docs/` folder does not exist, create it in the invocation directo
 the skill's install directory. After saving, print the file's absolute path and confirm it exists
 (e.g., `ls -la <path>`) so the user can verify the output on disk.
 
+**Pipeline update:** if `data/pipeline.yml` exists (PIPELINE schema in `_shared/schemas.yml`), append a
+`history` event to both compared companies' entries (e.g., "battlecard vs [other] → winner [X]").
+Do not create new entries or change stages here — this skill only records the comparison outcome.
+Upsert rules: read whole file → modify → rewrite, match by `slug`, never delete entries.
+Follow the Output Contract (print path, verify exists).
+
 ## Reference Files
 
 This skill uses the same frameworks as the suite:
