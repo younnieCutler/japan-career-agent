@@ -9,7 +9,9 @@ recruitment agencies (Recruit, Persol Career…) using publicly available framew
 from self-analysis to the first day at your new job.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-7-blue.svg)](#agent-skills)
+[![Install](https://img.shields.io/badge/install-plugin%20marketplace-8A2BE2.svg)](#installation)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-skills-8A2BE2.svg)](https://claude.com/claude-code)
 [![Languages](https://img.shields.io/badge/output-KO%20%7C%20JA%20%7C%20EN-orange.svg)](#core-features)
 [![Track](https://img.shields.io/badge/track-新卒%20%2F%20中途-lightgrey.svg)](#agent-skills)
@@ -110,9 +112,9 @@ The execution playbook from "decided to leave" to "first day at the new job": �
 /plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
-Note: this installs all 7 skills. The root `CLAUDE.md` (session-start pipeline kanban, full onboarding
-menu) only applies when the repo is cloned directly below — plugin installs still get full skill
-routing via each skill's own trigger description, just not the automatic session-start greeting.
+> ℹ️ **Note:** installs all 7 skills. The root `CLAUDE.md` (session-start pipeline kanban, full
+> onboarding menu) only applies when the repo is cloned directly below — plugin installs still get
+> full skill routing via each skill's own trigger description, just not the automatic session-start greeting.
 
 **Claude Code (manual, register as slash commands)**
 
@@ -243,9 +245,9 @@ CA/RA 両データを統合し、マッチングスコアと合格確率を算�
 /plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
-注: 7スキル全てがインストールされます。ルートの `CLAUDE.md`（セッション開始時のパイプラインかんばん、
-全体オンボーディングメニュー）はリポジトリを直接クローンした場合のみ有効です — プラグインインストールでも
-各スキルのトリガー記述によるルーティングは機能しますが、自動セッション開始の挨拶は表示されません。
+> ℹ️ **注:** 7スキル全てがインストールされます。ルートの `CLAUDE.md`（セッション開始時のパイプラインかんばん、
+> 全体オンボーディングメニュー）はリポジトリを直接クローンした場合のみ有効です — プラグインインストールでも
+> 各スキルのトリガー記述によるルーティングは機能しますが、自動セッション開始の挨拶は表示されません。
 
 **Claude Code（手動）**
 
@@ -373,9 +375,9 @@ CA/RA 데이터 통합으로 매칭 스코어·합격 확률 산출. 리쿠르�
 /plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
-참고: 7개 스킬이 전부 설치됩니다. 루트 `CLAUDE.md`(세션 시작 시 파이프라인 칸반, 전체 온보딩 메뉴)는
-리포를 직접 clone했을 때만 적용됩니다 — 마켓플레이스 설치도 각 스킬의 트리거 설명을 통한 라우팅은 그대로
-작동하지만, 세션 시작 자동 인사만 빠집니다.
+> ℹ️ **참고:** 7개 스킬이 전부 설치됩니다. 루트 `CLAUDE.md`(세션 시작 시 파이프라인 칸반, 전체 온보딩 메뉴)는
+> 리포를 직접 clone했을 때만 적용됩니다 — 마켓플레이스 설치도 각 스킬의 트리거 설명을 통한 라우팅은 그대로
+> 작동하지만, 세션 시작 자동 인사만 빠집니다.
 
 **Claude Code (수동)**
 
