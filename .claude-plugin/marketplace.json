@@ -1,0 +1,14 @@
+{
+  "name": "japan-recruit-ai-agent",
+  "owner": { "name": "younnieCutler" },
+  "description": "Japan 転職 skill suite: self-analysis, resume/職務経歴書, company research, matching simulation, negotiation strategy.",
+  "plugins": [
+    {
+      "name": "japan-recruit-ai-agent",
+      "source": ".",
+      "description": "Japan 転職 skill suite: self-analysis, resume/職務経歴書, company research, matching simulation, negotiation strategy.",
+      "category": "career",
+      "tags": ["japan", "job-search", "recruitment", "career", "matching", "tenshoku", "self-analysis"]
+    }
+  ]
+}

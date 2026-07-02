@@ -103,19 +103,30 @@ The execution playbook from "decided to leave" to "first day at the new job": �
 
 ### Installation
 
-**Claude Code** (register as slash commands)
+**Claude Code Marketplace (recommended)**
+
+```
+/plugin marketplace add younnieCutler/japan-recruit-ai-agent
+/plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
+```
+
+Note: this installs all 7 skills. The root `CLAUDE.md` (session-start pipeline kanban, full onboarding
+menu) only applies when the repo is cloned directly below — plugin installs still get full skill
+routing via each skill's own trigger description, just not the automatic session-start greeting.
+
+**Claude Code (manual, register as slash commands)**
 
 ```bash
 git clone https://github.com/younnieCutler/japan-recruit-ai-agent ~/japan-recruit-skills
 
 # Copy the 7 skill folders
-cp -r ~/japan-recruit-skills/jiko-bunseki \
-      ~/japan-recruit-skills/job-seeker-agent \
-      ~/japan-recruit-skills/hiring-manager-agent \
-      ~/japan-recruit-skills/matching-simulator \
-      ~/japan-recruit-skills/company-battlecard \
-      ~/japan-recruit-skills/kigyou-bunseki \
-      ~/japan-recruit-skills/tenshoku-strategy \
+cp -r ~/japan-recruit-skills/skills/jiko-bunseki \
+      ~/japan-recruit-skills/skills/job-seeker-agent \
+      ~/japan-recruit-skills/skills/hiring-manager-agent \
+      ~/japan-recruit-skills/skills/matching-simulator \
+      ~/japan-recruit-skills/skills/company-battlecard \
+      ~/japan-recruit-skills/skills/kigyou-bunseki \
+      ~/japan-recruit-skills/skills/tenshoku-strategy \
       ~/.claude/skills/
 
 # Copy shared frameworks/schemas (skills reference ../../_shared/)
@@ -225,17 +236,30 @@ CA/RA 両データを統合し、マッチングスコアと合格確率を算�
 
 ### インストール
 
+**Claude Code マーケットプレイス（推奨）**
+
+```
+/plugin marketplace add younnieCutler/japan-recruit-ai-agent
+/plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
+```
+
+注: 7スキル全てがインストールされます。ルートの `CLAUDE.md`（セッション開始時のパイプラインかんばん、
+全体オンボーディングメニュー）はリポジトリを直接クローンした場合のみ有効です — プラグインインストールでも
+各スキルのトリガー記述によるルーティングは機能しますが、自動セッション開始の挨拶は表示されません。
+
+**Claude Code（手動）**
+
 ```bash
 git clone https://github.com/younnieCutler/japan-recruit-ai-agent ~/japan-recruit-skills
 
 # 7 つのスキルフォルダをコピー
-cp -r ~/japan-recruit-skills/jiko-bunseki \
-      ~/japan-recruit-skills/job-seeker-agent \
-      ~/japan-recruit-skills/hiring-manager-agent \
-      ~/japan-recruit-skills/matching-simulator \
-      ~/japan-recruit-skills/company-battlecard \
-      ~/japan-recruit-skills/kigyou-bunseki \
-      ~/japan-recruit-skills/tenshoku-strategy \
+cp -r ~/japan-recruit-skills/skills/jiko-bunseki \
+      ~/japan-recruit-skills/skills/job-seeker-agent \
+      ~/japan-recruit-skills/skills/hiring-manager-agent \
+      ~/japan-recruit-skills/skills/matching-simulator \
+      ~/japan-recruit-skills/skills/company-battlecard \
+      ~/japan-recruit-skills/skills/kigyou-bunseki \
+      ~/japan-recruit-skills/skills/tenshoku-strategy \
       ~/.claude/skills/
 
 # 共有フレームワーク/スキーマをコピー（各スキルは ../../_shared/ を参照）
@@ -342,17 +366,30 @@ CA/RA 데이터 통합으로 매칭 스코어·합격 확률 산출. 리쿠르�
 
 ### 설치
 
+**Claude Code 마켓플레이스 (권장)**
+
+```
+/plugin marketplace add younnieCutler/japan-recruit-ai-agent
+/plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
+```
+
+참고: 7개 스킬이 전부 설치됩니다. 루트 `CLAUDE.md`(세션 시작 시 파이프라인 칸반, 전체 온보딩 메뉴)는
+리포를 직접 clone했을 때만 적용됩니다 — 마켓플레이스 설치도 각 스킬의 트리거 설명을 통한 라우팅은 그대로
+작동하지만, 세션 시작 자동 인사만 빠집니다.
+
+**Claude Code (수동)**
+
 ```bash
 git clone https://github.com/younnieCutler/japan-recruit-ai-agent ~/japan-recruit-skills
 
 # 7개 스킬 폴더 복사
-cp -r ~/japan-recruit-skills/jiko-bunseki \
-      ~/japan-recruit-skills/job-seeker-agent \
-      ~/japan-recruit-skills/hiring-manager-agent \
-      ~/japan-recruit-skills/matching-simulator \
-      ~/japan-recruit-skills/company-battlecard \
-      ~/japan-recruit-skills/kigyou-bunseki \
-      ~/japan-recruit-skills/tenshoku-strategy \
+cp -r ~/japan-recruit-skills/skills/jiko-bunseki \
+      ~/japan-recruit-skills/skills/job-seeker-agent \
+      ~/japan-recruit-skills/skills/hiring-manager-agent \
+      ~/japan-recruit-skills/skills/matching-simulator \
+      ~/japan-recruit-skills/skills/company-battlecard \
+      ~/japan-recruit-skills/skills/kigyou-bunseki \
+      ~/japan-recruit-skills/skills/tenshoku-strategy \
       ~/.claude/skills/
 
 # 공유 프레임워크/스키마 복사 (각 스킬은 ../../_shared/ 참조)

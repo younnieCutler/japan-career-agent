@@ -190,7 +190,7 @@ data/                 # Session memory (gitignored — personal data)
 ├── match_history.md
 └── company_profiles/
 
-skills:
+skills/
 ├── jiko-bunseki/         # Self-analysis: strengths/values → SELF_ANALYSIS_PROFILE (runs before job-seeker-agent)
 ├── job-seeker-agent/     # CA simulator: resume → CANDIDATE_PROFILE
 ├── hiring-manager-agent/ # RA simulator: JD → COMPANY_PROFILE

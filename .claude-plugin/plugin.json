@@ -1,0 +1,8 @@
+{
+  "name": "japan-recruit-ai-agent",
+  "version": "1.0.0",
+  "description": "Simulate Japanese recruitment agency matching logic (SPI3, Portable Skills, Skill Ontology) across the full 転職 flow: self-analysis, resume, company research, matching, negotiation, resignation.",
+  "author": { "name": "younnieCutler" },
+  "license": "MIT",
+  "keywords": ["japan", "job-search", "recruitment", "career", "matching", "tenshoku", "self-analysis"]
+}

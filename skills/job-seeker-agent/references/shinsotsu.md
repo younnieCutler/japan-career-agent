@@ -18,13 +18,13 @@ If there are several activities, focus on the 2 most impactful.
 
 ### 新卒 STEP 2: SPI3 Quick Assessment
 
-(Same as mid-career) — use the 12 SPI3 statements in `../../_shared/frameworks.md`.
+(Same as mid-career) — use the 12 SPI3 statements in `../../../_shared/frameworks.md`.
 
 ### 新卒 STEP 3: 学チカ evaluation + potential-based Portable Skills
 
 **学チカ evaluation (see frameworks.md Section 5):**
 
-Refer to the "Gakuchika Evaluation Framework" section in `../../_shared/frameworks.md`.
+Refer to the "Gakuchika Evaluation Framework" section in `../../../_shared/frameworks.md`.
 Score 4 dimensions (Impact, Goal Achievement, Leadership, Challenger Spirit), each 1–5.
 
 ```
