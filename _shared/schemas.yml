@@ -9,7 +9,7 @@
 #   PIPELINE:          kigyou-bunseki / matching-simulator / tenshoku-strategy / company-battlecard (writers),
 #                      CLAUDE.md onboarding + tenshoku-strategy STEP 6 (readers)
 
-schema_version: "1.3"
+schema_version: "1.4"
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
@@ -159,8 +159,8 @@ match_history_entry:
 # File: data/pipeline.yml (CWD-relative, per Output Contract / Rule C)
 # The per-company job-search state hub. One entry per company, keyed by slug.
 # Written by: kigyou-bunseki (entry + kyujin_legitimacy), matching-simulator (match_score),
-#             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines),
-#             company-battlecard (history event)
+#             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines,
+#             closed_reason + agent_feedback on お見送り), company-battlecard (history event)
 # Read by:    CLAUDE.md onboarding (session-resume kanban), tenshoku-strategy STEP 6
 #             (funnel / pattern analysis; renders career-docs/applications.md as a view)
 #
@@ -182,6 +182,11 @@ pipeline:
       next_action:   "string | null"
       deadline:      "string YYYY-MM-DD: nearest date — 面接日, 回答期限, … | null"
       closed:        "boolean: true on 内定承諾 / 内定辞退 / お見送り / 自ら見送り"
-      closed_reason: "string | null"
+      closed_reason: "string | null — coarse label: お見送り | 内定辞退 | 自己見送り | 内定承諾"
+      agent_feedback: "string | null — VERBATIM CA/RA rejection feedback text (原文, in its original
+                        language). Populate ONLY when channel is agent | scout — a real recruiter
+                        relays the company's actual reason. site | referral rarely yield real reasons
+                        (定型 お祈りメール); leave null. This is the raw source for the 面接遂行品質
+                        blocker tier in tenshoku-strategy senko-tracking §3."
       history:       # append-only event log — funnel analysis source
         - { date: "YYYY-MM-DD", event: "string (e.g., '応募 via doda', '書類通過')" }

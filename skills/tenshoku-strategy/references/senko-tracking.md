@@ -19,7 +19,8 @@ The tracker's source of truth is **`data/pipeline.yml`** — the suite-wide per-
 (PIPELINE schema in `_shared/schemas.yml`). One entry per company, keyed by `slug` (same slug as
 `data/company_profiles/{slug}.yml`). Other skills also write it: kigyou-bunseki (entry +
 `kyujin_legitimacy`), matching-simulator (`match_score`), company-battlecard (history events).
-This STEP owns stage transitions, `history` events, `next_action`, `deadline`, and `closed`.
+This STEP owns stage transitions, `history` events, `next_action`, `deadline`, `closed`,
+`closed_reason`, and `agent_feedback` (verbatim お見送り reason on agent/scout channels — see §2).
 
 Upsert rules: read the whole file → modify → rewrite. Match by `slug`. Never delete an entry —
 set `closed: true` + `closed_reason` instead (closed entries feed the funnel analysis below).
@@ -62,6 +63,20 @@ record the state name itself as a `history` event and in `status`.
 **outcome classes (for analysis):** Positive = 応募~内定 / Negative = お見送り / Self-filtered = 辞退·自己見送り /
 Pending = 評価済.
 
+### Capturing the rejection reason (お見送り)
+
+When an entry closes as `お見送り`, the reason you can record depends on the `channel`:
+
+- **`channel: agent | scout`** — a real CA/RA relays the company's actual feedback. **Ask the user for
+  the verbatim text** ("エージェントからのお見送り理由の原文をそのまま貼ってください") and store it in the
+  entry's `agent_feedback` field, **unedited, in its original language**. Do not paraphrase or soften — the
+  wording is the data. This feeds the 面接遂行品質 tier in §3.
+- **`channel: site | referral`** — direct applications almost always return a 定型 お祈りメール with no real
+  reason. Leave `agent_feedback: null`. Do not invent a reason; the candidate's own hunch goes in `status`,
+  not `agent_feedback`.
+
+`closed_reason` stays the coarse label (`お見送り`); `agent_feedback` holds the verbatim quote.
+
 ---
 
 ## 3. Pattern analysis (on-demand at ≥5 entries)
@@ -72,7 +87,8 @@ If fewer:
 then exit.
 
 Aggregation is **done by the LLM reading pipeline.yml directly** — entries plus their `history` event
-logs (no Node script). Add a "±approximate, sample {N}" disclaimer to every figure.
+logs and any `agent_feedback` quotes (no Node script). Add a "±approximate, sample {N}" disclaimer to
+every figure.
 
 ### Output structure (career-docs/pattern-analysis-[YYYYMMDD].md)
 
@@ -88,14 +104,22 @@ logs (no Node script). Add a "±approximate, sample {N}" disclaimer to every fig
 | Positive / Negative / Self-filtered | … |
 
 ## 3. Blocker frequency (お見送り·自己見送り reasons)
+### 3a. Tier A — 属性ミスマッチ
 | Blocker | Count | % of all |
+### 3b. Tier B — 面接遂行品質 (from agent_feedback quotes; blank if no agent-channel feedback yet)
+| Blocker | Count | 原文 evidence (社名) |
 
 ## 4. Top-3 recommendations (with reasoning)
 ```
 
-### Japan-specific blocker categories
+### Blocker categories — two tiers
 
-career-ops's geo-restriction/onsite/stack mapped to the Japanese job-change context:
+Blockers split into two kinds. **Tier A** is inferred from candidate-attribute × outcome correlation
+(structured data, available for every closed entry). **Tier B** is extracted from the verbatim
+`agent_feedback` text and is only available for entries where that field is populated (channel =
+agent | scout). Run both; label each blocker with its tier so the reader knows attribute vs execution.
+
+**Tier A — 属性ミスマッチ (attribute mismatch)** — career-ops's geo/onsite/stack mapped to the Japanese context:
 
 | Blocker | Signal | Response |
 |---------|--------|----------|
@@ -106,9 +130,28 @@ career-ops's geo-restriction/onsite/stack mapped to the Japanese job-change cont
 | **スキルマッチ (Core Lead Tech)** | repeated F Match (`evaluation_rules.md`) | skillset shift or re-target role |
 | **短期離職懸念** | repeated job changes under 1 year | route to direct-apply (Green/BizReach), address 定着 head-on |
 
+**Tier B — 面接遂行品質 (interview execution quality)** — read every `agent_feedback` verbatim quote and
+classify it against the signals below. These are *how the candidate answered*, not *who they are* — the same
+person keeps losing offers until the delivery changes, so a repeat here is the highest-leverage fix. A single
+feedback quote can hit more than one row.
+
+| Blocker | Signal in `agent_feedback` (原文) | Response |
+|---------|-----------------------------------|----------|
+| **数値なしエピソード** | 「成果が見えにくい」「特出したエピソードが少ない」「具体性に欠ける」 — vague-impact language | `matching-simulator` STEP 4 STAR+R (fill the **R** column with 実績数値 + 比較基準), or `shokumu-review` for the 職務経歴書 |
+| **PREP構造欠如** | 「会話の整理に課題」「話が長い」「要点が伝わりにくい」 — answers ramble, no 結論ファースト | `job-seeker-agent` interview-content prep — drill 結論→理由→具体例→結論 (PREP) on the top questions |
+| **自己弱点の自白** | candidate's own words quoted back as the concern: 「ソフトスキルが大変」「苦手分野で集中が難しい」「長時間働いて対応」 | ban-list those self-disclosures; reframe 高負荷対応 as 優先順位設計・生産性・分散. `mensetsu-manner.md` + job-seeker-agent |
+| **企業理解不足** | 「志望動機が浅い」「他社でも良いのでは」「事業理解が弱い」 | `kigyou-bunseki` 企業カルテ before the next round; rebuild 志望動機 3-part structure in job-seeker-agent |
+
+Tier B needs qualitative reading, so state sample size honestly: with 1–2 feedback quotes, report the
+signal as an "observation," not a pattern. A Tier B blocker seen **twice across different companies** is a
+confirmed execution gap — flag it as the #1 recommendation regardless of raw frequency, because it is
+fully within the candidate's control to fix before the next interview.
+
 ### Analysis tone rules
 - No comfort like "losing X isn't a big deal." Data only: "geo blocker is X% of the sample → recommend stopping that type."
 - Recommendations are **action + reason + impact estimate**. e.g., "県外onsite 0% conversion (7/24) → filter onsite postings."
+- For Tier B, quote the 原文 fragment as the evidence, then name the fix. e.g., "『会話の整理に課題』(AMBL)
+  → PREP未実行。job-seeker-agent で結論ファースト10問ドリル。" Never generalize a Tier B blocker without its source quote.
 
 ---
 

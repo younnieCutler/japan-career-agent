@@ -328,10 +328,14 @@ Point out structural problems directly when present:
    (# / 日付 / 企業 / 職種 / プラットフォーム / スコア / ステータス / 求人真正性 / メモ) from pipeline.yml.
    The yml is authoritative; the markdown is for human review only.
 3. **States:** 評価済 → 応募 → 書類通過 → 一次 → 二次 → 最終 → 内定 / 内定辞退 · お見送り · 見送り(self) —
-   stage/closed mapping in `references/senko-tracking.md` §2.
+   stage/closed mapping in `references/senko-tracking.md` §2. **On お見送り with channel = agent | scout,
+   ask for the recruiter's verbatim feedback (原文) and store it in `agent_feedback` unedited** — site /
+   referral rarely give a real reason, leave null (senko-tracking §2).
 4. **Pattern analysis (≥5 confirmed-outcome entries in pipeline.yml):** funnel · score-vs-outcome ·
-   Japan-specific blockers (ビザ/JLPT/県外onsite/35歳/skill/短期離職) · top-3 recommendations.
-   **LLM aggregation, no Node script, with a "±approximate, sample N" disclaimer.**
+   two-tier blockers — **Tier A 属性ミスマッチ** (ビザ/JLPT/県外onsite/35歳/skill/短期離職) and
+   **Tier B 面接遂行品質** (read `agent_feedback` quotes: 数値なしエピソード / PREP構造欠如 / 自己弱点の自白 /
+   企業理解不足) · top-3 recommendations. A Tier B blocker repeated across companies is the #1 fix (fully
+   in the candidate's control). **LLM aggregation, no Node script, with a "±approximate, sample N" disclaimer.**
 5. **Action suggestions:** filters / score threshold / target adjustment (after user approval).
 6. Both files follow the Output Contract: CWD-relative, print the absolute path after each write and
    confirm the file exists.
