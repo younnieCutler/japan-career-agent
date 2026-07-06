@@ -57,7 +57,7 @@ A collection of AI agent skills that simulate the matching logic of major Japane
 The pre-step for everything else. Runs a quantitative snapshot (24 forced-choice strength pairs → 12 strengths → 4 clusters · executing / strategic-thinking / relationship-building / influencing; 6 work-style + 4 well-being Likert items) into a scored profile, then an **optional Phase 3 depth dive** that adds the four things a quantitative test can't reach: **career anchors** (Schein), **derailers** (where each top strength turns dangerous when overused), an **energy map** ("good at" vs "wants to do"), and a one-line **career theme** (Savickas). Supports 新卒 and 中途 tracks. Outputs a `SELF_ANALYSIS_PROFILE` YAML that `job-seeker-agent` reuses to skip redundant questions and seed 自己PR / 志望動機 / 転職軸.
 
 **2. job-seeker-agent** — *Candidate Advisor (CA) lens*
-Analyzes your background. Supports **mid-career (転職) and new-graduate (新卒) tracks** (an A/B question at session start routes you). Mid-career: gap analysis → SPI3 (12 statements) → 8 Portable Skills → skill-ontology mapping → **職務経歴書 reproducibility rewrite** (担当業務 → 役割 / 工夫 / 成果 / 再現性) → **志望動機 in a forced 3-part structure** (会社理解 → 自分の経験 → 入社後貢献) with **転職軸** and the **4-WHY consistency chain** (なぜ転職 / なぜこの会社 / なぜこの職種 / なぜ今) → **audience-segmented interview prep** (カジュアル面談 / 一次 / 二次 / 技術・ケース / 最終). New-grad: 学チカ scoring + self-PR / ES. Outputs a `CANDIDATE_PROFILE` YAML.
+Analyzes your background — **all job changers, Japanese nationals included** (JLPT/visa questions fire only for foreign nationals). Supports **mid-career (転職) and new-graduate (新卒) tracks** (an A/B question at session start routes you), with **mid-career segment playbooks** (第二新卒 / standard / 35+ specialist / management). Mid-career: gap analysis → SPI3 (12 statements) → 8 Portable Skills → skill-ontology mapping → **職務経歴書 reproducibility rewrite** (担当業務 → 役割 / 工夫 / 成果 / 再現性) → **ATS · scout-search keyword coverage check** (表記揺れ included) → **志望動機 in a forced 3-part structure** (会社理解 → 自分の経験 → 入社後貢献) with **転職軸** and the **4-WHY consistency chain** (なぜ転職 / なぜこの会社 / なぜこの職種 / なぜ今) → **audience-segmented interview prep** (カジュアル面談 / 一次 / 二次 / 技術・ケース / 最終). New-grad: 学チカ scoring + self-PR / ES. Outputs a `CANDIDATE_PROFILE` YAML.
 
 **3. hiring-manager-agent** — *Recruiting Advisor (RA) lens*
 Models the team's top performer (hyperformer), then rewrites the JD so the agency's skill ontology matches it accurately. Designs well-being culture branding and Gakuchika / Portable-Skills interview rubrics. Outputs a `COMPANY_PROFILE` YAML.
@@ -74,7 +74,7 @@ Extracts company data from Japanese job/review-site URLs via a 3-tier pipeline (
 > ⚠️ **Unsupported from URL alone:** `jp.indeed.com` (bot-blocked) and `linkedin.com` (login). Provide a screenshot or the company name + job title.
 
 **7. tenshoku-strategy (Job-Change Strategy)**
-The execution playbook from "decided to leave" to "first day at the new job": 退職理由 reframing, 面接マナー (入室/着席/退室), **面接後フォロー (お礼メール)**, 年収交渉 (with a 報酬-terminology table and 業務委託 vs 正社員 comparison), **内定対応 (オファー面談 / 内定辞退 / 回答期限 / 入社日)**, 円満退職, 2025–2026 market positioning, and **選考トラッキング + rejection-pattern analysis**.
+The execution playbook from "decided to leave" through the first 90 days at the new job: 退職理由 reframing, 面接マナー (入室/着席/退室), **面接後フォロー (お礼メール)**, 年収交渉 (with a 報酬-terminology table and 業務委託 vs 正社員 comparison), **内定対応 (オファー面談 / 内定辞退 / 回答期限 / 入社日)**, **労働条件通知書 review (written-offer downgrade check vs current job)**, 円満退職, **入社手続き + 定着90日 (paperwork / 住民税 / reference check / probation survival)**, 2025–2026 market positioning, and **選考トラッキング + rejection-pattern analysis + predicted-vs-actual calibration**.
 
 ### Core Features
 
@@ -190,7 +190,7 @@ MIT License.
 すべての前段ステップ。定量スナップショット（強み24ペアの強制選択 → 12の強み → 4クラスター・実行/戦略思考/関係構築/影響力、仕事スタイル6項目＋ウェルビーイング4項目）をスコア化し、続いて**任意の Phase 3 深掘り**で、定量テストでは届かない4点を補う：**キャリアアンカー**（Schein）、**デレイラー**（強みが過剰使用で毒になる地点）、**エネルギーマップ**（「得意」vs「やりたい」）、一行の**キャリアテーマ**（Savickas）。新卒・中途の両トラック対応。`SELF_ANALYSIS_PROFILE` YAML を出力し、`job-seeker-agent` が再利用して重複質問を省き、自己PR／志望動機／転職軸の種にします。
 
 **2. job-seeker-agent（求職者・CA視点）**
-経歴を分析。**中途・新卒の 2 トラック**対応（開始時の A/B 質問で分岐）。中途：ギャップ分析 → SPI3（12 問）→ ポータブルスキル 8 要素 → スキルオントロジー → **職務経歴書の再現性リライト**（担当業務 → 役割／工夫／成果／再現性）→ **志望動機の 3 部構成強制**（会社理解 → 自分の経験 → 入社後貢献）＋**転職軸**＋**4-WHY 一貫性**（なぜ転職／なぜこの会社／なぜこの職種／なぜ今）→ **相手別の面接対策**（カジュアル面談／一次／二次／技術・ケース／最終）。新卒：学チカ評価＋自己PR／ES。`CANDIDATE_PROFILE` YAML を出力。
+経歴を分析 — **日本人を含むすべての転職希望者が対象**（JLPT・ビザの質問は外国籍の場合のみ）。**中途・新卒の 2 トラック**対応（開始時の A/B 質問で分岐）、**中途セグメント別プレイブック**（第二新卒／スタンダード／35歳+専門職／マネジメント）付き。中途：ギャップ分析 → SPI3（12 問）→ ポータブルスキル 8 要素 → スキルオントロジー → **職務経歴書の再現性リライト**（担当業務 → 役割／工夫／成果／再現性）→ **ATS・スカウト検索キーワードカバレッジ**（表記揺れ対応）→ **志望動機の 3 部構成強制**（会社理解 → 自分の経験 → 入社後貢献）＋**転職軸**＋**4-WHY 一貫性**（なぜ転職／なぜこの会社／なぜこの職種／なぜ今）→ **相手別の面接対策**（カジュアル面談／一次／二次／技術・ケース／最終）。新卒：学チカ評価＋自己PR／ES。`CANDIDATE_PROFILE` YAML を出力。
 
 **3. hiring-manager-agent（採用側・RA視点）**
 ハイパフォーマーをモデル化し、エージェントのスキルオントロジーが正確に認識できるよう求人票を最適化。ウェルビーイングによるカルチャーブランディング、学チカ／ポータブルスキルの評価ルーブリックを設計。`COMPANY_PROFILE` YAML を出力。
@@ -207,7 +207,7 @@ CA/RA 両データを統合し、マッチングスコアと合格確率を算�
 > ⚠️ URL 単体で不可：`jp.indeed.com`（ボット遮断）、`linkedin.com`（ログイン必須）。スクリーンショットか企業名＋職種名を直接入力。
 
 **7. tenshoku-strategy（転職戦略）**
-「転職を決めてから初出社まで」の実行プレイブック：退職理由リフレーミング、面接マナー（入室/着席/退室）、**面接後フォロー（お礼メール）**、年収交渉（**報酬用語表**・業務委託 vs 正社員）、**内定対応（オファー面談／内定辞退／回答期限／入社日）**、円満退職、2025–2026 市場ポジショニング、**選考トラッキング＋不合格パターン分析**。
+「転職を決めてから入社後90日まで」の実行プレイブック：退職理由リフレーミング、面接マナー（入室/着席/退室）、**面接後フォロー（お礼メール）**、年収交渉（**報酬用語表**・業務委託 vs 正社員）、**内定対応（オファー面談／内定辞退／回答期限／入社日）**、**労働条件通知書レビュー（現職比の下方条件チェック）**、円満退職、**入社手続き＋定着90日（書類／住民税／前職調査／試用期間）**、2025–2026 市場ポジショニング、**選考トラッキング＋不合格パターン分析＋予測vs実績キャリブレーション**。
 
 ### 主要な特徴
 
@@ -320,7 +320,7 @@ MIT License.
 모든 단계의 전(前)단계. 정량 스냅샷(강점 24쌍 강제선택 → 12강점 → 4클러스터·실행/전략사고/관계구축/영향력, 업무스타일 6 + 웰빙 4 리커트)을 점수화하고, 이어 **선택적 Phase 3 심층**에서 정량 테스트가 못 잡는 4가지를 보강: **커리어 앵커**(Schein), **디레일러**(강점이 과사용으로 독이 되는 지점), **에너지 맵**("잘하는 일" vs "하고 싶은 일"), 한 줄 **커리어 테마**(Savickas). 신졸·중도 양 트랙 지원. `SELF_ANALYSIS_PROFILE` YAML을 출력하고, `job-seeker-agent`가 이를 재사용해 중복 질문을 줄이고 自己PR/志望動機/転職軸의 씨앗으로 삼습니다.
 
 **2. job-seeker-agent (구직자·CA 시점)**
-경력 분석. **중도·신졸 2트랙** 지원(시작 A/B 질문 분기). 중도: 갭분석 → SPI3(12문항) → 포터블 스킬 8요소 → 스킬 온톨로지 → **職務経歴書 재현성 리라이트**(担当業務 → 역할/工夫/성과/재현성) → **志望動機 3단 구조 강제**(会社理解 → 自分の経験 → 入社後貢献) + **転職軸** + **4-WHY 일관성**(왜 전직/왜 이 회사/왜 이 직종/왜 지금) → **상대별 면접 대비**(カジュアル面談/一次/二次/기술·케이스/最終). 신졸: 가쿠치카 평가 + 자기PR/ES. `CANDIDATE_PROFILE` YAML 출력.
+경력 분석 — **일본인 포함 전직 희망자 전체가 대상**(JLPT·비자 질문은 외국인일 때만). **중도·신졸 2트랙** 지원(시작 A/B 질문 분기), **중도 세그먼트별 플레이북**(第二新卒/스탠다드/35세+ 전문직/매니지먼트) 포함. 중도: 갭분석 → SPI3(12문항) → 포터블 스킬 8요소 → 스킬 온톨로지 → **職務経歴書 재현성 리라이트**(担当業務 → 역할/工夫/성과/재현성) → **ATS·스카우트 검색 키워드 커버리지**(表記揺れ 대응) → **志望動機 3단 구조 강제**(会社理解 → 自分の経験 → 入社後貢献) + **転職軸** + **4-WHY 일관성**(왜 전직/왜 이 회사/왜 이 직종/왜 지금) → **상대별 면접 대비**(カジュアル面談/一次/二次/기술·케이스/最終). 신졸: 가쿠치카 평가 + 자기PR/ES. `CANDIDATE_PROFILE` YAML 출력.
 
 **3. hiring-manager-agent (채용측·RA 시점)**
 하이퍼포머 모델링 후, 에이전시 스킬 온톨로지가 정확히 인식하도록 구인표 최적화. 웰빙 컬처 브랜딩, 가쿠치카/포터블 스킬 평가 루브릭 설계. `COMPANY_PROFILE` YAML 출력.
@@ -337,7 +337,7 @@ CA/RA 데이터 통합으로 매칭 스코어·합격 확률 산출. 리쿠르�
 > ⚠️ URL만으로 불가: `jp.indeed.com`(봇 차단), `linkedin.com`(로그인). 스크린샷이나 회사명+직종명 직접 입력.
 
 **7. tenshoku-strategy (이직 전략)**
-"이직 결심부터 첫 출근까지"의 실행 플레이북: 退職理由 리프레이밍, 面接マナー(입실/착석/퇴실), **面接後フォロー(お礼メール)**, 年収交渉(**報酬 용어표**·業務委託 vs 正社員), **内定対応(オファー面談/内定辞退/回答期限/入社日)**, 円満退職, 2025–2026 시장 포지셔닝, **選考トラッキング + 거절 패턴 분석**.
+"이직 결심부터 입사 후 90일까지"의 실행 플레이북: 退職理由 리프레이밍, 面接マナー(입실/착석/퇴실), **面接後フォロー(お礼メール)**, 年収交渉(**報酬 용어표**·業務委託 vs 正社員), **内定対応(オファー面談/内定辞退/回答期限/入社日)**, **労働条件通知書 리뷰(현직 대비 하향 조건 체크)**, 円満退職, **입사 수속 + 정착 90일(서류/住民税/前職調査/試用期間)**, 2025–2026 시장 포지셔닝, **選考トラッキング + 거절 패턴 분석 + 예측 vs 실적 캘리브레이션**.
 
 ### 핵심 특징
 

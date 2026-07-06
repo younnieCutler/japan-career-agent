@@ -91,6 +91,11 @@ When the user's message or attached content matches a pattern below, activate th
 | "카운터 오퍼", "counter-offer", "引き止め", "퇴직 만류" | `tenshoku-strategy` |
 | "면접 복장", "服装", "dress code", "what to wear" | `tenshoku-strategy` |
 | "오퍼 면담", "オファー面談", "offer meeting", "내정 사퇴", "内定辞退", "回答期限", "입사일 조정", "入社日" | `tenshoku-strategy` (内定対応) |
+| "노동조건통지서", "労働条件通知書", "雇用契約書", "조건 하향", "현직보다 나빠", "みなし残業", "고정잔업", "offer letter 확인" | `tenshoku-strategy` (STEP 3-3 労働条件レビュー) |
+| "입사 수속", "入社手続き", "源泉徴収票", "住民税", "이직 서류", "레퍼런스 체크", "前職調査", "시용기간", "試用期間", "온보딩", "정착", "입사 후 90일" | `tenshoku-strategy` (STEP 4-2 入社・定着) |
+| "ATS", "키워드 최적화", "스카우트 검색", "検索キーワード", "職務要約 키워드", "검색에 걸리게", "서치 히트" | `job-seeker-agent` (STEP 4-1b ATSキーワード) |
+| "第二新卒", "제2신졸", "제2신입", "입사 3년차 이직", "첫 직장 그만" | `job-seeker-agent` (中途 dai2_shinsotsu segment) |
+| "35세 이직", "40대 이직", "관리직 이직", "ハイクラス", "管理職 転職", "매니저 이직" | `job-seeker-agent` (中途 senior_ic/management segment) |
 | "면접 라운드", "一次/二次/最終 면접", "カジュアル面談", "ケース면접", "면접관 유형", "audience prep" | `job-seeker-agent` (STEP 4-3 面接ラウンド別) |
 | "お礼メール", "면접 후 메일", "面接後フォロー", "thank-you mail", "면접 후속" | `tenshoku-strategy` (面接後フォロー) |
 | "지원 관리", "선고 추적", "応募管理", "選考トラッキング", "거절 패턴", "application tracker", "선고 패턴" | `tenshoku-strategy` (選考トラッキング) |
@@ -128,7 +133,7 @@ name the stage they are at and the stage that comes next.
 | 4. 面接 | カジュアル面談 → 一次 (現場) → (二次 部長級) → 最終 (役員); ~1–2 weeks per round; お礼メール within 24h | 3–6 weeks | `job-seeker-agent` STEP 4-3 (content), `tenshoku-strategy` STEP 2 / 2-2 (manner / follow-up) |
 | 5. 内定・オファー面談 | 回答期限 is typically about 1 week; 年収交渉 happens here — not during interviews | ~1 week | `tenshoku-strategy` STEP 3 / 3-2, `company-battlecard` (multiple offers) |
 | 6. 退職交渉・引き継ぎ | 民法627条 = 2 weeks minimum; practice = 1–2 months notice; counter-offer (引き止め) is expected — decide your answer before announcing | 1–2 months | `tenshoku-strategy` STEP 4 |
-| 7. 入社 | 在留資格 change if applicable; start date coordinated at the オファー面談 | — | — |
+| 7. 入社 | 在留資格 change if applicable; start date coordinated at the オファー面談; 住民税/社会保険 paperwork, reference checks, 試用期間 survival | first 90 days | `tenshoku-strategy` STEP 4-2 |
 
 Typical end-to-end: **3–6 months**. Stages 0–2 overlap; stages 3–5 run per-company in parallel.
 Durations and pass rates are market rules of thumb (wide margins) — verify current figures with your agent.
@@ -141,7 +146,7 @@ company carries its own stage number from this map.
 [Full job-seeker flow]     jiko-bunseki → job-seeker-agent → kigyou-bunseki → matching-simulator → tenshoku-strategy → company-battlecard
 [Resume already in hand]   job-seeker-agent → kigyou-bunseki → matching-simulator → tenshoku-strategy → company-battlecard
 [Execution only]           tenshoku-strategy standalone — 退職理由 · 面接マナー · 年収交渉 · 円満退職 work without a profile
-[After an offer]           company-battlecard (decide) → tenshoku-strategy STEP 3+3-2 (negotiate) → STEP 4 (resign)
+[After an offer]           company-battlecard (decide) → tenshoku-strategy STEP 3+3-2 (negotiate) → STEP 3-3 (labor-condition review) → STEP 4 (resign) → STEP 4-2 (onboard)
 [Hiring side]              hiring-manager-agent → matching-simulator
 [Company research]         kigyou-bunseki → company-battlecard
 ```
@@ -197,5 +202,6 @@ skills/
 ├── matching-simulator/   # Dual-algorithm match score
 ├── company-battlecard/   # Head-to-head company comparison
 ├── kigyou-bunseki/       # URL → company data extraction
-└── tenshoku-strategy/    # 転職 execution strategy (resignation, interview, negotiation, offer, tracking)
+└── tenshoku-strategy/    # 転職 execution strategy (resignation, interview, negotiation, offer,
+                          #   労働条件通知書 review, onboarding/定着90日, tracking + calibration)
 ```

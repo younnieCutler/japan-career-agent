@@ -103,6 +103,14 @@ every figure.
 | outcome | avg score | min | max | count |
 | Positive / Negative / Self-filtered | … |
 
+## 2b. Calibration by predicted grade
+| Predicted grade | Applied | 書類通過 | 内定 | Pass rate |
+|-----------------|---------|----------|------|-----------|
+| A (85+)  | … | … | … | …% |
+| B (70–84)| … | … | … | …% |
+| C (55–69)| … | … | … | …% |
+| D (<55)  | … | … | … | …% |
+
 ## 3. Blocker frequency (お見送り·自己見送り reasons)
 ### 3a. Tier A — 属性ミスマッチ
 | Blocker | Count | % of all |
@@ -111,6 +119,20 @@ every figure.
 
 ## 4. Top-3 recommendations (with reasoning)
 ```
+
+### Calibration by predicted grade — is the score itself trustworthy?
+
+`data/pipeline.yml`'s `match_score` (written by `matching-simulator`) already carries a predicted grade per
+the `_shared/frameworks.md` §6 bands (A 85+ / B 70–84 / C 55–69 / D <55). Bucket every closed entry by that
+band and compute its conversion rate to a Positive outcome (書類通過, 内定). This is a **different question**
+from the blocker tiers below: blockers explain *why* a specific outcome happened; calibration tests whether
+the simulator's own labels mean what they claim to, for this user on this platform.
+
+- If a band's real conversion contradicts its label across 5+ samples in that band, say so plainly:
+  "B-grade predictions converted at 12% (1/8) here — treat future B scores as C until the pattern changes."
+- Do not average this into the score-vs-outcome table above — report it as its own row set so the divergence
+  (if any) is visible, not smoothed over.
+- Small-sample bands (<3 entries) get "insufficient data," not a rate.
 
 ### Blocker categories — two tiers
 

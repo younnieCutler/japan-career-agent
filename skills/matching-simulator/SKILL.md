@@ -166,6 +166,18 @@ Company side:
 Refer to "Matching Score Formula" section in `../../_shared/frameworks.md`
 and calculate scores using both methods.
 
+**Deterministic scoring (preferred when a shell is available):**
+Do NOT compute the formulas by mental arithmetic. Build the JSON input and run the shared scorer:
+
+```bash
+echo '{"recruit": {...}, "persol": {...}, "culture": {...}}' | python3 ../../_shared/scoring.py
+```
+
+(Schema documented in the script's docstring; `--self-test` verifies it against the frameworks.md §6 worked
+example.) The script's arithmetic is exact — the ±10pt caveat then applies only to the *inputs* (your S_i /
+w_i / P_fit / B_behavioral estimations), not the math. If no shell is available, fall back to LLM
+approximation under the "LLM Math Limitation" rules below.
+
 **First, apply the Platform Modifier table** based on `target_platform` from STEP 0.
 This adjusts how weights are distributed before running either formula.
 
@@ -306,7 +318,9 @@ Base changes on the skill gaps and score breakdown from STEP 2 — not on generi
 Rules:
 - Only suggest changes grounded in the candidate's actual experience. Do not invent metrics or claims.
 - "Reorder" and "reframe" are allowed. "Fabricate" is not.
-- Include 5–8 JD keywords to mirror in the 職務経歴書 for ATS compatibility.
+- Include 5–8 JD keywords to mirror in the 職務経歴書 for ATS compatibility. (This is a quick subset — for
+  the full treatment, 表記揺れ variants, and the hit/miss/add coverage table, run `job-seeker-agent`
+  STEP 4-1b `references/ats-keywords.md`.)
 
 **Company-side improvements:**
 - Which JD elements are narrowing the matching range
@@ -316,6 +330,7 @@ Rules:
 ## Reference Files
 
 - `../../_shared/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index, full matching formula
+- `../../_shared/scoring.py` — deterministic scorer for STEP 2 (run via Bash; `--self-test` available)
 - `references/platforms.md` — Platform modifier table and penalty multipliers
 - `references/evaluation_perspectives.md` — RA/CA simulated perspectives and Direct Hiring manager evaluation criteria
 
@@ -360,7 +375,7 @@ This skill outputs a number. That number reflects reality. A low score means low
 
 **LLM Math Limitation — Mandatory Disclosure:**
 
-The scoring formulas in STEP 2 (Recruit-style weighted sum, Persol Career-style cosine similarity) involve floating-point arithmetic. LLMs do not execute arithmetic reliably.
+The scoring formulas in STEP 2 (Recruit-style weighted sum, Persol Career-style cosine similarity) involve floating-point arithmetic. LLMs do not execute arithmetic reliably. **First choice is always `_shared/scoring.py` (STEP 2)** — the rules below apply to the LLM-approximation fallback, and rule 1's disclosure applies to input estimation even when the script ran.
 
 Apply these rules every time a numerical score is presented:
 1. State: *"Note: these are language model approximations, not deterministic computations. Treat all scores as directional (±10 points)."*

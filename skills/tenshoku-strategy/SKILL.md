@@ -12,7 +12,9 @@ description: >
   - Interview etiquette: room entry/exit protocol, dress code, timing
   - Salary negotiation, counter-offer handling
   - Offer meetings, declining an offer, adjusting the start date
+  - Written labor-condition notice (労働条件通知書) review, checking for downgraded terms vs the current job
   - How to resign gracefully, handover planning
+  - Onboarding paperwork, resident-tax timing, reference checks, probation-period survival
   - Job market trends (2025-2026)
   - Post-interview thank-you emails, follow-up cadence
   - Application tracking, rejection pattern analysis
@@ -53,9 +55,10 @@ Detect the language of the user's latest message and respond in that language. N
 Every run follows the SAME ordered steps, for every user, regardless of background. Branching changes the
 CONTENT of a step — never its ORDER or existence.
 - Always run STEP 0 (Situation Assessment) first; it is the fixed entry point. Then run only the modules the
-  user prioritized, but always in the canonical order STEP 1 → 2 → 2-2 → 3 → 3-2 → 4 → 5 → 6.
+  user prioritized, but always in the canonical order STEP 1 → 2 → 2-2 → 3 → 3-2 → 3-3 → 4 → 4-2 → 5 → 6.
 - Branch points are fixed and explicit: STEP 0 module routing (退職理由 / 面接マナー / 面接後フォロー / 年収交渉 /
-  内定対応 / 円満退職 / 市場 / 選考トラッキング); 日系 vs 外資 in STEP 4; 正社員 / 契約社員 / 派遣社員 / SES in STEP 4. The branch decides
+  内定対応 / 労働条件通知書レビュー / 円満退職 / 入社手続き・定着 / 市場 / 選考トラッキング); 日系 vs 外資 in STEP 4;
+  正社員 / 契約社員 / 派遣社員 / SES in STEP 4. The branch decides
   *what* a step asks, not *whether* or *when* it runs.
 - If the user jumps ahead ("just the salary negotiation"), silently verify the prerequisite data (STEP 0 minimal
   info) exists; if missing, collect it first, then proceed. The sequence is fast-forwarded, never skipped.
@@ -82,7 +85,9 @@ CONTENT of a step — never its ORDER or existence.
   - B-2) Post-interview follow-up / お礼メール (面接後フォロー)
   - C) 年収交渉 (salary negotiation)
   - D) 内定対応 (offer handling — オファー面談 / 内定辞退 / 回答期限 / 入社日)
+  - D-2) 労働条件通知書 review (written-offer downgrade check vs current job)
   - E) 円満退職 (graceful resignation)
+  - E-2) Onboarding paperwork + first-90-days survival (入社手続き・定着90日)
   - F) Market positioning
   - G) 選考トラッキング (application tracking / pattern analysis)
 
@@ -255,6 +260,38 @@ file exists after writing.
 
 ---
 
+## STEP 3-3: 労働条件通知書 Review (Downgrade Check)
+
+> **Reference:** `references/roudou-joken-review.md` — read before starting.
+> Fixed position: after 内定対応 (STEP 3-2), before 円満退職 (STEP 4). The last gate before 承諾.
+
+### Info to collect (2–3 at a time)
+
+**Round 1:**
+- Which document arrived: 内定通知書 only / 労働条件通知書 / 雇用契約書
+- Current-job condition sources available: payslip / 就業規則 / 現職の雇用契約書
+
+### Process
+
+1. **Document check:** if only a 内定通知書 exists, provide the request script — no 承諾 without the written
+   労働条件通知書. Verify the 労基法15条 必須記載事項 are all present.
+2. **Downgrade comparison table:** build the 現職 vs オファー(書面) table per the reference's 11 items
+   (年収 decomposition / みなし残業 / 賞与 / 年間休日 / 試用期間 / 勤務地・転勤 / 労働時間 / 評価・昇給 /
+   退職金・DC / 競業避止・副業 / 手当). Every ↓ row shows the concrete delta. Rows without current-job
+   evidence → 比較不可, never guessed.
+3. **Verbal-vs-written check:** compare against what was said at the オファー面談 (STEP 3-2); discrepancies
+   get the polite confirmation script. Via agent → raise through the CA.
+4. **Verdict:** 承諾可 / 承諾前に要確認・要交渉 N件 / 重大な下方 — 再考推奨. Red flags (2+) stated plainly.
+5. **Bridges:** salary-item renegotiation → STEP 3 (`nenshu-koushou.md`); accept-vs-decline value judgment →
+   `company-battlecard`; conditions confirmed → STEP 4 円満退職.
+
+### Honesty Gate
+- Quantify downgrades; do not editorialize them away ("growth opportunity"). The trade-off call is the user's.
+- Require documentary current-job figures — memory inflates.
+- State before (not after) that post-承諾 renegotiation has near-zero leverage.
+
+---
+
 ## STEP 4: 円満退職 (Graceful Resignation)
 
 > **Reference:** `references/enman-taishoku.md` — read before starting.
@@ -291,9 +328,52 @@ Point out structural problems directly when present:
 
 ---
 
+## STEP 4-2: 入社手続き & 定着90日 (Onboarding Paperwork · First 90 Days)
+
+> **Reference:** `references/nyusha-teichaku.md` — read before starting.
+> Fixed position: after 円満退職 (STEP 4). Covers 退職日 → surviving the 試用期間 — this is the skill
+> attached to Market Stage 7 (入社) in CLAUDE.md's Japan 転職 Market Flow.
+
+### Info to collect (2–3 at a time)
+
+**Round 1:**
+- Gap between 退職日 and 入社日: none / N days
+- Resignation timing: month-end or mid-month; 退職 month (for the 住民税 branch)
+
+### Process
+
+1. **Paperwork checklist:** documents to receive from the old employer (雇用保険被保険者証, 源泉徴収票,
+   離職票 if a gap, etc.) + to submit to the new one. Chase-before-leaving items flagged.
+2. **住民税 branch:** 特別徴収 continuation vs 一括徴収 (1–5月退職) vs 普通徴収 — warn about the small final
+   payslip / home payment slips per the reference table.
+3. **Insurance gap branch:** if a gap exists, 任意継続 vs 国民健康保険 comparison + 国民年金 switch deadlines;
+   month-end rule explained before the 退職日 is finalized (ties into STEP 4).
+4. **前職調査 / reference check (if applicable):** consent basis, referee selection and briefing, the
+   consistency rule, and the "no current-employer contact before resignation announced" constraint.
+5. **定着90日 plan:** the 30/60/90 table adapted to the user's actual role (never pasted generic), including
+   the early 報連相 over-communication rule and the early-mismatch protocol (documented conditions breach vs
+   adjustment period — reference `roudou-joken-review.md` when the written offer is breached).
+6. **Pipeline update:** upsert the company's entry in `data/pipeline.yml`: set `stage: 7`, append a
+   `history` event (e.g., "入社完了"). Follow the Output Contract (print path, verify exists).
+
+### Honesty Gate
+- Money warnings (一括徴収, double premiums) delivered undiluted.
+- Referee briefing = fact alignment, never scripted praise.
+- Do not judge "mismatch" from atmosphere inside 30 days; require documented deltas.
+
+---
+
 ## STEP 5: Market Positioning Summary
 
 > **Reference:** `references/market-positioning-2025-2026.md` — read before starting.
+
+### Staleness Gate (run first, every time)
+
+Compare today's date against the reference's `last_verified` date **using a shell `date` command, not mental
+math**. If more than 90 days have passed: verify the key figures (有効求人倍率, role salary ranges for the
+user's target_role) via web search before quoting them, and update `last_verified` in the reference file with
+what was re-verified. If verification is not possible in this session, prefix every quoted figure with
+`[stale — verify before use]`.
 
 ### Process
 
@@ -332,10 +412,16 @@ Point out structural problems directly when present:
    ask for the recruiter's verbatim feedback (原文) and store it in `agent_feedback` unedited** — site /
    referral rarely give a real reason, leave null (senko-tracking §2).
 4. **Pattern analysis (≥5 confirmed-outcome entries in pipeline.yml):** funnel · score-vs-outcome ·
-   two-tier blockers — **Tier A 属性ミスマッチ** (ビザ/JLPT/県外onsite/35歳/skill/短期離職) and
-   **Tier B 面接遂行品質** (read `agent_feedback` quotes: 数値なしエピソード / PREP構造欠如 / 自己弱点の自白 /
-   企業理解不足) · top-3 recommendations. A Tier B blocker repeated across companies is the #1 fix (fully
-   in the candidate's control). **LLM aggregation, no Node script, with a "±approximate, sample N" disclaimer.**
+   **calibration by predicted grade** (bucket each closed entry's `match_score` into A/B/C/D per the
+   `_shared/frameworks.md` §6 grade bands, then compute conversion rate to Positive outcome per band — this
+   tests whether `matching-simulator`'s own grade labels are trustworthy for this user/platform combination;
+   a band that under- or over-converts vs its label should be flagged, e.g. "B-grade predictions converted
+   at 12% here — treat future B as C for this profile") · two-tier blockers — **Tier A 属性ミスマッチ**
+   (ビザ/JLPT/県外onsite/35歳/skill/短期離職) and **Tier B 面接遂行品質** (read `agent_feedback` quotes:
+   数値なしエピソード / PREP構造欠如 / 自己弱点の自白 / 企業理解不足) · top-3 recommendations. A Tier B blocker
+   repeated across companies is the #1 fix (fully in the candidate's control). Calibration explains whether
+   the score itself is trustworthy; Tier A/B explain why an outcome diverged from it — report both, do not
+   conflate them. **LLM aggregation, no Node script, with a "±approximate, sample N" disclaimer.**
 5. **Action suggestions:** filters / score threshold / target adjustment (after user approval).
 6. Both files follow the Output Contract: CWD-relative, print the absolute path after each write and
    confirm the file exists.
@@ -374,8 +460,14 @@ the skill's install directory. After saving, print the file's absolute path and 
 ## 3. 年収交渉 (if applicable)
 [negotiation script]
 
+## 3-3. 労働条件比較 (if applicable)
+[現職 vs オファー downgrade table + verdict]
+
 ## 4. 円満退職 (if applicable)
 [timeline + script]
+
+## 4-2. 入社手続き・定着90日 (if applicable)
+[paperwork checklist + 30/60/90 plan]
 
 ## 5. Market Positioning (if applicable)
 [market analysis]

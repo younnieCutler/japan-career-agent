@@ -14,6 +14,9 @@ description: >
   - SPI3, portable skills, skillset shift, Gakuchika (student activity) questions
   - Any mention of doda, Recruit, or Persol Career in a job-search context
   - User pastes a job description and asks whether they qualify or how to apply
+  - ATS/scout-search keyword optimization, resume findability questions
+  - Second-career-starter (第二新卒), 35+ specialist, or management-track job changers — this skill covers
+    all mid-career segments, Japanese nationals included, not only foreign nationals
   Always activate for any Japan IT/marketing job-search context.
 ---
 
@@ -104,7 +107,9 @@ B. 中途 (中途採用 / 転職 — experienced mid-career change)
 ```
 
 - **A → 新卒**: Follow the **Shinsotsu Workflow** below. Do NOT run STEP 0–4.
-- **B → 中途**: Follow **STEP 0–4** (existing mid-career flow below).
+- **B → 中途**: Follow **STEP 0–4** (existing mid-career flow below). During STEP 1, silently classify the
+  中途 segment (第二新卒 / standard / 35+ specialist / management) per `references/segments.md` — the
+  segment branches step CONTENT (evidence bar, resume emphasis, platform routing), never step order.
 
 If the user's message already makes their track obvious (e.g., "I want to change jobs", "I'm a 4th-year student"), skip the question and branch directly.
 
@@ -173,8 +178,12 @@ If a file is uploaded, read from `/mnt/user-data/uploads/`.
 - Major achievements/project experience — check whether specific metrics exist
 - Years of experience, employment gaps
 - Target role/industry
-- Japanese level (JLPT level)
-- Visa status and expiry date (for non-Japanese nationals)
+- **Foreign nationals only** (conditional — see `references/segments.md` §3): Japanese level (JLPT) and
+  visa status/expiry. Do NOT ask these by default; for Japanese natives set `jlpt_level: "native"`,
+  `visa_status: null` and skip all JLPT routing.
+
+While collecting, silently classify the 中途 segment (第二新卒 / standard / 35+ specialist / management)
+per `references/segments.md` §1 and record it — it branches the STEP 3 evidence bar and STEP 4 emphasis.
 
 If information is incomplete, ask follow-up questions 2~3 at a time, prioritizing the most important.
 
@@ -307,6 +316,18 @@ A bullet that cannot fill **工夫** and **役割** is a duty, not an achievemen
 to recover the deliberate choice the user made. Also produce the **職務要約** (3–5 lines) and screen the
 **自己PR** for the three NG patterns (ズレた強み / 成果とプロセス分離 / 成功要因の深掘り不足).
 Reuse the exact evidence that STEP 3 scored — do not invent new achievements here.
+
+#### 4-1b. ATS · Scout-Search Keyword Coverage (When a target JD exists)
+
+**👉 Refer to `references/ats-keywords.md` for the full module.**
+After the reproducibility rewrite, verify the document is *findable*: extract the JD's keyword set
+(必須 > role title > domain > 歓迎), check resume coverage including 表記揺れ (K8s/Kubernetes, PdM/プロダクト
+マネージャー…), and fix placement (職務要約 top lines + skill summary section carry the search weight).
+Output the mandatory coverage table (✅ hit / ⚠️ 表記揺れ / ✳️ add / ❌ miss). **❌ miss = no experience =
+never inserted** — those route back to the STEP 0 gap verdict or the 4-0b learning plan. If
+`matching-simulator` already produced its lighter STEP 5 keyword-mirroring list for this JD, treat this as
+the full replacement, not an addition. For `management`-segment candidates, run this with management
+vocabulary (組織マネジメント, PL責任, 採用, 育成) since scout search is their primary channel.
 
 #### 4-2. 志望動機 + 転職軸 + 面接深掘り (When a target company/JD exists)
 
@@ -447,7 +468,8 @@ wellbeing_priorities:
   mutual_respect: X
 target_role: "Data Engineer"
 target_company_type: "self-developed startup"
-jlpt_level: "N1"
+segment: "standard"  # dai2_shinsotsu / standard / senior_ic / management (see references/segments.md)
+jlpt_level: "N1"  # "native" for Japanese natives
 # === END CANDIDATE_PROFILE ===
 ```
 
@@ -460,7 +482,9 @@ Always read and apply criteria from:
 - `../../_shared/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index
 - `references/evaluation_rules.md` — Cold Mode scoring, Gap Analysis, 再現性 signal
 - `references/platforms.md` — JLPT routing, company-type resume strategy, platform blocking
+- `references/segments.md` — 中途 segment playbooks (第二新卒 / standard / 35+ / management) + conditional JLPT/visa rule
 - `references/shokumukeireki-saigensei.md` — STEP 4-1: 担当業務 → 再現性/成果/役割/工夫 rewrite, 職務要約, 自己PR NG, recruiter bullet formula + 6-second gate
+- `references/ats-keywords.md` — STEP 4-1b: JD keyword extraction, 表記揺れ variants, placement priority, coverage table, anti-stuffing
 - `references/shibo-doki.md` — STEP 4-2: 志望動機 3-part structure, 転職軸, 4-WHY consistency, WCM 求人票 reading
 - `references/mensetsu-rounds.md` — STEP 4-3: audience-segmented interview prep (カジュアル/一次/二次/技術/最終), JP research sources
 - `references/shinsotsu.md` — 新卒 track workflow (学チカ, 自己PR, ES)

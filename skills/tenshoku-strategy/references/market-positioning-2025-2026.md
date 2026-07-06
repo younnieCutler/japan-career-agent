@@ -5,6 +5,9 @@
 
 **last_verified:** 2026-04-08
 **Disclaimer:** This data is a directional trend based on public sources. Verify current figures before using in negotiation.
+**Staleness rule:** If more than 90 days have passed since `last_verified` (compare with a shell `date`
+command, never mental math), re-verify key figures via web search before quoting, then update this date.
+If re-verification is impossible in the session, prefix quoted figures with `[stale — verify before use]`.
 
 ---
 

@@ -9,7 +9,7 @@
 #   PIPELINE:          kigyou-bunseki / matching-simulator / tenshoku-strategy / company-battlecard (writers),
 #                      CLAUDE.md onboarding + tenshoku-strategy STEP 6 (readers)
 
-schema_version: "1.4"
+schema_version: "1.5"
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
@@ -71,13 +71,17 @@ candidate_profile:
     - spi3                # object: see spi3_schema
     - portable_skills     # object: see portable_skills_schema
     - target_role         # string: "Data Engineer"
-    - jlpt_level          # string: "N1" | "N2" | "N3" | "N4" | "None" | null
+    - jlpt_level          # string: "native" | "N1" | "N2" | "N3" | "N4" | "None" | null
+                          #   "native" = Japanese native speaker; JLPT is asked only when a foreign-national
+                          #   signal exists (job-seeker-agent references/segments.md §3)
 
   optional:
     - skill_stack         # list of objects: see skill_stack_schema
     - wellbeing_priorities  # object: see wellbeing_schema
     - target_company_type   # string: "self-developed" | "SIer" | "SES" | "consulting" | "startup" | "large enterprise" | null
-    - visa_status           # string: "PR" | "Engineer/Specialist" | "Student" | null
+    - segment                # string: "dai2_shinsotsu" | "standard" | "senior_ic" | "management" | null
+                             #   中途 segment (job-seeker-agent references/segments.md §1); null for shinsotsu track
+    - visa_status           # string: "PR" | "Engineer/Specialist" | "Student" | null — null for Japanese nationals
     - track                 # string: "shinsotsu" | "chuto"
 
 spi3_schema:
