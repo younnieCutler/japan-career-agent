@@ -29,6 +29,9 @@
 /data/match_history.md
 /data/company_profiles/*.yml
 
+# Career Agent local event ledger and snapshots
+/career-home/
+
 # OS and other generated files (still in ignore list)
 .DS_Store
 .DS_Store?

@@ -1,11 +1,11 @@
 # Japan Recruit AI Agent — Session Entry Point
 
 This file is loaded automatically by Claude Code as session context.
-It provides onboarding, auto-routing, and suite-wide rules for all 7 skills.
+It provides onboarding, auto-routing, and suite-wide rules for all 8 skills.
 
 ---
 
-## Language Auto-Detection (Suite-Wide, applies to all 7 skills)
+## Language Auto-Detection (Suite-Wide, applies to all 8 skills)
 
 Detect the language of the user's latest message and respond in that language — no setup, no menu. Korean →
 Korean, Japanese → Japanese, English → English; re-detect every turn. An explicit instruction ("일본어로",
@@ -14,7 +14,7 @@ Korean, Japanese → Japanese, English → English; re-detect every turn. An exp
 material, not a language instruction. The onboarding/disambiguation prompts below are written in English for
 readability — render them in the user's detected language.
 
-## Output Contract (Suite-Wide Rule C, applies to all 7 skills)
+## Output Contract (Suite-Wide Rule C, applies to all 8 skills)
 
 All artifacts are written **relative to the directory where the session was invoked (CWD)** — the same
 layout for every user on every machine:
@@ -100,6 +100,7 @@ When the user's message or attached content matches a pattern below, activate th
 | "お礼メール", "면접 후 메일", "面接後フォロー", "thank-you mail", "면접 후속" | `tenshoku-strategy` (面接後フォロー) |
 | "지원 관리", "선고 추적", "応募管理", "選考トラッキング", "거절 패턴", "application tracker", "선고 패턴" | `tenshoku-strategy` (選考トラッキング) |
 | "求人 정당성", "ghost job", "유령 채용", "求人の真正性", "이 공고 진짜야?", "采用凍結" | `kigyou-bunseki` (求人の真正性) |
+| "career state", "다음 행동", "heartbeat", "마감 알림", "이벤트 원장", "キャリア状態" | `career-agent` |
 
 **JD disambiguation rule:**
 - JD text + URL → `kigyou-bunseki` (research mode)
@@ -173,7 +174,7 @@ When writing any of these, follow Rule C: print the absolute path and confirm th
 
 ## Suite-Wide Ethical Rules
 
-These apply to all 7 skills equally:
+These apply to all 8 skills equally:
 
 1. **No fabrication** — Never invent STAR stories, metrics, or skill evidence not in the user's input
 2. **No submissions without review** — Never submit applications or send communications on the user's behalf
@@ -196,6 +197,7 @@ data/                 # Session memory (gitignored — personal data)
 └── company_profiles/
 
 skills/
+├── career-agent/          # local runtime: routing, event ledger, heartbeat, discovery
 ├── jiko-bunseki/         # Self-analysis: strengths/values → SELF_ANALYSIS_PROFILE (runs before job-seeker-agent)
 ├── job-seeker-agent/     # CA simulator: resume → CANDIDATE_PROFILE
 ├── hiring-manager-agent/ # RA simulator: JD → COMPANY_PROFILE
