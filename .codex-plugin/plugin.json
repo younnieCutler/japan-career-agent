@@ -1,0 +1,10 @@
+{
+  "name": "japan-recruit-ai-agent",
+  "version": "1.0.0",
+  "description": "Japan career skills for 新卒 and 中途: self-analysis, documents, company research, matching, execution, and local career state.",
+  "homepage": "https://github.com/younnieCutler/japan-recruit-ai-agent",
+  "repository": "https://github.com/younnieCutler/japan-recruit-ai-agent",
+  "license": "MIT",
+  "keywords": ["japan", "job-search", "recruitment", "career", "matching", "tenshoku", "self-analysis"],
+  "skills": "./skills/"
+}

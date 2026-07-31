@@ -30,14 +30,41 @@ under `_shared/`.
 
 ## Quick start
 
-### Claude Code marketplace
+### Claude Code plugin: one command
+
+Run this in a terminal:
+
+```bash
+claude plugin marketplace add younnieCutler/japan-recruit-ai-agent && \
+  claude plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
+```
+
+The same installation is available inside Claude Code with:
 
 ```text
 /plugin marketplace add younnieCutler/japan-recruit-ai-agent
 /plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
-### Claude Code or Codex: local installation
+### Codex plugin: one command
+
+Run this in a terminal:
+
+```bash
+codex plugin marketplace add younnieCutler/japan-recruit-ai-agent && \
+  codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
+```
+
+### Install both at once
+
+```bash
+claude plugin marketplace add younnieCutler/japan-recruit-ai-agent && \
+  claude plugin install japan-recruit-ai-agent@japan-recruit-ai-agent && \
+  codex plugin marketplace add younnieCutler/japan-recruit-ai-agent && \
+  codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
+```
+
+### Local installation fallback
 
 Clone the repository, then copy the eight skills and shared files to the target's skill directory.
 Existing skills with the same names are replaced; unrelated skills remain untouched.

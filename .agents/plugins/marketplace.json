@@ -1,0 +1,21 @@
+{
+  "name": "japan-recruit-ai-agent",
+  "interface": {
+    "displayName": "Japan Recruit AI Agent"
+  },
+  "plugins": [
+    {
+      "name": "japan-recruit-ai-agent",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/younnieCutler/japan-recruit-ai-agent.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Career"
+    }
+  ]
+}

@@ -11,6 +11,7 @@
 
 # Exception: Plugin manifests
 !/.claude-plugin/
+!/.codex-plugin/
 
 # Exception: Shared infrastructure
 !/_shared/
@@ -48,5 +49,8 @@ build/
 .gemini/
 .claude/
 .agents/
+!/.agents/
+!/.agents/plugins/
+!/.agents/plugins/marketplace.json
 tmp/
 *.webp
