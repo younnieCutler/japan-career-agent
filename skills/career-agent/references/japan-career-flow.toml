@@ -1,0 +1,75 @@
+[metadata]
+title = "Japan career flow reference"
+reviewed_on = "2026-08-01"
+review_due = "2027-03-01"
+maintainer = "manual review only"
+sources = [
+  "https://www.cas.go.jp/jp/seisaku/shushoku_katsudou_yousei/2027nendosotu/index.html",
+  "https://www.hellowork.mhlw.go.jp/member/mem_advance.html",
+]
+
+[shinsotsu]
+scope = "University and graduate-school job hunting only"
+
+[[shinsotsu.phases]]
+id = "preparation"
+label = "自己分析・素材準備"
+purpose = "Fix the job-hunting axis and prepare multiple evidence-backed stories."
+
+[[shinsotsu.phases]]
+id = "summer_entry"
+label = "夏インターン応募"
+purpose = "Prepare company research, ES, and aptitude-test practice for internship entry."
+
+[[shinsotsu.phases]]
+id = "summer_reflection"
+label = "夏インターン振り返り"
+purpose = "Record questions, feedback, and next changes while evidence is fresh."
+
+[[shinsotsu.phases]]
+id = "autumn_winter_early"
+label = "秋冬・早期選考"
+purpose = "Tailor documents and interview preparation without changing the personal axis."
+
+[[shinsotsu.phases]]
+id = "official_selection"
+label = "本選考"
+purpose = "Use the current academic-year official schedule; do not hard-code dates here."
+
+[[shinsotsu.phases]]
+id = "offer_onboarding"
+label = "内々定・入社準備"
+purpose = "Confirm conditions and prepare for entry without automatic external action."
+
+[chuto]
+scope = "Japanese mid-career job change"
+
+[[chuto.phases]]
+id = "preparation"
+label = "自己分析・転職軸"
+purpose = "Define the target and factual transition reason before applying."
+
+[[chuto.phases]]
+id = "documents"
+label = "職務経歴書"
+purpose = "Prepare evidence-backed documents matched to a role."
+
+[[chuto.phases]]
+id = "application"
+label = "応募・書類選考"
+purpose = "Review fit and application requirements; never submit automatically."
+
+[[chuto.phases]]
+id = "interview"
+label = "面接"
+purpose = "Prepare factual answers, questions, and post-interview feedback."
+
+[[chuto.phases]]
+id = "offer"
+label = "内定・条件確認"
+purpose = "Review compensation, role, and terms as a checklist, not legal advice."
+
+[[chuto.phases]]
+id = "exit_onboarding"
+label = "退職・入社準備"
+purpose = "Plan resignation and onboarding after the user decides to proceed."

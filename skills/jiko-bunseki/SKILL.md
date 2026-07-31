@@ -16,6 +16,12 @@ description: >
 
 # Jiko Bunseki
 
+## Shared Career Vault Context
+
+When `CAREER_VAULT` is set, read the shared `career-agent context` response before collecting answers.
+Use the shared profile and state as facts; do not create a competing profile in the current directory.
+Follow `career-agent/references/shared-vault-context.md`.
+
 ## Overview
 
 Run this skill before `job-seeker-agent` when the user needs direction before resume analysis.

@@ -22,6 +22,12 @@ description: >
 
 # Job Seeker Agent — Japan IT/Marketing Career Analysis Agent
 
+## Shared Career Vault Context
+
+When `CAREER_VAULT` is set, read the shared `career-agent context` response before analysis. Treat its
+profile, state, and selected note metadata as canonical; submit new facts as Career Agent drafts rather
+than creating a competing local career state. Follow `career-agent/references/shared-vault-context.md`.
+
 ## Overview
 
 This skill reverse-engineers the internal matching logic of major Japanese recruitment agencies

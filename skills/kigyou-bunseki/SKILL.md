@@ -18,6 +18,12 @@ description: >
 
 # Kigyou Bunseki — Japan Company Analysis & Comparison Agent
 
+## Shared Career Vault Context
+
+When `CAREER_VAULT` is set, read the shared `career-agent context` response before company analysis.
+Use only its profile, state, and selected evidence metadata; do not scan archived personal notes or make
+a separate candidate profile. Follow `career-agent/references/shared-vault-context.md`.
+
 ## Overview
 
 This skill extracts structured company data from Japanese recruitment and review site URLs,

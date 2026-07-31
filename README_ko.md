@@ -118,24 +118,52 @@ cp -R "$REPO/_shared/." ~/.codex/_shared/
 
 ## Career Agent 실행
 
-저장소 루트에서 실행합니다. 기본 상태 저장 위치는 `./career-home/`이며, `CAREER_HOME` 또는
-`--home`으로 변경할 수 있습니다.
+전용 Career Vault를 먼저 만들거나 지정합니다. 런타임은 저장소나 현재 폴더를 기본 저장 위치로
+사용하지 않으며, `--vault` 또는 `CAREER_VAULT`가 필요합니다.
 
 ```bash
-python3 skills/career-agent/career_agent.py run \
-  --mode chat \
-  --track shinsotsu \
-  --message "학チカ 경험을 자기PR 소재로 정리하고 싶어요."
-
-python3 skills/career-agent/career_agent.py status
-python3 skills/career-agent/career_agent.py run --mode heartbeat
-python3 skills/career-agent/career_agent.py run --mode discover --source postings.json
-python3 skills/career-agent/career_agent.py approve <proposal-id> --evidence "resume.md:12"
-python3 skills/career-agent/career_agent.py rollback <version>
+VAULT=/path/to/career-agent-vault
+python3 skills/career-agent/career_agent.py init --vault "$VAULT"
+# 00-control/career-profile.toml을 채운 뒤 검증합니다.
+python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --track shinsotsu \
+  --message "가쿠치카 경험을 자기PR 소재로 정리하고 싶어요."
+python3 skills/career-agent/career_agent.py status --vault "$VAULT"
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
+python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume.md:12"
+python3 skills/career-agent/career_agent.py rollback --vault "$VAULT" <version>
+python3 skills/career-agent/career_agent.py index --vault "$VAULT"
+python3 skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
 
 `chat`은 `--message` 또는 stdin을 받습니다. 트랙이 불명확하면 추측하지 않고 중단합니다.
 초안 이벤트는 `approve`하기 전까지 확정 원장에 들어가지 않습니다.
+
+### Vault와 Obsidian 연동
+
+`init`은 아래 구조를 만들며, 그대로 Obsidian Vault로 연결할 수 있습니다.
+
+```text
+00-control/    프로필과 Agent 정책
+01-capture/    아직 분류하지 않은 원문 (자동 컨텍스트 금지)
+02-state/      이벤트 원장, 제안, 현재 상태
+03-active/     진행 중인 지원과 기업
+04-evidence/   사실 확인용 자료
+05-playbooks/  개인화된 검증 지침
+06-reference/  검토한 참고 자료
+07-archive/    끝난·오래된 자료 (자동 컨텍스트 금지)
+```
+
+런타임은 항상 `00-control`과 `02-state`만 읽고, 나머지는 검증된 노트 최대 다섯 개만 선택합니다.
+`index`는 `.career-agent/vault-index.jsonl`에 메타데이터·heading·wikilink·hash·경로·source kind만 저장하며
+본문을 가져오지 않습니다. `01-capture`는 제외하고, `07-archive`는 수동 감사 때만 `--include-archives`로 읽습니다.
+
+### 모든 취업 Agent의 공통 컨텍스트
+
+`CAREER_VAULT`를 한 번만 설정하면 `jiko-bunseki`, `job-seeker-agent`, `kigyou-bunseki`,
+`matching-simulator`, `tenshoku-strategy`, `company-battlecard`가 작업 전에 `context`를 호출합니다.
+따라서 모두 같은 프로필·현재 상태·메타데이터 전용 선택 노트를 사용합니다.
 
 ### 승인 게이트
 
@@ -145,13 +173,13 @@ flowchart TB
     Q --> R{"사용자가<br/>원문 근거 검토"}
     R -->|근거 부족 / 불명확| X["초안 유지<br/>추가 확인"]
     R -->|근거와 함께 승인| A["approve"]
-    A --> E["events.jsonl<br/>확정 이벤트"]
-    E --> S["state.json<br/>현재 단계 + 마감"]
+    A --> E["02-state/events.jsonl<br/>확정 이벤트"]
+    E --> S["career-state.toml<br/>현재 단계 + 마감"]
     E --> H["heartbeat<br/>최대 3개 행동"]
     C --> T["trajectories.jsonl<br/>실행 기록"]
 ```
 
-확정 이벤트는 `id`, `track`, `stage`, `type`, `occurred_at`, `title`, `summary`, `evidence`, `source`,
+확정 이벤트는 `id`, `track`, `stage`, `flow_phase`, `type`, `occurred_at`, `title`, `summary`, `evidence`, `source`,
 `next_action`, `deadline`, `status` 필드를 사용합니다. 근거와 일치하지 않는 수치 주장은 거부됩니다.
 
 ## 트랙과 단계
@@ -176,12 +204,24 @@ flowchart TB
     end
 ```
 
+### 신졸 시기 레이어
+
+```mermaid
+flowchart LR
+    P["preparation"] --> S["summer entry"] --> R["summer reflection"]
+    R --> A["autumn/winter early"] --> O["official selection"] --> N["offer/onboarding"]
+```
+
+`stage`는 작업 종류, `flow_phase`는 시기를 뜻하므로 ES·SPI3·면접은 겹쳐서 진행할 수 있습니다.
+공통 흐름은 매년 공식 출처로 수동 검토합니다. 유튜브 요약과 개인 회고는 체크리스트에만 반영하며,
+보편적인 일정이나 사실로 취급하지 않습니다.
+
 ## 추천 워크플로우
 
 | 목표 | 워크플로우 |
 |---|---|
 | 방향부터 정하기 | `/jiko-bunseki` → `/job-seeker-agent` |
-| 신졸: 学チカ에서 ES까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/tenshoku-strategy` |
+| 신졸: 学チカ에서 ES까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 중途: 경력서에서 면접까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 오퍼 비교 | `/company-battlecard` → `/tenshoku-strategy` |
 | 면접 답변 내용 | `/job-seeker-agent` |
@@ -210,19 +250,18 @@ URL이 필요합니다.
 
 공고 후보만 저장하며 웹 검색, 로그인, CAPTCHA 우회, 자동 지원, 이메일 발송은 하지 않습니다.
 
-## 저장 파일
+## Vault 저장 파일
 
-모든 Career Agent 런타임 파일은 `CAREER_HOME` 아래에 저장됩니다.
+모든 상태는 선택한 Career Vault 안에 저장됩니다.
 
 | 파일 | 용도 |
 |---|---|
-| `events.jsonl` | append-only 확정 이벤트 원장 |
-| `state.json` | 현재 트랙, 단계, 행동, 마감, 지원 상태 |
-| `proposals.jsonl` | 이벤트 초안, heartbeat, 공고 후보 |
-| `trajectories.jsonl` | 실행과 검증 기록 |
-| `checkpoints.jsonl` | 상태 checkpoint와 rollback 기록 |
-| `versions/*.json` | 교체 가능한 상태 snapshot |
-| `postings.jsonl` | 중복 제거된 공개 공고 후보 |
+| `00-control/career-profile.toml` | 트랙, 목표 직무, 상태, 신졸 졸업예정연도 |
+| `02-state/career-state.toml` | 사람이 읽는 현재 트랙·단계·행동·마감 |
+| `02-state/events.jsonl` | append-only 확정 이벤트 원장 |
+| `02-state/proposals.jsonl` | 이벤트 초안, heartbeat, 공고 후보 |
+| `02-state/trajectories.jsonl` | 실행과 검증 기록 |
+| `.career-agent/` | 교체 가능한 JSON 캐시, 버전, 메타데이터 전용 인덱스 |
 
 도메인 스킬의 문서는 `CLAUDE.md` 규칙에 따라 세션 디렉터리 기준 `career-docs/`에, 기계용
 프로필은 `data/`에 저장됩니다.

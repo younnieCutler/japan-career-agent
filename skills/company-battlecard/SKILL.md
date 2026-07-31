@@ -17,6 +17,12 @@ description: >
 
 # Company Battlecard — Japan IT/Marketing Company Comparison Agent
 
+## Shared Career Vault Context
+
+When `CAREER_VAULT` is set, read the shared `career-agent context` response before comparing companies.
+Use its current target, status, and selected evidence metadata; do not read archived personal notes by
+default. Follow `career-agent/references/shared-vault-context.md`.
+
 ## Overview
 
 This skill produces a structured head-to-head comparison of two companies from the candidate's perspective.

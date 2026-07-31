@@ -24,6 +24,12 @@ description: >
 
 # tenshoku-strategy — Japanese Job-Change Execution Strategy
 
+## Shared Career Vault Context
+
+When `CAREER_VAULT` is set, read the shared `career-agent context` response before STEP 0. Use the
+shared profile and state as the factual baseline, and route new facts through Career Agent drafts.
+Follow `career-agent/references/shared-vault-context.md`.
+
 This skill provides the tactical playbook from "decided to change jobs" to "first day at the new company."
 It does not handle resume analysis or company matching — those are other skills' domains.
 

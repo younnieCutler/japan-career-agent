@@ -120,24 +120,53 @@ cp -R "$REPO/_shared/." ~/.codex/_shared/
 
 ## Career Agent の実行
 
-リポジトリのルートから実行します。状態の保存先は初期値では `./career-home/` です。別の場所に
-保存する場合は `CAREER_HOME` または `--home` を指定します。
+専用の Career Vault を先に作成または指定します。ランタイムはリポジトリやカレントディレクトリを
+保存先の初期値にせず、`--vault` または `CAREER_VAULT` が必要です。
 
 ```bash
-python3 skills/career-agent/career_agent.py run \
-  --mode chat \
-  --track shinsotsu \
+VAULT=/path/to/career-agent-vault
+python3 skills/career-agent/career_agent.py init --vault "$VAULT"
+# 00-control/career-profile.toml を入力してから検証します。
+python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --track shinsotsu \
   --message "学チカの経験を自己PRの素材に整理したいです。"
-
-python3 skills/career-agent/career_agent.py status
-python3 skills/career-agent/career_agent.py run --mode heartbeat
-python3 skills/career-agent/career_agent.py run --mode discover --source postings.json
-python3 skills/career-agent/career_agent.py approve <proposal-id> --evidence "resume.md:12"
-python3 skills/career-agent/career_agent.py rollback <version>
+python3 skills/career-agent/career_agent.py status --vault "$VAULT"
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
+python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume.md:12"
+python3 skills/career-agent/career_agent.py rollback --vault "$VAULT" <version>
+python3 skills/career-agent/career_agent.py index --vault "$VAULT"
+python3 skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
 
 `chat` は `--message` または stdin を受け取ります。トラックが不明確な場合は推測せず停止します。
 ドラフトイベントは `approve` するまで確定台帳に入りません。
+
+### Vault と Obsidian 連携
+
+`init` は次の構造を作成し、そのまま Obsidian Vault として開けます。
+
+```text
+00-control/    プロフィールと Agent ポリシー
+01-capture/    未分類の原文（自動コンテキスト対象外）
+02-state/      イベント台帳、提案、現在状態
+03-active/     進行中の応募と企業
+04-evidence/   事実確認用の資料
+05-playbooks/  個人用の検証済みガイダンス
+06-reference/  確認済みの参考資料
+07-archive/    終了・古い資料（自動コンテキスト対象外）
+```
+
+ランタイムは常に `00-control` と `02-state` を読み、残りは検証済みノートを最大5件だけ選択します。
+`index` は `.career-agent/vault-index.jsonl` にメタデータ、見出し、wikilink、hash、パス、source kind
+だけを保存し、本文は取り込みません。`01-capture` は除外し、`07-archive` は手動監査時だけ
+`--include-archives` で読みます。
+
+### 候補者向け全 Agent の共通コンテキスト
+
+`CAREER_VAULT` を一度設定すると、`jiko-bunseki`、`job-seeker-agent`、`kigyou-bunseki`、
+`matching-simulator`、`tenshoku-strategy`、`company-battlecard` は作業前に `context` を呼びます。
+そのため、同じプロフィール、現在状態、メタデータだけの選択ノートを使います。
 
 ### 承認ゲート
 
@@ -147,13 +176,13 @@ flowchart TB
     Q --> R{"ユーザーが<br/>根拠を確認"}
     R -->|根拠不足 / 不明| X["ドラフトのまま<br/>追加確認"]
     R -->|根拠付きで承認| A["approve"]
-    A --> E["events.jsonl<br/>確定イベント"]
-    E --> S["state.json<br/>現在ステージ + 期限"]
+    A --> E["02-state/events.jsonl<br/>確定イベント"]
+    E --> S["career-state.toml<br/>現在ステージ + 期限"]
     E --> H["heartbeat<br/>最大3アクション"]
     C --> T["trajectories.jsonl<br/>実行記録"]
 ```
 
-確定イベントは `id`, `track`, `stage`, `type`, `occurred_at`, `title`, `summary`, `evidence`,
+確定イベントは `id`, `track`, `stage`, `flow_phase`, `type`, `occurred_at`, `title`, `summary`, `evidence`,
 `source`, `next_action`, `deadline`, `status` を使用します。根拠と一致しない数値の主張は拒否されます。
 
 ## トラックとステージ
@@ -178,12 +207,24 @@ flowchart TB
     end
 ```
 
+### 新卒の時期レイヤー
+
+```mermaid
+flowchart LR
+    P["preparation"] --> S["summer entry"] --> R["summer reflection"]
+    R --> A["autumn/winter early"] --> O["official selection"] --> N["offer/onboarding"]
+```
+
+`stage` は作業の種類、`flow_phase` は時期を表すため、ES・SPI3・面接は並行できます。共通の流れは
+毎年公式ソースで手動確認します。YouTube 要約や個人の振り返りはチェックリストだけに使い、
+普遍的な日程や事実としては扱いません。
+
 ## 推奨ワークフロー
 
 | 目的 | ワークフロー |
 |---|---|
 | 方向性から始める | `/jiko-bunseki` → `/job-seeker-agent` |
-| 新卒: 学チカからESまで | `/job-seeker-agent` → `/kigyou-bunseki` → `/tenshoku-strategy` |
+| 新卒: 学チカからESまで | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 中途: 職務経歴書から面接まで | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | オファーを比較する | `/company-battlecard` → `/tenshoku-strategy` |
 | 面接の回答内容 | `/job-seeker-agent` |
@@ -212,19 +253,18 @@ flowchart TB
 
 求人候補だけを保存します。Web検索、ログイン、CAPTCHA の回避、応募、メール送信は行いません。
 
-## 保存ファイル
+## Vault の保存ファイル
 
-Career Agent のランタイムファイルはすべて `CAREER_HOME` の下に保存されます。
+すべての状態は選択した Career Vault 内に保存されます。
 
 | ファイル | 用途 |
 |---|---|
-| `events.jsonl` | append-only の確定イベント台帳 |
-| `state.json` | 現在のトラック、ステージ、行動、期限、応募状態 |
-| `proposals.jsonl` | イベントドラフト、heartbeat、求人候補 |
-| `trajectories.jsonl` | 実行と検証の記録 |
-| `checkpoints.jsonl` | 状態 checkpoint と rollback の記録 |
-| `versions/*.json` | 置き換え可能な状態 snapshot |
-| `postings.jsonl` | 重複排除済みの公開求人候補 |
+| `00-control/career-profile.toml` | トラック、目標職種、状態、新卒の卒業予定年 |
+| `02-state/career-state.toml` | 人が読む現在のトラック、ステージ、行動、期限 |
+| `02-state/events.jsonl` | append-only の確定イベント台帳 |
+| `02-state/proposals.jsonl` | イベントドラフト、heartbeat、求人候補 |
+| `02-state/trajectories.jsonl` | 実行と検証の記録 |
+| `.career-agent/` | 置き換え可能な JSON キャッシュ、バージョン、メタデータ専用索引 |
 
 ドメインスキルの文書は `CLAUDE.md` の契約に従い、セッションディレクトリからの相対パスで
 `career-docs/` に、機械可読プロフィールは `data/` に保存されます。

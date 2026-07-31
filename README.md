@@ -121,24 +121,53 @@ cp -R "$REPO/_shared/." ~/.codex/_shared/
 
 ## Run the Career Agent
 
-Run from the repository root. State defaults to `./career-home/`; use `CAREER_HOME` or `--home` to
-store it elsewhere.
+Create or select a dedicated Career Vault first. The runtime never defaults to the repository or the
+current directory; pass `--vault` or set `CAREER_VAULT`.
 
 ```bash
-python3 skills/career-agent/career_agent.py run \
-  --mode chat \
-  --track shinsotsu \
-  --message "I want to turn my 学チカ experience into 自己PR material."
-
-python3 skills/career-agent/career_agent.py status
-python3 skills/career-agent/career_agent.py run --mode heartbeat
-python3 skills/career-agent/career_agent.py run --mode discover --source postings.json
-python3 skills/career-agent/career_agent.py approve <proposal-id> --evidence "resume.md:12"
-python3 skills/career-agent/career_agent.py rollback <version>
+VAULT=/path/to/career-agent-vault
+python3 skills/career-agent/career_agent.py init --vault "$VAULT"
+# Fill 00-control/career-profile.toml, then check the setup.
+python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat \
+  --track shinsotsu --message "I want to turn my 学チカ experience into 自己PR material."
+python3 skills/career-agent/career_agent.py status --vault "$VAULT"
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
+python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
+python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume.md:12"
+python3 skills/career-agent/career_agent.py rollback --vault "$VAULT" <version>
+python3 skills/career-agent/career_agent.py index --vault "$VAULT"
+python3 skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
 
 `chat` accepts `--message` or stdin. If the track is ambiguous, it stops instead of guessing.
 `approve` is required before a draft event enters the confirmed ledger.
+
+### Vault and Obsidian integration
+
+`init` creates this layout, which can be opened directly as an Obsidian Vault:
+
+```text
+00-control/    profile and agent policy
+01-capture/    unclassified raw material (never automatic context)
+02-state/      event ledger, proposals, and current state
+03-active/     active applications and companies
+04-evidence/   supporting material
+05-playbooks/  personal verified guidance
+06-reference/  reviewed sources
+07-archive/    closed or old material (never automatic context)
+```
+
+The runtime always reads `00-control` and `02-state`, then selects at most five verified notes from
+the active, evidence, playbook, and reference folders. `index` stores only metadata, headings,
+wikilinks, hashes, paths, and source kind in `.career-agent/vault-index.jsonl`; it never imports note
+bodies. `01-capture` is excluded, and `07-archive` needs `--include-archives` for a manual audit.
+
+### Shared context for every candidate-side skill
+
+Set `CAREER_VAULT` once. `jiko-bunseki`, `job-seeker-agent`, `kigyou-bunseki`,
+`matching-simulator`, `tenshoku-strategy`, and `company-battlecard` then call `context` before work
+and receive the same profile, current state, and metadata-only selected notes.
 
 ### The approval gate
 
@@ -148,13 +177,13 @@ flowchart TB
     Q --> R{"User reviews<br/>source evidence"}
     R -->|missing or unclear| X["remain draft<br/>ask for clarification"]
     R -->|approved with evidence| A["approve"]
-    A --> E["events.jsonl<br/>confirmed event"]
-    E --> S["state.json<br/>current stage + deadlines"]
+    A --> E["02-state/events.jsonl<br/>confirmed event"]
+    E --> S["career-state.toml<br/>current stage + deadlines"]
     E --> H["heartbeat<br/>up to 3 actions"]
     C --> T["trajectories.jsonl<br/>execution record"]
 ```
 
-Confirmed events use a fixed schema: `id`, `track`, `stage`, `type`, `occurred_at`, `title`, `summary`,
+Confirmed events use a fixed schema: `id`, `track`, `stage`, `flow_phase`, `type`, `occurred_at`, `title`, `summary`,
 `evidence`, `source`, `next_action`, `deadline`, and `status`. Numeric claims without matching evidence
 are rejected.
 
@@ -180,12 +209,24 @@ flowchart TB
     end
 ```
 
+### New-graduate timing layer
+
+```mermaid
+flowchart LR
+    P["preparation"] --> S["summer entry"] --> R["summer reflection"]
+    R --> A["autumn/winter early"] --> O["official selection"] --> N["offer/onboarding"]
+```
+
+`stage` describes the workstream; `flow_phase` describes the time window, so ES, SPI3, and interview
+work can overlap. The shared flow is reviewed manually each year against official sources. YouTube
+summaries and private retrospectives inform checklists, never universal deadlines or facts.
+
 ## Recommended workflows
 
 | Goal | Workflow |
 |---|---|
 | Direction first | `/jiko-bunseki` → `/job-seeker-agent` |
-| 新卒: 学チカ to ES | `/job-seeker-agent` → `/kigyou-bunseki` → `/tenshoku-strategy` |
+| 新卒: 学チカ to ES | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 中途: resume to interview | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | Compare offers | `/company-battlecard` → `/tenshoku-strategy` |
 | Interview content | `/job-seeker-agent` |
@@ -215,19 +256,18 @@ HTTP(S) URL:
 The runtime records candidates only. It does not search the web, log in, bypass CAPTCHA, submit
 applications, or send email.
 
-## Runtime files
+## Vault files
 
-All runtime files are stored under `CAREER_HOME`:
+All state lives inside the selected Career Vault:
 
 | File | Purpose |
 |---|---|
-| `events.jsonl` | Append-only confirmed event ledger |
-| `state.json` | Current track, stage, actions, deadlines, and applications |
-| `proposals.jsonl` | Draft events, heartbeat reports, and posting candidates |
-| `trajectories.jsonl` | ReAct-style execution and verification records |
-| `checkpoints.jsonl` | State checkpoints and rollback records |
-| `versions/*.json` | Replaceable state snapshots |
-| `postings.jsonl` | Deduplicated public posting candidates |
+| `00-control/career-profile.toml` | Track, target role, status, graduation year when applicable |
+| `02-state/career-state.toml` | Human-readable current track, stage, actions, and deadlines |
+| `02-state/events.jsonl` | Append-only confirmed event ledger |
+| `02-state/proposals.jsonl` | Draft events, heartbeat reports, and posting candidates |
+| `02-state/trajectories.jsonl` | ReAct-style execution and verification records |
+| `.career-agent/` | Replaceable JSON cache, versions, and metadata-only note index |
 
 Domain skills follow `CLAUDE.md`: human-readable reports go under `career-docs/`, and machine-readable
 profiles go under `data/`, relative to the session directory.

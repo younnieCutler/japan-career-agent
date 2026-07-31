@@ -17,6 +17,12 @@ description: >
 
 # Matching Simulator — Agency Matching Simulator
 
+## Shared Career Vault Context
+
+When `CAREER_VAULT` is set, read the shared `career-agent context` response before collecting profiles.
+The returned profile and state are canonical unless the user corrects them; do not create competing local
+career state. Follow `career-agent/references/shared-vault-context.md`.
+
 ## Overview
 
 Inside major Japanese agencies, the RA (Recruiting Advisor, company-side) and
