@@ -6,6 +6,8 @@
 # Exception: Core repository files
 !/.gitignore
 !/README.md
+!/README_ko.md
+!/README_ja.md
 !/LICENSE
 !/CLAUDE.md
 
