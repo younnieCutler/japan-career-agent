@@ -17,6 +17,7 @@ def run(vault: Path, command: str, *args: str, input_text: str | None = None) ->
         [sys.executable, str(SCRIPT), command, "--vault", str(vault), *args],
         input=input_text,
         text=True,
+        encoding="utf-8",
         capture_output=True,
         check=False,
     )
@@ -54,7 +55,7 @@ class CareerAgentTests(unittest.TestCase):
         # CAREER_VAULT is exported in a real user's shell, and a subprocess inherits it.
         # Scrub it, or this asserts the opposite of what it means to on a working machine.
         env = {k: v for k, v in os.environ.items() if k != "CAREER_VAULT"}
-        failed = subprocess.run([sys.executable, str(SCRIPT), "status"], text=True, capture_output=True, check=False, env=env)
+        failed = subprocess.run([sys.executable, str(SCRIPT), "status"], text=True, encoding="utf-8", capture_output=True, check=False, env=env)
         self.assertEqual(failed.returncode, 2)
         self.assertIn("CAREER_VAULT is required", failed.stderr)
 
@@ -260,8 +261,8 @@ class CareerAgentTests(unittest.TestCase):
         proposal_id = proposed["proposal"]["id"]
 
         cmd = [sys.executable, str(SCRIPT), "approve", "--vault", str(self.vault), proposal_id, "--evidence", "面接を準備したい"]
-        first = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        second = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        first = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+        second = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
         results = [first.communicate(), second.communicate()]
         returncodes = [first.returncode, second.returncode]
 
