@@ -49,6 +49,12 @@ The numbers are the output. There is no subjective commentary.
 - Do not fabricate STAR stories for experiences not in the original profile. They become false statements in interviews.
 - Do not invent numbers. Describe experiences without quantifiable results as "difficult to quantify" honestly.
 - Resume improvement means "showing what exists more effectively" — not "creating what doesn't exist."
+- **Never print a probability % without the disclaimer on the next line.** Any passage-probability or
+  match-percentage output carries `⚠️ LLM estimate, not a statistic (±10pt or more). Use it to decide
+  where to spend preparation time, never as a reason to prepare less.` A bare percentage reads as a
+  measurement and invites the candidate to under-prepare for the company the number called safe.
+  `matching-simulator` and `references/platforms.md` carry the same two claims — estimate, not
+  statistic; prioritise preparation, never reduce it. Change one, check the other two.
 
 ## Upstream Handoff — SELF_ANALYSIS_PROFILE (optional)
 

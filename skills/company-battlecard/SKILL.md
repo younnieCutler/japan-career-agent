@@ -188,6 +188,11 @@ Always output in this exact format:
 |---------------------|-------------|-------------|--------|
 | **TOTAL**           | **16/25**   | **16/25**   | Tie    |
 
+ℹ️ 選考プロセスの形 (not scored)
+   [Company A] 自分の成果物を見せる場: あり / [Company B] なし
+   → Shown because the shape of the 選考 decides which of your evidence can be used at all.
+     It is NOT part of the total and must never move the verdict.
+
 💡 Justification (per dimension):
 - Skill Stack: [A] Python required, candidate has basic → gap. [B] SQL-heavy, candidate intermediate → match.
 - SPI3: [A] Startup culture fits candidate's Creation trait. [B] SIer culture conflicts with low Order score.
@@ -202,6 +207,12 @@ Always output in this exact format:
 - If total difference is 3+ points: strong recommendation for the winner
 - If total difference is 1~2 points: conditional recommendation (state the deciding factor)
 - If tied: state which single dimension should be the tiebreaker based on the candidate's stated priority
+
+**選考プロセスの形 line:** read `demo_slot` from each company's `data/pipeline.yml` entry
+(`kigyou-bunseki` writes it; `unknown` if absent). Report it and stop there. It gets no score and no
+weight — one observed case is not enough to price a variable, and pricing it wrong would quietly steer
+every future comparison. The suite tracks it so a user can see, after several applications, whether
+every 選考 they enter tests the same single axis. That warning lives in `career-agent`, not here.
 
 ## Tone & Style
 

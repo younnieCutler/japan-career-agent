@@ -47,19 +47,43 @@ Based on candidate profile, recommend the best-fit platform(s):
 | Startup culture, any JLPT, wants culture-first | Wantedly | No registration screening; culture/mission matching; no salary shown upfront — confirm expectations |
 | Foreign national in Japan, IT mid-career, needs sponsor | VISIONARY CAREER | Specialist in foreign national placement; navigates visa categories and COE; N2+ required |
 
-**🚨 Platform Blocking Rules (Cold Mode — apply before routing):**
+**⚠️ Platform Risk Flags (Cold Mode — surface before routing):**
 
-Apply these hard blocks before recommending an agent platform (Recruit, doda, MyNavi, Levertech):
+These flags lower the odds an agent platform routes the candidate well. They are **warnings, not blocks** —
+never remove an agent platform from the option list because of them.
 
-| Risk flag | Threshold | Block logic |
+| Risk flag | Threshold | What it means |
 |---|---|---|
-| Short tenure (pattern) | 3+ job changes by late-20s, or any single stint <1yr | CAs face refund obligation if candidate leaves. **Route to direct-apply only: Green, BizReach.** |
-| Employment gap | Lev: 2~3 mo; Rec/doda: 3~6 mo; MyNavi: 6+ mo | Signals "unemployed" risk. **Route to Green (gap-tolerant) or BizReach.** |
-| JLPT N3 or below, non-engineer | All agent platforms | Agents will not route non-engineer roles for N3. **Route to MyNavi Global or Korean-founded.** |
-| Fragmented skills | 3+ unrelated domains | CAs struggle to pitch profile. **Route to Green before agents.** |
+| Short tenure (pattern) | 3+ job changes by late-20s, or any single stint <1yr | CAs face a refund obligation if the candidate leaves early, so they pitch such profiles cautiously. Direct-apply routes (Green, BizReach) avoid the CA filter |
+| Employment gap | Lev: 2~3 mo; Rec/doda: 3~6 mo; MyNavi: 6+ mo | Signals "unemployed" risk to a CA. Green is gap-tolerant |
+| JLPT N3 or below, non-engineer | All agent platforms | Agents rarely route non-engineer roles at N3. MyNavi Global or Korean-founded companies are the realistic path |
+| Fragmented skills | 3+ unrelated domains | CAs struggle to pitch the profile in one sentence. Green accepts it directly |
+
+**Feedback-loss disclosure (mandatory whenever a direct-apply route is recommended):**
+
+Direct application removes the CA filter, and it removes the rejection reason with it. Companies send a
+定型お祈りメール; only an agent or scout relays what the company actually said. A rejection with no reason
+teaches nothing, and the highest-priority company is exactly the one whose rejection is most worth
+understanding.
+
+State this whenever the routing above points to Green or BizReach:
+
+```
+⚠️ 直接応募のトレードオフ
+  Agent route:  CA filter may weaken the pitch — but a rejection comes with the company's real reason
+  Direct route: no CA filter — but a rejection comes with no reason at all (定型お祈りメール)
+
+  This company is [high/low] priority for you. The higher the priority, the more the
+  rejection reason is worth.
+```
+
+If the user takes an agent route despite a risk flag, or a direct route despite this warning, record
+`gate_override: true` on the pipeline entry. Whether these flags were right for this user is then
+measurable by `career-agent calibrate` instead of assumed.
 
 **Screening passage probability output (mandatory):**
-At the end of the Platform Routing section, ALWAYS output a probability line:
+At the end of the Platform Routing section, ALWAYS output a probability line, **immediately followed by
+the disclaimer line — the STEP is not complete without it**:
 
 ```
 📊 Screening Passage Probability Estimate
@@ -67,6 +91,10 @@ Target: [Role] @ [Platform]
 Document screening: [X]% (basis: [gap count, JLPT level, tenure flags])
 CA recommendation rate: [X]% (basis: [agent profiling logic — applies to agent platforms only])
 Overall passage to interview: [X]%
+
+⚠️ LLM estimate, not a statistic (±10pt or more). Agency routing also depends on placement fee
+   margins, CA quotas, and how many openings are left that week — none of which are observable here.
+   Use this to decide where to spend preparation time, never as a reason to prepare less.
 
 Basis: [2–3 sentence explanation citing the specific flags that drove the estimate]
 ```
