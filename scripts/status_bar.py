@@ -140,7 +140,7 @@ def calibration_line(pipeline: dict) -> str:
     if len(scored) < CALIBRATION_MIN_SAMPLE:
         need = CALIBRATION_MIN_SAMPLE - len(scored)
         return f"calibration: {len(scored)} scored outcomes (need {need} more)"
-    return f"calibration: {len(scored)} scored outcomes — `career_agent.py calibrate` available"
+    return f"calibration: {len(scored)} scored outcomes — `scripts/calibrate.py` available"
 
 
 def diversity_line(pipeline: dict) -> str | None:

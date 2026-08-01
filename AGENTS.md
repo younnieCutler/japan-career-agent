@@ -32,11 +32,20 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`L91–L106`**: Self-test suite (`python3 _shared/scoring.py --self-test`)
 
 ### 3. `_shared/schemas.yml` (Canonical Data Contracts)
-- **`L20–L62`**: `SELF_ANALYSIS_PROFILE` (Produced by `jiko-bunseki`, consumed by `job-seeker-agent`)
-- **`L68–L118`**: `CANDIDATE_PROFILE` (Produced by `job-seeker-agent`, consumed by match/battlecard)
-- **`L124–L141`**: `COMPANY_PROFILE` (Produced by `hiring-manager-agent` / `kigyou-bunseki`)
-- **`L148–L160`**: `MATCH_HISTORY` (Produced by `matching-simulator`)
-- **`L176–L197`**: `PIPELINE` (Produced by `tenshoku-strategy` / `kigyou-bunseki` / `matching-simulator`)
+- **`L22–L62`**: `SELF_ANALYSIS_PROFILE` (Produced by `jiko-bunseki`, consumed by `job-seeker-agent`)
+- **`L70–L125`**: `CANDIDATE_PROFILE` (Produced by `job-seeker-agent`, consumed by match/battlecard)
+- **`L127–L149`**: `COMPANY_PROFILE` (Produced by `hiring-manager-agent` / `kigyou-bunseki`)
+- **`L151–L166`**: `MATCH_HISTORY` (Produced by `matching-simulator`)
+- **`L179–L263`**: `PIPELINE` — per-company state, outcome record, measurement fields, `action_items`
+- **`L265–L273`**: `RULES` — the user's standing rules (`career-agent` writes on approval only)
+
+### 4. `scripts/` (Deterministic Loop — no LLM in the path)
+- **`status_bar.py`**: `build_status()` → the `<career_status>` block. Run by the UserPromptSubmit hook
+  in `hooks/hooks.json`. Silent when `data/pipeline.yml` is absent.
+- **`check_action.py`**: user-run. Ticks one action item; the assistant must not.
+- **`calibrate.py`**: predicted vs actual, feedback rate per route, override outcomes. Prints nothing
+  below 3 scored outcomes. `rules` subcommand promotes a cause only at 2+ supporting entries.
+- **`test_status_bar.py`**, **`test_calibrate.py`**: run both before touching either script.
 
 ---
 

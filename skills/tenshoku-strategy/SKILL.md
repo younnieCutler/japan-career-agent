@@ -443,6 +443,15 @@ what was re-verified. If verification is not possible in this session, prefix ev
    repeated across companies is the #1 fix (fully in the candidate's control). Calibration explains whether
    the score itself is trustworthy; Tier A/B explain why an outcome diverged from it — report both, do not
    conflate them. **LLM aggregation, no Node script, with a "±approximate, sample N" disclaimer.**
+4-b. **Deterministic pass first:** run `python3 scripts/calibrate.py` before writing any analysis of
+   your own. It computes predicted-tier-vs-reached-stage, feedback capture rate per route, override
+   outcomes, and prep-volume-vs-outcome straight from the file, and it prints nothing at all below 3
+   scored outcomes. Report its output; add interpretation only on top of it. Never restate its numbers
+   from memory — recomputing them by reading the file is how the counts drift.
+   `python3 scripts/calibrate.py rules` lists which rejection causes recur. A cause with a single
+   supporting entry is not actionable and the tool will refuse to promote it: one company's rejection
+   reason is that company's measurement. Always surface the caveat it prints — the axis the candidate
+   actually wins on produces no row in that table at all.
 5. **Action suggestions:** filters / score threshold / target adjustment (after user approval).
 6. Both files follow the Output Contract: CWD-relative, print the absolute path after each write and
    confirm the file exists.

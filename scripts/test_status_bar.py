@@ -129,7 +129,7 @@ def test_calibration_threshold():
         }
 
     assert "calibration: 2 scored outcomes (need 1 more)" in build_status(scored(2), {}, TODAY)
-    assert "calibration: 3 scored outcomes — `career_agent.py calibrate` available" in build_status(
+    assert "calibration: 3 scored outcomes — `scripts/calibrate.py` available" in build_status(
         scored(3), {}, TODAY
     )
 
