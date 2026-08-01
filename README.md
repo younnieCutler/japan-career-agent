@@ -7,7 +7,7 @@ and **中途** (mid-career) paths, from self-analysis to documents, interviews, 
 and onboarding.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#install)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#install)
@@ -118,6 +118,45 @@ mkdir -p ~/.codex/skills ~/.codex/_shared
 cp -R "$REPO/skills/." ~/.codex/skills/
 cp -R "$REPO/_shared/." ~/.codex/_shared/
 ```
+
+## Updating
+
+Auto-update is **off by default for third-party marketplaces**, including this one. Until you turn
+it on, an install keeps serving the version it was installed at.
+
+Turn it on once, in `/plugin` → **Marketplaces** → `japan-recruit-ai-agent` → enable auto-update.
+Equivalently, in `~/.claude/settings.json`:
+
+```json
+"extraKnownMarketplaces": {
+  "japan-recruit-ai-agent": {
+    "source": { "source": "github", "repo": "younnieCutler/japan-recruit-ai-agent" },
+    "autoUpdate": true
+  }
+}
+```
+
+Claude Code then checks shortly after each session starts. The **running** session keeps the
+versions it launched with, so a new release applies from the next launch.
+
+To update once, by hand:
+
+```bash
+claude plugin marketplace update japan-recruit-ai-agent   # refresh the marketplace listing
+claude plugin update japan-recruit-ai-agent               # then the plugin itself
+claude plugin list                                        # confirm the version
+```
+
+Restart Claude Code afterwards; the update does not apply to the session you ran it from.
+
+Releases are delivered by the `version` field in `.claude-plugin/plugin.json`, and each version is
+cached in its own directory — so an install stays on the version it has until that field changes.
+
+Since 1.1.0 the plugin ships a `UserPromptSubmit` hook that injects the career status bar
+(deadlines, unchecked action items, your own standing rules). Hooks ship with the plugin, so an
+install still on 1.0.0 has no status bar and no execution gate. The **Local fallback** install
+above copies only `skills/` and `_shared/`, so it does not get the hook either — use the plugin
+install if you want it.
 
 ## How to operate the agent
 

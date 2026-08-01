@@ -6,7 +6,7 @@
 자기분석부터 서류, 면접, 오퍼, 퇴직, 입사 준비까지 연결합니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#스킬)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#설치)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#설치)
@@ -115,6 +115,44 @@ mkdir -p ~/.codex/skills ~/.codex/_shared
 cp -R "$REPO/skills/." ~/.codex/skills/
 cp -R "$REPO/_shared/." ~/.codex/_shared/
 ```
+
+## 업데이트
+
+자동 업데이트는 **서드파티 마켓플레이스에서 기본으로 꺼져 있습니다.** 이 플러그인도 마찬가지라,
+켜기 전까지는 설치 시점의 버전을 계속 사용합니다.
+
+한 번만 켜두면 됩니다. `/plugin` → **Marketplaces** → `japan-recruit-ai-agent` → auto-update 활성화.
+`~/.claude/settings.json`에 직접 써도 같습니다:
+
+```json
+"extraKnownMarketplaces": {
+  "japan-recruit-ai-agent": {
+    "source": { "source": "github", "repo": "younnieCutler/japan-recruit-ai-agent" },
+    "autoUpdate": true
+  }
+}
+```
+
+이후 Claude Code가 세션 시작 직후에 확인합니다. **실행 중인** 세션은 시작 시점의 버전을 유지하므로,
+새 릴리스는 다음 실행부터 적용됩니다.
+
+수동으로 한 번만 갱신하려면:
+
+```bash
+claude plugin marketplace update japan-recruit-ai-agent   # 마켓플레이스 목록 갱신
+claude plugin update japan-recruit-ai-agent               # 플러그인 본체 갱신
+claude plugin list                                        # 버전 확인
+```
+
+실행한 세션에는 적용되지 않으니 재시작하세요.
+
+릴리스는 `.claude-plugin/plugin.json`의 `version` 필드로 전달되며 버전마다 별도 캐시 디렉터리를
+사용합니다 — 이 필드가 바뀌기 전까지는 설치본이 기존 버전에 머뭅니다.
+
+1.1.0부터 플러그인이 `UserPromptSubmit` 훅을 동봉해 커리어 상태바(마감일, 미체크 액션 항목,
+본인이 정한 규칙)를 주입합니다. 훅은 플러그인과 함께 배포되므로 1.0.0에 머물러 있으면 상태바도
+실행 게이트도 없습니다. 위 **로컬 폴백** 방식은 `skills/`와 `_shared/`만 복사하므로 훅이
+포함되지 않습니다 — 훅이 필요하면 플러그인으로 설치하세요.
 
 ## 에이전트 운영 방법
 
