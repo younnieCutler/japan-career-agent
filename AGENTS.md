@@ -141,7 +141,7 @@ When the user's message or attached content matches a pattern below, activate th
 | "면접 라운드", "一次/二次/最終 면접", "カジュアル面談", "ケース면접", "면접관 유형", "audience prep" | `job-seeker-agent` (STEP 4-3 面接ラウンド別) |
 | "お礼メール", "면접 후 메일", "面接後フォロー", "thank-you mail", "면접 후속" | `tenshoku-strategy` (面接後フォロー) |
 | "지원 관리", "선고 추적", "応募管理", "選考トラッキング", "거절 패턴", "application tracker", "선고 패턴" | `tenshoku-strategy` (選考トラッキング) |
-| "求人 정당성", "ghost job", "유령 채용", "求人の真正性", "이 공고 진짜야?", "采用凍結" | `kigyou-bunseki` (求人の真正性) |
+| "면접 연습", "모의 면접", "mock interview", "面接練習", "深掘り 対策", "stress test" | `mock-interviewer` |
 | "career state", "다음 행동", "heartbeat", "마감 알림", "이벤트 원장", "キャリア状態" | `career-agent` |
 
 **JD disambiguation rule:**

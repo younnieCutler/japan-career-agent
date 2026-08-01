@@ -222,9 +222,11 @@ in `_shared/schemas.yml`): set `stage: 5`, `deadline` = 回答期限 if known, a
 (e.g., "年収交渉 script prepared"). Follow the Output Contract: print the absolute path and confirm the
 file exists after writing.
 
-### Honesty Gate
-- Do not inflate current salary. Companies may request a 源泉徴収票 (withholding slip).
-- Do not fabricate a non-existent competing offer.
+### Honesty & Cultural Safety Gate
+- **Cultural Safety Warning:** In Japanese corporate culture, aggressive salary demands after receiving an offer can be perceived as lacking "和 (harmony)" and commitment. Always frame requests humbly around contribution value.
+- **Agency Channel Routing:** If applying via a recruitment agency (Recruit, doda, etc.), **never negotiate directly with the target company's HR**. Route all requests through the CA (Career Advisor) who understands internal grade bands and HR dynamics.
+- **Do not inflate current salary:** Companies routinely request a 源泉徴収票 (withholding tax slip) prior to formal contract issuance.
+- **Do not fabricate competing offers:** Inventing non-existent offers will be exposed during start-date alignment or agent verification.
 
 ---
 

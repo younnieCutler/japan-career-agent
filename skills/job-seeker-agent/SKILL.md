@@ -294,24 +294,17 @@ Every claim in the report must trace back to something the user said or wrote.
 - If a skill has no supporting evidence, do not write a STAR story for it. Write: "該当経験なし (no relevant experience found)"
 - Numbers must come from the user's input. If no number exists, use qualitative descriptions ("reduced burden" not "reduced by 40%")
 
-Numbers make resumes readable. Rules for adding metrics:
+Numbers make resumes readable, but **unsupported numbers invite interview failure during deep-dive questioning (深掘り)**.
 
-**Estimates OK (reasonable range estimation):**
-- Frequency/count: "月3〜4件" "週1回" (inferrable from job description)
-- Ratios: "約60〜70%" (reasonable estimate from context)
-- Scale: "約100名の従業員が利用するシステム" (inferrable from org size)
-- Episode results: when direction is clear ("complaints decreased"), express as a range
-  Example: "月3〜4件あったクレーム対応が月1件程度に減少" (far stronger than subjective "I felt it improved")
+**Strict Metric Rules:**
+- **User-Confirmed Figures Only:** Frequency/count ("月3〜4件") and scale ("100名規模") may only be included if explicitly stated by the candidate or confirmed during interactive questioning.
+- **No Inferred Decreases/Ratios:** Never invent specific before/after comparison metrics (e.g., "月3〜4件 → 月1件に減少") unless the candidate provides the actual measurement method. In Japanese interviews, candidates are always asked: *"How was that measured?"* — undefendable metrics destroy candidate trust instantly.
+- **When no metrics exist:** Use qualitative, process-focused descriptions rather than invented numbers.
 
-**Never fabricate:**
-- Achievement metrics not in the original profile ("cut by 60%", "handled 200 cases")
-- Project scale not mentioned ("¥10B project")
-
-**Alternative when no numbers exist:**
+**Examples:**
 ```
-❌ "Reduced data processing time by 60%" (fabricated)
-✅ "Systematized monthly data consistency errors via SQL queries,
-   reducing the burden on the responsible person's verification workload" (qualitative but specific)
+❌ "Reduced complaint handling from 3–4 to 1 case/month" (unverified decrease — fail in 深掘り)
+✅ "Systematized error verification via SQL queries, eliminating manual cross-checks" (qualitative, verifiable)
 ```
 
 #### 4-1. 職務経歴書 Reproducibility Rewrite (担当業務 → 再現性・成果・役割・工夫)

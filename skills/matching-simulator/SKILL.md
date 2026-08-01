@@ -259,16 +259,25 @@ Compile all analysis into a final report.
 
 ```
 ═══════════════════════════════════════
-  Matching Simulation Result
+  Matching Simulation & Vulnerability Report
 ═══════════════════════════════════════
 
 [Candidate] ○○○ × [Company] △△△ — □□ Position
 
-━━━ Match Scores ━━━
-Recruit-style:  78/100 (B Match)
-Persol Career-style:   82/100 (B Match)
-Culture Fit:    90/100 (High Fit)
-Overall:        83/100 (B+ Match — upper tier of recommendation list)
+⚠️ Score Disclaimer: All scores are simulated LLM estimates (±10~15pt variance). Actual agency routing depends on fee margins, internal database algorithms, and human consultant quotas. Use scores ONLY to prioritize preparation areas, NOT as a pass guarantee.
+
+━━━ Top 3 Interview Vulnerabilities (深掘り リスク) ━━━
+1. [Vulnerability 1 — e.g. Core Tech gap / short tenure / undefendable metric]
+   → Likely interviewer question: 「...」
+   → Action: [Recommended grounding / framing strategy]
+2. [Vulnerability 2]
+3. [Vulnerability 3]
+
+━━━ Simulated Match Scores ━━━
+Recruit-style:  ~75/100 (B Match range)
+Persol Career-style:   ~80/100 (B Match range)
+Culture Fit:    ~90/100 (High Fit)
+Overall Estimate: ~80/100 (Directional B Match — subject to interview verification)
 
 ━━━ Score Breakdown ━━━
 [Skill Match]     Skill alignment, gap analysis, transfer potential

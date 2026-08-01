@@ -389,3 +389,49 @@ dominant evaluation lens, and what each type screens hardest for. (`company_type
 > `ub5NFGRanfs` / `wq0WrdFXivA` / `MFwaU-l75TI` / `8bUkK0Kdd0c`; スタートアップ・SaaS `4zctjnpznjo` /
 > `btaUiT98cRg` / `3YsS5ojfBSQ`; 大企業 final `UdjQxAtAUUI`; SES drawn from existing repo rules
 > (platforms.md, enman-taishoku.md). SIer/自社開発 rows mirror existing `platforms.md` §2–§3.
+
+---
+
+## 8. Real Hourly Pay & Labor Contract Evaluation (みなし残業・労働条件)
+
+### Real Hourly Pay Formula (みなし残業 시급 환산 산식)
+
+A higher gross annual salary (提示年収) can be deceiving if it includes a large fixed overtime allowance (みなし残業 / 固定残業代). Always calculate the **Real Hourly Pay Rate** before comparing offers or evaluating market rate:
+
+```
+Total Monthly Standard Work Hours = (365 - Annual Days Off) / 12 × Daily Regular Work Hours
+Annual Base Regular Hours = Total Monthly Standard Work Hours × 12
+
+Fixed Overtime Premium Allowance = (Base Annual Salary × Fixed Overtime Hours × 1.25) / (Annual Base Regular Hours + Fixed Overtime Hours × 1.25 × 12)
+Real Base Annual Salary = Gross Annual Salary - Fixed Overtime Premium Allowance
+
+Real Hourly Pay Rate = Real Base Annual Salary / Annual Base Regular Hours
+```
+
+#### Practical Short Formula:
+
+```
+Real Hourly Pay = (Gross Annual Salary - Annual Bonus) / [12 × (Monthly Regular Hours + Fixed Overtime Hours × 1.25)]
+```
+
+#### Worked Comparison Example:
+
+| Parameter | Company A (No fixed overtime) | Company B (45h fixed overtime) |
+|-----------|--------------------------------|--------------------------------|
+| **Gross Salary** | ¥6.0M | ¥6.5M |
+| **Annual Days Off** | 125 days (240 work days) | 120 days (245 work days) |
+| **Daily Hours** | 8.0h (160h/mo) | 8.0h (163.3h/mo) |
+| **Fixed Overtime** | 0 hours | 45 hours / month |
+| **Bonus** | ¥1.0M | ¥0.5M |
+| **Real Hourly Pay** | **~¥2,604 / hr** | **~¥2,283 / hr** |
+| **Verdict** | **WINNER (Higher real hourly rate)** | **LOWER REAL PAY despite +¥500k gross** |
+
+### Labor Terms Evaluation Checklist
+
+When evaluating 労働条件通知書 / 雇用契約書, verify these 5 critical flags:
+
+1. **みなし残業 Overages:** Are hours above the fixed threshold actually paid? Check clause for 「超過分は別途支給」.
+2. **Probation Salary (試用期間中):** Does salary drop during probation? (e.g., 90% pay for first 3–6 months).
+3. **Commuting & Housing Allowances (手当):** Are allowances included inside the gross salary figure, lowering base pay for bonus calculations?
+4. **Non-compete Clause (競業避止義務):** Is there an overly restrictive non-compete clause post-resignation?
+5. **Retirement / DC Plan (退職金・確定拠出年金):** Is corporate DC or severance pay included?
