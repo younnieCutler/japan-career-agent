@@ -199,6 +199,30 @@ class CareerAgentTests(unittest.TestCase):
         self.assertNotIn("asked before", first["question"])
         self.assertIn("asked before", third["question"])
 
+    def test_generic_followup_keeps_current_stage_instead_of_resetting(self) -> None:
+        self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "内定をもらったので条件を確認したい"))
+        self.assertEqual(proposed["stage"], "内定・条件交渉")
+        output(run(self.vault, "approve", proposed["proposal"]["id"], "--evidence", "内定をもらったので条件を確認したい"))
+
+        followup = output(run(self.vault, "run", "--mode", "chat", "--message", "다음에 뭘 해야 해?"))
+        self.assertEqual(followup["stage"], "内定・条件交渉")
+
+    def test_context_selector_excludes_expired_notes(self) -> None:
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        trusted = self.vault / "05-playbooks" / "interview.md"
+        trusted.write_text(
+            "---\nagent_read: true\nagent_scope: chuto\nagent_stage: 面接\nstatus: verified\nsource_type: curated_practice\nreviewed_on: 2026-08-01\n---\n\n# Interview\n\nUseful.\n",
+            encoding="utf-8",
+        )
+        expired = self.vault / "05-playbooks" / "old-interview.md"
+        expired.write_text(
+            "---\nagent_read: true\nagent_scope: chuto\nagent_stage: 面接\nstatus: verified\nsource_type: curated_practice\nreviewed_on: 2020-01-01\nexpires_on: 2020-06-01\n---\n\n# Old Interview\n\nStale.\n",
+            encoding="utf-8",
+        )
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "中途で面接を準備したい"))
+        self.assertEqual([item["path"] for item in proposed["context"]], ["05-playbooks/interview.md"])
+
     def test_heartbeat_surfaces_profile_deadline(self) -> None:
         self.set_profile(
             track="chuto",

@@ -356,7 +356,7 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
     return None
 
 
-def stage_for(message: str, track: str) -> str:
+def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
     for term, alias in STAGE_ALIASES.items():
         if term.lower() not in message.lower():
             continue
@@ -373,7 +373,10 @@ def stage_for(message: str, track: str) -> str:
             "offer": candidates[5 if track == "chuto" else 6],
             "exit": candidates[6],
         }.get(alias, candidates[0])
-    return (CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES)[0]
+    candidates = CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES
+    if current_stage in candidates:
+        return current_stage
+    return candidates[0]
 
 
 def skill_context(skills_root: Path, stage: str) -> dict[str, Any]:
@@ -455,6 +458,12 @@ def context_eligible(note: dict[str, Any], track: str, stage: str) -> bool:
         return False
     if note.get("status") != "verified" or note.get("source_type") not in TRUSTED_SOURCE_TYPES:
         return False
+    expires = str(note.get("expires_on") or "")
+    try:
+        if expires and dt.date.fromisoformat(expires) < today():
+            return False
+    except ValueError:
+        pass
     if track not in metadata_values(note.get("agent_scope")) | {"both"}:
         return False
     stages = metadata_values(note.get("agent_stage"))
@@ -862,7 +871,7 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
             "question": question,
             "saved": str(home.trajectories),
         }
-    stage = stage_for(message, track)
+    stage = stage_for(message, track, state.get("stage"))
     reference = load_flow_reference()
     flow_phase = flow_phase_for(message, track, state, profile, reference)
     context = select_context(home.path, track, stage)

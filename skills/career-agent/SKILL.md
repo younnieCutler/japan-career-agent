@@ -64,9 +64,10 @@ relative paths, and source kind in `.career-agent/vault-index.jsonl`; it never i
 Confirmed events must include evidence. Pass one or more `--evidence` values when approving; numeric
 claims without matching evidence are rejected.
 Heartbeat emits at most three actions, each with its source event, stage, flow phase, deadline, and
-confirmation flag. `discover` accepts a local JSON export of public postings, preserves the original
-URL, and deduplicates by URL (or company + role when no URL exists). It records candidates only; it
-never applies.
+confirmation flag. `discover` accepts a local JSON export of public postings; every posting requires
+an original http(s) URL (there is no company+role fallback — a posting without one is dropped, not
+silently kept), and postings are deduplicated by that URL. It records candidates only; it never
+applies.
 
 The runtime uses the request language for response metadata (`ko`, `ja`, or `en`), keeps Japanese
 career terms in the source text, and pauses when track intent is not explicit rather than inventing

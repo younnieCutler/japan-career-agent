@@ -12,6 +12,9 @@
 !/CLAUDE.md
 !/AGENTS.md
 
+# Exception: CI
+!/.github/
+
 # Exception: Plugin manifests
 !/.claude-plugin/
 !/.codex-plugin/

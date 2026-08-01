@@ -29,8 +29,11 @@ Inside major Japanese agencies, the RA (Recruiting Advisor, company-side) and
 CA (Career Advisor, candidate-side) evaluate matches from different perspectives.
 This skill simulates both perspectives to analyze the "true potential" of a match.
 
-Core principle: **Recreates the actual judgment process happening inside agencies.
-Includes not just algorithm scores, but also the consultant's perspective at final screening.**
+Core principle: **Approximates the judgment process happening inside agencies, using public
+frameworks (SPI3, Portable Skills) and heuristic weights, not the agencies' actual internal
+models.** Includes not just algorithm scores, but also a consultant-perspective read at final
+screening — treat every score as directional (see the LLM Math Limitation disclosure below), not
+a measured probability.
 
 ## Interactive Mode (Required)
 
