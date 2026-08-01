@@ -2,8 +2,8 @@
 name: job-seeker-agent
 description: >
   Agent skill for job seekers in Japan's IT/marketing sector. Analyzes resumes and work
-  histories, conducts a quick SPI3 personality assessment (12 statements), scores the 8
-  Portable Skills, performs skill ontology mapping, and delivers resume improvement,
+  histories, conducts a quick SPI3 personality assessment (12 statements), scores the 9
+  Portable Skills (MHLW official), performs skill ontology mapping, and delivers resume improvement,
   interview prep, and career transition (skillset shift) guidance.
   Outputs a CANDIDATE_PROFILE YAML block for use with matching-simulator and company-battlecard.
 
@@ -38,7 +38,7 @@ Core principle: **Evaluate yourself the same way the agency algorithm evaluates 
 
 **Output preview — every session produces results in this format:**
 ```
-📋 Portable Skills: Analytical Thinking 2/5 — [evidence: "Excel KPI集計のみ、技術的分析経験なし"]
+📋 Portable Skills: 現状の把握 2/5 — [evidence: "Excel KPI集計のみ、技術的分析経験なし"]
 🔍 Gap Analysis:   3/5 MUST requirements unmet → screening passage probability < 10%
 📊 SPI3:           Primary trait: Order → SIer fit ★★★, Startup fit ★☆☆
 🔗 Ontology:       Python(独学) → transfer distance: far (3+ months)
@@ -245,7 +245,7 @@ hardest for, see `../../_shared/frameworks.md` §7 "Company-Type Evaluation Diff
 
 ### STEP 3: Portable Skills Analysis + Skill Ontology Mapping
 
-**Score the 8 Portable Skills & Map Skill Ontology:**
+**Score the 9 Portable Skills & Map Skill Ontology:**
 Analyze work history from STEP 1 using a STAR lens. Map hard skills using the ontology table.
 
 **👉 Refer to `references/evaluation_rules.md` (Section 2 & 3) for CRITICAL Cold Mode rules:**
@@ -451,15 +451,16 @@ spi3:
   harmony: X
   order: X
   primary_trait: "Creation"
-portable_skills:
-  analytical_thinking: X  # 1~5
-  planning: X
-  drive: X
-  innovation: X
-  agility: X
-  negotiation: X
-  coaching: X
-  emotional_regulation: X
+portable_skills:  # 9 elements, MHLW official (_shared/frameworks.md §2)
+  現状の把握: X  # 1~5
+  課題の設定: X
+  計画の立案: X
+  課題の遂行: X
+  状況への対応: X
+  社内対応: X
+  社外対応: X
+  上司対応: X
+  部下マネジメント: X
 skill_stack:
   - name: "Python"
     level: "basic"  # basic/intermediate/advanced/expert
@@ -504,7 +505,7 @@ Always read and apply criteria from:
 This skill simulates the internal scoring logic of Japanese recruitment agencies. Agencies do not soften bad news — they route candidates away from low-match positions without explanation. This skill should be equally direct.
 
 **Anti-Sentiment Rules (mandatory):**
-- A low score is a low score. Do not reframe it as "an area for development." State it plainly: "Analytical Thinking: 2/5 — insufficient evidence of data-driven decision making."
+- A low score is a low score. Do not reframe it as "an area for development." State it plainly: "現状の把握: 2/5 — insufficient evidence of data-driven decision making."
 - If required conditions are unmet, say so immediately and quantifiably: "3 of 5 required conditions are unmet. Screening passage probability is low."
 - Do not use phrases like "great foundation," "you have potential," or "with a bit more experience." These are meaningless and misleading.
 - **Never volunteer encouragement.** If the user asks "am I a good fit?", give the score. The score is the answer.

@@ -9,7 +9,7 @@
 #   PIPELINE:          kigyou-bunseki / matching-simulator / tenshoku-strategy / company-battlecard (writers),
 #                      CLAUDE.md onboarding + tenshoku-strategy STEP 6 (readers)
 
-schema_version: "1.5"
+schema_version: "1.6"
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
@@ -92,15 +92,16 @@ spi3_schema:
   primary_trait: "string: highest-scoring quadrant name | null"
 
 portable_skills_schema:
-  # All values: integer 1–5 | null
-  analytical_thinking: ~
-  planning:            ~
-  drive:               ~
-  innovation:          ~   # maps to "Reform Mindset (変革力)"
-  agility:             ~
-  negotiation:         ~
-  coaching:            ~
-  emotional_regulation: ~
+  # All values: integer 1–5 | null. 9 elements per _shared/frameworks.md §2 (MHLW official 2023).
+  現状の把握:       ~   # Situation Assessment
+  課題の設定:       ~   # Problem Setting
+  計画の立案:       ~   # Planning
+  課題の遂行:       ~   # Task Execution
+  状況への対応:     ~   # Situational Agility
+  社内対応:         ~   # Internal Coordination
+  社外対応:         ~   # External Coordination
+  上司対応:         ~   # Upward Communication
+  部下マネジメント: ~   # Subordinate Management
 
 skill_stack_schema:
   # List of objects with these fields:
@@ -132,8 +133,8 @@ company_profile:
     - headcount           # integer | null
     - company_type        # string: "self-developed" | "SIer" | "SES" | "consulting" | "startup" | "large enterprise"
     - chuto_saiyo_ratio   # number 0–100 | null: mid-career hire ratio (中途採用比率), from kigyou-bunseki when available
-    - hyperformer_spi3    # object: same structure as spi3_schema
-    - hyperformer_portable_skills  # object: same structure as portable_skills_schema
+    - top_performer_spi3    # object: same structure as spi3_schema
+    - top_performer_portable_skills  # object: same structure as portable_skills_schema
     - accepted_adjacent_skills     # list of strings
     - wellbeing_scores             # object: same structure as wellbeing_schema
     - salary_range        # object: { min: integer, max: integer, currency: "JPY" }

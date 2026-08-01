@@ -98,7 +98,7 @@ For each company, collect or research:
 
 **From COMPANY_PROFILE YAML (when available):**
 If the user previously ran `hiring-manager-agent`, a `COMPANY_PROFILE` YAML block exists in the conversation.
-Parse it directly — extract `required_skills`, `wellbeing_scores`, `hyperformer_spi3`, and `salary_range` from the YAML
+Parse it directly — extract `required_skills`, `wellbeing_scores`, `top_performer_spi3`, and `salary_range` from the YAML
 to pre-populate dimensions 1, 2, 3, and 5 without re-asking.
 
 **When the user provides company URLs:**

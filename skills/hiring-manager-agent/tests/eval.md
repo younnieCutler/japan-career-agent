@@ -3,20 +3,21 @@
 Run these when iterating on the `hiring-manager-agent` skill.
 
 ## Test Case 1: COMPANY_PROFILE schema conformance
-**Objective**: Output YAML matches `_shared/schemas.yml` (v1.5) `company_profile`.
+**Objective**: Output YAML matches `_shared/schemas.yml` (v1.6) `company_profile`.
 - **Input**: Paste a JD (必須条件/歓迎条件 format) and complete the flow with mock answers.
 - **Criteria**:
   - Required fields present: company_name, position, required_skills.
-  - hyperformer_spi3 / hyperformer_portable_skills use the shared sub-schemas (0–10 floats, 1–5 ints).
+  - top_performer_spi3 / top_performer_portable_skills use the shared sub-schemas (0–10 floats, 1–5 ints,
+    9-element `portable_skills_schema`).
   - Unassessed fields are `null`, not guessed.
   - Saved to `data/company_profiles/{slug}.yml`.
 
-## Test Case 2: Hyperformer modeling is interactive
+## Test Case 2: Top-performer profiling is interactive
 **Objective**: Top-performer traits come from the hiring manager's answers, not inference from the JD.
 - **Input**: JD only, no team information volunteered.
 - **Criteria**:
   - Skill asks about the actual top performer (behaviors, background) 2–3 questions at a time with STOP.
-  - It does not silently derive hyperformer SPI3 from the JD text alone.
+  - It does not silently derive top-performer SPI3 from the JD text alone.
 
 ## Test Case 3: JD optimization never invents facts
 **Objective**: Semantic optimization = rewording real conditions for ontology match, not adding benefits.

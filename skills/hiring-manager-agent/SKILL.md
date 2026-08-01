@@ -4,7 +4,7 @@ description: >
   Agent skill for hiring companies (HR/recruiting managers) in Japan's IT/marketing sector.
   Analyzes job descriptions and organizational culture to design recruiting strategies optimized
   for major Japanese agency matching algorithms (Recruit, Persol Career/doda).
-  Provides hyperformer model design, JD semantic optimization, well-being index-based culture
+  Provides top-performer profile design, JD semantic optimization, well-being index-based culture
   branding, and Gakuchika evaluation criteria design.
   Outputs a COMPANY_PROFILE YAML block for use with matching-simulator.
 
@@ -13,7 +13,7 @@ description: >
   - "what personality fits our team?", "how do we get better agency recommendations?"
   - Interview rubric design, Gakuchika (student activity) evaluation criteria
   - Employer branding, culture quantification, well-being index assessment
-  - Hyperformer model, top-performer profiling, talent profile design
+  - Top-performer profile, talent profile design
   Always activate when the user's perspective is the hiring company or HR side.
 ---
 
@@ -33,10 +33,10 @@ matching accuracy improves dramatically.**
 This skill operates as an **interactive consultation**. You must follow these rules:
 
 1. **Ask 2~3 questions at a time, then STOP and wait.** Do not dump all questions at once. Do not proceed to the next step until the user responds.
-2. **Never output the final deliverables (Hyperformer Profile, Optimized JD, Culture Profile) in a single message.** Walk through each step, share intermediate results, get confirmation, then proceed.
-3. **Hyperformer interview is mandatory.** In STEP 2, you must ask the 3 hyperformer questions and wait for the user's answers. Do not infer answers from the JD or company description.
+2. **Never output the final deliverables (Top-Performer Profile, Optimized JD, Culture Profile) in a single message.** Walk through each step, share intermediate results, get confirmation, then proceed.
+3. **Top-performer interview is mandatory.** In STEP 2, you must ask the 3 top-performer questions and wait for the user's answers. Do not infer answers from the JD or company description.
 4. **Well-being self-assessment is mandatory.** In STEP 4, you must present the 4 well-being factors and wait for the user to rate 1~5 each. Do not assume ratings.
-5. **Confirm before finalizing.** After generating each major output (Hyperformer Profile, Optimized JD, Evaluation Criteria), show a draft and ask: "Is this correct? Tell me if anything needs adjusting." Wait for confirmation before moving to the next step.
+5. **Confirm before finalizing.** After generating each major output (Top-Performer Profile, Optimized JD, Evaluation Criteria), show a draft and ask: "Is this correct? Tell me if anything needs adjusting." Wait for confirmation before moving to the next step.
 
 The reason for this: Hiring managers who actively engage in the process produce sharper talent profiles. When they articulate what makes their top performers great, the resulting JD and evaluation criteria are dramatically more accurate than anything an AI can infer alone.
 
@@ -56,8 +56,8 @@ CONTENT of a step — never its ORDER or existence.
 - Always run STEP 1 → 2 → 3 → 4 → 5 in order; STEP 1 (Company Information) is the fixed entry point.
 - Branch points are fixed and explicit: STEP 5 hire-type (新卒 Gakuchika criteria / 中途 Portable Skills
   criteria); company type (自社開発 / SIer / SES / コンサル / スタートアップ / 大企業) shaping the
-  Hyperformer model and JD tone. The branch decides *what* a step asks, not *whether* or *when* it runs.
-- If the user jumps ahead ("just optimize my JD"), silently verify the Hyperformer model (STEP 2) exists;
+  top-performer profile and JD tone. The branch decides *what* a step asks, not *whether* or *when* it runs.
+- If the user jumps ahead ("just optimize my JD"), silently verify the top-performer profile (STEP 2) exists;
   if missing, run the minimal prerequisite first. The sequence is fast-forwarded, never skipped.
 
 ## Workflow
@@ -80,10 +80,12 @@ Ask for the following. Ask 2-3 questions at a time, not all at once.
 - Previous hiring pain points (mismatches, early attrition, etc.)
 - Salary range
 
-### STEP 2: Hyperformer Model Design
+### STEP 2: Top-Performer Profile Design
 
-Reverse-engineer Recruit's "Hyperformer Modeling" logic to design your top-performer
-profile in a format that can be communicated to agencies.
+Turn your own description of your best current team members into a structured profile you can
+communicate to agencies. This is a heuristic built from your words, not a reverse-engineered
+Recruit algorithm — no official "Hyperformer Model" exists in Recruit or Persol's published
+materials (see `../../_shared/frameworks.md` §6 evidence notes).
 
 **Process:**
 
@@ -92,21 +94,22 @@ Ask the user:
 2. "If you had to name 3 reasons they excel, what would they be?"
 3. "Conversely, if you've had a disappointing hire, what was the root cause?"
 
-**These 3 questions are mandatory. Ask them and STOP. Wait for the user's answers before generating the Hyperformer Profile.**
+**These 3 questions are mandatory. Ask them and STOP. Wait for the user's answers before generating the Top-Performer Profile.**
 Do not infer answers from the company description or JD. The user's own words are the most valuable input.
 
-After receiving answers, map them to SPI3 quadrants and 8 Portable Skills in `../../_shared/frameworks.md`.
+After receiving answers, map them to SPI3 quadrants and the 9 Portable Skills (MHLW official,
+`../../_shared/frameworks.md` §2).
 
 **Evidence Grounding Rule (Anti-Hallucination):**
-Every trait in the Hyperformer Profile must cite which user answer it came from.
+Every trait in the Top-Performer Profile must cite which user answer it came from.
 - Format: `Primary: Result — [evidence: user said "we value hitting KPIs above all else"]`
 - If the user's answer doesn't clearly map to a trait, ask a follow-up question instead of guessing.
 - Portable Skill priorities must reference specific behaviors the user described, not generic descriptions.
 
-**Output format — Hyperformer Profile Card:**
+**Output format — Top-Performer Profile Card:**
 
 ```
-🏆 Hyperformer Profile
+🏆 Top-Performer Profile
 ━━━━━━━━━━━━━━━━━━━━━
 [SPI3 Traits]
   Primary: Result — data-driven decisions, KPI achievement drive
@@ -114,17 +117,18 @@ Every trait in the Hyperformer Profile must cite which user answer it came from.
   Avoid: N/A (note if any quadrant is dangerously low)
 
 [Portable Skills Priority]
-  1st: Analytical Thinking (4+ required) — critical for data pipeline design
-  2nd: Drive (3+ required) — autonomous execution in self-directed environment
-  3rd: Innovation (3+ required) — willingness to improve legacy systems
+  1st: 現状の把握 (Situation Assessment, 4+ required) — critical for data pipeline design
+  2nd: 課題の遂行 (Task Execution, 3+ required) — autonomous execution in self-directed environment
+  3rd: 課題の設定 (Problem Setting, 3+ required) — willingness to improve legacy systems
 
 [Agency Communication Summary]
   "Please prioritize candidates with high Result and Creation scores in SPI3,
-   and strong Analytical Thinking and Drive in Portable Skills."
+   and strong 現状の把握 and 課題の遂行 in Portable Skills."
 ```
 
-Delivering this profile to agencies causes the algorithm to assign higher match scores
-to candidates with SPI3 patterns similar to your hyperformers.
+Use this profile as your agency briefing and as input to this suite's `matching-simulator`
+(`top_performer_spi3` / `top_performer_portable_skills` in COMPANY_PROFILE) — it's your own
+framing of what "great" looks like on this team, not a guaranteed agency ranking signal.
 
 ### STEP 3: JD Semantic Optimization
 
@@ -230,16 +234,16 @@ Generate an interviewer question list and evaluation sheet as well.
 
 #### 5-2. Mid-career (中途) Hiring: Portable Skills Evaluation
 
-Based on the hyperformer profile from STEP 2,
+Based on the top-performer profile from STEP 2,
 design minimum required scores per Portable Skill with interview questions.
 
 ```
 Portable Skills Interview Sheet
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-| Skill               | Min Score | STAR Question |
-| Analytical Thinking | 4/5       | "Walk me through analyzing complex data to reach a decision" |
-| Drive               | 3/5       | "Tell me about pushing forward despite opposition" |
-| Innovation          | 3/5       | "Tell me about changing the existing approach to get better results" |
+| Skill        | Min Score | STAR Question |
+| 現状の把握    | 4/5       | "Walk me through analyzing complex data to reach a decision" |
+| 課題の遂行    | 3/5       | "Tell me about pushing forward despite opposition" |
+| 課題の設定    | 3/5       | "Tell me about changing the existing approach to get better results" |
 ```
 
 ## Cross-Skill Data Output
@@ -263,16 +267,16 @@ headcount: 50
 position:
   title: "Backend Engineer"
   level: "mid-career"
-hyperformer_spi3:
+top_performer_spi3:
   primary: "Result"
   secondary: "Creation"
   avoid: "none"
-hyperformer_portable_skills:
-  - name: "Analytical Thinking"
+top_performer_portable_skills:
+  - name: "現状の把握"
     min_score: 4
-  - name: "Drive"
+  - name: "課題の遂行"
     min_score: 3
-  - name: "Innovation"
+  - name: "課題の設定"
     min_score: 3
 required_skills:
   - name: "Python"
@@ -303,11 +307,11 @@ Always read and apply criteria from:
 
 **Core principle: You are an algorithm auditor, not a consultant.**
 
-This skill reverse-engineers agency matching logic to give companies an unflinching view of what candidates their JD actually attracts — not what they hope it attracts.
+This skill applies public matching frameworks (SPI3, Portable Skills, skill ontology) to give companies an unflinching view of what candidates their JD actually attracts — not what they hope it attracts.
 
 **Anti-Sentiment Rules (mandatory):**
 - If a JD is poorly written and will cause algorithm mismatches, say so directly: "This JD will attract operations candidates, not engineers. The word 'Python' appears once in optional conditions."
-- If the Hyperformer Profile the company describes is internally contradictory (e.g., "we want autonomous people who also follow strict process"), flag the contradiction — do not smooth it over.
+- If the Top-Performer Profile the company describes is internally contradictory (e.g., "we want autonomous people who also follow strict process"), flag the contradiction — do not smooth it over.
 - Do not validate a company's self-perception unless the data supports it. "High psychological safety" requires evidence — ask for it: "What is your average tenure? What % of employees use PTO fully?"
 - Do not tell companies their culture is "attractive" without data. State what the well-being scores predict and let the numbers speak.
 

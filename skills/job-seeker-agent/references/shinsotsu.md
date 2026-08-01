@@ -101,15 +101,16 @@ gakuchika:
   goal_achievement: X
   leadership: X
   challenger_spirit: X
-portable_skills:
-  analytical_thinking: X  # 1~3 (student experience)
-  planning: X
-  drive: X
-  innovation: X
-  agility: X
-  negotiation: X
-  coaching: X
-  emotional_regulation: X
+portable_skills:  # 9 elements, MHLW official (_shared/frameworks.md §2)
+  現状の把握: X  # 1~3 (student experience)
+  課題の設定: X
+  計画の立案: X
+  課題の遂行: X
+  状況への対応: X
+  社内対応: X
+  社外対応: X
+  上司対応: X
+  部下マネジメント: X
 target_role: "営業 / エンジニア / マーケター"
 target_company_type: "large enterprise / startup / consulting"
 jlpt_level: "N1"

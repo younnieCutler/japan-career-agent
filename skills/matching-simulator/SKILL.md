@@ -272,7 +272,7 @@ Overall:        83/100 (B+ Match — upper tier of recommendation list)
 
 ━━━ Score Breakdown ━━━
 [Skill Match]     Skill alignment, gap analysis, transfer potential
-[Latent Ability]  SPI3 fit, hyperformer similarity
+[Latent Ability]  SPI3 fit, behavioral signal (B_behavioral — browse/application history proxy)
 [Culture Fit]     Well-being index alignment, retention forecast
 [Condition Match] Salary, work style, location
 
