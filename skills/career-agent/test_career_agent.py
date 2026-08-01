@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 
 
@@ -24,6 +25,10 @@ def output(result: subprocess.CompletedProcess[str]) -> dict:
     if result.returncode != 0:
         raise AssertionError(result.stderr)
     return json.loads(result.stdout)
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 class CareerAgentTests(unittest.TestCase):
@@ -158,6 +163,52 @@ class CareerAgentTests(unittest.TestCase):
         rolled = output(run(self.vault, "rollback", approved["version"]))
         self.assertTrue(rolled["rolled_back"])
         self.assertEqual(rolled["state"]["last_event_id"], approved["event"]["id"])
+
+    def test_approve_failure_logs_trajectory(self) -> None:
+        self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "売上を30%改善した"))
+        failed = run(self.vault, "approve", proposed["proposal"]["id"])
+        self.assertEqual(failed.returncode, 2)
+
+        trajectories = read_jsonl(self.vault / "02-state" / "trajectories.jsonl")
+        last = trajectories[-1]
+        self.assertEqual(last["mode"], "approve")
+        self.assertFalse(last["verify"]["passed"])
+        self.assertTrue(last["correct"]["escalated_to_user"])
+
+    def test_discover_drops_invalid_postings_but_keeps_the_rest(self) -> None:
+        postings = json.dumps([
+            {"company": "A", "role": "Data", "url": "https://example.com/a"},
+            {"company": "B", "role": "Data"},
+        ], ensure_ascii=False)
+        result = output(run(self.vault, "run", "--mode", "discover", input_text=postings))
+        self.assertEqual(result["added"], 1)
+        self.assertEqual(result["dropped"], 1)
+
+        trajectories = read_jsonl(self.vault / "02-state" / "trajectories.jsonl")
+        last = trajectories[-1]
+        self.assertEqual(last["correct"]["action"], "dropped_invalid_postings")
+        self.assertEqual(last["correct"]["dropped"], 1)
+
+    def test_chat_repeated_missing_info_flags_retry(self) -> None:
+        self.set_profile(track="shinsotsu", target_role="LLMOps Engineer", career_status="active")
+        message = "신졸이고 가쿠치카 경험을 정리하고 싶어요"
+        first = output(run(self.vault, "run", "--mode", "chat", "--message", message))
+        output(run(self.vault, "run", "--mode", "chat", "--message", message))
+        third = output(run(self.vault, "run", "--mode", "chat", "--message", message))
+        self.assertNotIn("asked before", first["question"])
+        self.assertIn("asked before", third["question"])
+
+    def test_heartbeat_surfaces_profile_deadline(self) -> None:
+        self.set_profile(
+            track="chuto",
+            target_role="Data Engineer",
+            career_status="active",
+            current_company_end_date=(date.today() + timedelta(days=3)).isoformat(),
+        )
+        heartbeat = output(run(self.vault, "run", "--mode", "heartbeat"))
+        reasons = [action["reason"] for action in heartbeat["actions"]]
+        self.assertIn("profile_deadline", reasons)
 
 
 if __name__ == "__main__":

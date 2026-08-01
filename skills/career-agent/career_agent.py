@@ -792,6 +792,17 @@ def choose_actions(home: CareerVault) -> list[dict[str, Any]]:
             continue
         if days <= 7:
             actions.append({"text": f"마감 확인: {deadline.get('title', 'deadline')}", "event_id": deadline.get("event_id"), "stage": state.get("stage"), "flow_phase": state.get("flow_phase"), "estimated_minutes": 15, "deadline": deadline["date"], "requires_confirmation": True, "reason": "deadline"})
+    profile = home.load_profile()
+    seen_dates = {item.get("deadline") for item in actions}
+    for key, value in profile.items():
+        if not isinstance(value, str) or not DATE_VALUE.match(value) or value in seen_dates:
+            continue
+        try:
+            days = (dt.date.fromisoformat(value[:10]) - today()).days
+        except ValueError:
+            continue
+        if 0 <= days <= 7:
+            actions.append({"text": f"마감 확인: {key}", "event_id": None, "stage": state.get("stage"), "flow_phase": state.get("flow_phase"), "estimated_minutes": 15, "deadline": value, "requires_confirmation": True, "reason": "profile_deadline"})
     for event in reversed(events):
         if event.get("status") == "confirmed" and event.get("next_action"):
             action = {"text": event["next_action"], "event_id": event["id"], "stage": event["stage"], "flow_phase": event.get("flow_phase"), "estimated_minutes": 30, "deadline": event.get("deadline"), "requires_confirmation": True, "reason": "latest confirmed event"}
@@ -806,39 +817,49 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
     recent_events = read_jsonl(home.events)[-5:]
     track = infer_track(message, requested_track) or state.get("track") or profile.get("track")
     if not track:
+        goal = "resolve track before routing"
+        retry_count = count_consecutive_safe_stops(home, goal)
         trajectory = {
             "id": f"traj-{uuid.uuid4().hex[:12]}",
             "created_at": utc_now(),
             "mode": "chat",
             "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message},
-            "plan": {"goal": "resolve track before routing"},
+            "plan": {"goal": goal},
             "act": {"proposal": None},
             "verify": {"track": "ambiguous", "external_side_effect": False},
-            "correct": {"retry_count": 0, "needs_user_confirmation": True},
+            "correct": {"retry_count": retry_count, "needs_user_confirmation": True},
             "persist": {"trajectory_only": True},
         }
         home.append_trajectory(trajectory)
-        return {"mode": "chat", "language": language_for(message), "needs_confirmation": True, "question": "track must be explicit: shinsotsu or chuto", "saved": str(home.trajectories)}
+        question = "track must be explicit: shinsotsu or chuto"
+        if retry_count >= 2:
+            question += " (asked before — reply with your track, or set it directly in career-profile.toml)"
+        return {"mode": "chat", "language": language_for(message), "needs_confirmation": True, "question": question, "saved": str(home.trajectories)}
     if track == "shinsotsu" and not isinstance(profile.get("graduation_year"), int):
+        goal = "collect required shinsotsu graduation year before proposing an event"
+        retry_count = count_consecutive_safe_stops(home, goal)
         home.append_trajectory(
             {
                 "id": f"traj-{uuid.uuid4().hex[:12]}",
                 "created_at": utc_now(),
                 "mode": "chat",
                 "observe": {"track": track, "profile_has_graduation_year": False, "message": message},
-                "plan": {"goal": "collect required shinsotsu graduation year before proposing an event"},
+                "plan": {"goal": goal},
                 "act": {"proposal": None},
                 "verify": {"safe_stop": True, "external_side_effect": False},
-                "correct": {"retry_count": 0, "needs_user_confirmation": True},
+                "correct": {"retry_count": retry_count, "needs_user_confirmation": True},
                 "persist": {"trajectory_only": True},
             }
         )
+        question = "profile.graduation_year is required for shinsotsu before an event proposal can be created"
+        if retry_count >= 2:
+            question += " (asked before — set profile.graduation_year directly in career-profile.toml)"
         return {
             "mode": "chat",
             "language": language_for(message),
             "track": track,
             "needs_confirmation": True,
-            "question": "profile.graduation_year is required for shinsotsu before an event proposal can be created",
+            "question": question,
             "saved": str(home.trajectories),
         }
     stage = stage_for(message, track)
@@ -888,7 +909,17 @@ def run_heartbeat(home: CareerVault) -> dict[str, Any]:
 
 
 def run_discover(home: CareerVault, source: str | None) -> dict[str, Any]:
-    incoming = [normalize_posting(item) for item in load_posting_records(source)]
+    incoming_raw = load_posting_records(source)
+    incoming = []
+    invalid: list[str] = []
+    for item in incoming_raw:
+        try:
+            incoming.append(normalize_posting(item))
+        except CareerError as exc:
+            invalid.append(str(exc))
+    if incoming_raw and not incoming:
+        # every item in the batch was corrupted - nothing to self-correct, escalate as before.
+        raise CareerError("discover postings require an original http(s) URL")
     existing = read_jsonl(home.postings)
     known = {item.get("dedupe_key") for item in existing}
     added = []
@@ -899,9 +930,9 @@ def run_discover(home: CareerVault, source: str | None) -> dict[str, Any]:
         added.append(item)
     for item in added:
         append_jsonl(home.postings, item)
-    result = {"mode": "discover", "found": len(incoming), "added": len(added), "duplicates": len(incoming) - len(added), "postings": added, "saved": str(home.postings), "auto_apply": False}
+    result = {"mode": "discover", "found": len(incoming), "added": len(added), "duplicates": len(incoming) - len(added), "dropped": len(invalid), "postings": added, "saved": str(home.postings), "auto_apply": False}
     home.add_proposal({"id": f"discover-{uuid.uuid4().hex[:12]}", "kind": "posting_candidates", "status": "pending", "created_at": utc_now(), "result": result})
-    home.append_trajectory({"id": f"traj-{uuid.uuid4().hex[:12]}", "created_at": utc_now(), "mode": "discover", "observe": {"source": source, "count": len(incoming)}, "plan": {"goal": "normalize public posting candidates and deduplicate"}, "act": {"added": len(added)}, "verify": {"original_urls_preserved": all(item["original_url"].startswith(("http://", "https://")) for item in added), "auto_apply": False}, "correct": {"retry_count": 0}, "persist": {"postings": str(home.postings)}})
+    home.append_trajectory({"id": f"traj-{uuid.uuid4().hex[:12]}", "created_at": utc_now(), "mode": "discover", "observe": {"source": source, "count": len(incoming_raw)}, "plan": {"goal": "normalize public posting candidates and deduplicate"}, "act": {"added": len(added)}, "verify": {"original_urls_preserved": True, "invalid_count": len(invalid)}, "correct": {"action": "dropped_invalid_postings" if invalid else "none", "dropped": len(invalid), "retry_count": 0}, "persist": {"postings": str(home.postings)}})
     return result
 
 
@@ -954,6 +985,30 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
     }
 
 
+def count_consecutive_safe_stops(home: CareerVault, goal: str) -> int:
+    count = 0
+    for trajectory in reversed(read_jsonl(home.trajectories)):
+        if trajectory.get("mode") == "chat" and trajectory.get("plan", {}).get("goal") == goal:
+            count += 1
+        else:
+            break
+    return count
+
+
+def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any], error: Exception, *, retry_count: int = 0) -> None:
+    home.append_trajectory({
+        "id": f"traj-{uuid.uuid4().hex[:12]}",
+        "created_at": utc_now(),
+        "mode": mode,
+        "observe": observe,
+        "plan": {"goal": "attempt failed"},
+        "act": {"attempted": True},
+        "verify": {"passed": False, "error": str(error)},
+        "correct": {"action": "safe_stop", "escalated_to_user": True, "retry_count": retry_count},
+        "persist": {"trajectory_only": True},
+    })
+
+
 def approve(home: CareerVault, proposal_id: str, evidence: list[str] | None = None, deadline: str | None = None) -> dict[str, Any]:
     proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
     if not proposal:
@@ -966,7 +1021,11 @@ def approve(home: CareerVault, proposal_id: str, evidence: list[str] | None = No
             event["evidence"] = evidence
         if deadline is not None:
             event["deadline"] = deadline
-        validate_event(event, for_confirmation=True)
+        try:
+            validate_event(event, for_confirmation=True)
+        except CareerError as exc:
+            record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
+            raise
         event["status"] = "confirmed"
         append_jsonl(home.events, event)
         state = apply_event_to_state(home.load_state(), event)

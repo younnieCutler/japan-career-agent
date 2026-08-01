@@ -45,6 +45,17 @@ Facts are append-only in `02-state/events.jsonl`; version snapshots live in `.ca
 A chat run creates only a `draft` event proposal. `approve` is required before a confirmed event
 reaches the ledger.
 
+`correct` actively reacts to `verify` at three points: an `approve` failure is logged (not silently
+dropped) and escalated to the user; `discover` drops individually-corrupted postings and keeps the rest
+of the batch instead of one bad item aborting everything (a fully-corrupted batch still safe-stops); and
+a `chat` safe-stop (ambiguous track, missing shinsotsu graduation year) flags itself once it repeats 3+
+times in a row, instead of asking the identical question forever.
+Other trajectory sites (`heartbeat`, `index`) still record `correct` as inert bookkeeping — no active
+recovery happens there.
+
+`heartbeat` also surfaces any `career-profile.toml` field holding an ISO date within the next 7 days
+(`reason: "profile_deadline"`), not only dates recorded through a confirmed event's `deadline` field.
+
 The runtime always reads only `00-control` and `02-state`. It selects at most five verified notes
 from `03-active`, `04-evidence`, `05-playbooks`, and `06-reference`; `01-capture` and `07-archive`
 are never automatic context. `index` persists only note metadata, headings, wikilinks, hashes,
