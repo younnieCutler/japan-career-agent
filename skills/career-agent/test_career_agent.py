@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -50,7 +51,10 @@ class CareerAgentTests(unittest.TestCase):
         self.assertTrue((self.vault / "00-control" / "career-profile.toml").exists())
         self.assertTrue((self.vault / "02-state" / "career-state.toml").exists())
 
-        failed = subprocess.run([sys.executable, str(SCRIPT), "status"], text=True, capture_output=True, check=False)
+        # CAREER_VAULT is exported in a real user's shell, and a subprocess inherits it.
+        # Scrub it, or this asserts the opposite of what it means to on a working machine.
+        env = {k: v for k, v in os.environ.items() if k != "CAREER_VAULT"}
+        failed = subprocess.run([sys.executable, str(SCRIPT), "status"], text=True, capture_output=True, check=False, env=env)
         self.assertEqual(failed.returncode, 2)
         self.assertIn("CAREER_VAULT is required", failed.stderr)
 
