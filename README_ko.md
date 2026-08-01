@@ -116,10 +116,50 @@ cp -R "$REPO/skills/." ~/.codex/skills/
 cp -R "$REPO/_shared/." ~/.codex/_shared/
 ```
 
+## 에이전트 운영 방법
+
+스킬을 트리거하는 방법은 두 가지이며, 둘 다 결국 같은 `SKILL.md`를 실행합니다:
+
+- **말로 걸기.** Claude Code(또는 Codex) 채팅 세션 안에서 상황을 자연어로 설명하면 됩니다 —
+  슬래시 필요 없음. Claude가 메시지를 각 스킬의 frontmatter와 매칭해 활성화합니다. 세션의
+  작업 디렉터리가 이 저장소 자체라면 `CLAUDE.md`도 자동 로드되어 온보딩, 파이프라인 재개
+  kanban 인사, 더 풍부한 한/일/영 라우팅 표가 추가됩니다. `CLAUDE.md`는 `skills/` 바깥
+  저장소 루트에 있으므로, 플러그인을 다른 프로젝트에 설치하면 이 동작은 따라가지 않습니다 —
+  그 경우엔 각 스킬 고유의 frontmatter 트리거로 라우팅됩니다.
+- **슬래시 커맨드 입력.** `/jiko-bunseki`, `/job-seeker-agent` 등([추천 워크플로우](#추천-워크플로우)
+  참고)이 같은 스킬을 명시적으로 활성화합니다.
+
+`career-agent`의 경우 활성화되면 아래 CLI가 실행됩니다. 스킬이 활성화된 뒤 Claude가 보통 Bash
+도구로 아래 명령을 대신 실행해 주며, 직접 제어·스크립팅·디버깅이 필요하면 터미널에서 직접
+실행해도 됩니다. `heartbeat`는 백그라운드 작업이나 스케줄러가 아니라, 당신(또는 Claude)이
+실행할 때마다 근거 있는 다음 액션을 최대 3개 반환하는 수동 1회성 체크입니다.
+
+**퀵스타트:** 위 안내대로 플러그인을 설치한 뒤, Vault를 한 번 만드세요 — `career_agent.py init
+--vault <path>` 실행 후 `CAREER_VAULT`를 설정합니다([Career Agent 실행](#career-agent-실행) 참고;
+`career-agent`는 Vault 없이는 동작을 거부합니다). 그 다음 프로젝트에서 Claude Code를 연 뒤 "다음
+커리어 액션이 뭐야?" 같은 말을 해보세요 — 에이전트가 Vault 상태를 관찰하고 근거와 함께 다음 단계를
+제안한 뒤, 기록하기 전에 당신의 승인을 기다립니다.
+
 ## Career Agent 실행
 
 전용 Career Vault를 먼저 만들거나 지정합니다. 런타임은 저장소나 현재 폴더를 기본 저장 위치로
 사용하지 않으며, `--vault` 또는 `CAREER_VAULT`가 필요합니다.
+Claude는 보통 채팅 세션 안에서 아래 명령을 대신 실행합니다([에이전트 운영 방법](#에이전트-운영-방법)
+참고) — 터미널에서 직접 실행해도 동일하게 동작합니다.
+
+**원커맨드 플러그인 설치로 깔았다면?** `career_agent.py`는 프로젝트 기준 상대경로
+`skills/career-agent/career_agent.py`에 없습니다 — 플러그인 설치 위치 안에 있습니다. 한 번만
+찾아서 export하세요:
+
+```bash
+find ~/.claude/plugins -name career_agent.py   # Claude Code
+find ~/.codex -name career_agent.py            # Codex
+export CAREER_AGENT_RUNTIME=<위에서 찾은 경로>
+```
+
+그 다음 아래 모든 명령에서 `skills/career-agent/career_agent.py`를 `"$CAREER_AGENT_RUNTIME"`으로
+바꿔서 쓰세요. 로컬 설치 fallback(git clone)으로 깔았다면 아래 상대경로가 저장소 루트 기준으로
+그대로 동작합니다.
 
 ```bash
 VAULT=/path/to/career-agent-vault
@@ -129,6 +169,7 @@ python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --track shinsotsu \
   --message "가쿠치카 경험을 자기PR 소재로 정리하고 싶어요."
 python3 skills/career-agent/career_agent.py status --vault "$VAULT"
+# 수동 1회성 체크(스케줄러 아님) — 근거 있는 다음 액션을 최대 3개 반환합니다.
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume.md:12"
@@ -217,6 +258,9 @@ flowchart LR
 보편적인 일정이나 사실로 취급하지 않습니다.
 
 ## 추천 워크플로우
+
+`/skillname`으로 스킬을 명시적으로 실행하거나, 상황을 자연어로 설명해 자동 활성화되게 할 수
+있습니다([에이전트 운영 방법](#에이전트-운영-방법) 참고).
 
 | 목표 | 워크플로우 |
 |---|---|

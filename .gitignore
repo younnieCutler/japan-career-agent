@@ -10,6 +10,7 @@
 !/README_ja.md
 !/LICENSE
 !/CLAUDE.md
+!/AGENTS.md
 
 # Exception: Plugin manifests
 !/.claude-plugin/

@@ -118,10 +118,53 @@ cp -R "$REPO/skills/." ~/.codex/skills/
 cp -R "$REPO/_shared/." ~/.codex/_shared/
 ```
 
+## エージェントの操作方法
+
+スキルを起動する方法は2つあり、どちらも同じ `SKILL.md` を実行します:
+
+- **話しかける。** Claude Code（または Codex）のチャットセッション内で状況を自然言語で説明するだけ
+  です — スラッシュは不要です。Claude がメッセージを各スキルの frontmatter と照合して起動します。
+  セッションの作業ディレクトリがこのリポジトリ自体である場合は `CLAUDE.md` も自動読み込みされ、
+  オンボーディング、パイプライン再開の kanban 挨拶、より詳細な韓/日/英ルーティング表が加わります。
+  `CLAUDE.md` は `skills/` の外、リポジトリのルートにあるため、プラグインを別のプロジェクトに
+  インストールしてもこの挙動は付いてきません — その場合は各スキル自身の frontmatter トリガーに
+  よるルーティングになります。
+- **スラッシュコマンドを入力する。** `/jiko-bunseki`、`/job-seeker-agent` など（[推奨ワークフロー]
+  (#推奨ワークフロー) 参照）が同じスキルを明示的に起動します。
+
+`career-agent` の場合、起動すると以下の CLI が実行されます。スキルが起動した後は通常 Claude が
+Bash ツール経由で以下のコマンドを代わりに実行しますが、直接制御・スクリプト化・デバッグが必要な
+場合はターミナルで自分で実行することもできます。`heartbeat` はバックグラウンドジョブやスケジューラ
+ではなく、あなた（または Claude）が実行するたびに根拠のある次のアクションを最大3件返す、手動の
+単発チェックです。
+
+**クイックスタート:** 上記の手順でプラグインをインストールしたら、まず Vault を一度作成します —
+`career_agent.py init --vault <path>` を実行し、`CAREER_VAULT` を設定してください（[Career Agent
+の実行](#career-agent-の実行) 参照。`career-agent` は Vault なしでは動作を拒否します）。その後
+プロジェクトで Claude Code を開いて「次にやるべきキャリアのアクションは？」のように話しかけてみて
+ください — エージェントが Vault の状態を観察し、根拠とともに次のステップを提案し、記録する前に
+あなたの承認を待ちます。
+
 ## Career Agent の実行
 
 専用の Career Vault を先に作成または指定します。ランタイムはリポジトリやカレントディレクトリを
 保存先の初期値にせず、`--vault` または `CAREER_VAULT` が必要です。
+Claude は通常チャットセッション内で以下のコマンドを代わりに実行します（[エージェントの操作方法]
+(#エージェントの操作方法) 参照）— ターミナルで直接実行しても同様に動作します。
+
+**ワンコマンドのプラグインインストールで導入した場合:** `career_agent.py` はプロジェクト基準の
+相対パス `skills/career-agent/career_agent.py` には存在しません — プラグインのインストール先
+にあります。一度だけ探して export してください:
+
+```bash
+find ~/.claude/plugins -name career_agent.py   # Claude Code
+find ~/.codex -name career_agent.py            # Codex
+export CAREER_AGENT_RUNTIME=<上で見つけたパス>
+```
+
+その後、以下すべてのコマンドで `skills/career-agent/career_agent.py` を `"$CAREER_AGENT_RUNTIME"`
+に置き換えてください。ローカルインストール（fallback、git clone）で導入した場合は、以下の相対パスが
+リポジトリのルート基準でそのまま動作します。
 
 ```bash
 VAULT=/path/to/career-agent-vault
@@ -131,6 +174,7 @@ python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --track shinsotsu \
   --message "学チカの経験を自己PRの素材に整理したいです。"
 python3 skills/career-agent/career_agent.py status --vault "$VAULT"
+# 手動の単発チェック（スケジューラではありません）— 根拠のある次のアクションを最大3件返します。
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume.md:12"
@@ -220,6 +264,9 @@ flowchart LR
 普遍的な日程や事実としては扱いません。
 
 ## 推奨ワークフロー
+
+`/skillname` でスキルを明示的に起動するか、状況を自然言語で説明して自動起動させることもできます
+（[エージェントの操作方法](#エージェントの操作方法) 参照）。
 
 | 目的 | ワークフロー |
 |---|---|

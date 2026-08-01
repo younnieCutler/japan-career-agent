@@ -119,10 +119,51 @@ cp -R "$REPO/skills/." ~/.codex/skills/
 cp -R "$REPO/_shared/." ~/.codex/_shared/
 ```
 
+## How to operate the agent
+
+Two things trigger a skill, and both end up running the same `SKILL.md`:
+
+- **Talk to it.** Inside a Claude Code (or Codex) chat session, describe your situation in
+  natural language — no slash needed. Claude matches your message against each skill's
+  frontmatter and activates it. If this repository itself is your session's working directory,
+  `CLAUDE.md` also auto-loads and adds onboarding, a pipeline-resume kanban greeting, and a
+  richer KO/JA/EN routing table. `CLAUDE.md` lives at the repo root, outside `skills/`, so
+  installing the plugin into another project does not carry it — routing there falls back to
+  each skill's own frontmatter triggers.
+- **Type the slash command.** `/jiko-bunseki`, `/job-seeker-agent`, and so on (see
+  [Recommended workflows](#recommended-workflows)) activate the same skill explicitly.
+
+For `career-agent`, activation runs the CLI shown below. Claude normally runs these commands
+for you through its Bash tool once the skill is active; you can also run them yourself in a
+terminal for direct control, scripting, or debugging. `heartbeat` is not a background job or
+scheduler — it is a manual, one-shot check that returns up to three grounded next actions when
+you (or Claude) run it.
+
+**Quickstart:** install the plugin (above), then create a Vault once — `career_agent.py init
+--vault <path>` and set `CAREER_VAULT` (see [Run the Career Agent](#run-the-career-agent) below;
+`career-agent` refuses to run without one). After that, open Claude Code in the project and say
+something like "what's my next career action?" — the agent observes your Vault state, proposes
+a next step with evidence, and waits for your approval before recording anything.
+
 ## Run the Career Agent
 
 Create or select a dedicated Career Vault first. The runtime never defaults to the repository or the
 current directory; pass `--vault` or set `CAREER_VAULT`.
+Claude typically runs the commands below for you inside a chat session (see
+[How to operate the agent](#how-to-operate-the-agent)); they also work directly in a terminal.
+
+**Installed via the one-command plugin flow?** `career_agent.py` does not live at
+`skills/career-agent/career_agent.py` relative to your project — it lives inside the plugin's
+install location. Find it once and export it:
+
+```bash
+find ~/.claude/plugins -name career_agent.py   # Claude Code
+find ~/.codex -name career_agent.py            # Codex
+export CAREER_AGENT_RUNTIME=<path from above>
+```
+
+Then replace `skills/career-agent/career_agent.py` in every command below with `"$CAREER_AGENT_RUNTIME"`.
+Installed via the Local fallback (git clone) instead? The relative path below works as-is from the repo root.
 
 ```bash
 VAULT=/path/to/career-agent-vault
@@ -132,6 +173,7 @@ python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat \
   --track shinsotsu --message "I want to turn my 学チカ experience into 自己PR material."
 python3 skills/career-agent/career_agent.py status --vault "$VAULT"
+# Manual one-shot check (not a scheduler) — returns up to 3 grounded next actions.
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume.md:12"
@@ -222,6 +264,9 @@ work can overlap. The shared flow is reviewed manually each year against officia
 summaries and private retrospectives inform checklists, never universal deadlines or facts.
 
 ## Recommended workflows
+
+Use `/skillname` to trigger a skill explicitly, or describe your situation in natural language to
+let it auto-activate (see [How to operate the agent](#how-to-operate-the-agent)).
 
 | Goal | Workflow |
 |---|---|
