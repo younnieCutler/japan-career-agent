@@ -31,6 +31,7 @@
 /data/candidate_profile.yml
 /data/match_history.md
 /data/company_profiles/*.yml
+/data/pipeline.yml
 
 # Career Agent local event ledger and snapshots
 /career-home/

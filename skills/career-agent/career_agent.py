@@ -126,7 +126,7 @@ REQUIRED_EVENT_FIELDS = (
     "deadline",
     "status",
 )
-NUMERIC_CLAIM = re.compile(r"(?<![A-Za-z])[+-]?\d+(?:[.,]\d+)?\s*(?:%|％|명|人|건|件|배|倍|만|万円|원|円)?")
+NUMERIC_CLAIM = re.compile(r"(?<![A-Za-z])[+-]?\d+(?:[.,]\d+)?\s*(?:%|％|명|人|건|件|배|倍|만|万円|원|円)")
 DATE_VALUE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:T[^Z]+Z)?$")
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.M)
 WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]")
