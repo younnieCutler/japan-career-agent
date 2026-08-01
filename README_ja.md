@@ -6,7 +6,7 @@
 自己分析、書類、面接、オファー、退職、入社準備までをつなぎます。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#スキル)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#インストール)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#インストール)
@@ -150,6 +150,11 @@ claude plugin list                                        # バージョンを�
 
 リリースは `.claude-plugin/plugin.json` の `version` フィールドで配信され、バージョンごとに別の
 キャッシュディレクトリを使います — このフィールドが変わるまでインストール済みの版はそのままです。
+
+新しいバージョンが公開されるとステータスバーが知らせます。キャッシュファイルを読むだけなので
+プロンプトを遅らせません — バージョンの取得は1日1回、切り離されたバックグラウンドプロセスが本リポジトリ
+`main` の `.claude-plugin/plugin.json` を読みに行きます。それ以外の情報は送信せず、失敗しても黙って
+続行します。無効化は `JAPAN_RECRUIT_NO_UPDATE_CHECK=1`。
 
 1.1.0 からプラグインに `UserPromptSubmit` フックが同梱され、キャリアステータスバー（締切・未チェックの
 アクション項目・自分で決めたルール）を注入します。フックはプラグインと一緒に配布されるため、1.0.0 の

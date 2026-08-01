@@ -7,7 +7,7 @@ and **中途** (mid-career) paths, from self-analysis to documents, interviews, 
 and onboarding.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#install)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#install)
@@ -151,6 +151,11 @@ Restart Claude Code afterwards; the update does not apply to the session you ran
 
 Releases are delivered by the `version` field in `.claude-plugin/plugin.json`, and each version is
 cached in its own directory — so an install stays on the version it has until that field changes.
+
+The status bar tells you when a newer version is published. It reads a cache file and never blocks
+a prompt: the version is fetched by a detached background process at most once a day, from
+`.claude-plugin/plugin.json` on this repo's `main`. Nothing else is sent, and a failed fetch is
+silent. Opt out with `JAPAN_RECRUIT_NO_UPDATE_CHECK=1`.
 
 Since 1.1.0 the plugin ships a `UserPromptSubmit` hook that injects the career status bar
 (deadlines, unchecked action items, your own standing rules). Hooks ship with the plugin, so an

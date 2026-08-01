@@ -16,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import status_bar  # noqa: E402
 from status_bar import build_status  # noqa: E402
 
 TODAY = dt.date(2026, 8, 2)
@@ -146,6 +147,34 @@ def test_diversity_warning_only_when_window_full_and_uniform():
     # Too few known values to claim a pattern.
     assert "diversity:" not in build_status(demo(["no"] * 4), {}, TODAY)
     assert "diversity:" not in build_status(demo(["no", "no", "unknown", "no", "no"]), {}, TODAY)
+
+
+def test_version_comparison():
+    assert status_bar.is_newer("1.2.0", "1.1.0")
+    assert status_bar.is_newer("1.1.1", "1.1.0")
+    assert status_bar.is_newer("2.0.0", "1.9.9")
+    assert not status_bar.is_newer("1.1.0", "1.1.0")
+    assert not status_bar.is_newer("1.0.0", "1.1.0"), "downgrades are not updates"
+    # 10 > 9 as a number, not as a string.
+    assert status_bar.is_newer("1.10.0", "1.9.0")
+    # Anything unusable is silence, never a false notice.
+    assert not status_bar.is_newer(None, "1.1.0")
+    assert not status_bar.is_newer("1.2.0", None)
+    assert not status_bar.is_newer("weird", "1.1.0")
+
+
+def test_update_line_only_when_newer():
+    assert status_bar.update_line("1.1.0", {"latest": "1.1.0"}) is None
+    assert status_bar.update_line("1.1.0", {}) is None
+    line = status_bar.update_line("1.1.0", {"latest": "1.2.0"})
+    assert "update: v1.2.0 available (installed 1.1.0)" in line
+    assert "claude plugin update japan-recruit-ai-agent" in line
+
+
+def test_update_line_appears_last_in_the_block():
+    pipeline = {"companies": [company("a", stage=4)]}
+    out = build_status(pipeline, {}, TODAY, "update: v1.2.0 available")
+    assert out.splitlines()[-2] == "update: v1.2.0 available"
 
 
 def test_no_prose_lines():

@@ -21,7 +21,11 @@ schema change, not a summary.
 from __future__ import annotations
 
 import datetime as dt
+import json
+import os
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 STAGE_LABELS = {
@@ -42,6 +46,110 @@ CALIBRATION_MIN_SAMPLE = 3
 
 # Number of most recent entries checked for the demo_slot diversity warning.
 DIVERSITY_WINDOW = 5
+
+# Update notice. Auto-update is off by default for third-party marketplaces, so an install
+# can sit on an old version indefinitely — and from 1.1.0 a stale install has no status bar
+# and no execution gate at all, with nothing running that could say so.
+#
+# The check never blocks a prompt: this process only reads a cache file, and refreshes it by
+# detaching a background copy of itself. A cold install therefore shows the notice from the
+# following prompt, not this one.
+UPDATE_URL = (
+    "https://raw.githubusercontent.com/younnieCutler/japan-recruit-ai-agent"
+    "/main/.claude-plugin/plugin.json"
+)
+CHECK_INTERVAL_SECONDS = 24 * 3600
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+
+
+def update_check_disabled() -> bool:
+    return os.environ.get("JAPAN_RECRUIT_NO_UPDATE_CHECK") == "1"
+
+
+def cache_file() -> Path:
+    """CLAUDE_PLUGIN_DATA survives plugin updates; the cache is useless if it does not."""
+    base = os.environ.get("CLAUDE_PLUGIN_DATA") or os.path.expanduser("~/.japan-recruit-agent")
+    return Path(base) / "update-check.json"
+
+
+def local_version() -> str | None:
+    try:
+        manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text())
+        return manifest.get("version")
+    except Exception:
+        return None
+
+
+def version_tuple(value: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in value.split(".") if part.isdigit())
+
+
+def is_newer(remote: str | None, local: str | None) -> bool:
+    if not remote or not local:
+        return False
+    try:
+        return version_tuple(remote) > version_tuple(local)
+    except Exception:
+        return False
+
+
+def update_line(local: str | None, cache: dict) -> str | None:
+    remote = cache.get("latest")
+    if not is_newer(remote, local):
+        return None
+    return (
+        f"update: v{remote} available (installed {local}) — "
+        "claude plugin update japan-recruit-ai-agent, then restart"
+    )
+
+
+def read_cache() -> dict:
+    try:
+        return json.loads(cache_file().read_text())
+    except Exception:
+        return {}
+
+
+def refresh_cache() -> int:
+    """Fetch the published version and cache it. Runs detached; prints nothing, ever."""
+    import urllib.request
+
+    latest = None
+    try:
+        with urllib.request.urlopen(UPDATE_URL, timeout=10) as response:
+            latest = json.loads(response.read().decode("utf-8")).get("version")
+    except Exception:
+        pass  # offline, rate-limited, repo moved — the notice is not worth an error
+    try:
+        path = cache_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"checked_at": time.time()}
+        if latest:
+            payload["latest"] = latest
+        else:
+            # Keep the previous answer rather than forgetting it over one failed fetch.
+            payload["latest"] = read_cache().get("latest")
+        path.write_text(json.dumps(payload))
+    except Exception:
+        pass
+    return 0
+
+
+def maybe_refresh(cache: dict) -> None:
+    if update_check_disabled():
+        return
+    if time.time() - float(cache.get("checked_at") or 0) < CHECK_INTERVAL_SECONDS:
+        return
+    try:
+        subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "--refresh-cache"],
+            stdout=subprocess.DEVNULL,  # anything on stdout would land in the model's context
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception:
+        pass
 
 
 def stage_label(stage: object) -> str:
@@ -162,7 +270,9 @@ def diversity_line(pipeline: dict) -> str | None:
     return None
 
 
-def build_status(pipeline: dict, rules: dict, today: dt.date) -> str:
+def build_status(
+    pipeline: dict, rules: dict, today: dt.date, update: str | None = None
+) -> str:
     """Assemble the block. Returns "" when there is nothing to report."""
     if not (pipeline.get("companies") or []):
         return ""
@@ -176,6 +286,8 @@ def build_status(pipeline: dict, rules: dict, today: dt.date) -> str:
     diversity = diversity_line(pipeline)
     if diversity:
         lines.append(diversity)
+    if update:
+        lines.append(update)
     return "<career_status>\n" + "\n".join(lines) + "\n</career_status>"
 
 
@@ -204,14 +316,19 @@ def load_yaml(path: Path) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(argv or [])
+    if argv and argv[0] == "--refresh-cache":
+        return refresh_cache()
     root = Path(argv[0]) if argv else Path.cwd()
     pipeline = load_yaml(root / "data" / "pipeline.yml")
     if not pipeline:
         return 0
     rules = load_yaml(root / "data" / "rules.yml")
-    block = build_status(pipeline, rules, dt.date.today())
+    cache = {} if update_check_disabled() else read_cache()
+    block = build_status(pipeline, rules, dt.date.today(), update_line(local_version(), cache))
     if block:
         print(block)
+    maybe_refresh(cache)
     return 0
 
 

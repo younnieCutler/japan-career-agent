@@ -75,8 +75,8 @@ so the user can confirm the output on disk. If a target file already exists, ask
 
 `hooks/hooks.json` runs `scripts/status_bar.py` on every prompt. It reads `data/pipeline.yml` and
 `data/rules.yml` and injects a `<career_status>` block: active companies by stage, the nearest
-deadline, unchecked action items, the user's active rules, and the scored-outcome count. No pipeline
-file, no output.
+deadline, unchecked action items, the user's active rules, the scored-outcome count, and a notice
+when a newer plugin version is published. No pipeline file, no output.
 
 **Trust it, but only within its schema.** Every value is computed in code from the files on disk —
 none is estimated, and nothing in it is a summary of the conversation. It is also a lossy projection:

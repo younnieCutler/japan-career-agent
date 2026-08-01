@@ -6,7 +6,7 @@
 자기분석부터 서류, 면접, 오퍼, 퇴직, 입사 준비까지 연결합니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#스킬)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#설치)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#설치)
@@ -148,6 +148,11 @@ claude plugin list                                        # 버전 확인
 
 릴리스는 `.claude-plugin/plugin.json`의 `version` 필드로 전달되며 버전마다 별도 캐시 디렉터리를
 사용합니다 — 이 필드가 바뀌기 전까지는 설치본이 기존 버전에 머뭅니다.
+
+새 버전이 올라오면 상태바가 알려줍니다. 캐시 파일만 읽으므로 프롬프트를 지연시키지 않습니다 —
+버전 확인은 하루 한 번, 분리된 백그라운드 프로세스가 이 저장소 `main`의 `.claude-plugin/plugin.json`을
+가져오는 방식입니다. 그 외에 전송되는 정보는 없고, 실패하면 조용히 넘어갑니다. 끄려면
+`JAPAN_RECRUIT_NO_UPDATE_CHECK=1`.
 
 1.1.0부터 플러그인이 `UserPromptSubmit` 훅을 동봉해 커리어 상태바(마감일, 미체크 액션 항목,
 본인이 정한 규칙)를 주입합니다. 훅은 플러그인과 함께 배포되므로 1.0.0에 머물러 있으면 상태바도
