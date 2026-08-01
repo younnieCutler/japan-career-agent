@@ -125,6 +125,28 @@ def test_approve_below_threshold_exits():
     raise AssertionError("promotion below the threshold must exit")
 
 
+def test_refusal_does_not_need_the_writer_dependency():
+    """Refusing a promotion must not depend on being able to perform one.
+
+    Regression: PyYAML was imported at the top of approve_rule, so on a machine
+    without it the guard raised ModuleNotFoundError instead of the refusal.
+    """
+    pipeline = {"companies": [closed("a", root_cause="数値なし")]}
+    saved = sys.modules.get("yaml")
+    sys.modules["yaml"] = None  # any import of yaml now raises ImportError
+    try:
+        calibrate.approve_rule(pipeline, {}, "数値なし", "always add a number")
+    except SystemExit as exc:
+        assert "1 supporting entr" in str(exc)
+    else:
+        raise AssertionError("promotion below the threshold must exit")
+    finally:
+        if saved is None:
+            del sys.modules["yaml"]
+        else:
+            sys.modules["yaml"] = saved
+
+
 def run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for test in tests:

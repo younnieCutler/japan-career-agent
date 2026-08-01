@@ -12,6 +12,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: install runtime deps
+        run: python3 -m pip install --quiet pyyaml
       - name: career-agent test suite
         run: python3 skills/career-agent/test_career_agent.py
       - name: scoring self-test

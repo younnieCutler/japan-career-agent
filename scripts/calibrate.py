@@ -213,8 +213,8 @@ def rules_report(pipeline: dict, rules: dict) -> int:
 def approve_rule(pipeline: dict, rules: dict, cause: str, text: str) -> int:
     import datetime as dt
 
-    import yaml
-
+    # Guards first, writer dependency after: refusing a promotion must not depend on
+    # being able to perform one.
     counts, slugs = rule_candidates(pipeline)
     if counts[cause] < PROMOTION_THRESHOLD:
         sys.exit(
@@ -224,6 +224,8 @@ def approve_rule(pipeline: dict, rules: dict, cause: str, text: str) -> int:
     entries = rules.setdefault("rules", [])
     if any(r.get("id") == cause for r in entries):
         sys.exit(f"a rule for {cause!r} already exists in {RULES}")
+
+    import yaml
     entries.append(
         {
             "id": cause,
