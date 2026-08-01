@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
-[![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#스킬)
+[![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#스킬)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#설치)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#설치)
 
@@ -61,6 +61,7 @@ flowchart LR
 | `company-battlecard` | 2개 이상 기업 비교 | 비교 리포트 |
 | `kigyou-bunseki` | 기업 및 공개 채용공고 조사 | 企業カルテ |
 | `tenshoku-strategy` | 면접, 연봉, 오퍼, 퇴직, 입사, 지원 추적 | 실행 계획 |
+| `mock-interviewer` | 다회차 모의 면접과 深掘り 후속 질문 | 준비 부족 지점 |
 | `career-agent` | 트랙 라우팅, 이벤트 원장, 마감, 다음 행동, 공고 후보 | 로컬 커리어 상태 |
 
 각 스킬은 `skills/<name>/SKILL.md`에 있으며, 공통 프레임워크와 스키마는 `_shared/`에 있습니다.

@@ -8,7 +8,7 @@ and onboarding.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
-[![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#skills)
+[![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#install)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#install)
 
@@ -63,6 +63,7 @@ It loads only the skill and references needed for the selected stage. It does no
 | `company-battlecard` | Comparing two or more companies | Comparison report |
 | `kigyou-bunseki` | Company and public posting research | 企業カルテ |
 | `tenshoku-strategy` | Interviews, salary, offers, resignation, onboarding, and tracking | Execution plan |
+| `mock-interviewer` | Simulated multi-round interviews with 深掘り follow-up questioning | Readiness gaps |
 | `career-agent` | Track routing, event ledger, deadlines, next actions, and posting candidates | Local career state |
 
 Every skill is a `SKILL.md` under `skills/<name>/`. Shared frameworks and schemas live under

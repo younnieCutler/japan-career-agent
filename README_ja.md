@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
-[![Skills](https://img.shields.io/badge/skills-8-blue.svg)](#スキル)
+[![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#スキル)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#インストール)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#インストール)
 
@@ -62,6 +62,7 @@ Observe → Plan → Act → Verify → Correct → Persist
 | `company-battlecard` | 2社以上の比較 | 比較レポート |
 | `kigyou-bunseki` | 企業と公開求人の調査 | 企業カルテ |
 | `tenshoku-strategy` | 面接、年収、内定、退職、入社、選考トラッキング | 実行計画 |
+| `mock-interviewer` | 複数ラウンドの模擬面接と深掘り質問 | 準備不足の可視化 |
 | `career-agent` | トラック、イベント台帳、期限、次の行動、求人候補 | ローカル状態 |
 
 各スキルは `skills/<name>/SKILL.md` にあります。共通フレームワークとスキーマは `_shared/`

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -18,6 +17,15 @@ import re
 import sys
 import tomllib
 import uuid
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
+try:
+    import msvcrt
+except ImportError:  # POSIX
+    msvcrt = None
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterable
@@ -474,21 +482,20 @@ def context_eligible(note: dict[str, Any], track: str, stage: str) -> bool:
 
 def select_context(vault: Path, track: str, stage: str) -> list[dict[str, Any]]:
     """Return metadata only; note bodies are deliberately never persisted or returned."""
-    selected: list[dict[str, Any]] = []
-    for note in index_vault_notes(vault):
-        if not context_eligible(note, track, stage):
-            continue
-        selected.append(
-            {
-                "path": note["path"],
-                "kind": note["kind"],
-                "title": note["title"],
-                "description": note["description"],
-                "headings": note["headings"],
-                "source_type": note["source_type"],
-                "selected_for": {"track": track, "stage": stage},
-            }
-        )
+    eligible = [note for note in index_vault_notes(vault) if context_eligible(note, track, stage)]
+    eligible.sort(key=lambda note: note["date"] or "", reverse=True)
+    selected = [
+        {
+            "path": note["path"],
+            "kind": note["kind"],
+            "title": note["title"],
+            "description": note["description"],
+            "headings": note["headings"],
+            "source_type": note["source_type"],
+            "selected_for": {"track": track, "stage": stage},
+        }
+        for note in eligible
+    ]
     return selected[:5]
 
 
@@ -509,6 +516,15 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
         raise CareerError("event.deadline must be an ISO date or null")
     if event["deadline"] and not DATE_VALUE.match(event["deadline"]):
         raise CareerError("event.deadline must use YYYY-MM-DD")
+    if "company" in event and event["company"] is not None:
+        if not isinstance(event["company"], str) or not event["company"].strip():
+            raise CareerError("event.company must be a non-empty string")
+    if "compensation" in event and event["compensation"] is not None:
+        if isinstance(event["compensation"], bool) or not isinstance(event["compensation"], (int, float)) or event["compensation"] < 0:
+            raise CareerError("event.compensation must be a number >= 0")
+    if "currency" in event and event["currency"] is not None:
+        if not isinstance(event["currency"], str) or not event["currency"].strip():
+            raise CareerError("event.currency must be a non-empty string")
     if for_confirmation or event["status"] == "confirmed":
         if not event["evidence"]:
             if NUMERIC_CLAIM.search(event["summary"] + " " + event["title"]):
@@ -696,6 +712,20 @@ def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[s
         deadlines = [item for item in next_state.get("deadlines", []) if item.get("event_id") != event["id"]]
         deadlines.append({"date": event["deadline"], "event_id": event["id"], "title": event["title"], "status": "open"})
         next_state["deadlines"] = sorted(deadlines, key=lambda item: item["date"])
+    if event.get("company"):
+        applications = [item for item in next_state.get("applications", []) if item.get("company") != event["company"]]
+        applications.append(
+            {
+                "company": event["company"],
+                "track": event["track"],
+                "stage": event["stage"],
+                "compensation": event.get("compensation"),
+                "currency": event.get("currency"),
+                "last_event_id": event["id"],
+                "updated_at": event["occurred_at"],
+            }
+        )
+        next_state["applications"] = applications
     return next_state
 
 
@@ -1008,11 +1038,17 @@ def vault_lock(home: CareerVault):
     home.ensure_runtime()
     lock_path = home.runtime / "lock"
     with open(lock_path, "a+") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+        if fcntl is not None:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        elif msvcrt is not None:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
         try:
             yield
         finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+            if fcntl is not None:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+            elif msvcrt is not None:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def count_consecutive_safe_stops(home: CareerVault, goal: str) -> int:
@@ -1039,7 +1075,15 @@ def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any],
     })
 
 
-def approve(home: CareerVault, proposal_id: str, evidence: list[str] | None = None, deadline: str | None = None) -> dict[str, Any]:
+def approve(
+    home: CareerVault,
+    proposal_id: str,
+    evidence: list[str] | None = None,
+    deadline: str | None = None,
+    company: str | None = None,
+    compensation: float | None = None,
+    currency: str | None = None,
+) -> dict[str, Any]:
     with vault_lock(home):
         proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
         if not proposal:
@@ -1052,6 +1096,12 @@ def approve(home: CareerVault, proposal_id: str, evidence: list[str] | None = No
                 event["evidence"] = evidence
             if deadline is not None:
                 event["deadline"] = deadline
+            if company is not None:
+                event["company"] = company
+            if compensation is not None:
+                event["compensation"] = compensation
+            if currency is not None:
+                event["currency"] = currency
             try:
                 validate_event(event, for_confirmation=True)
             except CareerError as exc:
@@ -1109,6 +1159,9 @@ def build_parser() -> argparse.ArgumentParser:
     approve_parser.add_argument("proposal_id")
     approve_parser.add_argument("--evidence", action="append", help="evidence for an event; repeat for multiple sources")
     approve_parser.add_argument("--deadline", help="confirmed event deadline in YYYY-MM-DD")
+    approve_parser.add_argument("--company", help="company name for an offer/application event")
+    approve_parser.add_argument("--compensation", type=float, help="compensation amount for an offer/application event")
+    approve_parser.add_argument("--currency", help="currency for --compensation, e.g. JPY")
     rollback_parser = subparsers.add_parser("rollback")
     add_vault_argument(rollback_parser)
     rollback_parser.add_argument("version")
@@ -1139,7 +1192,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             elif args.command == "status":
                 result = status(home)
             elif args.command == "approve":
-                result = approve(home, args.proposal_id, args.evidence, args.deadline)
+                result = approve(home, args.proposal_id, args.evidence, args.deadline, args.company, args.compensation, args.currency)
             elif args.command == "rollback":
                 result = rollback(home, args.version)
             elif args.command == "index":

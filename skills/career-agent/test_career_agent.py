@@ -96,6 +96,33 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual(failed.returncode, 2)
         self.assertIn("numeric claim", failed.stderr)
 
+    def test_numeric_claim_with_unrelated_evidence_is_still_rejected(self) -> None:
+        self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "売上を30%改善した"))
+        failed = run(self.vault, "approve", proposed["proposal"]["id"], "--evidence", "面接の準備をした")
+        self.assertEqual(failed.returncode, 2)
+        self.assertIn("numeric claim", failed.stderr)
+
+    def test_approve_with_company_upserts_applications_state(self) -> None:
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "内定をもらった"))
+        approved = output(run(
+            self.vault, "approve", proposed["proposal"]["id"],
+            "--evidence", "内定をもらった",
+            "--company", "GAO",
+            "--compensation", "5130000",
+            "--currency", "JPY",
+        ))
+        self.assertEqual(approved["event"]["company"], "GAO")
+        self.assertEqual(approved["event"]["compensation"], 5130000)
+        self.assertEqual(approved["event"]["currency"], "JPY")
+        state = output(run(self.vault, "status"))["state"]
+        applications = state["applications"]
+        self.assertEqual(len(applications), 1)
+        self.assertEqual(applications[0]["company"], "GAO")
+        self.assertEqual(applications[0]["compensation"], 5130000)
+        self.assertEqual(applications[0]["currency"], "JPY")
+
     def test_heartbeat_is_capped_and_discover_deduplicates(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "中途で面接の締切を確認したい"))
