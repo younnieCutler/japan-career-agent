@@ -56,6 +56,11 @@ recovery happens there.
 `heartbeat` also surfaces any `career-profile.toml` field holding an ISO date within the next 7 days
 (`reason: "profile_deadline"`), not only dates recorded through a confirmed event's `deadline` field.
 
+`approve` holds an exclusive file lock (`.career-agent/lock`) for its full read-check-write sequence, so
+two concurrent `approve` calls on the same proposal (two terminals, or a human and Claude both acting)
+cannot both pass the "still pending" check and double-write the event — the second always waits, then
+fails cleanly instead of duplicating the ledger entry. Other commands are not lock-protected.
+
 The runtime always reads only `00-control` and `02-state`. It selects at most five verified notes
 from `03-active`, `04-evidence`, `05-playbooks`, and `06-reference`; `01-capture` and `07-archive`
 are never automatic context. `index` persists only note metadata, headings, wikilinks, hashes,

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fcntl
 import hashlib
 import json
 import os
@@ -17,6 +18,7 @@ import re
 import sys
 import tomllib
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -994,6 +996,25 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
     }
 
 
+@contextmanager
+def vault_lock(home: CareerVault):
+    """Serialize read-modify-write sections against other processes on the same Vault.
+
+    A single local machine can still run two CLI invocations at once (two terminals, or a
+    human and Claude both acting). Without this, two concurrent `approve` calls on the same
+    proposal could both pass the "is it still pending" check before either writes, producing
+    a duplicate confirmed event.
+    """
+    home.ensure_runtime()
+    lock_path = home.runtime / "lock"
+    with open(lock_path, "a+") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
 def count_consecutive_safe_stops(home: CareerVault, goal: str) -> int:
     count = 0
     for trajectory in reversed(read_jsonl(home.trajectories)):
@@ -1019,30 +1040,31 @@ def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any],
 
 
 def approve(home: CareerVault, proposal_id: str, evidence: list[str] | None = None, deadline: str | None = None) -> dict[str, Any]:
-    proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
-    if not proposal:
-        raise CareerError(f"proposal not found: {proposal_id}")
-    if proposal.get("status") != "pending":
-        raise CareerError(f"proposal is not pending: {proposal_id}")
-    if proposal.get("kind") == "event":
-        event = dict(proposal["event"])
-        if evidence is not None:
-            event["evidence"] = evidence
-        if deadline is not None:
-            event["deadline"] = deadline
-        try:
-            validate_event(event, for_confirmation=True)
-        except CareerError as exc:
-            record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
-            raise
-        event["status"] = "confirmed"
-        append_jsonl(home.events, event)
-        state = apply_event_to_state(home.load_state(), event)
-        version = home.save_state(state)
-        updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now(), version=version)
-        return {"approved": True, "event": event, "version": version, "proposal": updated}
-    updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now())
-    return {"approved": True, "proposal": updated, "applied": False, "message": "Only event proposals change the local ledger; skill changes remain offline proposals."}
+    with vault_lock(home):
+        proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
+        if not proposal:
+            raise CareerError(f"proposal not found: {proposal_id}")
+        if proposal.get("status") != "pending":
+            raise CareerError(f"proposal is not pending: {proposal_id}")
+        if proposal.get("kind") == "event":
+            event = dict(proposal["event"])
+            if evidence is not None:
+                event["evidence"] = evidence
+            if deadline is not None:
+                event["deadline"] = deadline
+            try:
+                validate_event(event, for_confirmation=True)
+            except CareerError as exc:
+                record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
+                raise
+            event["status"] = "confirmed"
+            append_jsonl(home.events, event)
+            state = apply_event_to_state(home.load_state(), event)
+            version = home.save_state(state)
+            updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now(), version=version)
+            return {"approved": True, "event": event, "version": version, "proposal": updated}
+        updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now())
+        return {"approved": True, "proposal": updated, "applied": False, "message": "Only event proposals change the local ledger; skill changes remain offline proposals."}
 
 
 def rollback(home: CareerVault, version: str) -> dict[str, Any]:

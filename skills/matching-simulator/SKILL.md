@@ -329,7 +329,7 @@ Rules:
 - "Reorder" and "reframe" are allowed. "Fabricate" is not.
 - Include 5–8 JD keywords to mirror in the 職務経歴書 for ATS compatibility. (This is a quick subset — for
   the full treatment, 表記揺れ variants, and the hit/miss/add coverage table, run `job-seeker-agent`
-  STEP 4-1b `references/ats-keywords.md`.)
+  STEP 4-1b, which uses its own references/ats-keywords.md.)
 
 **Company-side improvements:**
 - Which JD elements are narrowing the matching range

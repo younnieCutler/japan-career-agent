@@ -21,6 +21,7 @@
 
 # Exception: Shared infrastructure
 !/_shared/
+!/scripts/
 
 # Exception: Skill folders
 !/skills/

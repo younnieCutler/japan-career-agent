@@ -223,6 +223,21 @@ class CareerAgentTests(unittest.TestCase):
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "中途で面接を準備したい"))
         self.assertEqual([item["path"] for item in proposed["context"]], ["05-playbooks/interview.md"])
 
+    def test_concurrent_approve_does_not_duplicate_the_event(self) -> None:
+        self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "転職の面接を準備したい"))
+        proposal_id = proposed["proposal"]["id"]
+
+        cmd = [sys.executable, str(SCRIPT), "approve", "--vault", str(self.vault), proposal_id, "--evidence", "面接を準備したい"]
+        first = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        second = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        results = [first.communicate(), second.communicate()]
+        returncodes = [first.returncode, second.returncode]
+
+        self.assertEqual(sorted(returncodes), [0, 2])
+        events = read_jsonl(self.vault / "02-state" / "events.jsonl")
+        self.assertEqual(len(events), 1)
+
     def test_heartbeat_surfaces_profile_deadline(self) -> None:
         self.set_profile(
             track="chuto",
