@@ -226,6 +226,29 @@ These apply to all 8 skills equally:
 
 ---
 
+## 🩹 Learning From Mistakes
+
+`tests/eval.md` (per skill) checks that known scenarios still work — it does not, by itself, make the
+suite learn from a real failure. Each skill has a `tests/mistakes.md` for that: an append-only log of
+actual bad outputs, not speculative edge cases.
+
+**When something goes wrong in real use** (wrong score, fabricated claim, bad routing, advice a user had
+to correct): append one row to that skill's `tests/mistakes.md` — date, what was asked, what happened,
+what was expected, status `open`. Do this in the moment; don't wait to write a polished summary.
+
+**Periodically, not every session:** review the log(s). A single row is not evidence of anything —
+sporadic, unconfirmed failures should stay logged and unactioned. Only when the same pattern repeats
+2–3+ times across sessions, promote it to the smallest medium that fits:
+- A judgment call or instruction the model should follow → edit that skill's `SKILL.md` wording.
+- A deterministic rule or routing bug → edit `career_agent.py` (or the skill's own logic, if any).
+- Either way: re-run `tests/eval.md` (or `test_career_agent.py` for career-agent) after the change to
+  confirm nothing else regressed, then mark the row `Promoted` with a one-line pointer to what changed.
+
+Don't skip the re-run step — a fix for one logged mistake that breaks an existing eval case is not a net
+improvement.
+
+---
+
 ## 🗂️ Suite Architecture
 
 ```
