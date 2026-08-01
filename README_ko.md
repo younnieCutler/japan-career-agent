@@ -140,7 +140,7 @@ cp -R "$REPO/_shared/." ~/.codex/_shared/
 
 ```bash
 claude plugin marketplace update japan-recruit-ai-agent   # 마켓플레이스 목록 갱신
-claude plugin update japan-recruit-ai-agent               # 플러그인 본체 갱신
+claude plugin update japan-recruit-ai-agent@japan-recruit-ai-agent  # 플러그인 본체 갱신
 claude plugin list                                        # 버전 확인
 ```
 

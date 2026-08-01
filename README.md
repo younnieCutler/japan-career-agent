@@ -143,7 +143,7 @@ To update once, by hand:
 
 ```bash
 claude plugin marketplace update japan-recruit-ai-agent   # refresh the marketplace listing
-claude plugin update japan-recruit-ai-agent               # then the plugin itself
+claude plugin update japan-recruit-ai-agent@japan-recruit-ai-agent  # then the plugin itself
 claude plugin list                                        # confirm the version
 ```
 
