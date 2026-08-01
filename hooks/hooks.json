@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/status_bar.py\"",
+            "commandWindows": "python \"$env:CLAUDE_PLUGIN_ROOT\\scripts\\status_bar.py\"",
+            "timeout": 5,
+            "statusMessage": "Reading career status..."
+          }
+        ]
+      }
+    ]
+  }
+}

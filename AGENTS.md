@@ -62,6 +62,34 @@ Never write into the skill's install directory, and never to an absolute persona
 on first use. **After every save, print the file's absolute path and verify it exists (e.g., `ls -la <path>`)**
 so the user can confirm the output on disk. If a target file already exists, ask before overwriting.
 
+## 📟 Career Status Bar & Execution Gate (Suite-Wide)
+
+`hooks/hooks.json` runs `scripts/status_bar.py` on every prompt. It reads `data/pipeline.yml` and
+`data/rules.yml` and injects a `<career_status>` block: active companies by stage, the nearest
+deadline, unchecked action items, the user's active rules, and the scored-outcome count. No pipeline
+file, no output.
+
+**Trust it, but only within its schema.** Every value is computed in code from the files on disk —
+none is estimated, and nothing in it is a summary of the conversation. It is also a lossy projection:
+it precomputes only those fields. A question it was not built to answer must be answered from
+`data/pipeline.yml` directly, never inferred from the bar.
+
+**Execution gate — obey it.** When the bar reports `gate: interview-prep generation BLOCKED for X`,
+do not produce new interview-prep material for company X. Show the unchecked items and stop there.
+
+The gate exists because of a documented, repeated failure: a checklist was written days before an
+interview, went unopened, and the rejection reason came back naming the first unchecked item. A second
+case repeated a rule the user had written six weeks earlier. In both, the knowledge existed on time and
+only the execution was missing — writing more material on top of unread material is what the gate stops.
+
+**Never mark an item checked yourself**, and never edit `checked` while upserting the pipeline for
+another reason. The user runs `python3 scripts/check_action.py <slug> <id>`. An assistant that can
+clear its own gate does not have one.
+
+Likewise, skills may read `data/rules.yml` but never write it. Rules are promoted through
+`career-agent` with the user's approval, so a constraint the assistant keeps failing cannot be
+quietly relaxed by the assistant.
+
 ## 🔒 Context Isolation (Career Vault)
 
 - When `CAREER_VAULT` is set, always use `python3 skills/career-agent/career_agent.py context --vault "$CAREER_VAULT"`.

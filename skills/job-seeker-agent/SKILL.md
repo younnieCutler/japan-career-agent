@@ -346,6 +346,11 @@ vocabulary (組織マネジメント, PL責任, 採用, 育成) since scout sear
 
 #### 4-3. 面接ラウンド別・相手別 対策 (When an interview is scheduled or a target company exists)
 
+> **Execution gate.** If `<career_status>` reports unchecked action items for this company, stop here.
+> List them and ask the user to complete them first (`python3 scripts/check_action.py <slug> <id>`).
+> New prep material stacked on top of unread prep material is exactly the pattern that produced a
+> rejection naming the first unchecked item. See AGENTS.md § Career Status Bar & Execution Gate.
+
 **👉 Refer to `references/mensetsu-rounds.md` for the audience-segmented prep.**
 - Research the selection process and classify each round to an audience: カジュアル面談 / 一次(人事) /
   二次(現場マネージャー) / 技術・ケース面接(peer) / 最終(役員=value-fit).

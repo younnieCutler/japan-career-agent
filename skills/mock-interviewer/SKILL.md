@@ -20,6 +20,16 @@ The goal is not to encourage, but to find weak points, undefendable metrics, and
 
 ---
 
+## Execution Gate (check before starting a session)
+
+If `<career_status>` reports unchecked action items for the company being practised for, do not run
+the mock interview yet. Show the items and ask the user to complete them first
+(`python3 scripts/check_action.py <slug> <id>`). Practising around an unfinished checklist rehearses
+the same gap the checklist was written to close.
+
+Read `data/rules.yml` if present. Any `status: active` rule is a phrase the user has already decided
+never to say — treat a violation during practice as a finding, quoting the rule verbatim.
+
 ## Language Auto-Detection
 
 Detect the user's language preferences for UI, but the **interview practice questions can be delivered in Japanese** if the user chooses Japanese interview practice mode.
