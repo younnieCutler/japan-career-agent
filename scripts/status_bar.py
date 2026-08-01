@@ -316,6 +316,9 @@ def load_yaml(path: Path) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     argv = list(argv or [])
     if argv and argv[0] == "--refresh-cache":
         return refresh_cache()

@@ -247,6 +247,9 @@ def approve_rule(pipeline: dict, rules: dict, cause: str, text: str) -> int:
 
 
 def main(argv: list[str]) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     pipeline = load(PIPELINE)
     if not argv:
         return report(pipeline)

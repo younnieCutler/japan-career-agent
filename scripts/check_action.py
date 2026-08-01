@@ -83,6 +83,9 @@ def check(pipeline, slug: str, item_id: str, path: Path) -> int:
 
 
 def main(argv: list[str]) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     pipeline = load(PIPELINE)
     if argv and argv[0] == "--list":
         return list_items(pipeline)
