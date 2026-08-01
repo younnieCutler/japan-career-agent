@@ -419,6 +419,19 @@ what was re-verified. If verification is not possible in this session, prefix ev
    stage/closed mapping in `references/senko-tracking.md` §2. **On お見送り with channel = agent | scout,
    ask for the recruiter's verbatim feedback (原文) and store it in `agent_feedback` unedited** — site /
    referral rarely give a real reason, leave null (senko-tracking §2).
+3-b. **Outcome record — required before `closed: true`.** Ask for all four and write them to the entry.
+   Do not set `closed` while any is missing; a closed entry without them is a prediction that can never
+   be scored, which is the structural reason calibration was impossible before v1.7.
+   | Field | Question to ask | If the user does not know |
+   |---|---|---|
+   | `reached_stage` | どこまで進みましたか (0–7)? | Infer from `history`; state that you inferred it |
+   | `feedback_obtained` | 落ちた理由の原文をもらえましたか? | `false` — a 定型お祈りメール does not count |
+   | `root_cause` | 一言で言うと何が原因でしたか? | `null`. **Never guess** — a fabricated cause becomes a rule |
+   | `demo_slot` | 自分の成果物を見せる場はありましたか? | `unknown` |
+   `root_cause` must reuse an existing label from other entries whenever it fits. Free-wording every
+   entry makes the counts meaningless, and the counts are what promote a rule.
+   Also record `prep_lines` (lines written for this company) and `gate_override` (whether a blocking
+   gate was passed) if either is known. Both are recorded only — nothing branches on them.
 4. **Pattern analysis (≥5 confirmed-outcome entries in pipeline.yml):** funnel · score-vs-outcome ·
    **calibration by predicted grade** (bucket each closed entry's `match_score` into A/B/C/D per the
    `_shared/frameworks.md` §6 grade bands, then compute conversion rate to Positive outcome per band — this

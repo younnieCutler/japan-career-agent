@@ -7,9 +7,11 @@
 #   COMPANY_PROFILE:   hiring-manager-agent / kigyou-bunseki (producers), matching-simulator / company-battlecard (consumers)
 #   MATCH_HISTORY:     matching-simulator (producer)
 #   PIPELINE:          kigyou-bunseki / matching-simulator / tenshoku-strategy / company-battlecard (writers),
-#                      CLAUDE.md onboarding + tenshoku-strategy STEP 6 (readers)
+#                      CLAUDE.md onboarding + tenshoku-strategy STEP 6 (readers),
+#                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
+#   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
-schema_version: "1.6"
+schema_version: "1.7"
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
@@ -193,5 +195,79 @@ pipeline:
                         relays the company's actual reason. site | referral rarely yield real reasons
                         (定型 お祈りメール); leave null. This is the raw source for the 面接遂行品質
                         blocker tier in tenshoku-strategy senko-tracking §3."
+
+      # ── Outcome record (v1.7) ────────────────────────────────────────
+      # Written by tenshoku-strategy STEP 6 when an entry closes. Without these the suite
+      # stores predictions it can never score, so no calibration is possible. Required
+      # before `closed: true` may be set.
+      predicted_tier:    "string: A | B | C | D | F | null — grade at application time, frozen.
+                            Copy from match_score at the moment of application; do not backfill
+                            after the outcome is known."
+      reached_stage:     "integer 0–7 | null — the furthest stage actually reached. Compared
+                            against predicted_tier by `career-agent calibrate`."
+      feedback_obtained: "boolean — whether a real rejection reason was obtained (agent_feedback
+                            non-null and not a form letter). Route-vs-learning join key."
+      root_cause:        "string | null — ONE coarse label, reused verbatim across companies so it
+                            can be counted (e.g. '数値なしエピソード', 'PREP構造欠如', '企業理解不足').
+                            Frequency across entries is the promotion key for data/rules.yml."
+
+      # ── Measurement-only fields (v1.7) ───────────────────────────────
+      # These record variables the PRD proposed turning into rules. The supporting evidence was
+      # a single case each, so they are measured rather than enforced. No skill may branch on
+      # them beyond the diversity warning below.
+      demo_slot:     "string: yes | company_test | no | unknown — does this 選考 have a slot where
+                        the candidate demonstrates their OWN artifact?
+                          yes           = candidate brings and demos their own work
+                          company_test  = company sets the exercise (実技テスト). A DIFFERENT axis —
+                                          the evaluator still picks the ground. Do not merge with `yes`.
+                          no            = verbal explanation only
+                          unknown       = not determinable from the 求人票 / process description.
+                                          Default. Never guess.
+                        Carries NO scoring weight. Used only for the diversity warning: if recent
+                        entries are all `no`, surface that the user is only competing on one axis."
+      prep_lines:    "integer | null — total lines of prep documents written for this company.
+                        Recorded so the user can test the 'prep volume does not predict outcome'
+                        claim against their own data. No cap is enforced."
+      gate_override: "boolean — true when the user proceeded past a blocking gate (F Match,
+                        Cold Mode routing warning). Lets `career-agent calibrate` measure whether
+                        the gate was actually right for this user instead of assuming it."
+
+      # ── Execution gate source (v1.7) ─────────────────────────────────
+      # The repeated failure this suite exists to prevent: the checklist existed and went
+      # unchecked. status_bar.py counts unchecked items; the count blocks new interview-prep
+      # generation for the same company.
+      action_items:
+        - { id: "string: short slug, unique within the company entry",
+            text: "string: the action, in the user's own words",
+            checked: "boolean",
+            created: "string: YYYY-MM-DD" }
+
       history:       # append-only event log — funnel analysis source
         - { date: "YYYY-MM-DD", event: "string (e.g., '応募 via doda', '書類通過')" }
+
+# ─────────────────────────────────────────────
+# RULES
+# File: data/rules.yml (CWD-relative, per Output Contract / Rule C)
+# The user's own standing rules, re-surfaced by the status bar before every interview.
+#
+# Written by: career-agent (`rules` subcommand) — ONLY on explicit user approval.
+# Read by:    scripts/status_bar.py (status bar), mock-interviewer, tenshoku-strategy
+#
+# Promotion rule: a candidate becomes `active` only when at least TWO distinct pipeline
+# entries support it. A single rejection reason is one company's measurement, not a
+# property of the candidate — promoting it teaches the user to fix the wrong axis.
+# `self_authored` rules skip the threshold: the user wrote them deliberately.
+#
+# Skills may READ this file. Skills may NOT write, edit, or retire rules — that path
+# runs through career-agent with user approval, so the agent cannot quietly relax a
+# constraint it keeps failing.
+# ─────────────────────────────────────────────
+rules:
+  - id:           "string: short slug"
+    text:         "string: the rule in the user's own words, verbatim. This exact string is
+                     re-surfaced before interviews, so do not paraphrase or translate it."
+    status:       "string: candidate | active | retired"
+    source:       "string: self_authored | derived_from_rejections"
+    supported_by: "list of strings: pipeline slugs backing this rule. Length >= 2 required to
+                     move derived_from_rejections rules to `active`. Empty for self_authored."
+    created:      "string: YYYY-MM-DD"

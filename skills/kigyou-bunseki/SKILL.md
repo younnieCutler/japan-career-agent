@@ -136,6 +136,7 @@ missing dimensions as "データなし" rather than guessing.
 | Mid-career hire ratio | 中途採用比率/キャリア採用比率 | Medium | Official 採用ページ / IR / 有価証券報告書 |
 | Salary range | 年収範囲 | Medium | Official / doda, Indeed |
 | Work style | 勤務形態 | Medium | Official / JD |
+| Selection process shape | 選考プロセスの形 | Medium | JD 選考フロー / 採用ページ |
 | Benefits | 福利厚生 | Low | Official / JD |
 | Overall score | 総合評価 | Fallback Only | OpenWork, Glassdoor |
 | Avg overtime | 平均残業時間 | Fallback Only | OpenWork |
@@ -164,6 +165,7 @@ When the user provides 1 URL:
   勤務形態:     [remote/hybrid/office]
   年収範囲:     [salary range]
   福利厚生:     [key benefits]
+  選考プロセス: [自分の成果物を見せる場: あり / 会社出題の実技 / なし / 不明]
 
 📊 外部評価・口コミ (※公式データで不足した場合のみ取得)
   総合評価:   [X.X / 5.0]
@@ -182,6 +184,23 @@ When the user provides 1 URL:
 **求人の真正性 (Posting Legitimacy):** When the input is an actual 求人 (not just a company page), append the
 `🔎 求人の真正性` assessment. Read `references/kyujin-legitimacy.md` for the signals, 3-tier output, and JP
 edge cases (通年採用/エージェント経由 are positive, not ghost). Present observations, never accusations.
+
+**選考プロセスの形 (`demo_slot`):** read the 選考フロー section of the JD or 採用ページ and classify into one
+of four values. Write it to the pipeline entry.
+
+| Value | 表示 | Signals |
+|---|---|---|
+| `yes` | 自分の成果物を見せる場: あり | ポートフォリオ選考, 成果物提出, LT/登壇, GitHub提出, デモ, 「これまで作ったものを見せてください」 |
+| `company_test` | 会社出題の実技 | コーディングテスト, 実技試験, ケース面接, 課題提出（会社が出題） |
+| `no` | なし | 面接のみ — 職務経験を口頭で説明する形式だけ |
+| `unknown` | 不明 | 選考フローの記載がない。**Default. Never infer from company type or industry.** |
+
+`yes` and `company_test` are **different axes and must not be merged**. In `company_test` the company
+still chooses the ground and the question; only in `yes` does the candidate bring their own artifact.
+Collapsing them produces the false conclusion "any 実技 means a good fit."
+
+This field carries **no scoring weight** anywhere in the suite. It exists so the user can see, across
+applications, whether every 選考 they enter evaluates the same single axis.
 
 For any field where data was not obtainable, write `データなし` — do not estimate or guess.
 
@@ -258,8 +277,8 @@ Also save extracted data to `data/company_profiles/{company-name-slug}.yml` for 
 and confirm the file exists).
 
 **Pipeline upsert:** then upsert the company's entry in `data/pipeline.yml` (PIPELINE schema in
-`_shared/schemas.yml`), using the same `{company-name-slug}` as the join key: set `name` and
-`kyujin_legitimacy` (green/yellow/red from the 求人の真正性 assessment). Ask the user:
+`_shared/schemas.yml`), using the same `{company-name-slug}` as the join key: set `name`,
+`kyujin_legitimacy` (green/yellow/red from the 求人の真正性 assessment) and `demo_slot` (below). Ask the user:
 > "Have you applied to this company? Which stage are you at? (未応募=企業研究 / 応募済 / 面接中 / 内定)"
 Default to `stage: 2` (企業研究) if not applied. Upsert rules: read whole file → modify → rewrite,
 match by `slug`, never delete entries. Follow the Output Contract (print path, verify exists).
