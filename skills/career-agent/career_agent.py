@@ -154,6 +154,18 @@ def load_routing() -> dict[str, Any]:
 
 ROUTING = load_routing()
 
+# Short ASCII tokens where a plain substring match false-positives inside unrelated English words
+# (e.g. "es" — meant to catch the ES/entry-sheet abbreviation — also matches inside "research",
+# "yes", "best"). Everything else, including intentional stems like "graduat", still matches as a
+# substring.
+_WORD_BOUNDARY_TERMS = {"es"}
+
+
+def term_present(term: str, lowered: str) -> bool:
+    if term in _WORD_BOUNDARY_TERMS:
+        return re.search(rf"\b{re.escape(term)}\b", lowered) is not None
+    return term in lowered
+
 
 class CareerError(ValueError):
     pass
@@ -368,9 +380,9 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
     if requested in TRACKS:
         return requested
     lowered = message.lower()
-    if any(term.lower() in lowered for term in ROUTING["track"]["shinsotsu"]):
+    if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["shinsotsu"]):
         return "shinsotsu"
-    if any(term.lower() in lowered for term in ROUTING["track"]["chuto"]):
+    if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["chuto"]):
         return "chuto"
     return None
 
@@ -379,7 +391,7 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
     lowered = message.lower()
     for group in ROUTING["stage_alias"]:
         alias = group["alias"]
-        if not any(term.lower() in lowered for term in group["terms"]):
+        if not any(term_present(term.lower(), lowered) for term in group["terms"]):
             continue
         if alias == "chuto":
             track = "chuto"
@@ -438,14 +450,20 @@ def flow_phase_ids(reference: dict[str, Any], track: str) -> set[str]:
 
 
 def flow_phase_for(message: str, track: str, state: dict[str, Any], profile: dict[str, Any], reference: dict[str, Any]) -> str:
+    # Message signal comes first: once a confirmed event sets state.flow_phase, that value stays
+    # `in allowed` forever, so checking it before the message would freeze flow_phase at whatever
+    # the first confirmed event happened to be — later messages with a clear new signal (e.g. a
+    # resignation message arriving after an offer was confirmed) would never move it again. A
+    # message with no signal (a generic "what's next?" follow-up) still falls through to the
+    # state/profile value below, which is what keeps continuity for non-signaling messages.
     allowed = flow_phase_ids(reference, track)
+    lowered = message.lower()
+    for signal in ROUTING["flow_phase"][track]:
+        if any(term_present(term.lower(), lowered) for term in signal["terms"]) and signal["id"] in allowed:
+            return signal["id"]
     for value in (profile.get("flow_phase"), state.get("flow_phase")):
         if value in allowed:
             return str(value)
-    lowered = message.lower()
-    for signal in ROUTING["flow_phase"][track]:
-        if any(term.lower() in lowered for term in signal["terms"]) and signal["id"] in allowed:
-            return signal["id"]
     if track == "shinsotsu" and state.get("stage") == SHINSOTSU_STAGES[-1] and "offer_onboarding" in allowed:
         return "offer_onboarding"
     return "preparation"
@@ -715,9 +733,13 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
     path = path or pipeline_file()
 
     def apply(data: dict[str, Any]) -> dict[str, Any]:
+        # Flat top-level companies:/updated:, matching _shared/schemas.yml PIPELINE (same root
+        # shape kigyou-bunseki/matching-simulator/tenshoku-strategy/company-battlecard already
+        # write and status_bar.py/check_action.py/calibrate.py already read). An earlier version
+        # of this function nested everything under a "pipeline" key that no reader ever looked
+        # for, which silently hid every company career-agent projected from status_bar and friends.
         slug = company_slug(event["company"])
-        pipeline = data.setdefault("pipeline", {})
-        companies = pipeline.setdefault("companies", [])
+        companies = data.setdefault("companies", [])
         entry = next((c for c in companies if c.get("slug") == slug), None)
         if entry is None:
             entry = {"slug": slug, "name": event["company"], "closed": False, "history": []}
@@ -736,7 +758,7 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
         # so nothing here has to guard against a duplicate append.
         text = (event.get("summary") or event["title"]).strip()
         entry.setdefault("history", []).append({"date": day, "event": text[:120]})
-        pipeline["updated"] = day
+        data["updated"] = day
         return data
 
     try:
@@ -804,6 +826,16 @@ def doctor(vault: CareerVault) -> dict[str, Any]:
                     warnings.append(f"context note expired: {note['path']}")
             except ValueError:
                 errors.append(f"context note expires_on must use YYYY-MM-DD: {note['path']}")
+    pipeline_path = pipeline_file()
+    if pipeline_path.is_file():
+        pipeline_data = pipeline_store.load(pipeline_path)
+        if "pipeline" in pipeline_data:
+            warnings.append(
+                f"{pipeline_path} has a legacy nested 'pipeline' key — canonical shape is a flat "
+                "top-level companies:/updated:, per _shared/schemas.yml"
+            )
+        if "companies" in pipeline_data and not isinstance(pipeline_data["companies"], list):
+            errors.append(f"{pipeline_path}: companies must be a list")
     return {
         "mode": "doctor",
         "vault": str(vault.path),

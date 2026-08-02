@@ -151,7 +151,7 @@ class CareerAgentTests(unittest.TestCase):
 
         path = self.workdir / "data" / "pipeline.yml"
         self.assertTrue(path.is_file(), f"pipeline not written: {path}")
-        return (yaml.safe_load(path.read_text(encoding="utf-8")) or {})["pipeline"]["companies"]
+        return (yaml.safe_load(path.read_text(encoding="utf-8")) or {})["companies"]
 
     def test_approve_with_company_projects_onto_pipeline(self) -> None:
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
@@ -186,7 +186,7 @@ class CareerAgentTests(unittest.TestCase):
         # A domain skill owns these fields; the runtime must not clobber them.
         path = self.workdir / "data" / "pipeline.yml"
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        data["pipeline"]["companies"][0]["match_score"] = 72
+        data["companies"][0]["match_score"] = 72
         path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
         earlier = output(run(self.vault, "run", "--mode", "chat", "--message", "職務経歴書を直したい"))
@@ -253,6 +253,17 @@ class CareerAgentTests(unittest.TestCase):
         self.assertFalse(invalid["ok"])
         self.assertTrue(any("career_status" in error for error in invalid["errors"]))
 
+    def test_doctor_warns_on_legacy_nested_pipeline_shape(self) -> None:
+        self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
+        pipeline_path = self.workdir / "data" / "pipeline.yml"
+        pipeline_path.parent.mkdir(parents=True, exist_ok=True)
+        pipeline_path.write_text(
+            "pipeline:\n  companies:\n  - slug: gao\n    name: GAO\n  updated: '2026-08-02'\n",
+            encoding="utf-8",
+        )
+        result = output(run(self.vault, "doctor", cwd=self.workdir))
+        self.assertTrue(any("legacy nested" in warning for warning in result["warnings"]), result)
+
     def test_invalid_tool_input_safe_stops_and_restore_state_recovers_snapshot(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
         failed = run(self.vault, "run", "--mode", "discover", input_text=json.dumps({"company": "missing url"}))
@@ -297,6 +308,29 @@ class CareerAgentTests(unittest.TestCase):
 
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "入社日が決まった"))
         self.assertEqual(proposed["stage"], "退職・入社準備")
+
+    def test_english_research_message_does_not_false_match_es_alias(self) -> None:
+        # "es" (meant to catch the ES/entry-sheet abbreviation) used to match as a bare substring,
+        # so "research" (contains "es") routed to the documents stage. There's no English alias for
+        # "research" itself yet (a separate, not-yet-addressed coverage gap) — this only asserts the
+        # false match is gone, not that "research" correctly routes to the research stage.
+        sys.path.insert(0, str(SCRIPT.parent))
+        import career_agent
+
+        stage = career_agent.stage_for("I want to research companies", "chuto")
+        self.assertNotEqual(stage, "職務経歴書・自己PR")
+
+    def test_flow_phase_does_not_stick_after_a_confirmed_event(self) -> None:
+        # flow_phase_for() used to check state.flow_phase before the message, so once any event
+        # was confirmed, every later message returned that same phase forever — a real resignation
+        # message arriving after an offer was confirmed never moved flow_phase off "offer".
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        offer = output(run(self.vault, "run", "--mode", "chat", "--message", "内定をもらった"))
+        self.assertEqual(offer["flow_phase"], "offer")
+        output(run(self.vault, "approve", offer["proposal"]["id"], "--evidence", "内定をもらった"))
+
+        resignation = output(run(self.vault, "run", "--mode", "chat", "--message", "退職届を提出した"))
+        self.assertEqual(resignation["flow_phase"], "exit_onboarding")
 
     def test_approve_failure_logs_trajectory(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")

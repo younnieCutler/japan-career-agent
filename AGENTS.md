@@ -13,26 +13,36 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`L76–L90`**: `PIPELINE_STAGE` — agent stage to the 0–7 market stage map
 - **`L91–L105`**: `SKILL_BY_STAGE` — Stage-to-Skill mapping
 - **`L136–L139`**: Regular expressions (`NUMERIC_CLAIM`, `DATE_VALUE`, `HEADING`, `WIKILINK`)
-- **`L142–L155`**: `load_routing()` / `ROUTING` — loads `references/routing.yml`, the single KO/JA/EN
-  keyword lexicon `infer_track()`, `stage_for()` and `flow_phase_for()` all read (no more per-function
-  keyword copies to drift out of sync)
-- **`L317–L357`**: Vault Note Indexer (`index_vault_notes`)
-- **`L367–L402`**: `infer_track()` / `stage_for()` — routing, both driven by `ROUTING`
-- **`L440–L453`**: `flow_phase_for()` — also driven by `ROUTING["flow_phase"]`
-- **`L479–L497`**: Context Selector (`select_context` - metadata-only, no body loading)
-- **`L498–L534`**: Event validation (`validate_event`) & Evidence verification logic
-- **`L598–L672`**: `CareerVault` Class (State management, proposal handling, checkpoints)
-- **`L707–L748`**: `upsert_pipeline_entry()` Projection onto `data/pipeline.yml`, now via
-  `_shared/pipeline_store.mutate()` (lock + atomic write)
-- **`L749–L767`**: `apply_event_to_state()` Vault flow state only, no company list
-- **`L768–L815`**: `doctor()` Vault Diagnostic runner
-- **`L817–L856`**: `DEFAULT_VAULT_PATH` / `setup()` — one-shot first run: init + profile fields + doctor
-- **`L932–L1010`**: `run_chat()` Session router & Proposal builder
-- **`L1011–L1028`**: `run_heartbeat()` Action proposal engine (capped at 3)
-- **`L1029–L1056`**: `run_discover()` Job Posting deduplication & Candidate recorder
-- **`L1084–L1106`**: `run_context()` Shared metadata API provider
-- **`L1155–L1200`**: `approve()` 2-step Ledger Commit processor
-- **`L1201–L1228`**: `restore_state()` State snapshot restore — ledger is NOT rewound
+- **`L142–L162`**: `load_routing()` / `ROUTING` / `term_present()` — loads `references/routing.yml`,
+  the single KO/JA/EN keyword lexicon `infer_track()`, `stage_for()` and `flow_phase_for()` all read
+  (no more per-function keyword copies to drift out of sync). `term_present()` word-bounds the
+  short ASCII tokens (currently just `"es"`) that false-substring-match inside unrelated English
+  words (`"research"` contains `"es"`); everything else, including intentional stems like
+  `"graduat"`, still matches as a plain substring.
+- **`L329–L369`**: Vault Note Indexer (`index_vault_notes`)
+- **`L379–L414`**: `infer_track()` / `stage_for()` — routing, both driven by `ROUTING`
+- **`L452–L471`**: `flow_phase_for()` — message signal checked *before* the profile/state fallback,
+  driven by `ROUTING["flow_phase"]`. Getting this order backwards was a real bug: once any event
+  was confirmed, state.flow_phase stayed `in allowed` forever, freezing flow_phase at whatever the
+  first confirmed event happened to be regardless of what later messages said.
+- **`L497–L515`**: Context Selector (`select_context` - metadata-only, no body loading)
+- **`L516–L552`**: Event validation (`validate_event`) & Evidence verification logic
+- **`L616–L690`**: `CareerVault` Class (State management, proposal handling, checkpoints)
+- **`L725–L766`**: `upsert_pipeline_entry()` Projection onto `data/pipeline.yml`, via
+  `_shared/pipeline_store.mutate()` (lock + atomic write). Writes flat top-level `companies:`/
+  `updated:` — matching `_shared/schemas.yml` and what `status_bar.py`/`check_action.py`/
+  `calibrate.py` already read. An earlier version nested this under a `pipeline:` key that no
+  reader looked for, silently hiding every company career-agent projected.
+- **`L771–L787`**: `apply_event_to_state()` Vault flow state only, no company list
+- **`L790–L847`**: `doctor()` Vault Diagnostic runner — also warns if the CWD's `data/pipeline.yml`
+  still has the legacy nested `pipeline:` shape, or errors if `companies` isn't a list
+- **`L849–L888`**: `DEFAULT_VAULT_PATH` / `setup()` — one-shot first run: init + profile fields + doctor
+- **`L964–L1042`**: `run_chat()` Session router & Proposal builder
+- **`L1043–L1060`**: `run_heartbeat()` Action proposal engine (capped at 3)
+- **`L1061–L1088`**: `run_discover()` Job Posting deduplication & Candidate recorder
+- **`L1116–L1138`**: `run_context()` Shared metadata API provider
+- **`L1187–L1232`**: `approve()` 2-step Ledger Commit processor
+- **`L1233–L1260`**: `restore_state()` State snapshot restore — ledger is NOT rewound
 
 ### 2. `_shared/scoring.py` (Deterministic Scoring Engine)
 - **`L35–L43`**: Score Grade Boundary Evaluator (`A` >= 85, `B` >= 70, `C` >= 55, `D` < 55)

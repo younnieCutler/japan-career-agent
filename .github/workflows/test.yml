@@ -27,5 +27,7 @@ jobs:
         run: python scripts/test_calibrate.py
       - name: check_action tests
         run: python scripts/test_check_action.py
+      - name: pipeline integration test (approve -> status_bar/check_action/calibrate)
+        run: python scripts/test_pipeline_integration.py
       - name: SKILL.md reference paths
         run: python scripts/check_reference_paths.py
