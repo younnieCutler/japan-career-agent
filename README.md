@@ -228,10 +228,16 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python3 skills/career-agent/career_agent.py index --vault "$VAULT"
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+# One-time repair for installs created before 1.2.0:
+python3 skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 ```
 
 `chat` accepts `--message` or stdin. If the track is ambiguous, it stops instead of guessing.
 `approve` is required before a draft event enters the confirmed ledger.
+
+All domain skills update the company pipeline through the shared writer, for example
+`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"stage":2,"match_score":78}'`; do not edit
+`data/pipeline.yml` directly.
 
 ### Vault and Obsidian integration
 

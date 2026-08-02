@@ -28,15 +28,16 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`L497–L515`**: Context Selector (`select_context` - metadata-only, no body loading)
 - **`L516–L552`**: Event validation (`validate_event`) & Evidence verification logic
 - **`L616–L690`**: `CareerVault` Class (State management, proposal handling, checkpoints)
-- **`L725–L766`**: `upsert_pipeline_entry()` Projection onto `data/pipeline.yml`, via
+- **`L725–L755`**: `upsert_pipeline_entry()` Projection onto `data/pipeline.yml`, via
   `_shared/pipeline_store.mutate()` (lock + atomic write). Writes flat top-level `companies:`/
   `updated:` — matching `_shared/schemas.yml` and what `status_bar.py`/`check_action.py`/
   `calibrate.py` already read. An earlier version nested this under a `pipeline:` key that no
   reader looked for, silently hiding every company career-agent projected.
-- **`L771–L787`**: `apply_event_to_state()` Vault flow state only, no company list
-- **`L790–L847`**: `doctor()` Vault Diagnostic runner — also warns if the CWD's `data/pipeline.yml`
+- **`L758–L774`**: `apply_event_to_state()` Vault flow state only, no company list
+- **`L777–L889`**: Legacy pipeline merge + `doctor()` Vault Diagnostic runner — `doctor --fix` migrates
+  the old nested shape without dropping either company list; plain `doctor` only warns. It also warns if the CWD's `data/pipeline.yml`
   still has the legacy nested `pipeline:` shape, or errors if `companies` isn't a list
-- **`L849–L888`**: `DEFAULT_VAULT_PATH` / `setup()` — one-shot first run: init + profile fields + doctor
+- **`L892–L931`**: `DEFAULT_VAULT_PATH` / `setup()` — one-shot first run: init + profile fields + doctor
 - **`L964–L1042`**: `run_chat()` Session router & Proposal builder
 - **`L1043–L1060`**: `run_heartbeat()` Action proposal engine (capped at 3)
 - **`L1061–L1088`**: `run_discover()` Job Posting deduplication & Candidate recorder
@@ -58,6 +59,8 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`L63–L67`**: `mutate()` — load → fn(data) → atomic_write, all inside `locked()`. Both
   `career_agent.py`'s `upsert_pipeline_entry()` and `scripts/check_action.py`'s `check()` go
   through this now instead of each doing their own read-whole-file/rewrite-whole-file.
+- **`L74–L155`**: `upsert_company()`, `update_company()`, and `append_history()` — deterministic
+  company operations used by `scripts/pipeline.py`; stage updates are forward-only.
 
 ### 3. `_shared/schemas.yml` (Canonical Data Contracts)
 - **`L22–L62`**: `SELF_ANALYSIS_PROFILE` (Produced by `jiko-bunseki`, consumed by `job-seeker-agent`)
@@ -71,9 +74,11 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`status_bar.py`**: `build_status()` → the `<career_status>` block. Run by the UserPromptSubmit hook
   in `hooks/hooks.json`. Silent when `data/pipeline.yml` is absent.
 - **`check_action.py`**: user-run. Ticks one action item; the assistant must not.
+- **`pipeline.py`**: shared `upsert` / `update` / `history` / `close` CLI for every domain Skill writer.
 - **`calibrate.py`**: predicted vs actual, feedback rate per route, override outcomes. Prints nothing
   below 3 scored outcomes. `rules` subcommand promotes a cause only at 2+ supporting entries.
-- **`test_status_bar.py`**, **`test_calibrate.py`**: run both before touching either script.
+- **`test_status_bar.py`**, **`test_calibrate.py`**, **`test_pipeline_cli.py`**: run before touching the
+  corresponding deterministic writer/reader scripts.
 
 ---
 

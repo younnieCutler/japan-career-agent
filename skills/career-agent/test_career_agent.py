@@ -264,6 +264,32 @@ class CareerAgentTests(unittest.TestCase):
         result = output(run(self.vault, "doctor", cwd=self.workdir))
         self.assertTrue(any("legacy nested" in warning for warning in result["warnings"]), result)
 
+    def test_doctor_fix_migrates_and_merges_legacy_pipeline_shape(self) -> None:
+        import yaml
+
+        pipeline_path = self.workdir / "data" / "pipeline.yml"
+        pipeline_path.parent.mkdir(parents=True, exist_ok=True)
+        pipeline_path.write_text(yaml.safe_dump({
+            "pipeline": {
+                "updated": "2026-07-31",
+                "companies": [{"slug": "gao", "name": "GAO", "history": [{"date": "2026-07-31", "event": "old"}]}],
+            },
+            "updated": "2026-08-01",
+            "companies": [{"slug": "gao", "match_score": 78}, {"slug": "other", "name": "Other"}],
+        }, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+        before = output(run(self.vault, "doctor", cwd=self.workdir))
+        self.assertTrue(any("legacy nested" in warning for warning in before["warnings"]), before)
+        fixed = output(run(self.vault, "doctor", "--fix", cwd=self.workdir))
+        self.assertEqual(len(fixed["migrations"]), 1, fixed)
+        data = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+        self.assertNotIn("pipeline", data)
+        self.assertEqual(data["updated"], "2026-08-01")
+        self.assertEqual({company["slug"] for company in data["companies"]}, {"gao", "other"})
+        gao = next(company for company in data["companies"] if company["slug"] == "gao")
+        self.assertEqual(gao["match_score"], 78)
+        self.assertEqual(len(gao["history"]), 1)
+
     def test_invalid_tool_input_safe_stops_and_restore_state_recovers_snapshot(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
         failed = run(self.vault, "run", "--mode", "discover", input_text=json.dumps({"company": "missing url"}))
@@ -309,16 +335,14 @@ class CareerAgentTests(unittest.TestCase):
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "入社日が決まった"))
         self.assertEqual(proposed["stage"], "退職・入社準備")
 
-    def test_english_research_message_does_not_false_match_es_alias(self) -> None:
-        # "es" (meant to catch the ES/entry-sheet abbreviation) used to match as a bare substring,
-        # so "research" (contains "es") routed to the documents stage. There's no English alias for
-        # "research" itself yet (a separate, not-yet-addressed coverage gap) — this only asserts the
-        # false match is gone, not that "research" correctly routes to the research stage.
+    def test_english_research_message_routes_to_research_stage(self) -> None:
+        # "es" (meant to catch the ES/entry-sheet abbreviation) must not match as a bare substring
+        # inside "research"; the English research alias then routes to company research.
         sys.path.insert(0, str(SCRIPT.parent))
         import career_agent
 
         stage = career_agent.stage_for("I want to research companies", "chuto")
-        self.assertNotEqual(stage, "職務経歴書・自己PR")
+        self.assertEqual(stage, "業界研究・企業研究")
 
     def test_flow_phase_does_not_stick_after_a_confirmed_event(self) -> None:
         # flow_phase_for() used to check state.flow_phase before the message, so once any event

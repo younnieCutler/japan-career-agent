@@ -33,6 +33,8 @@ VAULT=/path/to/career-agent-vault
 python skills/career-agent/career_agent.py init --vault "$VAULT"
 # Fill 00-control/career-profile.toml, then verify it.
 python skills/career-agent/career_agent.py doctor --vault "$VAULT"
+# If an older install warns about pipeline: {companies: ...}, migrate it once:
+python skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --message "신졸이고 学チカ 경험을 정리하고 싶어요"
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
@@ -68,6 +70,8 @@ directory holding `data/`.
 `_shared/pipeline_store.py`'s `mutate()` (lock the file, load, apply the change, write to a temp
 file, atomic rename) instead of each doing its own unlocked read-whole-file/rewrite-whole-file, so a
 crash mid-write can't truncate the file and the two writers can't silently drop each other's change.
+Domain skills write through `scripts/pipeline.py` (`upsert`, `update`, `history`, `close`) rather than
+editing YAML directly; it uses the same shared writer and keeps stage transitions forward-only.
 
 `restore-state` replaces the current state with a saved snapshot. It is **not** an undo: the ledger
 is append-only, so `events.jsonl`, `proposals.jsonl` and `data/pipeline.yml` keep everything recorded

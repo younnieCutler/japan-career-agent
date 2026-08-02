@@ -244,7 +244,9 @@ the skill's install directory. After saving, print the file's absolute path and 
 **Pipeline update:** if `data/pipeline.yml` exists (PIPELINE schema in `_shared/schemas.yml`), append a
 `history` event to both compared companies' entries (e.g., "battlecard vs [other] → winner [X]").
 Do not create new entries or change stages here — this skill only records the comparison outcome.
-Upsert rules: read whole file → modify → rewrite, match by `slug`, never delete entries.
+Run the shared writer from CWD for each existing slug:
+`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" history <slug> --event "battlecard vs [other] → winner [X]"`.
+Never edit `data/pipeline.yml` directly; the CLI preserves entries and uses the shared lock/atomic write.
 Follow the Output Contract (print path, verify exists).
 
 ## Reference Files

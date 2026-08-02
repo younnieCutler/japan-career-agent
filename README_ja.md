@@ -228,10 +228,15 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python3 skills/career-agent/career_agent.py index --vault "$VAULT"
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+# 1.2.0 より前のインストールで作られた入れ子の pipeline.yml を一度だけ移行:
+python3 skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 ```
 
 `chat` は `--message` または stdin を受け取ります。トラックが不明確な場合は推測せず停止します。
 ドラフトイベントは `approve` するまで確定台帳に入りません。
+ドメイン Skill の pipeline 更新は `python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py"` の
+`upsert` / `update` / `history` / `close` を使い、
+`data/pipeline.yml` を直接編集しません。
 
 ### Vault と Obsidian 連携
 

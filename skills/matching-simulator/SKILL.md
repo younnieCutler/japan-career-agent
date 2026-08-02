@@ -443,6 +443,8 @@ append-only log of every run; the pipeline entry below holds only the latest sco
 **Pipeline upsert:** also upsert the company's entry in `data/pipeline.yml` (PIPELINE schema in
 `_shared/schemas.yml`): set `match_score` to the overall score. If no entry exists, create one at
 `stage: 2` (評価済 — evaluated, not applied) using the same slug as `data/company_profiles/`.
-Upsert rules: read whole file → modify → rewrite, match by `slug`, never delete entries.
+Use the shared writer from CWD, for example:
+`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"match_score":78,"stage":2}'`.
+Never edit `data/pipeline.yml` directly; the CLI preserves foreign fields and uses the shared lock/atomic write.
 Follow the Output Contract (print path, verify exists).
 Use the `match_history_entry` schema from `../../_shared/schemas.yml`. Include the `report_file` path.

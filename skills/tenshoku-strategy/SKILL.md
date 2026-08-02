@@ -219,8 +219,10 @@ CONTENT of a step — never its ORDER or existence.
 ### Pipeline update
 If the negotiation concerns a specific company, upsert its entry in `data/pipeline.yml` (PIPELINE schema
 in `_shared/schemas.yml`): set `stage: 5`, `deadline` = 回答期限 if known, and append a `history` event
-(e.g., "年収交渉 script prepared"). Follow the Output Contract: print the absolute path and confirm the
-file exists after writing.
+(e.g., "年収交渉 script prepared"). Use the shared writer from CWD, for example:
+`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"stage":5,"deadline":"YYYY-MM-DD"}' --history "年収交渉 script prepared"`.
+Never edit `data/pipeline.yml` directly; the CLI preserves foreign fields and uses the shared lock/atomic write.
+Follow the Output Contract: print the absolute path and confirm the file exists after writing.
 
 ### Honesty & Cultural Safety Gate
 - **Cultural Safety Warning:** In Japanese corporate culture, aggressive salary demands after receiving an offer can be perceived as lacking "和 (harmony)" and commitment. Always frame requests humbly around contribution value.
@@ -253,10 +255,11 @@ file exists after writing.
 4. **入社日 negotiation:** adjust the start date based on current 就業規則 + handover. Warn that careless
    delay = wobbling 内定 (法律 vs 就業規則 ties into `enman-taishoku.md`).
 5. **Via-agent branch:** if via a CA, advise consulting the CA first on schedule / negotiation / 辞退.
-6. **Pipeline update:** upsert the company's entry in `data/pipeline.yml`: offer received → `stage: 5`
-   with `deadline` = 回答期限; offer declined → `closed: true`, `closed_reason: "内定辞退"`; joining
-   confirmed → `stage: 6` (退職交渉 begins) and close all other active entries the user abandons.
-   Append a `history` event for each change. Follow the Output Contract (print path, verify exists).
+6. **Pipeline update:** use `python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"stage":5,"deadline":"YYYY-MM-DD"}' --history "内定受領"` for an offer;
+   use `python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" close <slug> --reason "内定辞退"` when declining;
+   use `python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"stage":6}' --history "入社意思確認"` when joining.
+   Close other abandoned entries with the same `close` command. Never edit `data/pipeline.yml` directly.
+   Follow the Output Contract (print path, verify exists).
 
 ### Structural Problem Flag
 - Unemployed + single offer but demanding a long 回答期限 → warn: no leverage, offer-rescind risk.
@@ -361,8 +364,8 @@ Point out structural problems directly when present:
 5. **定着90日 plan:** the 30/60/90 table adapted to the user's actual role (never pasted generic), including
    the early 報連相 over-communication rule and the early-mismatch protocol (documented conditions breach vs
    adjustment period — reference `roudou-joken-review.md` when the written offer is breached).
-6. **Pipeline update:** upsert the company's entry in `data/pipeline.yml`: set `stage: 7`, append a
-   `history` event (e.g., "入社完了"). Follow the Output Contract (print path, verify exists).
+6. **Pipeline update:** run `python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"stage":7}' --history "入社完了"`.
+   Never edit `data/pipeline.yml` directly. Follow the Output Contract (print path, verify exists).
 
 ### Honesty Gate
 - Money warnings (一括徴収, double premiums) delivered undiluted.
@@ -410,8 +413,9 @@ what was re-verified. If verification is not possible in this session, prefix ev
 ### Process
 1. **Source of truth:** `data/pipeline.yml` (PIPELINE schema in `_shared/schemas.yml`) — one entry per
    company, keyed by `slug`. This STEP owns stage transitions (0–7, per the CLAUDE.md Market Stage Map),
-   `history` events, `next_action`, `deadline`, and `closed`/`closed_reason`. Upsert: read whole file →
-   modify → rewrite; never delete entries (closed entries feed the funnel).
+   `history` events, `next_action`, `deadline`, and `closed`/`closed_reason`. Use
+   `python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert|update|close|history` for every write; never edit the YAML directly
+   or delete entries (closed entries feed the funnel).
 2. **Rendered view:** after every tracking session, regenerate `career-docs/applications.md`
    (# / 日付 / 企業 / 職種 / プラットフォーム / スコア / ステータス / 求人真正性 / メモ) from pipeline.yml.
    The yml is authoritative; the markdown is for human review only.

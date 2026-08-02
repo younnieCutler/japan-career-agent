@@ -222,10 +222,15 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python3 skills/career-agent/career_agent.py index --vault "$VAULT"
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+# 1.2.0 이전 설치본의 중첩 pipeline.yml을 한 번만 평탄화:
+python3 skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 ```
 
 `chat`은 `--message` 또는 stdin을 받습니다. 트랙이 불명확하면 추측하지 않고 중단합니다.
 초안 이벤트는 `approve`하기 전까지 확정 원장에 들어가지 않습니다.
+도메인 Skill의 pipeline 기록은 `python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py"`의
+`upsert`/`update`/`history`/`close`를 사용하며
+`data/pipeline.yml`을 직접 수정하지 않습니다.
 
 ### Vault와 Obsidian 연동
 

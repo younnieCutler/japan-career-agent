@@ -732,37 +732,24 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
     """
     path = path or pipeline_file()
 
-    def apply(data: dict[str, Any]) -> dict[str, Any]:
-        # Flat top-level companies:/updated:, matching _shared/schemas.yml PIPELINE (same root
-        # shape kigyou-bunseki/matching-simulator/tenshoku-strategy/company-battlecard already
-        # write and status_bar.py/check_action.py/calibrate.py already read). An earlier version
-        # of this function nested everything under a "pipeline" key that no reader ever looked
-        # for, which silently hid every company career-agent projected from status_bar and friends.
-        slug = company_slug(event["company"])
-        companies = data.setdefault("companies", [])
-        entry = next((c for c in companies if c.get("slug") == slug), None)
-        if entry is None:
-            entry = {"slug": slug, "name": event["company"], "closed": False, "history": []}
-            companies.append(entry)
-        stage = PIPELINE_STAGE.get(event["stage"])
-        if stage is not None and stage >= (entry.get("stage") or 0):
-            # Stage only moves forward. A late event about an early phase must not rewind a company.
-            entry["stage"] = stage
-        if event.get("next_action"):
-            entry["next_action"] = event["next_action"]
-        if event.get("deadline"):
-            entry["deadline"] = event["deadline"]
-        day = str(event["occurred_at"])[:10]
-        # The event title is a fixed per-language string; the summary carries the user's own words,
-        # which is what the schema's history log is for. approve() already refuses a re-approval,
-        # so nothing here has to guard against a duplicate append.
-        text = (event.get("summary") or event["title"]).strip()
-        entry.setdefault("history", []).append({"date": day, "event": text[:120]})
-        data["updated"] = day
-        return data
+    stage = PIPELINE_STAGE.get(event["stage"])
+    day = str(event["occurred_at"])[:10]
+    text = (event.get("summary") or event["title"]).strip()
+    fields = {"name": event["company"]}
+    if stage is not None:
+        fields["stage"] = stage
+    if event.get("next_action"):
+        fields["next_action"] = event["next_action"]
+    if event.get("deadline"):
+        fields["deadline"] = event["deadline"]
 
     try:
-        pipeline_store.mutate(path, apply)
+        pipeline_store.upsert_company(
+            path,
+            company_slug(event["company"]),
+            fields,
+            history={"date": day, "event": text[:120]},
+        )
     except ImportError:  # pyyaml is in requirements.txt; degrade instead of breaking approve
         return None
     return path
@@ -787,9 +774,57 @@ def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[s
     return next_state
 
 
-def doctor(vault: CareerVault) -> dict[str, Any]:
+def _merge_pipeline_companies(nested: list[dict[str, Any]], top_level: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for company in [*nested, *top_level]:
+        if not isinstance(company, dict) or not str(company.get("slug") or "").strip():
+            raise CareerError("legacy pipeline companies must be objects with a slug")
+        slug = str(company["slug"])
+        if slug not in merged:
+            merged[slug] = dict(company)
+            order.append(slug)
+            continue
+        history = merged[slug].get("history")
+        merged[slug].update(company)
+        if isinstance(history, list) and isinstance(company.get("history"), list):
+            merged[slug]["history"] = history + company["history"]
+    return [merged[slug] for slug in order]
+
+
+def migrate_pipeline_file(path: Path) -> bool:
+    """Flatten the pre-1.2.0 nested pipeline shape without dropping either company list."""
+    data = pipeline_store.load(path)
+    nested = data.get("pipeline")
+    if nested is None:
+        return False
+    if not isinstance(nested, dict):
+        raise CareerError(f"{path}: legacy pipeline key must contain an object")
+
+    def apply(current: dict[str, Any]) -> dict[str, Any]:
+        legacy = current.pop("pipeline", {})
+        nested_companies = legacy.get("companies") or []
+        top_companies = current.get("companies") or []
+        if not isinstance(nested_companies, list) or not isinstance(top_companies, list):
+            raise CareerError(f"{path}: legacy pipeline companies must be lists")
+        current["companies"] = _merge_pipeline_companies(nested_companies, top_companies)
+        nested_updated = legacy.get("updated")
+        top_updated = current.get("updated")
+        if nested_updated or top_updated:
+            current["updated"] = max(str(nested_updated or ""), str(top_updated or ""))
+        for key, value in legacy.items():
+            if key not in {"companies", "updated"} and key not in current:
+                current[key] = value
+        return current
+
+    pipeline_store.mutate(path, apply)
+    return True
+
+
+def doctor(vault: CareerVault, fix: bool = False) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
+    migrations: list[str] = []
     for directory in VAULT_DIRECTORIES:
         if not (vault.path / directory).is_dir():
             errors.append(f"missing directory: {directory}")
@@ -829,6 +864,13 @@ def doctor(vault: CareerVault) -> dict[str, Any]:
     pipeline_path = pipeline_file()
     if pipeline_path.is_file():
         pipeline_data = pipeline_store.load(pipeline_path)
+        if fix and "pipeline" in pipeline_data:
+            try:
+                if migrate_pipeline_file(pipeline_path):
+                    migrations.append(f"migrated legacy pipeline shape: {pipeline_path}")
+                    pipeline_data = pipeline_store.load(pipeline_path)
+            except (CareerError, ImportError) as exc:
+                errors.append(str(exc))
         if "pipeline" in pipeline_data:
             warnings.append(
                 f"{pipeline_path} has a legacy nested 'pipeline' key — canonical shape is a flat "
@@ -842,6 +884,7 @@ def doctor(vault: CareerVault) -> dict[str, Any]:
         "ok": not errors,
         "errors": errors,
         "warnings": warnings,
+        "migrations": migrations,
         "safe_stop": bool(errors),
     }
 
@@ -1284,6 +1327,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--language", default="ko")
     doctor_parser = subparsers.add_parser("doctor")
     add_vault_argument(doctor_parser)
+    doctor_parser.add_argument("--fix", action="store_true", help="migrate the legacy nested data/pipeline.yml shape")
     run = subparsers.add_parser("run")
     add_vault_argument(run)
     run.add_argument("--mode", choices=("chat", "heartbeat", "discover"), required=True)
@@ -1337,7 +1381,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         else:
             home.require_initialized()
             if args.command == "doctor":
-                result = doctor(home)
+                result = doctor(home, fix=args.fix)
             elif args.command == "status":
                 result = status(home)
             elif args.command == "approve":

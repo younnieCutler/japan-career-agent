@@ -280,8 +280,10 @@ and confirm the file exists).
 `_shared/schemas.yml`), using the same `{company-name-slug}` as the join key: set `name`,
 `kyujin_legitimacy` (green/yellow/red from the 求人の真正性 assessment) and `demo_slot` (below). Ask the user:
 > "Have you applied to this company? Which stage are you at? (未応募=企業研究 / 応募済 / 面接中 / 内定)"
-Default to `stage: 2` (企業研究) if not applied. Upsert rules: read whole file → modify → rewrite,
-match by `slug`, never delete entries. Follow the Output Contract (print path, verify exists).
+Default to `stage: 2` (企業研究) if not applied. Run the shared writer from CWD, for example:
+`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"name":"...","stage":2,"kyujin_legitimacy":"green","demo_slot":"unknown"}'`.
+Never edit `data/pipeline.yml` directly; the CLI preserves foreign fields and uses the shared lock/atomic write.
+Follow the Output Contract (print path, verify exists).
 
 ## Tone & Style
 
