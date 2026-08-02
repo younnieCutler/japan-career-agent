@@ -7,7 +7,7 @@ and **中途** (mid-career) paths, from self-analysis to documents, interviews, 
 and onboarding.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#install)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#install)
@@ -318,6 +318,8 @@ let it auto-activate (see [How to operate the agent](#how-to-operate-the-agent))
 
 | Goal | Workflow |
 |---|---|
+| New graduate: usable 学チカ / 自己PR draft now | Tell `/job-seeker-agent` about one activity → review, then deepen or research companies |
+| Career change: usable career summary / 転職軸 draft now | Tell `/job-seeker-agent` the target role and recent work → review, then deepen or research companies |
 | Direction first | `/jiko-bunseki` → `/job-seeker-agent` |
 | 新卒: 学チカ (student achievement story) to ES | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 中途: resume to interview | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |

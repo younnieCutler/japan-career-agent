@@ -79,6 +79,23 @@ This skill operates as an **interactive conversation**. You must follow these ru
 
 The reason for this: Users who go through the interactive process gain self-awareness about their strengths and weaknesses. A one-shot dump of results, no matter how accurate, doesn't create that learning moment.
 
+## First-Draft Fast Path
+
+Use this **before** the formal workflow when a first-time user asks for a usable draft, not an assessment:
+
+- 新卒 signals: 学チカ, 자기PR, 自己PR, ES draft, or a student activity they want to turn into an application answer.
+- 中途 signals: career summary, 職務要約, 転職軸, or a recent role they want to turn into application copy.
+
+This path is a reviewed writing preview, not a score or a profile. It must:
+
+1. Confirm the track only if the message does not make it clear.
+2. Ask at most 2–3 questions, then produce a draft in the next response.
+3. Output only evidence-backed facts, a usable draft, and up to three missing-evidence questions.
+4. Never run SPI3, Portable Skills scoring, gap scoring, `CANDIDATE_PROFILE`, or pipeline writes on this path.
+5. Save only when the user explicitly asks after reviewing the draft. Save the human-readable draft to `career-docs/{track}-draft-{name}-{YYYYMMDD}.md`; ask before overwriting and verify the absolute path.
+
+Read `references/first-draft.md` for the exact questions, output shape, and handoff. A user who asks for an assessment, fit score, JD gap analysis, interview preparation, or a machine-readable profile uses the formal workflow instead.
+
 ## Language Auto-Detection (Suite-Wide Rule — applies before STEP -1)
 
 Detect the language of the user's latest message and respond in that language. No setting, no menu.
@@ -91,8 +108,10 @@ Detect the language of the user's latest message and respond in that language. N
 
 ## Fixed Step Sequence (Workflow Standardization)
 
-Every run follows the SAME ordered steps, for every user, regardless of background. Branching changes the
-CONTENT of a step — never its ORDER or existence.
+Every **formal assessment** run follows the SAME ordered steps, for every user, regardless of background.
+The First-Draft Fast Path is intentionally outside that assessment sequence: it creates no score, profile, or
+state and hands the user back to this sequence after they review the draft. Branching changes the CONTENT of a
+formal step — never its ORDER or existence.
 - Always run STEP -1 (Track Confirmation) first; it is the fixed entry point. Then 中途 runs STEP 0 → 1 → 2 →
   3 → 3b → 4; 新卒 runs the Shinsotsu Workflow's fixed 4 steps. Do not reorder or drop steps.
 - Branch points are fixed and explicit: STEP -1 track (新卒 / 中途); STEP 4 company-type
@@ -104,7 +123,7 @@ CONTENT of a step — never its ORDER or existence.
 
 ## Workflow
 
-**Always ask the track question first (STEP -1), then follow the appropriate path.**
+**For a formal assessment, always ask the track question first (STEP -1), then follow the appropriate path.**
 
 ---
 
@@ -499,6 +518,7 @@ Always read and apply criteria from:
 - `references/shibo-doki.md` — STEP 4-2: 志望動機 3-part structure, 転職軸, 4-WHY consistency, WCM 求人票 reading
 - `references/mensetsu-rounds.md` — STEP 4-3: audience-segmented interview prep (カジュアル/一次/二次/技術/最終), JP research sources
 - `references/shinsotsu.md` — 新卒 track workflow (学チカ, 自己PR, ES)
+- `references/first-draft.md` — first-session 新卒 / 中途 draft path; no scoring or profile output
 
 ---
 

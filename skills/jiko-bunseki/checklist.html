@@ -208,6 +208,12 @@
 
     .slider-row:last-child { border-bottom: none; }
 
+    .slider-row.missing .slider-question {
+      background: #fff2f0;
+      border-radius: 6px;
+      padding: 2px 6px;
+    }
+
     .slider-question {
       font-size: 14px;
       line-height: 1.5;
@@ -586,8 +592,9 @@ function renderSliders(items, containerId, prefix) {
       <div class="slider-control">
         <span class="slider-scale-label ko">전혀 아님</span>
         <span class="slider-scale-label ja">全くない</span>
-        <input type="range" min="1" max="5" value="3" id="${prefix}_val_${i}"
-               oninput="document.getElementById('${prefix}_display_${i}').textContent=this.value">
+        <input type="range" min="1" max="5" value="3" data-touched="false" id="${prefix}_val_${i}"
+               onclick="markSliderAnswered(this)"
+               oninput="markSliderAnswered(this); document.getElementById('${prefix}_display_${i}').textContent=this.value">
         <span class="slider-scale-label ko">매우 그렇다</span>
         <span class="slider-scale-label ja">非常にそう</span>
         <span class="slider-value" id="${prefix}_display_${i}">3</span>
@@ -602,6 +609,22 @@ function setLang(lang) {
   document.body.setAttribute('data-lang', lang);
   document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`).classList.add('active');
+}
+
+function markSliderAnswered(input) {
+  input.dataset.touched = 'true';
+  input.closest('.slider-row').classList.remove('missing');
+}
+
+function collectSliderAnswers(items, prefix, missing) {
+  return items.map((_, i) => {
+    const input = document.getElementById(`${prefix}_val_${i}`);
+    if (input.dataset.touched !== 'true') {
+      missing.push(`${prefix}_${i}`);
+      return null;
+    }
+    return parseInt(input.value);
+  });
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
@@ -622,13 +645,8 @@ function exportAnswers() {
     return selected.value;
   });
 
-  const workStyle = WORK_STYLE.map((_, i) => {
-    return parseInt(document.getElementById(`ws_val_${i}`).value);
-  });
-
-  const wellbeing = WELLBEING.map((_, i) => {
-    return parseInt(document.getElementById(`wb_val_${i}`).value);
-  });
+  const workStyle = collectSliderAnswers(WORK_STYLE, 'ws', missing);
+  const wellbeing = collectSliderAnswers(WELLBEING, 'wb', missing);
 
   // Highlight missing pairs
   PAIRS.forEach((_, i) => {
@@ -640,10 +658,21 @@ function exportAnswers() {
     }
   });
 
+  [['ws', WORK_STYLE], ['wb', WELLBEING]].forEach(([prefix, items]) => {
+    items.forEach((_, i) => {
+      const input = document.getElementById(`${prefix}_val_${i}`);
+      document.getElementById(`${prefix}-${i}`).classList.toggle('missing', input.dataset.touched !== 'true');
+    });
+  });
+
   if (missing.length > 0) {
     document.getElementById('error-msg').classList.add('visible');
     if (missing.some(m => m.startsWith('pair'))) {
       document.querySelector('#pairs-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (missing.some(m => m.startsWith('ws_'))) {
+      document.querySelector('#workstyle-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (missing.some(m => m.startsWith('wb_'))) {
+      document.querySelector('#wellbeing-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
       document.getElementById('name').focus();
     }

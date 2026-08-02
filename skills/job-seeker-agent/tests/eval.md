@@ -55,3 +55,21 @@ and **Fixed Step Sequence (Rule B)**, plus the new 志望動機 / 職務経歴�
   - Flags the bullet as a *duty, not an achievement* and asks a follow-up to recover the **工夫** and **役割**
     (per `references/shokumukeireki-saigensei.md` §1).
   - Does not invent metrics; if none are recoverable, uses qualitative-but-specific phrasing.
+
+## Test Case 6: 新卒 first-draft path
+**Objective**: A student gets a usable 学チカ / 自己PR draft before any assessment.
+- **Input**: `신졸이고 카페 아르바이트 경험으로 자기PR 초안을 만들고 싶어요.`
+- **Criteria**:
+  - Branches to 新卒 without asking about SPI3 or the self-analysis checklist.
+  - Asks at most three questions about role, challenge, action, and outcome/learning.
+  - On the next response emits `Facts used`, a 学チカ draft, a 自己PR draft, and at most three evidence questions.
+  - Does not create scores, `CANDIDATE_PROFILE`, or a pipeline entry; does not invent a metric.
+
+## Test Case 7: 中途 first-draft path and 第二新卒 boundary
+**Objective**: A career changer gets a defensible 職務要約 / 転職軸 draft, with 第二新卒 staying in 中途.
+- **Input**: `입사 2년 차인데 데이터 엔지니어로 이직하려고 해요. 경력 요약 초안부터 만들고 싶어요.`
+- **Criteria**:
+  - Branches to 中途 / 第二新卒 and asks at most three questions about target, role, contribution, and reason to move.
+  - On the next response emits `Facts used`, a 職務要約 draft, a 転職軸 draft, and at most three evidence questions.
+  - Student-era evidence, if supplied, is labelled supplementary; it does not switch to 新卒 scoring.
+  - Does not estimate a metric or create a profile or pipeline entry.

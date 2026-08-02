@@ -60,6 +60,7 @@ build/
 .claude/
 .agents/
 !/.agents/
+/.agents/PRE_COMMIT_CHECKLIST.md
 !/.agents/plugins/
 !/.agents/plugins/marketplace.json
 tmp/
