@@ -65,6 +65,24 @@ CHUTO_STAGES = (
     "内定・条件交渉",
     "退職・入社準備",
 )
+# Agent stage → the 0–7 Japan market stage map (AGENTS.md § Market Stage Map), which is what
+# data/pipeline.yml stores per company. The chuto tuple maps 1:1; the shinsotsu tuple is a
+# 就活 flow, so ES・履歴書 is document prep (1) and 適性検査 is part of the screening gate (3).
+PIPELINE_STAGE = {
+    "自己分析・就活軸": 0,
+    "自己分析・転職軸": 0,
+    "学チカ・自己PR素材": 1,
+    "職務経歴書・自己PR": 1,
+    "ES・履歴書": 1,
+    "業界研究・企業研究": 2,
+    "応募・書類選考": 3,
+    "適性検査（SPI3）": 3,
+    "面接": 4,
+    "書類選考・面接": 4,
+    "内定・条件交渉": 5,
+    "内々定・内定・入社準備": 5,
+    "退職・入社準備": 6,
+}
 SKILL_BY_STAGE = {
     "自己分析・就活軸": "jiko-bunseki",
     "自己分析・転職軸": "jiko-bunseki",
@@ -576,7 +594,6 @@ def default_state() -> dict[str, Any]:
         "career_status": "active",
         "open_actions": [],
         "deadlines": [],
-        "applications": [],
         "last_event_id": None,
         "updated_at": None,
         "version": None,
@@ -698,6 +715,63 @@ def initialize_vault(path: Path) -> dict[str, Any]:
     return {"initialized": True, "vault": str(vault.path), "created": created, "next": "Fill 00-control/career-profile.toml, then run doctor --vault <path>."}
 
 
+def company_slug(name: str) -> str:
+    """Join key for data/pipeline.yml and data/company_profiles/{slug}.yml."""
+    slug = re.sub(r"[^\w]+", "-", name.strip().lower(), flags=re.UNICODE).strip("-")
+    return slug or hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
+
+
+def pipeline_file() -> Path:
+    """CWD-relative, same convention as scripts/status_bar.py and scripts/check_action.py."""
+    return Path.cwd() / "data" / "pipeline.yml"
+
+
+def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Path | None:
+    """Project a confirmed company event onto data/pipeline.yml, the per-company state hub.
+
+    The vault owns the agent flow (track / stage / deadlines / event ledger); pipeline.yml owns
+    per-company progress and is what status_bar, calibrate and onboarding read. Only fields this
+    runtime actually observes are written — match_score, channel, kyujin_legitimacy and the
+    outcome record stay with the domain skills that produce them, and are never overwritten here.
+    """
+    try:
+        import yaml
+    except ImportError:  # pyyaml is in requirements.txt; degrade instead of breaking approve
+        return None
+    path = path or pipeline_file()
+    slug = company_slug(event["company"])
+    data = {}
+    if path.is_file():
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    pipeline = data.setdefault("pipeline", {})
+    companies = pipeline.setdefault("companies", [])
+    entry = next((c for c in companies if c.get("slug") == slug), None)
+    if entry is None:
+        entry = {"slug": slug, "name": event["company"], "closed": False, "history": []}
+        companies.append(entry)
+    stage = PIPELINE_STAGE.get(event["stage"])
+    if stage is not None and stage >= (entry.get("stage") or 0):
+        # Stage only moves forward. A late event about an early phase must not rewind a company.
+        entry["stage"] = stage
+    if event.get("next_action"):
+        entry["next_action"] = event["next_action"]
+    if event.get("deadline"):
+        entry["deadline"] = event["deadline"]
+    day = str(event["occurred_at"])[:10]
+    # The event title is a fixed per-language string; the summary carries the user's own words,
+    # which is what the schema's history log is for. approve() already refuses a re-approval,
+    # so nothing here has to guard against a duplicate append.
+    text = (event.get("summary") or event["title"]).strip()
+    entry.setdefault("history", []).append({"date": day, "event": text[:120]})
+    pipeline["updated"] = day
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100),
+        encoding="utf-8",
+    )
+    return path
+
+
 def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     next_state = dict(state)
     next_state["track"] = event["track"]
@@ -712,20 +786,8 @@ def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[s
         deadlines = [item for item in next_state.get("deadlines", []) if item.get("event_id") != event["id"]]
         deadlines.append({"date": event["deadline"], "event_id": event["id"], "title": event["title"], "status": "open"})
         next_state["deadlines"] = sorted(deadlines, key=lambda item: item["date"])
-    if event.get("company"):
-        applications = [item for item in next_state.get("applications", []) if item.get("company") != event["company"]]
-        applications.append(
-            {
-                "company": event["company"],
-                "track": event["track"],
-                "stage": event["stage"],
-                "compensation": event.get("compensation"),
-                "currency": event.get("currency"),
-                "last_event_id": event["id"],
-                "updated_at": event["occurred_at"],
-            }
-        )
-        next_state["applications"] = applications
+    # Per-company progress deliberately does NOT live here — it belongs to data/pipeline.yml,
+    # which the domain skills write and status_bar / calibrate read. See upsert_pipeline_entry.
     return next_state
 
 
@@ -1111,8 +1173,12 @@ def approve(
             append_jsonl(home.events, event)
             state = apply_event_to_state(home.load_state(), event)
             version = home.save_state(state)
+            pipeline = upsert_pipeline_entry(event) if event.get("company") else None
             updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now(), version=version)
-            return {"approved": True, "event": event, "version": version, "proposal": updated}
+            result = {"approved": True, "event": event, "version": version, "proposal": updated}
+            if pipeline:
+                result["pipeline"] = str(pipeline)
+            return result
         updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now())
         return {"approved": True, "proposal": updated, "applied": False, "message": "Only event proposals change the local ledger; skill changes remain offline proposals."}
 

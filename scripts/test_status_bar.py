@@ -168,7 +168,8 @@ def test_update_line_only_when_newer():
     assert status_bar.update_line("1.1.0", {}) is None
     line = status_bar.update_line("1.1.0", {"latest": "1.2.0"})
     assert "update: v1.2.0 available (installed 1.1.0)" in line
-    assert "claude plugin update japan-recruit-ai-agent" in line
+    # The plugin@marketplace form is required; the bare name does not resolve.
+    assert "claude plugin update japan-recruit-ai-agent@japan-recruit-ai-agent" in line
 
 
 def test_update_line_appears_last_in_the_block():

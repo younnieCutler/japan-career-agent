@@ -45,6 +45,13 @@ Facts are append-only in `02-state/events.jsonl`; version snapshots live in `.ca
 A chat run creates only a `draft` event proposal. `approve` is required before a confirmed event
 reaches the ledger.
 
+Per-company progress is **not** kept in the Vault. When an approved event names a company, the
+runtime projects it onto `data/pipeline.yml` in the invocation directory — the suite-wide company
+hub that the domain skills write and `status_bar.py` / `calibrate.py` read. It sets `stage` (agent
+stage mapped to the 0–7 market stage map, forward-only), `next_action`, `deadline` and a `history`
+line; every other field belongs to the domain skills and is left untouched. Run `approve` from the
+directory holding `data/`.
+
 `correct` actively reacts to `verify` at three points: an `approve` failure is logged (not silently
 dropped) and escalated to the user; `discover` drops individually-corrupted postings and keeps the rest
 of the batch instead of one bad item aborting everything (a fully-corrupted batch still safe-stops); and

@@ -81,11 +81,16 @@ def culture_fit(candidate, company):
         missing = [k for k in keys if k not in diffs]
     else:
         missing = []
+    if missing:
+        # Missing factors contribute 0 diff, so a half-empty input would score as a
+        # perfect match. Refuse to produce a verdict instead of inventing one.
+        return {"diff_sum": None, "total": None, "fit": "Insufficient Data",
+                "missing_factors": missing}
     diff_sum = sum(diffs.values())
     total = max(0, 100 - diff_sum * 10)
     fit = "High Fit" if diff_sum <= 4 else "Medium Fit" if diff_sum <= 8 else "Low Fit"
     return {"diff_sum": diff_sum, "total": total, "fit": fit,
-            "missing_factors": missing or None}
+            "missing_factors": None}
 
 
 def self_test():
@@ -103,7 +108,12 @@ def self_test():
     c = culture_fit({"autonomy": 5, "social_contribution": 3, "management_quality": 4, "mutual_respect": 4},
                     {"autonomy": 4, "social_contribution": 2, "management_quality": 4, "mutual_respect": 5})
     assert c["diff_sum"] == 3 and c["total"] == 70 and c["fit"] == "High Fit", c
-    print("self-test OK: recruit=65.0/C, persol=100.0, culture=70/High Fit")
+    partial = culture_fit({"autonomy": 5}, {"autonomy": 5})
+    assert partial["fit"] == "Insufficient Data" and partial["total"] is None, partial
+    assert len(partial["missing_factors"]) == 3, partial
+    empty = culture_fit({}, {})
+    assert empty["fit"] == "Insufficient Data", empty
+    print("self-test OK: recruit=65.0/C, persol=100.0, culture=70/High Fit, partial=Insufficient Data")
 
 
 def main():

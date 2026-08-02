@@ -2,7 +2,7 @@
 
 [English](README.md) · [한국어](README_ko.md) · [日本語](README_ja.md)
 
-일본 취업·채용 준비를 위한 AI 스킬 모음입니다. **신졸(新卒)**과 **중途** 모두를 지원하며,
+일본 취업·채용 준비를 위한 AI 스킬 모음입니다. **新卒**(신졸)과 **中途**(중도) 모두를 지원하며,
 자기분석부터 서류, 면접, 오퍼, 퇴직, 입사 준비까지 연결합니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
@@ -11,7 +11,7 @@
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#설치)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#설치)
 
-7개 도메인 스킬이 취업 업무를 처리하고, `career-agent`가 요청을 라우팅합니다. Career Agent는
+8개 도메인 스킬이 취업 업무를 처리하고, `career-agent`가 요청을 라우팅합니다. Career Agent는
 이벤트 원장, 마감일, 다음 행동을 로컬에 저장하고 근거가 필요한 제안을 만듭니다. 지원서 제출,
 메시지 발송, 설치된 스킬 수정은 실행하지 않습니다.
 
@@ -22,8 +22,8 @@ flowchart LR
     U["사용자 요청<br/>한국어 · 日本語 · English"] --> O["Observe<br/>상태 · 마감 · 최근 이벤트"]
     O --> P["Plan<br/>트랙 · 단계 · 다음 행동"]
     P --> R{"Route"}
-    R -->|신졸| N["신졸 단계"]
-    R -->|중途| M["중途 단계"]
+    R -->|新卒| N["新卒 단계"]
+    R -->|中途| M["中途 단계"]
     N --> S["필요한 스킬만 로드<br/>SKILL.md + references"]
     M --> S
     S --> V["Verify<br/>스키마 · 근거 · 부작용"]
@@ -55,13 +55,13 @@ flowchart LR
 | 스킬 | 용도 | 주요 결과 |
 |---|---|---|
 | `jiko-bunseki` | 강점, 가치관, 업무 스타일, 진로 방향 | `SELF_ANALYSIS_PROFILE` |
-| `job-seeker-agent` | 이력서, 職務経歴書, 自己PR, 志望動機, ES, 면접 내용 | `CANDIDATE_PROFILE` |
+| `job-seeker-agent` | 履歴書(이력서), 職務経歴書(직무경력서), 自己PR(자기PR), 志望動機(지원동기), ES(엔트리시트), 면접 내용 | `CANDIDATE_PROFILE` |
 | `hiring-manager-agent` | JD 설계와 채용 측 평가 기준 | `COMPANY_PROFILE` |
 | `matching-simulator` | 후보자/JD 적합도와 근거 기반 점수 | 매칭 리포트 |
 | `company-battlecard` | 2개 이상 기업 비교 | 비교 리포트 |
-| `kigyou-bunseki` | 기업 및 공개 채용공고 조사 | 企業カルテ |
+| `kigyou-bunseki` | 기업 및 공개 채용공고 조사 | 企業カルテ(기업 분석 카드) |
 | `tenshoku-strategy` | 면접, 연봉, 오퍼, 퇴직, 입사, 지원 추적 | 실행 계획 |
-| `mock-interviewer` | 다회차 모의 면접과 深掘り 후속 질문 | 준비 부족 지점 |
+| `mock-interviewer` | 다회차 모의 면접과 深掘り(심층) 후속 질문 | 준비 부족 지점 |
 | `career-agent` | 트랙 라우팅, 이벤트 원장, 마감, 다음 행동, 공고 후보 | 로컬 커리어 상태 |
 
 각 스킬은 `skills/<name>/SKILL.md`에 있으며, 공통 프레임워크와 스키마는 `_shared/`에 있습니다.
@@ -271,7 +271,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    subgraph NS["신졸 / New graduate"]
+    subgraph NS["新卒(신졸) / New graduate"]
         NS1["自己分析・就活軸"] --> NS2["学チカ・自己PR素材"]
         NS2 --> NS3["業界研究・企業研究"]
         NS3 --> NS4["ES・履歴書"]
@@ -279,7 +279,7 @@ flowchart TB
         NS5 --> NS6["書類選考・面接"]
         NS6 --> NS7["内々定・内定・入社準備"]
     end
-    subgraph MC["중途 / Mid-career"]
+    subgraph MC["中途(중도) / Mid-career"]
         MC1["自己分析・転職軸"] --> MC2["職務経歴書・自己PR"]
         MC2 --> MC3["業界研究・企業研究"]
         MC3 --> MC4["応募・書類選考"]
@@ -309,8 +309,8 @@ flowchart LR
 | 목표 | 워크플로우 |
 |---|---|
 | 방향부터 정하기 | `/jiko-bunseki` → `/job-seeker-agent` |
-| 신졸: 学チカ에서 ES까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
-| 중途: 경력서에서 면접까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
+| 新卒: 学チカ(학창시절 주력 활동)에서 ES까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
+| 中途: 경력서에서 면접까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 오퍼 비교 | `/company-battlecard` → `/tenshoku-strategy` |
 | 면접 답변 내용 | `/job-seeker-agent` |
 | 면접 매너, 연봉, 퇴직, 입사 | `/tenshoku-strategy` |

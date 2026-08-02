@@ -99,7 +99,7 @@ def update_line(local: str | None, cache: dict) -> str | None:
         return None
     return (
         f"update: v{remote} available (installed {local}) — "
-        "claude plugin update japan-recruit-ai-agent, then restart"
+        "claude plugin update japan-recruit-ai-agent@japan-recruit-ai-agent, then restart"
     )
 
 

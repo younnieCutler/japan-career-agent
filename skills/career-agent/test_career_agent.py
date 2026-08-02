@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
 
 
-def run(vault: Path, command: str, *args: str, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+def run(vault: Path, command: str, *args: str, input_text: str | None = None,
+        cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    # cwd matters: approve projects company events onto CWD-relative data/pipeline.yml.
     return subprocess.run(
         [sys.executable, str(SCRIPT), command, "--vault", str(vault), *args],
         input=input_text,
@@ -20,6 +22,7 @@ def run(vault: Path, command: str, *args: str, input_text: str | None = None) ->
         encoding="utf-8",
         capture_output=True,
         check=False,
+        cwd=str(cwd) if cwd else None,
     )
 
 
@@ -37,6 +40,8 @@ class CareerAgentTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.vault = Path(self.tempdir.name) / "career-vault"
+        self.workdir = Path(self.tempdir.name) / "work"
+        self.workdir.mkdir()
         output(run(self.vault, "init"))
 
     def tearDown(self) -> None:
@@ -104,7 +109,21 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual(failed.returncode, 2)
         self.assertIn("numeric claim", failed.stderr)
 
-    def test_approve_with_company_upserts_applications_state(self) -> None:
+    def test_every_agent_stage_maps_to_a_market_stage(self) -> None:
+        sys.path.insert(0, str(SCRIPT.parent))
+        import career_agent
+
+        for stage in career_agent.SHINSOTSU_STAGES + career_agent.CHUTO_STAGES:
+            self.assertIn(stage, career_agent.PIPELINE_STAGE, stage)
+
+    def pipeline_companies(self) -> list[dict]:
+        import yaml
+
+        path = self.workdir / "data" / "pipeline.yml"
+        self.assertTrue(path.is_file(), f"pipeline not written: {path}")
+        return (yaml.safe_load(path.read_text(encoding="utf-8")) or {})["pipeline"]["companies"]
+
+    def test_approve_with_company_projects_onto_pipeline(self) -> None:
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "内定をもらった"))
         approved = output(run(
@@ -113,16 +132,41 @@ class CareerAgentTests(unittest.TestCase):
             "--company", "GAO",
             "--compensation", "5130000",
             "--currency", "JPY",
+            cwd=self.workdir,
         ))
         self.assertEqual(approved["event"]["company"], "GAO")
         self.assertEqual(approved["event"]["compensation"], 5130000)
         self.assertEqual(approved["event"]["currency"], "JPY")
-        state = output(run(self.vault, "status"))["state"]
-        applications = state["applications"]
-        self.assertEqual(len(applications), 1)
-        self.assertEqual(applications[0]["company"], "GAO")
-        self.assertEqual(applications[0]["compensation"], 5130000)
-        self.assertEqual(applications[0]["currency"], "JPY")
+        # Per-company progress is projected onto data/pipeline.yml, not duplicated into vault state.
+        self.assertNotIn("applications", output(run(self.vault, "status"))["state"])
+        companies = self.pipeline_companies()
+        self.assertEqual(len(companies), 1)
+        self.assertEqual(companies[0]["slug"], "gao")
+        self.assertEqual(companies[0]["name"], "GAO")
+        self.assertEqual(companies[0]["stage"], 5)  # 内定・条件交渉 → market stage 5
+        self.assertEqual(len(companies[0]["history"]), 1)
+
+    def test_pipeline_stage_never_rewinds_and_preserves_foreign_fields(self) -> None:
+        import yaml
+
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        offer = output(run(self.vault, "run", "--mode", "chat", "--message", "内定をもらった"))
+        output(run(self.vault, "approve", offer["proposal"]["id"], "--evidence", "内定をもらった",
+                   "--company", "GAO", cwd=self.workdir))
+        # A domain skill owns these fields; the runtime must not clobber them.
+        path = self.workdir / "data" / "pipeline.yml"
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data["pipeline"]["companies"][0]["match_score"] = 72
+        path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+        earlier = output(run(self.vault, "run", "--mode", "chat", "--message", "職務経歴書を直したい"))
+        output(run(self.vault, "approve", earlier["proposal"]["id"], "--evidence", "職務経歴書を直したい",
+                   "--company", "GAO", cwd=self.workdir))
+        companies = self.pipeline_companies()
+        self.assertEqual(len(companies), 1)
+        self.assertEqual(companies[0]["stage"], 5)
+        self.assertEqual(companies[0]["match_score"], 72)
+        self.assertEqual(len(companies[0]["history"]), 2)
 
     def test_heartbeat_is_capped_and_discover_deduplicates(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")

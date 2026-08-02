@@ -12,7 +12,7 @@ and onboarding.
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#install)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#install)
 
-Seven domain skills do the career work. `career-agent` is the local-first runtime that routes each
+Eight domain skills do the career work. `career-agent` is the local-first runtime that routes each
 request, keeps an append-only event ledger, and proposes the next action. It never submits an
 application, sends a message, or edits an installed skill.
 
@@ -57,13 +57,13 @@ It loads only the skill and references needed for the selected stage. It does no
 | Skill | Use it for | Main output |
 |---|---|---|
 | `jiko-bunseki` | Strengths, values, work style, and career direction | `SELF_ANALYSIS_PROFILE` |
-| `job-seeker-agent` | Resume, 職務経歴書, 自己PR, 志望動機, ES, and interview content | `CANDIDATE_PROFILE` |
+| `job-seeker-agent` | 履歴書 (resume), 職務経歴書 (work history), 自己PR (self-PR), 志望動機 (motivation letter), ES (entry sheet), and interview content | `CANDIDATE_PROFILE` |
 | `hiring-manager-agent` | JD design and hiring-side evaluation criteria | `COMPANY_PROFILE` |
 | `matching-simulator` | Candidate/JD fit and evidence-based scoring | Match report |
 | `company-battlecard` | Comparing two or more companies | Comparison report |
-| `kigyou-bunseki` | Company and public posting research | 企業カルテ |
+| `kigyou-bunseki` | Company and public posting research | 企業カルテ (company card) |
 | `tenshoku-strategy` | Interviews, salary, offers, resignation, onboarding, and tracking | Execution plan |
-| `mock-interviewer` | Simulated multi-round interviews with 深掘り follow-up questioning | Readiness gaps |
+| `mock-interviewer` | Simulated multi-round interviews with 深掘り (deep-dive) follow-up questioning | Readiness gaps |
 | `career-agent` | Track routing, event ledger, deadlines, next actions, and posting candidates | Local career state |
 
 Every skill is a `SKILL.md` under `skills/<name>/`. Shared frameworks and schemas live under
@@ -316,7 +316,7 @@ let it auto-activate (see [How to operate the agent](#how-to-operate-the-agent))
 | Goal | Workflow |
 |---|---|
 | Direction first | `/jiko-bunseki` → `/job-seeker-agent` |
-| 新卒: 学チカ to ES | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
+| 新卒: 学チカ (student achievement story) to ES | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 中途: resume to interview | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | Compare offers | `/company-battlecard` → `/tenshoku-strategy` |
 | Interview content | `/job-seeker-agent` |

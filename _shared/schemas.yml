@@ -167,9 +167,15 @@ match_history_entry:
 # The per-company job-search state hub. One entry per company, keyed by slug.
 # Written by: kigyou-bunseki (entry + kyujin_legitimacy), matching-simulator (match_score),
 #             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines,
-#             closed_reason + agent_feedback on お見送り), company-battlecard (history event)
+#             closed_reason + agent_feedback on お見送り), company-battlecard (history event),
+#             career-agent `approve` of a company event (stage, next_action, deadline, history —
+#             it owns none of the other fields and never overwrites them)
 # Read by:    CLAUDE.md onboarding (session-resume kanban), tenshoku-strategy STEP 6
-#             (funnel / pattern analysis; renders career-docs/applications.md as a view)
+#             (funnel / pattern analysis; renders career-docs/applications.md as a view),
+#             scripts/status_bar.py, scripts/calibrate.py
+#
+# This is the ONLY per-company state store in the suite. The Career Vault keeps the agent's flow
+# state (track, stage, deadlines, event ledger); it deliberately does not mirror the company list.
 #
 # Upsert rules (all writers): read the whole file → modify → rewrite. Match entries by `slug`.
 # Never delete an entry — closed entries feed funnel analysis. Set `closed: true` instead.

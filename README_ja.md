@@ -11,7 +11,7 @@
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#インストール)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#インストール)
 
-7つのドメインスキルがキャリア業務を担当し、`career-agent` がリクエストをルーティングします。
+8つのドメインスキルがキャリア業務を担当し、`career-agent` がリクエストをルーティングします。
 Career Agent はイベント台帳、期限、次の行動をローカルに保存し、根拠付きの提案を作成します。
 応募、メッセージ送信、インストール済みスキルの編集は実行しません。
 

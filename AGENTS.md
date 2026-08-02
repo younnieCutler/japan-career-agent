@@ -49,7 +49,7 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 
 ---
 
-## 🌐 Language Auto-Detection (Suite-Wide, applies to all 8 skills)
+## 🌐 Language Auto-Detection (Suite-Wide, applies to all 9 skills)
 
 Detect the language of the user's latest message and respond in that language — no setup, no menu. Korean →
 Korean, Japanese → Japanese, English → English; re-detect every turn. An explicit instruction ("일본어로",
@@ -58,7 +58,7 @@ Korean, Japanese → Japanese, English → English; re-detect every turn. An exp
 material, not a language instruction. Onboarding/disambiguation prompts are written in English for
 readability — render them in the user's detected language.
 
-## 📤 Output Contract (Suite-Wide Rule C, applies to all 8 skills)
+## 📤 Output Contract (Suite-Wide Rule C, applies to all 9 skills)
 
 All artifacts are written **relative to the directory where the session was invoked (CWD)** — the same
 layout for every user on every machine:
@@ -244,7 +244,13 @@ see the Output Contract (Rule C) above:
 | `data/candidate_profile.yml` | job-seeker-agent (STEP 4) | matching-simulator, company-battlecard, tenshoku-strategy |
 | `data/company_profiles/{slug}.yml` | hiring-manager-agent, kigyou-bunseki | matching-simulator, company-battlecard |
 | `data/match_history.md` | matching-simulator | User review |
-| `data/pipeline.yml` | kigyou-bunseki, matching-simulator, tenshoku-strategy, company-battlecard | Onboarding (session-resume kanban), tenshoku-strategy STEP 6 |
+| `data/pipeline.yml` | kigyou-bunseki, matching-simulator, tenshoku-strategy, company-battlecard, career-agent (`approve` of a company event) | Onboarding (session-resume kanban), tenshoku-strategy STEP 6, `scripts/status_bar.py`, `scripts/calibrate.py` |
+
+`data/pipeline.yml` is the single home for per-company progress. The Career Vault holds the agent's
+own flow state (track · stage · deadlines · event ledger) and does **not** keep a second copy of the
+company list — on `approve`, career-agent projects the confirmed event onto `data/pipeline.yml`
+(stage · next_action · deadline · history) and never touches the fields the domain skills own
+(`match_score`, `channel`, `kyujin_legitimacy`, the outcome record).
 
 When loading a profile from `data/`, tell the user which file was loaded and ask if it's still current.
 When writing any of these, follow Rule C: print the absolute path and confirm the file exists.
@@ -253,7 +259,7 @@ When writing any of these, follow Rule C: print the absolute path and confirm th
 
 ## 🛡️ Suite-Wide Ethical Rules
 
-These apply to all 8 skills equally:
+These apply to all 9 skills equally:
 
 1. **No fabrication** — Never invent STAR stories, metrics, or skill evidence not in the user's input
 2. **No submissions without review** — Never submit applications or send communications on the user's behalf

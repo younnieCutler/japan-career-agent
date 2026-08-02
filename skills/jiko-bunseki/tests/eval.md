@@ -11,7 +11,7 @@ Run these when iterating on the `jiko-bunseki` skill.
   - No final profile output before all phases' inputs are collected.
 
 ## Test Case 2: SELF_ANALYSIS_PROFILE schema conformance
-**Objective**: Output YAML matches `_shared/schemas.yml` (v1.6).
+**Objective**: Output YAML matches `_shared/schemas.yml` (v1.7).
 - **Input**: Complete a full Phase 1–2 run with mock answers.
 - **Criteria**:
   - All `required` fields present: candidate_name, language_preference, track, top_strengths (with

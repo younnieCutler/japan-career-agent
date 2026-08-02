@@ -7,7 +7,7 @@ edge cases; those go in `tests/eval.md`. Only log something that actually happen
 Review periodically (not every session). When the same pattern repeats 2-3+ times, promote it:
 fix the wording in `SKILL.md` (or the logic in code, if this skill has any), re-run
 `tests/eval.md` to check nothing regressed, then mark the row Promoted with what changed.
-Process: [AGENTS.md § Learning From Mistakes](file:///Users/macbook/dev/career/japan-recruit-skills/AGENTS.md#-learning-from-mistakes).
+Process: [AGENTS.md § Learning From Mistakes](../../../AGENTS.md#-learning-from-mistakes).
 
 ## Log
 

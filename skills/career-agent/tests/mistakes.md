@@ -10,7 +10,7 @@ Review periodically (not every session). When the same pattern repeats 2-3+ time
 fix the wording in `SKILL.md`, the logic in `career_agent.py`, or add a case to
 `test_career_agent.py` — whichever the failure actually calls for — then re-run
 `python3 test_career_agent.py` to check nothing regressed, then mark the row Promoted with what
-changed. Process: [AGENTS.md § Learning From Mistakes](file:///Users/macbook/dev/career/japan-recruit-skills/AGENTS.md#-learning-from-mistakes).
+changed. Process: [AGENTS.md § Learning From Mistakes](../../../AGENTS.md#-learning-from-mistakes).
 
 ## Log
 
