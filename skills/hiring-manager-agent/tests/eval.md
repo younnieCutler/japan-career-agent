@@ -3,7 +3,7 @@
 Run these when iterating on the `hiring-manager-agent` skill.
 
 ## Test Case 1: COMPANY_PROFILE schema conformance
-**Objective**: Output YAML matches `_shared/schemas.yml` (v1.7) `company_profile`.
+**Objective**: Output YAML matches `_shared/schemas.yml` (v1.8) `company_profile`.
 - **Input**: Paste a JD (必須条件/歓迎条件 format) and complete the flow with mock answers.
 - **Criteria**:
   - Required fields present: company_name, position, required_skills.

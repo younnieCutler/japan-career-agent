@@ -244,6 +244,58 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual(shared["profile"]["target_role"], "Platform Engineer")
         self.assertEqual([item["path"] for item in shared["context"]], ["05-playbooks/interview.md"])
 
+    def test_career_context_requires_approval_and_projects_latest_value(self) -> None:
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        source = self.workdir / "data" / "self_analysis_profile.yml"
+        source.parent.mkdir(parents=True)
+        source.write_text(
+            "career_anchors:\n"
+            "  primary: autonomy\n"
+            "  secondary: [technical_competence]\n"
+            "  will_not_give_up: '스스로 판단할 수 있는 환경'\n"
+            "career_theme: '복잡한 문제를 구조화하고 직접 개선한다'\n"
+            "energy_map:\n"
+            "  energizes: ['새 문제 구조화']\n"
+            "  drains: ['단순 반복 운영']\n"
+            "  misfit_flag: null\n"
+            "career_values:\n"
+            "  must_have: ['전문성 축적']\n"
+            "  avoid: ['단순 반복 운영']\n",
+            encoding="utf-8",
+        )
+
+        proposed = output(run(self.vault, "propose-context", "--source", str(source)))
+        proposal_id = proposed["proposal"]["id"]
+        pending = output(run(self.vault, "context", "--track", "chuto"))
+        self.assertFalse(pending["career_context_confirmed"])
+        self.assertIsNone(pending["career_context"])
+
+        duplicate = output(run(self.vault, "propose-context", "--source", str(source)))
+        self.assertTrue(duplicate["deduplicated"])
+        self.assertEqual(duplicate["proposal"]["id"], proposal_id)
+
+        approved = output(run(self.vault, "approve", proposal_id))
+        self.assertEqual(approved["event"]["type"], "career_context")
+        shared = output(run(self.vault, "context", "--track", "chuto"))
+        self.assertTrue(shared["career_context_confirmed"])
+        self.assertEqual(shared["career_context"]["career_values"]["must_have"], ["전문성 축적"])
+        self.assertIsNone(shared["state"].get("stage"))
+
+        source.write_text(source.read_text(encoding="utf-8").replace("전문성 축적", "기술 전문성 축적"), encoding="utf-8")
+        changed = output(run(self.vault, "propose-context", "--source", str(source)))
+        output(run(self.vault, "approve", changed["proposal"]["id"]))
+        latest = output(run(self.vault, "context", "--track", "chuto"))
+        self.assertEqual(latest["career_context"]["career_values"]["must_have"], ["기술 전문성 축적"])
+
+    def test_career_context_rejects_invalid_shape_without_proposal(self) -> None:
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        source = self.workdir / "invalid.yml"
+        source.write_text("career_values:\n  must_have: not-a-list\n  avoid: []\n", encoding="utf-8")
+        result = run(self.vault, "propose-context", "--source", str(source))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("career_values requires", result.stderr)
+        self.assertFalse((self.vault / "02-state" / "proposals.jsonl").exists())
+
     def test_doctor_reports_profile_and_expired_reference_problems(self) -> None:
         incomplete = output(run(self.vault, "doctor"))
         self.assertTrue(incomplete["ok"])

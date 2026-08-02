@@ -11,12 +11,13 @@
 #                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
 #   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
-schema_version: "1.7"
+schema_version: "1.8"
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
 # Produced by: jiko-bunseki (Phase 2; Phase 3 fields stay null until the depth-dive runs)
-# Consumed by: job-seeker-agent (reuses values/preferences; still owns SPI3 + scoring)
+# Consumed by: job-seeker-agent, matching-simulator, company-battlecard, tenshoku-strategy,
+#              mock-interviewer (reuses only confirmed career context; candidate scoring remains separate)
 # Pipeline position: runs BEFORE job-seeker-agent for direction-setting.
 # ─────────────────────────────────────────────
 self_analysis_profile:
@@ -40,6 +41,8 @@ self_analysis_profile:
     - derailers         # list of objects: { strength, overuse_risk, watch_signal } | null
     - energy_map        # object: { energizes: list, drains: list, misfit_flag: string|null } | null
     - career_theme      # string: one line connecting past to future | null
+    - career_values     # object: { must_have: list[string], avoid: list[string] } | null
+    - career_context_confirmed # boolean; true only after explicit user review of all non-null Phase 3 values
 
 top_strength_schema:
   - name:    "string: strength id (e.g., 'ownership', 'analysis')"

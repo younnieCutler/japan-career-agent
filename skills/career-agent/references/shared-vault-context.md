@@ -8,11 +8,13 @@ All candidate-side skills use the same Career Vault when `CAREER_VAULT` is set.
    python3 "$CAREER_AGENT_RUNTIME" context --vault "$CAREER_VAULT"
    ```
 
-2. Use only the returned profile, current state, and selected note metadata. Do not scan the Vault,
-   load archives, or infer facts from old local `data/` files.
+2. Use only the returned profile, current state, confirmed `career_context` (when present), and selected
+   note metadata. Do not scan the Vault, load archives, or infer facts from old local `data/` files.
 3. Treat `00-control/career-profile.toml` and `02-state/career-state.toml` as the shared current state.
    Confirmed facts remain in `02-state/events.jsonl`.
 4. Keep skill-specific output as a draft until the user approves evidence through `career-agent approve`.
+   A confirmed `career_context` is the only Vault-backed source for career anchors, theme, energy map,
+   and career values; a missing or false confirmation flag is not canonical.
 5. If `CAREER_VAULT` or `CAREER_AGENT_RUNTIME` is missing, ask for the Vault path rather than creating a
    separate career state in the current directory.
 

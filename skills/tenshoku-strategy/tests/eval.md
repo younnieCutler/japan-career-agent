@@ -47,6 +47,14 @@ Run these when iterating on `tenshoku-strategy`. Focus: suite-wide **Language Au
   - Funnel/score-vs-outcome computed by LLM (no Node script) with "±근사치, 표본 N건" disclaimer.
   - No comfort ("특별한 일 아님" banned); recommendations are action + reason + impact.
 
+## Test Case 6: Confirmed career context grounds 転職理由
+**Objective**: Confirmed anchors and values are used without fabricating a generic motive.
+- **Input**: A confirmed career context and a factual user-provided resignation reason.
+- **Criteria**:
+  - The output cites the confirmed field used for 転職軸 or reframing.
+  - If context is absent or unconfirmed, the output stays factual and asks for the user's criterion.
+  - The skill does not introduce "growth" or "new challenge" without user evidence.
+
 ## Recorded Result (inline eval, job-seeker-agent companion run — 2026-06-26)
 
 Rule A + Rule B were verified live on the sibling skill `job-seeker-agent` with two parallel runs

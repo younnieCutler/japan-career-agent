@@ -9,7 +9,8 @@ Ask only these, in one 2–3 question turn:
 
 1. Which activity should become the draft? (club, part-time work, volunteering, research, project, etc.)
 2. What was your role, and what difficult situation or goal did you address?
-3. What changed, or what did you learn? Exact numbers are optional; never estimate them.
+3. What changed, or what did you learn, and what value or standard felt important in that experience?
+   Exact numbers are optional; never estimate them. If no value comes to mind, say so.
 
 On the next response, return:
 
@@ -27,7 +28,8 @@ Ask only these, in one 2–3 question turn:
 
 1. What target role or industry are you moving toward?
 2. What was your most recent role, and what did you personally own or improve?
-3. Why do you want to move now? Keep the answer factual; do not invent a polished 退職理由.
+3. Why do you want to move now, and what must-have or avoid condition matters in the next role?
+   Keep the answer factual; do not invent a polished 退職理由. If no condition is stated, leave it out.
 
 On the next response, return:
 
@@ -50,3 +52,7 @@ After the user reviews the draft, offer exactly the relevant next option:
 Do not persist by default. On an explicit save request, create the CWD-relative `career-docs/` directory if
 needed, ask before overwriting, write `career-docs/{track}-draft-{name}-{YYYYMMDD}.md`, print its absolute
 path, and verify it exists. Never write a draft to `data/candidate_profile.yml`.
+
+Values stated in this path are session-scoped evidence for the draft only. Do not create or update
+`data/self_analysis_profile.yml`; offer `jiko-bunseki` if the user wants to confirm and persist a
+canonical career context.

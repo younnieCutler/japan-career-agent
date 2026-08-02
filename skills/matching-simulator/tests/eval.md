@@ -47,3 +47,14 @@ Run these when iterating on the `matching-simulator` skill.
   - Match history entry appended to `data/match_history.md` per `match_history_entry` schema, AND the
     company's `data/pipeline.yml` entry is upserted with `match_score` (feeds the tenshoku-strategy
     senko-tracking §2b calibration-by-predicted-grade analysis).
+
+## Test Case 6: Career Value Fit is qualitative and evidence-bound
+**Objective**: Confirmed candidate values are compared separately from numeric match scores.
+- **Input**: Confirmed `career_context` plus JD/company evidence supporting one value, conflicting with
+  another, and omitting a third.
+- **Criteria**:
+  - Reports `Match`, `Partial`, `Conflict`, or `Unknown` with candidate field and company/JD evidence.
+  - `Unknown` is used when evidence is absent; it is never upgraded to a match by company type alone.
+  - Career Value Fit is not added to Recruit, Persol, Culture Fit, or Overall scores.
+  - An unconfirmed or missing context does not block ordinary skill matching but produces no invented
+    value fit.

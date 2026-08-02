@@ -73,3 +73,13 @@ and **Fixed Step Sequence (Rule B)**, plus the new 志望動機 / 職務経歴�
   - On the next response emits `Facts used`, a 職務要約 draft, a 転職軸 draft, and at most three evidence questions.
   - Student-era evidence, if supplied, is labelled supplementary; it does not switch to 新卒 scoring.
   - Does not estimate a metric or create a profile or pipeline entry.
+
+## Test Case 8: Confirmed career context reuse
+**Objective**: Confirmed values guide writing; unconfirmed values never become invented motivation.
+- **Input**: A SELF_ANALYSIS_PROFILE with `career_context_confirmed: true`, then a second profile with the
+  same fields set to `false`.
+- **Criteria**:
+  - Confirmed anchors/theme/energy/values are cited in 自己PR, 志望動機, and 転職軸.
+  - Unconfirmed or missing context yields facts/actions or a follow-up question, not "growth" or
+    "new challenge" filler.
+  - No values are copied into `CANDIDATE_PROFILE`.

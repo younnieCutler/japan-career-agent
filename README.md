@@ -7,7 +7,7 @@ and **中途** (mid-career) paths, from self-analysis to documents, interviews, 
 and onboarding.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#install)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#install)
@@ -68,6 +68,27 @@ It loads only the skill and references needed for the selected stage. It does no
 
 Every skill is a `SKILL.md` under `skills/<name>/`. Shared frameworks and schemas live under
 `_shared/`.
+
+## Canonical Career Context
+
+`jiko-bunseki` stores Phase 3 anchors, career theme, energy map, and must-have/avoid values in
+`data/self_analysis_profile.yml`. They remain draft context until the user explicitly confirms the
+complete non-null set with `career_context_confirmed: true`. Downstream skills reuse confirmed values
+for 自己PR, 志望動機, 転職軸, matching, battlecards, and interview contradiction checks; they never
+invent a replacement motive.
+
+When `CAREER_VAULT` is set, the shared Vault context is canonical. Confirm the profile through the
+approval-gated flow before it is returned to other skills:
+
+```bash
+python3 skills/career-agent/career_agent.py propose-context --vault "$VAULT" \
+  --source data/self_analysis_profile.yml
+python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id>
+python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+```
+
+Career Value Fit is qualitative (`Match`, `Partial`, `Conflict`, `Unknown`) and is not merged into the
+numeric match score. A confirmed dealbreaker conflict can make a company ineligible in a battlecard.
 
 ## Install
 
@@ -228,6 +249,8 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python3 skills/career-agent/career_agent.py index --vault "$VAULT"
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+python3 skills/career-agent/career_agent.py propose-context --vault "$VAULT" \
+  --source data/self_analysis_profile.yml
 # One-time repair for installs created before 1.2.0:
 python3 skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 ```

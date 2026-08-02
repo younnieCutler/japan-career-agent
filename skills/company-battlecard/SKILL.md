@@ -20,15 +20,16 @@ description: >
 ## Shared Career Vault Context
 
 When `CAREER_VAULT` is set, read the shared `career-agent context` response before comparing companies.
-Use its current target, status, and selected evidence metadata; do not read archived personal notes by
-default. Follow `career-agent/references/shared-vault-context.md`.
+Use its current target, status, confirmed `career_context`, and selected evidence metadata; do not read
+archived personal notes by default. Follow `career-agent/references/shared-vault-context.md`.
 
 ## Overview
 
 This skill produces a structured head-to-head comparison of two companies from the candidate's perspective.
 It answers one question: **"Given who I am, which company is the better fit — and by how much?"**
 
-The output is a table. The table has a winner column. There is no "both are great" — one always scores higher.
+The output is a table. The table has a winner column. There is no "both are great" — one scores higher
+unless a confirmed Career Value Fit veto makes a company ineligible.
 
 ## Language Auto-Detection (Suite-Wide Rule — applies before Input)
 
@@ -59,6 +60,10 @@ Check in this order:
 - `data/candidate_profile.yml` — saved from a previous job-seeker-agent session
 - Conversation history — `# === CANDIDATE_PROFILE ===` YAML block
 Parse directly — do not re-ask questions that were already answered.
+
+Also load confirmed `career_context` from Vault or `data/self_analysis_profile.yml` when
+`career_context_confirmed: true`. Do not treat unconfirmed values as canonical and do not copy them into
+`CANDIDATE_PROFILE`.
 
 **2. kigyou-bunseki 企業カルテ output (direct feed for company data)**
 If the user ran kigyou-bunseki and has a 企業カルテ in the conversation, parse it directly
@@ -170,6 +175,13 @@ Sub-items (score the composite):
 - Working hours / overtime culture
 - Probation terms
 
+### Career Value Fit (not scored unless it is an explicit veto)
+
+After the five scored dimensions, compare each confirmed `must_have` and `avoid` value with explicit
+company/JD evidence. Mark each item `Match`, `Partial`, `Conflict`, or `Unknown`; cite the source.
+`Unknown` never changes the verdict. A `Conflict` on a confirmed must-have or avoid condition is a
+dealbreaker veto for that company. If every company has a veto, report that no acceptable winner exists.
+
 ## Output Format
 
 Always output in this exact format:
@@ -188,6 +200,12 @@ Always output in this exact format:
 |---------------------|-------------|-------------|--------|
 | **TOTAL**           | **16/25**   | **16/25**   | Tie    |
 
+**Career Value Fit (not scored):**
+| Value | [Company A] | [Company B] |
+|-------|-------------|-------------|
+| 전문성 축적 | Match — [evidence] | Unknown — [no evidence] |
+| 반복 운영 회피 | Conflict — [evidence] | Match — [evidence] |
+
 ℹ️ 選考プロセスの形 (not scored)
    [Company A] 自分の成果物を見せる場: あり / [Company B] なし
    → Shown because the shape of the 選考 decides which of your evidence can be used at all.
@@ -204,6 +222,9 @@ Always output in this exact format:
 ```
 
 **Verdict rules:**
+- Apply Career Value Fit vetoes before naming the winner. A company with a direct confirmed conflict is
+  ineligible even if its numeric total is higher; compare remaining companies normally. If none remain,
+  state `No acceptable winner — every company has a confirmed value conflict.`
 - If total difference is 3+ points: strong recommendation for the winner
 - If total difference is 1~2 points: conditional recommendation (state the deciding factor)
 - If tied: state which single dimension should be the tiebreaker based on the candidate's stated priority
@@ -218,7 +239,8 @@ every 選考 they enter tests the same single axis. That warning lives in `caree
 
 **Core principle: You are a scoring comparator, not a recruiter.**
 
-- Do not say "both are great options." One scores higher. State which one.
+- Do not say "both are great options." State the numeric winner unless a confirmed Career Value Fit veto
+  makes a company ineligible; if all companies are vetoed, say that no acceptable winner exists.
 - If both companies score below 15/25, say so: "Neither company is a strong fit. Consider expanding your search."
 - Do not speculate about company culture without evidence. If the user didn't provide data, score it as "N/A — data not provided" and exclude from total.
 - When data is insufficient for a dimension, do not score it. Reduce the total denominator accordingly (e.g., 12/20 instead of 12/25).

@@ -273,7 +273,7 @@ see the Output Contract (Rule C) above:
 
 | File | Written by | Read by |
 |------|-----------|---------|
-| `data/self_analysis_profile.yml` | jiko-bunseki (Phase 2/3) | job-seeker-agent (reuses values/preferences) |
+| `data/self_analysis_profile.yml` | jiko-bunseki (Phase 2/3) | job-seeker-agent, matching-simulator, company-battlecard, tenshoku-strategy, mock-interviewer (confirmed values only) |
 | `data/candidate_profile.yml` | job-seeker-agent (STEP 4) | matching-simulator, company-battlecard, tenshoku-strategy |
 | `data/company_profiles/{slug}.yml` | hiring-manager-agent, kigyou-bunseki | matching-simulator, company-battlecard |
 | `data/match_history.md` | matching-simulator | User review |

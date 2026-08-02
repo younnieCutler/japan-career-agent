@@ -52,6 +52,7 @@ VAULT_DIRECTORIES = (
 CONTEXT_KINDS = {"active", "evidence", "playbook", "reference"}
 TRUSTED_SOURCE_TYPES = {"official", "personal_evidence", "curated_practice"}
 REQUIRED_CONTEXT_METADATA = {"agent_read", "agent_scope", "status", "source_type", "reviewed_on"}
+CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")
 SHINSOTSU_STAGES = (
     "自己分析・就活軸",
     "学チカ・自己PR素材",
@@ -218,6 +219,57 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
         if isinstance(row, dict):
             rows.append(row)
     return rows
+
+
+def validate_career_context(value: Any) -> dict[str, Any]:
+    """Validate the small, user-confirmed context payload shared across skills."""
+    if not isinstance(value, dict):
+        raise CareerError("career context must be an object")
+
+    anchors = value.get("career_anchors")
+    if anchors is not None:
+        if not isinstance(anchors, dict):
+            raise CareerError("career context career_anchors must be an object or null")
+        if not isinstance(anchors.get("primary"), str) or not anchors["primary"].strip():
+            raise CareerError("career context career_anchors.primary must be a non-empty string")
+        secondary = anchors.get("secondary")
+        if not isinstance(secondary, list) or not all(isinstance(entry, str) and entry.strip() for entry in secondary):
+            raise CareerError("career context career_anchors.secondary must be a list of non-empty strings")
+        if not isinstance(anchors.get("will_not_give_up"), str) or not anchors["will_not_give_up"].strip():
+            raise CareerError("career context career_anchors.will_not_give_up must be a non-empty string")
+
+    theme = value.get("career_theme")
+    if theme is not None and (not isinstance(theme, str) or not theme.strip()):
+        raise CareerError("career context career_theme must be a non-empty string or null")
+
+    energy_map = value.get("energy_map")
+    if energy_map is not None:
+        if not isinstance(energy_map, dict):
+            raise CareerError("career context energy_map must be an object or null")
+        for field in ("energizes", "drains"):
+            item = energy_map.get(field)
+            if not isinstance(item, list) or not all(isinstance(entry, str) and entry.strip() for entry in item):
+                raise CareerError(f"career context energy_map.{field} must be a list of non-empty strings")
+        if energy_map.get("misfit_flag") is not None and not isinstance(energy_map["misfit_flag"], str):
+            raise CareerError("career context energy_map.misfit_flag must be a string or null")
+
+    values = value.get("career_values")
+    if values is not None:
+        if not isinstance(values, dict):
+            raise CareerError("career context career_values must be an object or null")
+        if string_list_from(values, "must_have") is None or string_list_from(values, "avoid") is None:
+            raise CareerError("career context career_values requires must_have and avoid lists")
+
+    if not any(value.get(field) is not None for field in CAREER_CONTEXT_FIELDS):
+        raise CareerError("career context must contain at least one non-null field")
+    return {field: value.get(field) for field in CAREER_CONTEXT_FIELDS}
+
+
+def string_list_from(value: dict[str, Any], field: str) -> list[str] | None:
+    item = value.get(field)
+    if not isinstance(item, list) or not all(isinstance(entry, str) and entry.strip() for entry in item):
+        return None
+    return item
 
 
 def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
@@ -757,6 +809,10 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
 
 def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     next_state = dict(state)
+    if event.get("type") == "career_context":
+        # Canonical career values are a confirmed context projection, not a market-stage transition.
+        next_state["last_event_id"] = event["id"]
+        return next_state
     next_state["track"] = event["track"]
     next_state["stage"] = event["stage"]
     next_state["flow_phase"] = event["flow_phase"]
@@ -1156,6 +1212,19 @@ def run_index(home: CareerVault, *, include_archives: bool = False) -> dict[str,
     return result
 
 
+def latest_career_context(home: CareerVault) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    latest: dict[str, Any] | None = None
+    for event in read_jsonl(home.events):
+        if event.get("status") != "confirmed" or event.get("type") != "career_context":
+            continue
+        validate_event(event)
+        validate_career_context(event.get("career_context"))
+        latest = event
+    if latest is None:
+        return None, None
+    return latest["career_context"], latest
+
+
 def run_context(home: CareerVault, requested_track: str | None, requested_stage: str | None) -> dict[str, Any]:
     """Shared, metadata-only context for other career skills and agent frontends."""
     profile = home.load_profile()
@@ -1166,6 +1235,7 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
     stage = requested_stage or state.get("stage")
     if stage is not None and stage not in SHINSOTSU_STAGES + CHUTO_STAGES:
         raise CareerError("shared context stage is not recognized")
+    career_context, career_event = latest_career_context(home)
     profile_keys = ("track", "career_status", "target_role", "start_date", "graduation_year", "language", "flow_phase")
     return {
         "mode": "context",
@@ -1173,9 +1243,82 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
         "profile": {key: profile[key] for key in profile_keys if key in profile and profile[key] not in (None, "")},
         "state": state,
         "context": select_context(home.path, track, stage) if stage else [],
+        "career_context": career_context,
+        "career_context_confirmed": career_context is not None,
+        "career_context_event_id": career_event.get("id") if career_event else None,
         "read_only": True,
         "note_bodies_included": False,
     }
+
+
+def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
+    """Create an approval-gated proposal from a CWD-relative SELF_ANALYSIS_PROFILE."""
+    source_path = Path(source).expanduser().resolve()
+    if not source_path.exists():
+        raise CareerError(f"career context source not found: {source_path}")
+    try:
+        import yaml
+        raw = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
+    except ImportError as exc:
+        raise CareerError("PyYAML is required to propose career context") from exc
+    except (OSError, yaml.YAMLError) as exc:
+        raise CareerError(f"invalid career context YAML: {source_path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise CareerError("career context source root must be an object")
+    payload = validate_career_context(raw)
+    digest = hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    with vault_lock(home):
+        proposals = read_jsonl(home.proposals)
+        for row in proposals:
+            if row.get("kind") != "career_context" or row.get("profile_digest") != digest:
+                continue
+            if row.get("status") in {"pending", "approved"}:
+                return {
+                    "mode": "propose-context",
+                    "deduplicated": True,
+                    "proposal": row,
+                    "source": str(source_path),
+                }
+        for row in proposals:
+            if row.get("kind") == "career_context" and row.get("status") == "pending":
+                row["status"] = "superseded"
+                row["updated_at"] = utc_now()
+        track = home.load_state().get("track") or home.load_profile().get("track")
+        if track not in TRACKS:
+            raise CareerError("career context proposal requires profile.track or state.track")
+        state = home.load_state()
+        stage = state.get("stage") or ("自己分析・就活軸" if track == "shinsotsu" else "自己分析・転職軸")
+        flow_phase = state.get("flow_phase") or "self_analysis"
+        event = {
+            "id": f"evt-{uuid.uuid4().hex[:12]}",
+            "track": track,
+            "stage": stage,
+            "flow_phase": flow_phase,
+            "type": "career_context",
+            "occurred_at": utc_now(),
+            "title": "User-confirmed career context",
+            "summary": "User-confirmed canonical career values",
+            "evidence": [f"SELF_ANALYSIS_PROFILE sha256:{digest}"],
+            "source": "jiko-bunseki",
+            "next_action": "",
+            "deadline": None,
+            "status": "draft",
+            "career_context": payload,
+            "profile_digest": digest,
+        }
+        validate_event(event)
+        proposal = {
+            "id": f"proposal-{uuid.uuid4().hex[:12]}",
+            "kind": "career_context",
+            "status": "pending",
+            "created_at": utc_now(),
+            "profile_digest": digest,
+            "event": event,
+        }
+        write_jsonl(home.proposals, [*proposals, proposal])
+    return {"mode": "propose-context", "deduplicated": False, "proposal": proposal, "source": str(source_path)}
 
 
 @contextmanager
@@ -1242,7 +1385,7 @@ def approve(
             raise CareerError(f"proposal not found: {proposal_id}")
         if proposal.get("status") != "pending":
             raise CareerError(f"proposal is not pending: {proposal_id}")
-        if proposal.get("kind") == "event":
+        if proposal.get("kind") in {"event", "career_context"}:
             event = dict(proposal["event"])
             if evidence is not None:
                 event["evidence"] = evidence
@@ -1357,6 +1500,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(context_parser)
     context_parser.add_argument("--track", choices=sorted(TRACKS), help="override the profile/state track")
     context_parser.add_argument("--stage", help="select verified notes for this exact stage")
+    context_proposal_parser = subparsers.add_parser(
+        "propose-context",
+        help="create an approval-gated proposal from a SELF_ANALYSIS_PROFILE YAML",
+    )
+    add_vault_argument(context_proposal_parser)
+    context_proposal_parser.add_argument("--source", required=True, help="CWD-relative SELF_ANALYSIS_PROFILE YAML")
     return parser
 
 
@@ -1392,6 +1541,8 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = run_index(home, include_archives=args.include_archives)
             elif args.command == "context":
                 result = run_context(home, args.track, args.stage)
+            elif args.command == "propose-context":
+                result = propose_career_context(home, args.source)
             elif args.mode == "chat":
                 message = args.message if args.message is not None else sys.stdin.read().strip()
                 if not message:

@@ -43,6 +43,7 @@ python skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id
 python skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python skills/career-agent/career_agent.py index --vault "$VAULT"
 python skills/career-agent/career_agent.py context --vault "$VAULT"
+python skills/career-agent/career_agent.py propose-context --vault "$VAULT" --source data/self_analysis_profile.yml
 ```
 
 Set `CAREER_VAULT` instead of passing `--vault` repeatedly. The runtime never defaults to the
@@ -95,6 +96,11 @@ recovery happens there.
 two concurrent `approve` calls on the same proposal (two terminals, or a human and Claude both acting)
 cannot both pass the "still pending" check and double-write the event — the second always waits, then
 fails cleanly instead of duplicating the ledger entry. Other commands are not lock-protected.
+
+`propose-context` validates the allowlisted Phase 3 fields from `SELF_ANALYSIS_PROFILE` and creates an
+approval-gated `career_context` event. `approve` records it without changing market stage; `context`
+returns only the latest confirmed career context and its event id. Missing or unconfirmed context is
+returned as `null` / `false`, so downstream skills must not treat a draft as a user's canonical value.
 
 The runtime always reads only `00-control` and `02-state`. It selects at most five verified notes
 from `03-active`, `04-evidence`, `05-playbooks`, and `06-reference`; `01-capture` and `07-archive`

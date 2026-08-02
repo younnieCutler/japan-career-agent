@@ -39,3 +39,12 @@ Run these when iterating on the `company-battlecard` skill.
 - **Criteria**: Single consolidated table (not sequential pairwise cards); one final ranking with rationale;
   offer decision hands off to `tenshoku-strategy` STEP 3 → 3-2 (negotiate/offer) → 3-3 (労働条件通知書
   review) → 4 (resign) → 4-2 (onboard).
+
+## Test Case 6: Career Value Fit veto
+**Objective**: A confirmed dealbreaker can override a higher numeric total without changing the five scores.
+- **Input**: Two company profiles and confirmed `must_have`/`avoid` values; one company has direct
+  conflicting evidence, the other has no evidence.
+- **Criteria**:
+  - The conflicting company is marked ineligible even if its numeric total is higher.
+  - Missing evidence is `Unknown`, not a veto.
+  - If all companies conflict, the verdict states that no acceptable winner exists.

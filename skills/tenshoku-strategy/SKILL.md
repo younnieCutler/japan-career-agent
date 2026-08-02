@@ -27,7 +27,8 @@ description: >
 ## Shared Career Vault Context
 
 When `CAREER_VAULT` is set, read the shared `career-agent context` response before STEP 0. Use the
-shared profile and state as the factual baseline, and route new facts through Career Agent drafts.
+shared profile, state, and confirmed `career_context` as the factual baseline, and route new facts
+through Career Agent drafts.
 Follow `career-agent/references/shared-vault-context.md`.
 
 This skill provides the tactical playbook from "decided to change jobs" to "first day at the new company."
@@ -78,6 +79,10 @@ CONTENT of a step — never its ORDER or existence.
 2. If it exists: "Using the saved profile: [candidate_name]. Is that correct?"
 3. If not: collect the minimal info below (the skill works without a profile too).
 
+When available, also load confirmed `career_context` from `career-agent context` or
+`data/self_analysis_profile.yml` with `career_context_confirmed: true`. Missing or unconfirmed values
+must not be replaced with generic motivation language.
+
 ### Minimal info to collect (ask 2–3 at a time)
 
 **Round 1:**
@@ -113,6 +118,10 @@ CONTENT of a step — never its ORDER or existence.
 1. **Collect the real reason:**
    > "What is the real reason you are leaving (left) your current/previous job? Tell me honestly — strategic
    > reframing comes after."
+
+   If confirmed `career_anchors`, `career_theme`, or `career_values` exists, show which field supports
+   the desired 転職軸. If it does not exist, keep the 転職理由 factual and ask for the user's own
+   criterion rather than supplying "growth" or "new challenge".
 
 2. **Apply the conversion table:** match the reason to the closest of the reference's 6 categories and convert.
 

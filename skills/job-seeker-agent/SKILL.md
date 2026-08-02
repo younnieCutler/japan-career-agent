@@ -25,8 +25,9 @@ description: >
 ## Shared Career Vault Context
 
 When `CAREER_VAULT` is set, read the shared `career-agent context` response before analysis. Treat its
-profile, state, and selected note metadata as canonical; submit new facts as Career Agent drafts rather
-than creating a competing local career state. Follow `career-agent/references/shared-vault-context.md`.
+profile, state, confirmed `career_context`, and selected note metadata as canonical; submit new facts as
+Career Agent drafts rather than creating a competing local career state. Follow
+`career-agent/references/shared-vault-context.md`.
 
 ## Overview
 
@@ -59,12 +60,15 @@ The numbers are the output. There is no subjective commentary.
 ## Upstream Handoff — SELF_ANALYSIS_PROFILE (optional)
 
 If the user ran `jiko-bunseki` first, a `SELF_ANALYSIS_PROFILE` YAML may be present (in the conversation
-or at `data/self_analysis_profile.yml`, CWD-relative). When it exists, reuse its `work_style`,
-`wellbeing_priorities`, `preferred_company_type`, `self_pr_seeds`, and Phase-3 `career_anchors` /
-`career_theme` to skip redundant questions and to seed 自己PR / 志望動機 / 転職軸.
+or at `data/self_analysis_profile.yml`, CWD-relative). Reuse its `work_style`, `wellbeing_priorities`,
+`preferred_company_type`, and `self_pr_seeds` as before. Reuse Phase-3 `career_anchors`, `career_theme`,
+`energy_map`, and `career_values` only when `career_context_confirmed: true`; otherwise treat them as
+draft hypotheses and do not use them as the candidate's motivation or philosophy.
 
 But this skill still **owns SPI3 and Portable-Skills scoring** — do not infer those from the
-self-analysis. The self-analysis sets direction; the candidate scoring is yours. If no profile exists,
+self-analysis. The self-analysis sets direction; the candidate scoring is yours. If no confirmed career
+context exists, use only facts and values the user states in the current conversation and do not invent
+a substitute motive. If no profile exists,
 proceed normally; consider suggesting `/jiko-bunseki` first only when the user seems unsure of direction.
 
 ## Interactive Mode (Required)
@@ -93,6 +97,10 @@ This path is a reviewed writing preview, not a score or a profile. It must:
 3. Output only evidence-backed facts, a usable draft, and up to three missing-evidence questions.
 4. Never run SPI3, Portable Skills scoring, gap scoring, `CANDIDATE_PROFILE`, or pipeline writes on this path.
 5. Save only when the user explicitly asks after reviewing the draft. Save the human-readable draft to `career-docs/{track}-draft-{name}-{YYYYMMDD}.md`; ask before overwriting and verify the absolute path.
+
+Values stated in the First-Draft Fast Path are session-scoped evidence only. Do not create or update
+`data/self_analysis_profile.yml` from that path; offer `jiko-bunseki` when the user wants to confirm
+and persist them.
 
 Read `references/first-draft.md` for the exact questions, output shape, and handoff. A user who asks for an assessment, fit score, JD gap analysis, interview preparation, or a machine-readable profile uses the formal workflow instead.
 
@@ -361,6 +369,9 @@ vocabulary (組織マネジメント, PL責任, 採用, 育成) since scout sear
 - Define the **転職軸** and run the **4-WHY consistency chain** (なぜ転職 / なぜこの会社 / なぜこの職種 / なぜ今).
   Pull なぜ転職 from the 退職理由 produced in `tenshoku-strategy`; if it contradicts the 志望動機, flag and fix
   the weakest link before output (the interviewer's 深掘り will find the same gap).
+- If confirmed `career_anchors`, `career_theme`, or `career_values` exists, make it the candidate-side
+  spine and cite the corresponding profile field. If it is absent or unconfirmed, do not fill the gap
+  with phrases such as "I want to grow" or "I seek a new challenge"; ask the user or stay factual.
 - The ③ 入社後貢献 must reuse the 成果/工夫 from 4-1 — one fact, told consistently across documents.
 
 #### 4-3. 面接ラウンド別・相手別 対策 (When an interview is scheduled or a target company exists)

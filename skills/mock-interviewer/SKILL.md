@@ -30,6 +30,10 @@ the same gap the checklist was written to close.
 Read `data/rules.yml` if present. Any `status: active` rule is a phrase the user has already decided
 never to say — treat a violation during practice as a finding, quoting the rule verbatim.
 
+When `CAREER_VAULT` is set, read confirmed `career_context` from `career-agent context` before practice.
+Otherwise read `data/self_analysis_profile.yml` only when `career_context_confirmed: true`. Missing or
+unconfirmed context is not a reason to invent a value; continue with facts the user states in-session.
+
 ## Language Auto-Detection
 
 Detect the user's language preferences for UI, but the **interview practice questions can be delivered in Japanese** if the user chooses Japanese interview practice mode.
@@ -62,6 +66,11 @@ For any answer the candidate gives, follow up with 3 levels of probing:
 - **Level 2 (Evidence & Logic):** 「なぜその数値や効果が出たと判断しましたか？ 測定方法や根拠は？」
 - **Level 3 (Emotion & Learning):** 「その時、正直どう感じましたか？ 今振り返って、やり直せるとしたら何を変えますか？」
 
+After each answer that expresses a preference, motivation, or work-style claim, compare it with the
+confirmed career context. If it conflicts, quote both statements, label the finding `Career Value
+Contradiction`, and ask whether the answer or the saved context is current. Do not silently rewrite
+either one.
+
 ---
 
 ## Feedback Criteria
@@ -79,6 +88,7 @@ After 3–5 interview questions, provide a **Defense Assessment Report**:
 1. Fact & Role Defense: [Pass / Weak / Failed]
 2. Evidence & Metric Grounding: [Pass / Unverified Metric Found]
 3. Authentic Emotion & Vision Fit: [Grounded / Sounds like AI Tatemae]
+4. Career Value Consistency: [Consistent / Contradiction requires user confirmation / No confirmed context]
 
 ━━━ Vulnerabilities Detected ━━━
 - [Point 1]: Undefendable claim detected in STAR story #2

@@ -6,7 +6,7 @@
 자기분석부터 서류, 면접, 오퍼, 퇴직, 입사 준비까지 연결합니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#스킬)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#설치)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#설치)
@@ -65,6 +65,27 @@ flowchart LR
 | `career-agent` | 트랙 라우팅, 이벤트 원장, 마감, 다음 행동, 공고 후보 | 로컬 커리어 상태 |
 
 각 스킬은 `skills/<name>/SKILL.md`에 있으며, 공통 프레임워크와 스키마는 `_shared/`에 있습니다.
+
+## Canonical Career Context
+
+`jiko-bunseki`는 Phase 3의 career anchor, career theme, energy map, must-have/avoid 기준을
+`data/self_analysis_profile.yml`에 저장합니다. 사용자가 비어 있지 않은 전체 내용을 명시적으로
+확인하기 전까지는 초안이며, 확인 후에만 `career_context_confirmed: true`가 됩니다. 이후 skill은
+自己PR, 志望動機, 転職軸, 매칭, 기업 비교, 면접 모순 점검에서 확인된 값만 재사용하며 새로운 동기나
+철학을 만들어내지 않습니다.
+
+`CAREER_VAULT`를 사용하면 Vault context가 canonical source입니다. 아래 승인 흐름을 거친 뒤에만
+다른 skill이 확인된 값을 읽습니다.
+
+```bash
+python3 skills/career-agent/career_agent.py propose-context --vault "$VAULT" \
+  --source data/self_analysis_profile.yml
+python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id>
+python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+```
+
+Career Value Fit은 `Match`, `Partial`, `Conflict`, `Unknown`으로 표시하는 정성 판단이며 기존 숫자
+매칭 점수에 합산하지 않습니다. 확인된 dealbreaker 충돌은 battlecard에서 해당 기업을 제외할 수 있습니다.
 
 ## 설치
 
@@ -222,6 +243,8 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python3 skills/career-agent/career_agent.py index --vault "$VAULT"
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+python3 skills/career-agent/career_agent.py propose-context --vault "$VAULT" \
+  --source data/self_analysis_profile.yml
 # 1.2.0 이전 설치본의 중첩 pipeline.yml을 한 번만 평탄화:
 python3 skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 ```

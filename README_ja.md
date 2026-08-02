@@ -6,7 +6,7 @@
 自己分析、書類、面接、オファー、退職、入社準備までをつなぎます。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#スキル)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#インストール)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#インストール)
@@ -67,6 +67,27 @@ Observe → Plan → Act → Verify → Correct → Persist
 
 各スキルは `skills/<name>/SKILL.md` にあります。共通フレームワークとスキーマは `_shared/`
 にあります。
+
+## Canonical Career Context
+
+`jiko-bunseki` は Phase 3 の career anchor、career theme、energy map、must-have/avoid を
+`data/self_analysis_profile.yml` に保存します。ユーザーが空でない内容を明示的に確認するまで
+ドラフトとして扱い、確認後だけ `career_context_confirmed: true` になります。確認済みの値だけを
+自己PR、志望動機、転職軸、マッチング、企業比較、面接の矛盾チェックで再利用し、新しい動機や
+哲学を作りません。
+
+`CAREER_VAULT` を使う場合は Vault context が canonical source です。次の承認フローを通過した
+後だけ、他のスキルが確認済みの値を読み取ります。
+
+```bash
+python3 skills/career-agent/career_agent.py propose-context --vault "$VAULT" \
+  --source data/self_analysis_profile.yml
+python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id>
+python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+```
+
+Career Value Fit は `Match`、`Partial`、`Conflict`、`Unknown` で示す定性的な判断で、既存の
+数値マッチスコアには合算しません。確認済みの dealbreaker 衝突は battlecard で企業を除外できます。
 
 ## インストール
 
@@ -228,6 +249,8 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python3 skills/career-agent/career_agent.py index --vault "$VAULT"
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
+python3 skills/career-agent/career_agent.py propose-context --vault "$VAULT" \
+  --source data/self_analysis_profile.yml
 # 1.2.0 より前のインストールで作られた入れ子の pipeline.yml を一度だけ移行:
 python3 skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 ```

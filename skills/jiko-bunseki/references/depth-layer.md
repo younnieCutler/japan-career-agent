@@ -120,6 +120,15 @@ After running the blocks the user opted into, write a short integrated portrait 
 - 에너지 맵 (적합/함정)
 - 테마 (스토리)
 
+Extract `career_values.must_have` and `career_values.avoid` only from the user's explicit non-negotiables,
+anchor explanation, and energy-map episodes. If the user did not state a value, leave the list empty;
+do not convert a generic career cliché into a value.
+
+Before saving, show the exact non-null `career_anchors`, `career_theme`, `energy_map`, and `career_values`
+back to the user and ask for one explicit confirmation. Store `career_context_confirmed: true` only after
+that confirmation. If the user corrects anything, revise and ask again; if they do not confirm, keep the
+draft unconfirmed and downstream skills must ignore it as canonical context.
+
 Then append the optional depth fields to the YAML profile (see SKILL.md Phase 3 output spec). Set any block the user skipped to `null`.
 
 End with the handoff: this portrait feeds `job-seeker-agent` (richer self-PR + 약점 답변), `tenshoku-strategy` (anchor-based 転職理由), and `naked-me` (if a contradiction needs deeper excavation).

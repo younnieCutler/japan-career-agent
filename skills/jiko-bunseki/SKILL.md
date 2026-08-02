@@ -19,7 +19,9 @@ description: >
 ## Shared Career Vault Context
 
 When `CAREER_VAULT` is set, read the shared `career-agent context` response before collecting answers.
-Use the shared profile and state as facts; do not create a competing profile in the current directory.
+Use the shared profile, state, and confirmed `career_context` as facts; do not create a competing
+canonical state in the current directory. Phase 3 values remain a draft until the user approves the
+`career-agent propose-context` proposal.
 Follow `career-agent/references/shared-vault-context.md`.
 
 ## Overview
@@ -281,20 +283,13 @@ risk_flags:
 self_pr_seeds:
   - "turns ambiguity into a practical next step"
   - "prefers ownership with clear outcome responsibility"
-# --- Phase 3 depth layer (null until Phase 3 is run) ---
-career_anchors:
-  primary: "autonomy"
-  secondary: ["pure_challenge"]
-  will_not_give_up: "내 방식·속도를 통제당하면 떠난다"
-derailers:
-  - strength: "ownership"
-    overuse_risk: "위임 불가 → 과부하/번아웃"
-    watch_signal: "혼자 다 짊어지고 있다고 느낄 때"
-energy_map:
-  energizes: ["새 문제를 처음부터 설계할 때"]
-  drains: ["하루 종일 조율·승인 대기"]
-  misfit_flag: null
-career_theme: "통제받던 환경에서 출발해, 자율적으로 만들어내는 사람이 되려 한다"
+# --- Phase 3 depth layer (null until Phase 3 is run and confirmed) ---
+career_anchors: null
+derailers: null
+energy_map: null
+career_theme: null
+career_values: null
+career_context_confirmed: false
 notes:
   - "Custom self-analysis only; not an official aptitude test"
 # === END SELF_ANALYSIS_PROFILE ===
@@ -336,8 +331,15 @@ Run conversationally, one block at a time, in the user's language. This is not a
 After the opted-in blocks finish:
 
 1. Write a 3-5 sentence **Deep Career Portrait** (in the user's language) integrating quant + anchor + derailer + energy + theme.
-2. Update the YAML `career_anchors`, `derailers`, `energy_map`, `career_theme` fields. Set skipped blocks to `null`.
-3. Re-save both the YAML and the human-readable summary, appending a `## Phase 3 — Depth Analysis` section.
+2. Prepare the YAML `career_anchors`, `derailers`, `energy_map`, `career_theme`, and `career_values`
+   fields. Set skipped blocks to `null` and keep `career_context_confirmed: false` until the user
+   explicitly approves the complete non-null canonical context.
+3. Present the exact proposed anchors, theme, energy map, and must-have/avoid values. Revise rejected
+   items; never turn a hypothesis into a confirmed value.
+4. On explicit approval without `CAREER_VAULT`, save the context with `career_context_confirmed: true`.
+   With `CAREER_VAULT`, write the draft, run `career_agent.py propose-context`, and only mark the local
+   profile confirmed after the user approves the proposal through `career-agent approve`.
+5. Re-save both the YAML and the human-readable summary, appending a `## Phase 3 — Depth Analysis` section.
    Print the absolute paths and confirm the files exist, per the Output Contract.
 
 **Cross-check obligation:** if Phase 3 surfaces a conflict with Phase 2 (e.g., anchor=자율 vs preferred_company_type=SIer, or a top strength sitting in the DRAINS column), state it plainly. These contradictions are the most valuable output — they explain why a "high-fit" job on paper still feels wrong.
@@ -355,7 +357,11 @@ Explain the handoff clearly:
 - `matching-simulator` = job-specific fit scoring after the candidate profile exists
 - `naked-me` (external, only if installed) = stricter single-motive excavation when a Phase 3 contradiction stays unresolved
 
-Phase 3 outputs feed directly downstream: derailers become evidence-based 약점 answers, the career theme becomes the spine of 自己PR and 志望動機, and anchors give `tenshoku-strategy` an honest 転職理由.
+Phase 3 outputs feed directly downstream only after confirmation: derailers become evidence-based 약점
+answers, the career theme becomes the spine of 自己PR and 志望動機, anchors give `tenshoku-strategy`
+an honest 転職理由, and career values constrain matching and interview consistency. Unconfirmed values
+may be discussed as a draft in the current session but must not be presented as the user's canonical
+motivation or philosophy.
 
 Do not claim that `job-seeker-agent` can skip SPI3 because of this profile.
 It may reuse values and preferences, but it still owns candidate scoring.

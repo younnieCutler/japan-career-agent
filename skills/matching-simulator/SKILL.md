@@ -20,8 +20,8 @@ description: >
 ## Shared Career Vault Context
 
 When `CAREER_VAULT` is set, read the shared `career-agent context` response before collecting profiles.
-The returned profile and state are canonical unless the user corrects them; do not create competing local
-career state. Follow `career-agent/references/shared-vault-context.md`.
+The returned profile, state, and confirmed `career_context` are canonical unless the user corrects them;
+do not create competing local career state. Follow `career-agent/references/shared-vault-context.md`.
 
 ## Overview
 
@@ -165,6 +165,11 @@ Minimum required from candidate side:
 - SPI3 traits: **Check CANDIDATE_PROFILE first.** If no profile exists, ask the user to run `job-seeker-agent` STEP 2 for the full 12-statement assessment before continuing. Only fall back to 3 quick questions if the user explicitly wants to skip `job-seeker-agent`. Running SPI3 twice creates conflicting scores — the `job-seeker-agent` result is always canonical.
 - Desired conditions (salary, work style, values)
 
+For Career Value Fit, load confirmed `career_context` from Vault or a CWD-relative
+`data/self_analysis_profile.yml` with `career_context_confirmed: true`. A missing or unconfirmed profile
+does not block skill scoring, but Career Value Fit must be reported as unavailable unless the user states
+the value directly in the current session.
+
 Company side:
 - Position name, required skills
 - Team atmosphere (autonomous/structured, individual/team-oriented)
@@ -241,6 +246,21 @@ for all 4 factors. (Refer to "Well-being Scoring Criteria" in `../../_shared/fra
 Culture_fit = max(0, 100 - (sum of differences × 10))
 ```
 
+#### 2-4. Career Value Fit (separate from numeric scoring)
+
+Evaluate each confirmed `must_have`, `avoid`, anchor, or theme against explicit company/JD evidence.
+Do not infer a company value from a generic title or optimistic wording. Use exactly one status per item:
+
+| Status | Meaning |
+|---|---|
+| Match | Direct company evidence supports the candidate value |
+| Partial | Evidence supports only part of the value or shows a trade-off |
+| Conflict | Direct evidence contradicts a `must_have` or confirms an `avoid` condition |
+| Unknown | No sufficient company evidence was provided |
+
+Show the candidate field and the company/JD source beside every row. Career Value Fit is qualitative and
+is never added to Recruit, Persol, Culture Fit, or Overall scores.
+
 ### STEP 3: RA/CA Dual-Side Analysis
 
 After calculating algorithm scores, simulate the "human judgment" layer inside agencies.
@@ -278,6 +298,11 @@ Recruit-style:  ~75/100 (B Match range)
 Persol Career-style:   ~80/100 (B Match range)
 Culture Fit:    ~90/100 (High Fit)
 Overall Estimate: ~80/100 (Directional B Match — subject to interview verification)
+
+━━━ Career Value Fit (not scored) ━━━
+전문성 축적: Match — [company/JD evidence]
+자율성: Unknown — [no sufficient company evidence]
+반복 운영 회피: Conflict — [company/JD evidence]
 
 ━━━ Score Breakdown ━━━
 [Skill Match]     Skill alignment, gap analysis, transfer potential
@@ -357,11 +382,14 @@ Rules:
 This skill is designed to work with data from `job-seeker-agent` and `hiring-manager-agent`.
 
 **How to find structured data (check in this order):**
-1. Check `data/candidate_profile.yml` and `data/company_profiles/*.yml` for saved profiles from previous sessions
-2. Look in the conversation history for `# === CANDIDATE_PROFILE ===` and `# === COMPANY_PROFILE ===` YAML blocks
-2. Parse the YAML directly into your scoring variables
-3. If a field is `null`, ask the user for the missing information interactively
-4. If no structured blocks exist, run Case B or C data collection
+1. Check confirmed `career_context` from `career-agent context` when `CAREER_VAULT` is set.
+2. Otherwise check `data/self_analysis_profile.yml` for `career_context_confirmed: true`.
+3. Check `data/candidate_profile.yml` and `data/company_profiles/*.yml` for saved profiles from previous sessions.
+4. Look in the conversation history for `# === SELF_ANALYSIS_PROFILE ===`, `# === CANDIDATE_PROFILE ===`,
+   and `# === COMPANY_PROFILE ===` YAML blocks.
+5. Parse the YAML directly into your scoring variables.
+6. If a field is `null`, ask the user for the missing information interactively.
+7. If no structured blocks exist, run Case B or C data collection
 
 **Why this matters:** Using structured data from the source skills eliminates re-interpretation errors.
 When you parse a Portable Skills score from `CANDIDATE_PROFILE`, use it as-is rather than re-evaluating.
@@ -430,7 +458,8 @@ After completing STEP 4 (Comprehensive Match Report), always save to:
 Save path: career-docs/match-[company]-[YYYYMMDD].md
 ```
 
-Contents: Full match report including scores (Recruit/Persol/Culture Fit/Overall), score breakdown, RA opinion, CA opinion, final judgment, and action items.
+Contents: Full match report including scores (Recruit/Persol/Culture Fit/Overall), the separate Career
+Value Fit evidence table, score breakdown, RA opinion, CA opinion, final judgment, and action items.
 
 If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
 the skill's install directory. After saving, print the file's absolute path and confirm it exists

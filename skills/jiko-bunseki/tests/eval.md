@@ -12,13 +12,14 @@ Run these when iterating on the `jiko-bunseki` skill.
   - No final profile output before all phases' inputs are collected.
 
 ## Test Case 2: SELF_ANALYSIS_PROFILE schema conformance
-**Objective**: Output YAML matches `_shared/schemas.yml` (v1.7).
+**Objective**: Output YAML matches `_shared/schemas.yml` (v1.8).
 - **Input**: Complete a full Phase 1–2 run with mock answers.
 - **Criteria**:
   - All `required` fields present: candidate_name, language_preference, track, top_strengths (with
     name/score 0–16/cluster), strength_clusters (0–100), work_style (1–5), wellbeing_priorities (1–5).
-  - Phase 3 fields (career_anchors, derailers, energy_map, career_theme) are `null` — not omitted, not
+  - Phase 3 fields (career_anchors, derailers, energy_map, career_theme, career_values) are `null` — not omitted, not
     fabricated — when Phase 3 has not run.
+  - `career_context_confirmed` is `false` before explicit user confirmation.
   - File written to `data/self_analysis_profile.yml` (CWD-relative per Output Contract Rule C); absolute
     path printed and existence verified after the save.
 
@@ -42,3 +43,12 @@ Run these when iterating on the `jiko-bunseki` skill.
   - job-seeker-agent reuses work_style / wellbeing_priorities / self_pr_seeds (skips those questions).
   - SPI3 and Portable Skills are still scored fresh by job-seeker-agent — never copied from the
     self-analysis (ownership rule).
+
+## Test Case 6: Canonical value confirmation
+**Objective**: AI suggestions never become canonical without explicit confirmation.
+- **Input**: Phase 3 answers that support anchors, energy, theme, and must-have/avoid values.
+- **Criteria**:
+  - The exact proposed values are shown back to the user before saving as canonical.
+  - Rejected or unanswered values are revised or left null; no generic motive is inserted.
+  - The profile remains `career_context_confirmed: false` until the user approves the complete non-null block.
+  - With `CAREER_VAULT`, `propose-context` and `career-agent approve` are required before the context is returned.
