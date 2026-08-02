@@ -85,6 +85,7 @@ class CareerAgentTests(unittest.TestCase):
         # HOME too so this can't ever touch the real ~/.career-agent-vault on a dev machine.
         env = {k: v for k, v in os.environ.items() if k != "CAREER_VAULT"}
         env["HOME"] = self.tempdir.name
+        env["USERPROFILE"] = self.tempdir.name  # Path.home() reads this on Windows, not HOME
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "setup"],
             text=True, encoding="utf-8", capture_output=True, check=False, env=env,
