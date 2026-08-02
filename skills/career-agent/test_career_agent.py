@@ -223,7 +223,7 @@ class CareerAgentTests(unittest.TestCase):
         self.assertFalse(invalid["ok"])
         self.assertTrue(any("career_status" in error for error in invalid["errors"]))
 
-    def test_invalid_tool_input_safe_stops_and_rollback_restores_state(self) -> None:
+    def test_invalid_tool_input_safe_stops_and_restore_state_recovers_snapshot(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
         failed = run(self.vault, "run", "--mode", "discover", input_text=json.dumps({"company": "missing url"}))
         self.assertEqual(failed.returncode, 2)
@@ -236,9 +236,26 @@ class CareerAgentTests(unittest.TestCase):
         state_path = self.vault / "02-state" / "career-state.toml"
         state_path.write_text(state_path.read_text(encoding="utf-8").replace('stage = "面接"', 'stage = "退職・入社準備"'), encoding="utf-8")
         self.assertEqual(output(run(self.vault, "status"))["state"]["stage"], "退職・入社準備")
-        rolled = output(run(self.vault, "rollback", approved["version"]))
-        self.assertTrue(rolled["rolled_back"])
-        self.assertEqual(rolled["state"]["last_event_id"], approved["event"]["id"])
+        restored = output(run(self.vault, "restore-state", approved["version"]))
+        self.assertTrue(restored["restored"])
+        self.assertEqual(restored["state"]["last_event_id"], approved["event"]["id"])
+
+    def test_restore_state_keeps_the_ledger_and_says_so(self) -> None:
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        first = output(run(self.vault, "run", "--mode", "chat", "--message", "職務経歴書を直したい"))
+        early = output(run(self.vault, "approve", first["proposal"]["id"], "--evidence", "職務経歴書を直したい"))
+        second = output(run(self.vault, "run", "--mode", "chat", "--message", "内定をもらった"))
+        output(run(self.vault, "approve", second["proposal"]["id"], "--evidence", "内定をもらった"))
+
+        restored = output(run(self.vault, "restore-state", early["version"]))
+        self.assertTrue(restored["ledger_retained"])
+        self.assertEqual(restored["state"]["stage"], "職務経歴書・自己PR")
+        # The later event is still in the ledger and still drives heartbeat. This is the documented
+        # limitation of restore-state; if it ever stops being true, the docstring is wrong.
+        status_after = output(run(self.vault, "status"))
+        self.assertEqual(status_after["event_count"], 2)
+        actions = output(run(self.vault, "run", "--mode", "heartbeat"))["actions"]
+        self.assertEqual(actions[0]["stage"], "内定・条件交渉")
 
     def test_approve_failure_logs_trajectory(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")

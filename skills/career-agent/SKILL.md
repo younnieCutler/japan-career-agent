@@ -9,8 +9,8 @@ description: >
 
 # Career Agent
 
-This is the orchestration layer for the existing seven skills. It does not replace them and does
-not inject every `SKILL.md` into every run.
+This is the orchestration layer for the existing eight domain skills. It does not replace them and
+does not inject every `SKILL.md` into every run.
 
 ## Run
 
@@ -26,7 +26,7 @@ python skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python skills/career-agent/career_agent.py status --vault "$VAULT"
 python skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume line 12"
-python skills/career-agent/career_agent.py rollback --vault "$VAULT" <version>
+python skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python skills/career-agent/career_agent.py index --vault "$VAULT"
 python skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
@@ -51,6 +51,13 @@ hub that the domain skills write and `status_bar.py` / `calibrate.py` read. It s
 stage mapped to the 0–7 market stage map, forward-only), `next_action`, `deadline` and a `history`
 line; every other field belongs to the domain skills and is left untouched. Run `approve` from the
 directory holding `data/`.
+
+`restore-state` replaces the current state with a saved snapshot. It is **not** an undo: the ledger
+is append-only, so `events.jsonl`, `proposals.jsonl` and `data/pipeline.yml` keep everything recorded
+after that snapshot. An event approved later still surfaces in `heartbeat` as the latest confirmed
+event (`choose_actions` reads the ledger, not the state), still sits in the `chat` recent-event
+window, still holds its proposal at `approved` so it cannot be approved again, and still leaves the
+company's `stage` where it moved it. Use it to recover a damaged state file, not to undo an approval.
 
 `correct` actively reacts to `verify` at three points: an `approve` failure is logged (not silently
 dropped) and escalated to the user; `discover` drops individually-corrupted postings and keeps the rest

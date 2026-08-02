@@ -9,35 +9,39 @@ This file is the single source of truth for all AI Agents (Claude Code, Codex, C
 To minimize token consumption, do **NOT** read entire source files. Use line-offset slicing (`view_file` with `StartLine`/`EndLine`) targeting these specific line ranges:
 
 ### 1. `skills/career-agent/career_agent.py` (Local Runtime Engine)
-- **`L24–L72`**: Constants, Tracks (`shinsotsu`/`chuto`), Stage definitions & Stage-to-Skill mapping
-- **`L88–L113`**: Stage Aliases mapping (Keyword routing)
-- **`L129–L134`**: Regular expressions (`NUMERIC_CLAIM`, `DATE_VALUE`, `HEADING`, `WIKILINK`)
-- **`L253–L335`**: Frontmatter parser & Vault Note Indexer (`index_vault_notes`)
-- **`L337–L483`**: Context Selector (`select_context` - metadata-only, no body loading)
-- **`L485–L542`**: Event validation (`validate_event`) & Evidence verification logic
-- **`L576–L650`**: `CareerVault` Class (State management, proposal handling, checkpoints)
-- **`L691–L738`**: `doctor()` Vault Diagnostic runner
-- **`L803–L870`**: `run_chat()` Session router & Proposal builder
-- **`L872–L887`**: `run_heartbeat()` Action proposal engine (capped at 3)
-- **`L889–L905`**: `run_discover()` Job Posting deduplication & Candidate recorder
-- **`L935–L955`**: `run_context()` Shared metadata API provider
-- **`L957–L978`**: `approve()` 2-step Ledger Commit processor
-- **`L980–L990`**: `rollback()` State snapshot restoration
+- **`L33–L50`**: Constants, Tracks (`shinsotsu`/`chuto`), Stage definitions
+- **`L51–L67`**: `PIPELINE_STAGE` — agent stage to the 0–7 market stage map
+- **`L68–L86`**: `SKILL_BY_STAGE` — Stage-to-Skill mapping
+- **`L102–L127`**: Stage Aliases mapping (Keyword routing)
+- **`L143–L148`**: Regular expressions (`NUMERIC_CLAIM`, `DATE_VALUE`, `HEADING`, `WIKILINK`)
+- **`L324–L362`**: Vault Note Indexer (`index_vault_notes`)
+- **`L501–L517`**: Context Selector (`select_context` - metadata-only, no body loading)
+- **`L520–L554`**: Event validation (`validate_event`) & Evidence verification logic
+- **`L620–L692`**: `CareerVault` Class (State management, proposal handling, checkpoints)
+- **`L729–L772`**: `upsert_pipeline_entry()` Projection onto `data/pipeline.yml`
+- **`L775–L791`**: `apply_event_to_state()` Vault flow state only, no company list
+- **`L794–L840`**: `doctor()` Vault Diagnostic runner
+- **`L917–L993`**: `run_chat()` Session router & Proposal builder
+- **`L996–L1011`**: `run_heartbeat()` Action proposal engine (capped at 3)
+- **`L1014–L1039`**: `run_discover()` Job Posting deduplication & Candidate recorder
+- **`L1069–L1091`**: `run_context()` Shared metadata API provider
+- **`L1140–L1183`**: `approve()` 2-step Ledger Commit processor
+- **`L1186–L1211`**: `restore_state()` State snapshot restore — ledger is NOT rewound
 
 ### 2. `_shared/scoring.py` (Deterministic Scoring Engine)
 - **`L35–L43`**: Score Grade Boundary Evaluator (`A` >= 85, `B` >= 70, `C` >= 55, `D` < 55)
 - **`L45–L58`**: `recruit_style()` — Recruit Algorithm (Skill terms + SPI3 fit + Behavioral signal)
 - **`L60–L75`**: `persol_style()` — Persol Algorithm (Cosine Similarity + Transfer Bonus)
-- **`L77–L89`**: `culture_fit()` — 4-Factor Well-being Distance Evaluator
-- **`L91–L106`**: Self-test suite (`python3 _shared/scoring.py --self-test`)
+- **`L77–L93`**: `culture_fit()` — 4-Factor Well-being Distance Evaluator; refuses a verdict on missing factors
+- **`L96–L116`**: Self-test suite (`python3 _shared/scoring.py --self-test`)
 
 ### 3. `_shared/schemas.yml` (Canonical Data Contracts)
 - **`L22–L62`**: `SELF_ANALYSIS_PROFILE` (Produced by `jiko-bunseki`, consumed by `job-seeker-agent`)
 - **`L70–L125`**: `CANDIDATE_PROFILE` (Produced by `job-seeker-agent`, consumed by match/battlecard)
 - **`L127–L149`**: `COMPANY_PROFILE` (Produced by `hiring-manager-agent` / `kigyou-bunseki`)
 - **`L151–L166`**: `MATCH_HISTORY` (Produced by `matching-simulator`)
-- **`L179–L263`**: `PIPELINE` — per-company state, outcome record, measurement fields, `action_items`
-- **`L265–L273`**: `RULES` — the user's standing rules (`career-agent` writes on approval only)
+- **`L164–L252`**: `PIPELINE` — the suite's only per-company store; outcome record, measurement fields, `action_items`
+- **`L254–L279`**: `RULES` — the user's standing rules (`career-agent` writes on approval only)
 
 ### 4. `scripts/` (Deterministic Loop — no LLM in the path)
 - **`status_bar.py`**: `build_status()` → the `<career_status>` block. Run by the UserPromptSubmit hook

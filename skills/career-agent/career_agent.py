@@ -1183,7 +1183,21 @@ def approve(
         return {"approved": True, "proposal": updated, "applied": False, "message": "Only event proposals change the local ledger; skill changes remain offline proposals."}
 
 
-def rollback(home: CareerVault, version: str) -> dict[str, Any]:
+def restore_state(home: CareerVault, version: str) -> dict[str, Any]:
+    """Replace the current state with a saved snapshot. This is NOT a rollback.
+
+    The event ledger is append-only by design, so nothing here rewinds it: `events.jsonl`,
+    `proposals.jsonl` and `data/pipeline.yml` all keep everything recorded after the snapshot.
+    Consequences to expect, which is why the command is not called `rollback`:
+
+    - `choose_actions()` reads the ledger, not the state, so an event recorded after the
+      snapshot still surfaces in heartbeat as the latest confirmed event.
+    - `run_chat()` keeps those events in its recent-event window.
+    - The proposals behind them stay `approved` and cannot be approved a second time.
+    - A company's `stage` in `data/pipeline.yml` stays where the later event put it.
+
+    Use this to recover a state file that got into a bad shape, not to undo an approval.
+    """
     snapshot = home.versions / f"{version}.json"
     if not snapshot.exists():
         raise CareerError(f"version not found: {version}")
@@ -1191,8 +1205,10 @@ def rollback(home: CareerVault, version: str) -> dict[str, Any]:
     if not isinstance(state, dict):
         raise CareerError(f"invalid version snapshot: {version}")
     home.write_state(state)
-    append_jsonl(home.checkpoints, {"version": version, "rolled_back_at": utc_now(), "state": state})
-    return {"rolled_back": True, "version": version, "state": state}
+    append_jsonl(home.checkpoints, {"version": version, "restored_at": utc_now(), "state": state})
+    return {"restored": True, "version": version, "state": state,
+            "ledger_retained": True,
+            "note": "State only. events.jsonl, proposals.jsonl and data/pipeline.yml are unchanged."}
 
 
 def status(home: CareerVault) -> dict[str, Any]:
@@ -1228,9 +1244,12 @@ def build_parser() -> argparse.ArgumentParser:
     approve_parser.add_argument("--company", help="company name for an offer/application event")
     approve_parser.add_argument("--compensation", type=float, help="compensation amount for an offer/application event")
     approve_parser.add_argument("--currency", help="currency for --compensation, e.g. JPY")
-    rollback_parser = subparsers.add_parser("rollback")
-    add_vault_argument(rollback_parser)
-    rollback_parser.add_argument("version")
+    restore_parser = subparsers.add_parser(
+        "restore-state",
+        help="replace the current state with a saved snapshot; the append-only ledger is kept",
+    )
+    add_vault_argument(restore_parser)
+    restore_parser.add_argument("version")
     index_parser = subparsers.add_parser("index")
     add_vault_argument(index_parser)
     index_parser.add_argument("--include-archives", action="store_true", help="include 06-archives in the index")
@@ -1262,8 +1281,8 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = status(home)
             elif args.command == "approve":
                 result = approve(home, args.proposal_id, args.evidence, args.deadline, args.company, args.compensation, args.currency)
-            elif args.command == "rollback":
-                result = rollback(home, args.version)
+            elif args.command == "restore-state":
+                result = restore_state(home, args.version)
             elif args.command == "index":
                 result = run_index(home, include_archives=args.include_archives)
             elif args.command == "context":

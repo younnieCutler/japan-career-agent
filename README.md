@@ -222,7 +222,7 @@ python3 skills/career-agent/career_agent.py status --vault "$VAULT"
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-id> --evidence "resume.md:12"
-python3 skills/career-agent/career_agent.py rollback --vault "$VAULT" <version>
+python3 skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python3 skills/career-agent/career_agent.py index --vault "$VAULT"
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
