@@ -134,6 +134,8 @@ STAGE_ALIASES = {
     "内定": "offer",
     "퇴직": "exit",
     "입사": "exit",
+    "退職": "exit",
+    "入社": "exit",
     "転職": "chuto",
     "중途": "chuto",
     "신졸": "shinsotsu",

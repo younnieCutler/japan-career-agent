@@ -257,6 +257,17 @@ class CareerAgentTests(unittest.TestCase):
         actions = output(run(self.vault, "run", "--mode", "heartbeat"))["actions"]
         self.assertEqual(actions[0]["stage"], "内定・条件交渉")
 
+    def test_japanese_exit_keywords_route_to_exit_stage(self) -> None:
+        # STAGE_ALIASES had 퇴직/입사 (Korean) but not 退職/入社 (Japanese), so a Japanese
+        # resignation message fell through to the self-analysis default instead of the exit stage.
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "退職届を提出した。円満退職したい。"))
+        self.assertEqual(proposed["stage"], "退職・入社準備")
+        self.assertEqual(proposed["flow_phase"], "exit_onboarding")
+
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "入社日が決まった"))
+        self.assertEqual(proposed["stage"], "退職・入社準備")
+
     def test_approve_failure_logs_trajectory(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "売上を30%改善した"))
