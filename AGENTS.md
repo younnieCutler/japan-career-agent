@@ -321,6 +321,16 @@ improvement.
 
 ---
 
+## ✅ Commit Gate (All Agents)
+
+Before preparing any commit, read `.agents/PRE_COMMIT_CHECKLIST.md` when it exists. It is deliberately
+gitignored because it is a local operating contract; never add it to a commit. At minimum, verify the
+seven questions in that document: data-contract readers/writers, pre-existing state transitions,
+KO/JA/EN routing, Windows compatibility, existing-data compatibility, retry safety, and one lifecycle
+smoke test. Run the listed deterministic checks before committing.
+
+---
+
 ## 🗂️ Suite Architecture
 
 ```

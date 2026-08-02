@@ -6,7 +6,7 @@
 자기분석부터 서류, 면접, 오퍼, 퇴직, 입사 준비까지 연결합니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](./.claude-plugin/plugin.json)
 [![Skills](https://img.shields.io/badge/skills-9-blue.svg)](#스킬)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](#설치)
 [![Codex](https://img.shields.io/badge/Codex-plugin-412991.svg)](#설치)
@@ -310,6 +310,8 @@ flowchart LR
 
 | 목표 | 워크플로우 |
 |---|---|
+| 신졸: 바로 쓸 学チカ·自己PR 초안 | `/job-seeker-agent`에 활동 하나를 말하기 → 검토 후 심화 분석 또는 기업 연구 |
+| 전직: 바로 쓸 경력 요약·転職軸 초안 | `/job-seeker-agent`에 목표 직무와 최근 역할을 말하기 → 검토 후 심화 분석 또는 기업 연구 |
 | 방향부터 정하기 | `/jiko-bunseki` → `/job-seeker-agent` |
 | 新卒: 学チカ(학창시절 주력 활동)에서 ES까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |
 | 中途: 경력서에서 면접까지 | `/job-seeker-agent` → `/kigyou-bunseki` → `/matching-simulator` |

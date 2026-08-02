@@ -31,3 +31,5 @@ jobs:
         run: python scripts/test_pipeline_integration.py
       - name: SKILL.md reference paths
         run: python scripts/check_reference_paths.py
+      - name: self-analysis checklist contract
+        run: python skills/jiko-bunseki/tests/test_checklist_contract.py

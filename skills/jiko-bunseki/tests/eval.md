@@ -2,12 +2,13 @@
 
 Run these when iterating on the `jiko-bunseki` skill.
 
-## Test Case 1: Interactive pacing
-**Objective**: Forced-choice pairs are delivered in small batches with STOP, never dumped.
+## Test Case 1: Checklist completion and explicit answers
+**Objective**: The external checklist captures every answer explicitly before the skill begins analysis.
 - **Input**: "자기분석 하고 싶어" (no other context).
 - **Criteria**:
-  - Track question (新卒/中途) asked first.
-  - Strength pairs presented a few at a time; the skill STOPs and waits after each batch.
+- Existing-profile check runs before the checklist handoff.
+- The user completes the 24 strength pairs in the supplied HTML checklist, then pastes the generated JSON.
+- The 6 work-style and 4 wellbeing sliders are not accepted until each is explicitly touched; visible defaults are not answers.
   - No final profile output before all phases' inputs are collected.
 
 ## Test Case 2: SELF_ANALYSIS_PROFILE schema conformance

@@ -60,7 +60,8 @@ Link: After joining, I want to take on consulting work, solving client challenge
 ```
 
 **Absolute rule:** Do not write an episode without real experience.
-Number estimates are allowed within a reasonable range (scale, frequency, etc.).
+Never estimate a number. If the user cannot verify one, write the role, frequency, duration, scope, or learning
+qualitatively and mark the missing number as an evidence question.
 
 #### 4-2. ES (Entry Sheet) optimization
 
