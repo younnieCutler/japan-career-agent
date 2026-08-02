@@ -9,24 +9,30 @@ This file is the single source of truth for all AI Agents (Claude Code, Codex, C
 To minimize token consumption, do **NOT** read entire source files. Use line-offset slicing (`view_file` with `StartLine`/`EndLine`) targeting these specific line ranges:
 
 ### 1. `skills/career-agent/career_agent.py` (Local Runtime Engine)
-- **`L33–L50`**: Constants, Tracks (`shinsotsu`/`chuto`), Stage definitions
-- **`L51–L67`**: `PIPELINE_STAGE` — agent stage to the 0–7 market stage map
-- **`L68–L86`**: `SKILL_BY_STAGE` — Stage-to-Skill mapping
-- **`L102–L127`**: Stage Aliases mapping (Keyword routing)
-- **`L143–L148`**: Regular expressions (`NUMERIC_CLAIM`, `DATE_VALUE`, `HEADING`, `WIKILINK`)
-- **`L324–L362`**: Vault Note Indexer (`index_vault_notes`)
-- **`L501–L517`**: Context Selector (`select_context` - metadata-only, no body loading)
-- **`L520–L554`**: Event validation (`validate_event`) & Evidence verification logic
-- **`L620–L692`**: `CareerVault` Class (State management, proposal handling, checkpoints)
-- **`L729–L772`**: `upsert_pipeline_entry()` Projection onto `data/pipeline.yml`
-- **`L775–L791`**: `apply_event_to_state()` Vault flow state only, no company list
-- **`L794–L840`**: `doctor()` Vault Diagnostic runner
-- **`L917–L993`**: `run_chat()` Session router & Proposal builder
-- **`L996–L1011`**: `run_heartbeat()` Action proposal engine (capped at 3)
-- **`L1014–L1039`**: `run_discover()` Job Posting deduplication & Candidate recorder
-- **`L1069–L1091`**: `run_context()` Shared metadata API provider
-- **`L1140–L1183`**: `approve()` 2-step Ledger Commit processor
-- **`L1186–L1211`**: `restore_state()` State snapshot restore — ledger is NOT rewound
+- **`L39–L64`**: Constants, Tracks (`shinsotsu`/`chuto`), Stage definitions
+- **`L76–L90`**: `PIPELINE_STAGE` — agent stage to the 0–7 market stage map
+- **`L91–L105`**: `SKILL_BY_STAGE` — Stage-to-Skill mapping
+- **`L136–L139`**: Regular expressions (`NUMERIC_CLAIM`, `DATE_VALUE`, `HEADING`, `WIKILINK`)
+- **`L142–L155`**: `load_routing()` / `ROUTING` — loads `references/routing.yml`, the single KO/JA/EN
+  keyword lexicon `infer_track()`, `stage_for()` and `flow_phase_for()` all read (no more per-function
+  keyword copies to drift out of sync)
+- **`L317–L357`**: Vault Note Indexer (`index_vault_notes`)
+- **`L367–L402`**: `infer_track()` / `stage_for()` — routing, both driven by `ROUTING`
+- **`L440–L453`**: `flow_phase_for()` — also driven by `ROUTING["flow_phase"]`
+- **`L479–L497`**: Context Selector (`select_context` - metadata-only, no body loading)
+- **`L498–L534`**: Event validation (`validate_event`) & Evidence verification logic
+- **`L598–L672`**: `CareerVault` Class (State management, proposal handling, checkpoints)
+- **`L707–L748`**: `upsert_pipeline_entry()` Projection onto `data/pipeline.yml`, now via
+  `_shared/pipeline_store.mutate()` (lock + atomic write)
+- **`L749–L767`**: `apply_event_to_state()` Vault flow state only, no company list
+- **`L768–L815`**: `doctor()` Vault Diagnostic runner
+- **`L817–L856`**: `DEFAULT_VAULT_PATH` / `setup()` — one-shot first run: init + profile fields + doctor
+- **`L932–L1010`**: `run_chat()` Session router & Proposal builder
+- **`L1011–L1028`**: `run_heartbeat()` Action proposal engine (capped at 3)
+- **`L1029–L1056`**: `run_discover()` Job Posting deduplication & Candidate recorder
+- **`L1084–L1106`**: `run_context()` Shared metadata API provider
+- **`L1155–L1200`**: `approve()` 2-step Ledger Commit processor
+- **`L1201–L1228`**: `restore_state()` State snapshot restore — ledger is NOT rewound
 
 ### 2. `_shared/scoring.py` (Deterministic Scoring Engine)
 - **`L35–L43`**: Score Grade Boundary Evaluator (`A` >= 85, `B` >= 70, `C` >= 55, `D` < 55)
@@ -34,6 +40,14 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`L60–L75`**: `persol_style()` — Persol Algorithm (Cosine Similarity + Transfer Bonus)
 - **`L77–L93`**: `culture_fit()` — 4-Factor Well-being Distance Evaluator; refuses a verdict on missing factors
 - **`L96–L116`**: Self-test suite (`python3 _shared/scoring.py --self-test`)
+
+### 2b. `_shared/pipeline_store.py` (Shared write path for `data/pipeline.yml`)
+- **`L27–L41`**: `locked()` — fcntl/msvcrt exclusive lock on a `.lock` sibling file
+- **`L44–L49`**: `load()` — safe_load, `{}` if the file doesn't exist yet
+- **`L52–L60`**: `atomic_write()` — write to a `.tmp-<pid>` sibling, then `os.replace()`
+- **`L63–L67`**: `mutate()` — load → fn(data) → atomic_write, all inside `locked()`. Both
+  `career_agent.py`'s `upsert_pipeline_entry()` and `scripts/check_action.py`'s `check()` go
+  through this now instead of each doing their own read-whole-file/rewrite-whole-file.
 
 ### 3. `_shared/schemas.yml` (Canonical Data Contracts)
 - **`L22–L62`**: `SELF_ANALYSIS_PROFILE` (Produced by `jiko-bunseki`, consumed by `job-seeker-agent`)
@@ -287,7 +301,8 @@ what was expected, status `open`. Do this in the moment; don't wait to write a p
 sporadic, unconfirmed failures should stay logged and unactioned. Only when the same pattern repeats
 2–3+ times across sessions, promote it to the smallest medium that fits:
 - A judgment call or instruction the model should follow → edit that skill's `SKILL.md` wording.
-- A deterministic rule or routing bug → edit `career_agent.py` (or the skill's own logic, if any).
+- A deterministic rule or routing bug → edit `career_agent.py`'s keyword lists in
+  `skills/career-agent/references/routing.yml` (or the skill's own logic, if any).
 - Either way: re-run `tests/eval.md` (or `test_career_agent.py` for career-agent) after the change to
   confirm nothing else regressed, then mark the row `Promoted` with a one-line pointer to what changed.
 

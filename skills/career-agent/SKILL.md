@@ -14,7 +14,19 @@ does not inject every `SKILL.md` into every run.
 
 ## Run
 
-From the repository root:
+First time, one shot:
+
+```bash
+python skills/career-agent/career_agent.py setup --track chuto --target-role "LLMOps Engineer"
+```
+
+`setup` inits a Vault (defaults to `~/.career-agent-vault` if `--vault`/`CAREER_VAULT` isn't set),
+fills in the profile fields given, and runs `doctor`, returning `next` so the caller knows whether
+to go straight to `chat` or fill in whatever `doctor` still flags. It never picks the current working
+directory as the Vault — only an explicit `--vault`, `CAREER_VAULT`, or the `~/.career-agent-vault`
+default.
+
+Everything below is the same runtime, spelled out step by step, from the repository root:
 
 ```bash
 VAULT=/path/to/career-agent-vault
@@ -51,6 +63,11 @@ hub that the domain skills write and `status_bar.py` / `calibrate.py` read. It s
 stage mapped to the 0–7 market stage map, forward-only), `next_action`, `deadline` and a `history`
 line; every other field belongs to the domain skills and is left untouched. Run `approve` from the
 directory holding `data/`.
+
+`scripts/check_action.py` is the other writer of `data/pipeline.yml`. Both go through
+`_shared/pipeline_store.py`'s `mutate()` (lock the file, load, apply the change, write to a temp
+file, atomic rename) instead of each doing its own unlocked read-whole-file/rewrite-whole-file, so a
+crash mid-write can't truncate the file and the two writers can't silently drop each other's change.
 
 `restore-state` replaces the current state with a saved snapshot. It is **not** an undo: the ledger
 is append-only, so `events.jsonl`, `proposals.jsonl` and `data/pipeline.yml` keep everything recorded

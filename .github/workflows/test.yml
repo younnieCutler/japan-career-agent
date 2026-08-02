@@ -25,5 +25,7 @@ jobs:
         run: python scripts/test_status_bar.py
       - name: calibration tests
         run: python scripts/test_calibrate.py
+      - name: check_action tests
+        run: python scripts/test_check_action.py
       - name: SKILL.md reference paths
         run: python scripts/check_reference_paths.py

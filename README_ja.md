@@ -183,11 +183,12 @@ Bash ツール経由で以下のコマンドを代わりに実行しますが、
 ではなく、あなた（または Claude）が実行するたびに根拠のある次のアクションを最大3件返す、手動の
 単発チェックです。
 
-**クイックスタート:** 上記の手順でプラグインをインストールしたら、まず Vault を一度作成します —
-`career_agent.py init --vault <path>` を実行し、`CAREER_VAULT` を設定してください（[Career Agent
-の実行](#career-agent-の実行) 参照。`career-agent` は Vault なしでは動作を拒否します）。その後
-プロジェクトで Claude Code を開いて「次にやるべきキャリアのアクションは？」のように話しかけてみて
-ください — エージェントが Vault の状態を観察し、根拠とともに次のステップを提案し、記録する前に
+**クイックスタート:** 上記の手順でプラグインをインストールしたら、`career_agent.py setup` を一度
+実行します — Vault を作成し（デフォルトは `~/.career-agent-vault`、または `--vault`/`CAREER_VAULT`
+で指定）、渡したプロフィール項目を埋め、`doctor` まで実行します（[Career Agent の実行]
+(#career-agent-の実行) 参照。`career-agent` はカレントディレクトリを保存先の初期値にしません）。
+その後プロジェクトで Claude Code を開いて「次にやるべきキャリアのアクションは？」のように話しかけて
+みてください — エージェントが Vault の状態を観察し、根拠とともに次のステップを提案し、記録する前に
 あなたの承認を待ちます。
 
 ## Career Agent の実行
@@ -213,9 +214,10 @@ export CAREER_AGENT_RUNTIME=<上で見つけたパス>
 
 ```bash
 VAULT=/path/to/career-agent-vault
-python3 skills/career-agent/career_agent.py init --vault "$VAULT"
-# 00-control/career-profile.toml を入力してから検証します。
-python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
+python3 skills/career-agent/career_agent.py setup --vault "$VAULT" --track shinsotsu \
+  --target-role "LLMOps Engineer"
+# setup = init + プロフィール項目の入力 + doctor を一度に実行。再実行しても安全 — 渡さなかった
+# 項目は消えません。setup のフラグでカバーされない項目は 00-control/career-profile.toml を直接編集してください。
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --track shinsotsu \
   --message "学チカの経験を自己PRの素材に整理したいです。"
 python3 skills/career-agent/career_agent.py status --vault "$VAULT"

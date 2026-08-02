@@ -184,11 +184,13 @@ terminal for direct control, scripting, or debugging. `heartbeat` is not a backg
 scheduler — it is a manual, one-shot check that returns up to three grounded next actions when
 you (or Claude) run it.
 
-**Quickstart:** install the plugin (above), then create a Vault once — `career_agent.py init
---vault <path>` and set `CAREER_VAULT` (see [Run the Career Agent](#run-the-career-agent) below;
-`career-agent` refuses to run without one). After that, open Claude Code in the project and say
-something like "what's my next career action?" — the agent observes your Vault state, proposes
-a next step with evidence, and waits for your approval before recording anything.
+**Quickstart:** install the plugin (above), then run `career_agent.py setup` once — it creates a
+Vault (`~/.career-agent-vault` by default, or pass `--vault`/set `CAREER_VAULT`), fills in the
+profile fields you give it, and runs `doctor` (see [Run the Career Agent](#run-the-career-agent)
+below; `career-agent` never defaults to the current directory). After that, open Claude Code in
+the project and say something like "what's my next career action?" — the agent observes your
+Vault state, proposes a next step with evidence, and waits for your approval before recording
+anything.
 
 ## Run the Career Agent
 
@@ -212,9 +214,10 @@ Installed via the Local fallback (git clone) instead? The relative path below wo
 
 ```bash
 VAULT=/path/to/career-agent-vault
-python3 skills/career-agent/career_agent.py init --vault "$VAULT"
-# Fill 00-control/career-profile.toml, then check the setup.
-python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
+python3 skills/career-agent/career_agent.py setup --vault "$VAULT" --track shinsotsu \
+  --target-role "LLMOps Engineer"
+# setup = init + profile fields + doctor in one call. Safe to re-run — it never clears a field
+# you don't pass. Hand-edit 00-control/career-profile.toml for anything its flags don't cover.
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat \
   --track shinsotsu --message "I want to turn my 学チカ experience into 自己PR material."
 python3 skills/career-agent/career_agent.py status --vault "$VAULT"

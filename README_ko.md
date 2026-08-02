@@ -178,11 +178,12 @@ claude plugin list                                        # 버전 확인
 실행해도 됩니다. `heartbeat`는 백그라운드 작업이나 스케줄러가 아니라, 당신(또는 Claude)이
 실행할 때마다 근거 있는 다음 액션을 최대 3개 반환하는 수동 1회성 체크입니다.
 
-**퀵스타트:** 위 안내대로 플러그인을 설치한 뒤, Vault를 한 번 만드세요 — `career_agent.py init
---vault <path>` 실행 후 `CAREER_VAULT`를 설정합니다([Career Agent 실행](#career-agent-실행) 참고;
-`career-agent`는 Vault 없이는 동작을 거부합니다). 그 다음 프로젝트에서 Claude Code를 연 뒤 "다음
-커리어 액션이 뭐야?" 같은 말을 해보세요 — 에이전트가 Vault 상태를 관찰하고 근거와 함께 다음 단계를
-제안한 뒤, 기록하기 전에 당신의 승인을 기다립니다.
+**퀵스타트:** 위 안내대로 플러그인을 설치한 뒤, `career_agent.py setup`을 한 번 실행하세요 —
+Vault를 만들고(기본값 `~/.career-agent-vault`, 또는 `--vault`/`CAREER_VAULT`로 지정), 넘긴 프로필
+값을 채운 뒤 `doctor`까지 실행합니다([Career Agent 실행](#career-agent-실행) 참고; `career-agent`는
+현재 폴더를 기본 저장 위치로 쓰지 않습니다). 그 다음 프로젝트에서 Claude Code를 연 뒤 "다음 커리어
+액션이 뭐야?" 같은 말을 해보세요 — 에이전트가 Vault 상태를 관찰하고 근거와 함께 다음 단계를 제안한
+뒤, 기록하기 전에 당신의 승인을 기다립니다.
 
 ## Career Agent 실행
 
@@ -207,9 +208,10 @@ export CAREER_AGENT_RUNTIME=<위에서 찾은 경로>
 
 ```bash
 VAULT=/path/to/career-agent-vault
-python3 skills/career-agent/career_agent.py init --vault "$VAULT"
-# 00-control/career-profile.toml을 채운 뒤 검증합니다.
-python3 skills/career-agent/career_agent.py doctor --vault "$VAULT"
+python3 skills/career-agent/career_agent.py setup --vault "$VAULT" --track shinsotsu \
+  --target-role "LLMOps Engineer"
+# setup = init + 프로필 필드 채우기 + doctor를 한 번에. 다시 실행해도 안전 — 넘기지 않은 필드는
+# 지우지 않습니다. setup 플래그가 다루지 않는 값은 00-control/career-profile.toml을 직접 수정하세요.
 python3 skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --track shinsotsu \
   --message "가쿠치카 경험을 자기PR 소재로 정리하고 싶어요."
 python3 skills/career-agent/career_agent.py status --vault "$VAULT"

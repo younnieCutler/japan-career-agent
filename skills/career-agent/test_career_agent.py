@@ -64,6 +64,35 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual(failed.returncode, 2)
         self.assertIn("CAREER_VAULT is required", failed.stderr)
 
+    def test_setup_initializes_vault_fills_profile_and_runs_doctor(self) -> None:
+        fresh_vault = self.vault.parent / "setup-vault"
+        result = output(run(fresh_vault, "setup", "--track", "chuto",
+                             "--target-role", "LLMOps Engineer"))
+        self.assertTrue(result["created"])
+        self.assertEqual(result["profile"]["track"], "chuto")
+        self.assertEqual(result["profile"]["target_role"], "LLMOps Engineer")
+        self.assertTrue(result["doctor"]["ok"], result["doctor"])
+        self.assertEqual(result["next"], "run --mode chat")
+
+        # Re-running setup on the same vault must not wipe what's already there.
+        again = output(run(fresh_vault, "setup", "--graduation-year", "2027"))
+        self.assertFalse(again["created"])
+        self.assertEqual(again["profile"]["track"], "chuto")
+        self.assertEqual(again["profile"]["graduation_year"], 2027)
+
+    def test_setup_defaults_to_home_vault_when_no_vault_given(self) -> None:
+        # CAREER_VAULT is exported in a real user's shell and would leak in; scrub it, and
+        # HOME too so this can't ever touch the real ~/.career-agent-vault on a dev machine.
+        env = {k: v for k, v in os.environ.items() if k != "CAREER_VAULT"}
+        env["HOME"] = self.tempdir.name
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "setup"],
+            text=True, encoding="utf-8", capture_output=True, check=False, env=env,
+        )
+        payload = json.loads(result.stdout)
+        expected = (Path(self.tempdir.name) / ".career-agent-vault").resolve()
+        self.assertEqual(payload["vault"], str(expected))
+
     def test_shinsotsu_requires_graduation_year_then_proposes_event(self) -> None:
         missing = output(run(self.vault, "run", "--mode", "chat", "--track", "shinsotsu", "--message", "신졸이고 가쿠치카 경험을 정리하고 싶어요"))
         self.assertTrue(missing["needs_confirmation"])

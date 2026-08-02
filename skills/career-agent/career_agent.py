@@ -30,6 +30,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterable
 
+_SHARED_ROOT = Path(__file__).resolve().parent.parent.parent / "_shared"
+if str(_SHARED_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SHARED_ROOT))
+import pipeline_store  # noqa: E402
+
 
 TRACKS = {"shinsotsu", "chuto"}
 EVENT_STATUSES = {"draft", "confirmed", "superseded"}
@@ -113,34 +118,6 @@ REFERENCE_BY_STAGE = {
     "内定・条件交渉": ("references/naitei-taiou.md",),
     "退職・入社準備": ("references/nyusha-teichaku.md",),
 }
-STAGE_ALIASES = {
-    "자기분석": "self",
-    "自己分析": "self",
-    "자소서": "documents",
-    "가쿠치카": "documents",
-    "학チ카": "documents",
-    "学チカ": "documents",
-    "자기pr": "documents",
-    "自己pr": "documents",
-    "이력서": "documents",
-    "履歴書": "documents",
-    "職務経歴書": "documents",
-    "es": "documents",
-    "企業研究": "research",
-    "기업 연구": "research",
-    "면접": "interview",
-    "面接": "interview",
-    "내정": "offer",
-    "内定": "offer",
-    "퇴직": "exit",
-    "입사": "exit",
-    "退職": "exit",
-    "入社": "exit",
-    "転職": "chuto",
-    "중途": "chuto",
-    "신졸": "shinsotsu",
-    "新卒": "shinsotsu",
-}
 REQUIRED_EVENT_FIELDS = (
     "id",
     "track",
@@ -162,6 +139,20 @@ HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.M)
 WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]")
 IGNORED_VAULT_DIRS = {".git", ".obsidian", ".career-agent", "career-home", "__pycache__"}
 FLOW_REFERENCE = Path(__file__).resolve().parent / "references" / "japan-career-flow.toml"
+ROUTING_REFERENCE = Path(__file__).resolve().parent / "references" / "routing.yml"
+
+
+def load_routing() -> dict[str, Any]:
+    """KO/JA/EN keyword lexicon shared by infer_track(), stage_for() and flow_phase_for()."""
+    import yaml
+
+    data = yaml.safe_load(ROUTING_REFERENCE.read_text(encoding="utf-8")) or {}
+    if not data.get("track") or not data.get("stage_alias") or not data.get("flow_phase"):
+        raise CareerError(f"invalid routing reference: {ROUTING_REFERENCE}")
+    return data
+
+
+ROUTING = load_routing()
 
 
 class CareerError(ValueError):
@@ -377,18 +368,18 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
     if requested in TRACKS:
         return requested
     lowered = message.lower()
-    shinsotsu = ("新卒", "신졸", "학チカ", "学チカ", "졸업", "graduat", "spi3", "学生")
-    chuto = ("中途", "중途", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career")
-    if any(term.lower() in lowered for term in shinsotsu):
+    if any(term.lower() in lowered for term in ROUTING["track"]["shinsotsu"]):
         return "shinsotsu"
-    if any(term.lower() in lowered for term in chuto):
+    if any(term.lower() in lowered for term in ROUTING["track"]["chuto"]):
         return "chuto"
     return None
 
 
 def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
-    for term, alias in STAGE_ALIASES.items():
-        if term.lower() not in message.lower():
+    lowered = message.lower()
+    for group in ROUTING["stage_alias"]:
+        alias = group["alias"]
+        if not any(term.lower() in lowered for term in group["terms"]):
             continue
         if alias == "chuto":
             track = "chuto"
@@ -452,24 +443,9 @@ def flow_phase_for(message: str, track: str, state: dict[str, Any], profile: dic
         if value in allowed:
             return str(value)
     lowered = message.lower()
-    if track == "shinsotsu":
-        signals = (
-            (("여름", "summer", "夏", "インターン"), "summer_entry"),
-            (("가을", "겨울", "autumn", "winter", "秋", "冬", "早期選考"), "autumn_winter_early"),
-            (("본선", "공식", "official", "本選考"), "official_selection"),
-            (("내정", "입사", "内々定", "内定", "入社"), "offer_onboarding"),
-        )
-    else:
-        signals = (
-            (("職務経歴書", "경력기술서", "이력서", "resume"), "documents"),
-            (("지원", "応募", "서류", "書類"), "application"),
-            (("면접", "面接"), "interview"),
-            (("오퍼", "연봉", "内定", "オファー", "条件"), "offer"),
-            (("퇴직", "입사", "退職", "入社"), "exit_onboarding"),
-        )
-    for terms, phase in signals:
-        if any(term.lower() in lowered for term in terms) and phase in allowed:
-            return phase
+    for signal in ROUTING["flow_phase"][track]:
+        if any(term.lower() in lowered for term in signal["terms"]) and signal["id"] in allowed:
+            return signal["id"]
     if track == "shinsotsu" and state.get("stage") == SHINSOTSU_STAGES[-1] and "offer_onboarding" in allowed:
         return "offer_onboarding"
     return "preparation"
@@ -736,41 +712,37 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
     runtime actually observes are written — match_score, channel, kyujin_legitimacy and the
     outcome record stay with the domain skills that produce them, and are never overwritten here.
     """
+    path = path or pipeline_file()
+
+    def apply(data: dict[str, Any]) -> dict[str, Any]:
+        slug = company_slug(event["company"])
+        pipeline = data.setdefault("pipeline", {})
+        companies = pipeline.setdefault("companies", [])
+        entry = next((c for c in companies if c.get("slug") == slug), None)
+        if entry is None:
+            entry = {"slug": slug, "name": event["company"], "closed": False, "history": []}
+            companies.append(entry)
+        stage = PIPELINE_STAGE.get(event["stage"])
+        if stage is not None and stage >= (entry.get("stage") or 0):
+            # Stage only moves forward. A late event about an early phase must not rewind a company.
+            entry["stage"] = stage
+        if event.get("next_action"):
+            entry["next_action"] = event["next_action"]
+        if event.get("deadline"):
+            entry["deadline"] = event["deadline"]
+        day = str(event["occurred_at"])[:10]
+        # The event title is a fixed per-language string; the summary carries the user's own words,
+        # which is what the schema's history log is for. approve() already refuses a re-approval,
+        # so nothing here has to guard against a duplicate append.
+        text = (event.get("summary") or event["title"]).strip()
+        entry.setdefault("history", []).append({"date": day, "event": text[:120]})
+        pipeline["updated"] = day
+        return data
+
     try:
-        import yaml
+        pipeline_store.mutate(path, apply)
     except ImportError:  # pyyaml is in requirements.txt; degrade instead of breaking approve
         return None
-    path = path or pipeline_file()
-    slug = company_slug(event["company"])
-    data = {}
-    if path.is_file():
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    pipeline = data.setdefault("pipeline", {})
-    companies = pipeline.setdefault("companies", [])
-    entry = next((c for c in companies if c.get("slug") == slug), None)
-    if entry is None:
-        entry = {"slug": slug, "name": event["company"], "closed": False, "history": []}
-        companies.append(entry)
-    stage = PIPELINE_STAGE.get(event["stage"])
-    if stage is not None and stage >= (entry.get("stage") or 0):
-        # Stage only moves forward. A late event about an early phase must not rewind a company.
-        entry["stage"] = stage
-    if event.get("next_action"):
-        entry["next_action"] = event["next_action"]
-    if event.get("deadline"):
-        entry["deadline"] = event["deadline"]
-    day = str(event["occurred_at"])[:10]
-    # The event title is a fixed per-language string; the summary carries the user's own words,
-    # which is what the schema's history log is for. approve() already refuses a re-approval,
-    # so nothing here has to guard against a duplicate append.
-    text = (event.get("summary") or event["title"]).strip()
-    entry.setdefault("history", []).append({"date": day, "event": text[:120]})
-    pipeline["updated"] = day
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100),
-        encoding="utf-8",
-    )
     return path
 
 
@@ -839,6 +811,47 @@ def doctor(vault: CareerVault) -> dict[str, Any]:
         "errors": errors,
         "warnings": warnings,
         "safe_stop": bool(errors),
+    }
+
+
+DEFAULT_VAULT_PATH = Path.home() / ".career-agent-vault"
+
+
+def setup(
+    vault_path: Path,
+    track: str | None = None,
+    target_role: str | None = None,
+    graduation_year: int | None = None,
+    language: str | None = None,
+) -> dict[str, Any]:
+    """One-shot first run: init the vault if needed, fill the profile fields given, then doctor.
+
+    Replaces the earlier manual sequence (find the runtime, export CAREER_AGENT_RUNTIME, init,
+    hand-edit career-profile.toml, doctor) with a single call. Still refuses to guess a project
+    directory — vault_path must be explicit or DEFAULT_VAULT_PATH, never Path.cwd().
+    """
+    home = CareerVault(vault_path)
+    already_initialized = home.initialized()
+    init_result = None if already_initialized else initialize_vault(home.path)
+    profile = home.load_profile()
+    if track:
+        profile["track"] = track
+    if target_role:
+        profile["target_role"] = target_role
+    if graduation_year:
+        profile["graduation_year"] = graduation_year
+    if language:
+        profile["language"] = language
+    write_toml(home.profile, profile)
+    diagnosis = doctor(home)
+    return {
+        "mode": "setup",
+        "vault": str(home.path),
+        "created": not already_initialized,
+        "init": init_result,
+        "profile": profile,
+        "doctor": diagnosis,
+        "next": "run --mode chat" if diagnosis["ok"] else "fill the remaining profile fields doctor flagged, then run setup again",
     }
 
 
@@ -1228,6 +1241,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     init_parser = subparsers.add_parser("init")
     add_vault_argument(init_parser)
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="one-shot first run: init the vault (default ~/.career-agent-vault) + profile fields + doctor",
+    )
+    setup_parser.add_argument("--vault", default=os.environ.get("CAREER_VAULT"), help="defaults to CAREER_VAULT, then ~/.career-agent-vault")
+    setup_parser.add_argument("--track", choices=sorted(TRACKS))
+    setup_parser.add_argument("--target-role")
+    setup_parser.add_argument("--graduation-year", type=int)
+    setup_parser.add_argument("--language", default="ko")
     doctor_parser = subparsers.add_parser("doctor")
     add_vault_argument(doctor_parser)
     run = subparsers.add_parser("run")
@@ -1270,6 +1292,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     skills_root = Path(__file__).resolve().parent.parent
     try:
+        if args.command == "setup":
+            vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
+            result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0
         if not args.vault:
             raise CareerError("--vault or CAREER_VAULT is required; the runtime never defaults to the current directory")
         home = CareerVault(Path(args.vault))

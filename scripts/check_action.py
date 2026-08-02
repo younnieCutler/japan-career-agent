@@ -19,24 +19,18 @@ import datetime as dt
 import sys
 from pathlib import Path
 
+_SHARED_ROOT = Path(__file__).resolve().parent.parent / "_shared"
+if str(_SHARED_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SHARED_ROOT))
+import pipeline_store  # noqa: E402
+
 PIPELINE = Path("data/pipeline.yml")
 
 
 def load(path: Path):
-    import yaml
-
     if not path.is_file():
         sys.exit(f"not found: {path.resolve()}\nRun this from the directory holding data/.")
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-
-
-def save(path: Path, data) -> None:
-    import yaml
-
-    path.write_text(
-        yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100),
-        encoding="utf-8",
-    )
+    return pipeline_store.load(path)
 
 
 def list_items(pipeline) -> int:
@@ -56,30 +50,39 @@ def list_items(pipeline) -> int:
 
 
 def check(pipeline, slug: str, item_id: str, path: Path) -> int:
-    for company in pipeline.get("companies") or []:
-        if company.get("slug") != slug:
-            continue
-        for item in company.get("action_items") or []:
-            if item.get("id") != item_id:
-                continue
-            if item.get("checked"):
-                print(f"already checked: {slug}/{item_id}")
-                return 0
-            today = dt.date.today().isoformat()
-            item["checked"] = True
-            item["checked_at"] = today
-            company.setdefault("history", []).append(
-                {"date": today, "event": f"action完了: {item.get('text')}"}
-            )
-            save(path, pipeline)
-            remaining = sum(
-                1 for i in company.get("action_items") or [] if not i.get("checked")
-            )
-            print(f"checked: {slug}/{item_id} — {remaining} remaining")
-            print(path.resolve())
-            return 0
+    # Validated against the already-loaded copy so a not-found exits without taking the lock.
+    company = next((c for c in pipeline.get("companies") or [] if c.get("slug") == slug), None)
+    if company is None:
+        sys.exit(f"no company {slug!r} in {path}. Run --list to see the slugs.")
+    item = next((i for i in company.get("action_items") or [] if i.get("id") == item_id), None)
+    if item is None:
         sys.exit(f"no item {item_id!r} on {slug!r}. Run --list to see the ids.")
-    sys.exit(f"no company {slug!r} in {path}. Run --list to see the slugs.")
+    if item.get("checked"):
+        print(f"already checked: {slug}/{item_id}")
+        return 0
+
+    today = dt.date.today().isoformat()
+
+    def apply(data):
+        for c in data.get("companies") or []:
+            if c.get("slug") != slug:
+                continue
+            for i in c.get("action_items") or []:
+                if i.get("id") != item_id:
+                    continue
+                i["checked"] = True
+                i["checked_at"] = today
+                c.setdefault("history", []).append(
+                    {"date": today, "event": f"action完了: {i.get('text')}"}
+                )
+        return data
+
+    updated = pipeline_store.mutate(path, apply)
+    company = next(c for c in updated.get("companies") or [] if c.get("slug") == slug)
+    remaining = sum(1 for i in company.get("action_items") or [] if not i.get("checked"))
+    print(f"checked: {slug}/{item_id} — {remaining} remaining")
+    print(path.resolve())
+    return 0
 
 
 def main(argv: list[str]) -> int:

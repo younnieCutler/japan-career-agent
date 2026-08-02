@@ -1,0 +1,51 @@
+# Single source for the KO/JA/EN keyword lexicon career_agent.py uses to route a message.
+# infer_track(), stage_for() and flow_phase_for() all read this file instead of keeping their
+# own copies — the 退職/入社 bug (present in stage_alias but missing from an earlier flow_phase
+# copy, and vice versa) was exactly this kind of drift across duplicated keyword lists.
+
+track:
+  shinsotsu: ["新卒", "신졸", "학チカ", "学チカ", "졸업", "graduat", "spi3", "学生"]
+  chuto: ["中途", "중途", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
+
+# Order matters: stage_for() returns on the first alias whose terms match, so earlier groups
+# outrank later ones when a message contains keywords from more than one group.
+stage_alias:
+  - alias: self
+    terms: ["자기분석", "自己分析"]
+  - alias: documents
+    terms: ["자소서", "가쿠치카", "학チ카", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "es"]
+  - alias: research
+    terms: ["企業研究", "기업 연구"]
+  - alias: interview
+    terms: ["면접", "面接"]
+  - alias: offer
+    terms: ["내정", "内定"]
+  - alias: exit
+    terms: ["퇴직", "입사", "退職", "入社"]
+  - alias: chuto
+    terms: ["転職", "중途"]
+  - alias: shinsotsu
+    terms: ["신졸", "新卒"]
+
+# Order matters here too: flow_phase_for() returns on the first phase whose terms match.
+flow_phase:
+  shinsotsu:
+    - id: summer_entry
+      terms: ["여름", "summer", "夏", "インターン"]
+    - id: autumn_winter_early
+      terms: ["가을", "겨울", "autumn", "winter", "秋", "冬", "早期選考"]
+    - id: official_selection
+      terms: ["본선", "공식", "official", "本選考"]
+    - id: offer_onboarding
+      terms: ["내정", "입사", "内々定", "内定", "入社"]
+  chuto:
+    - id: documents
+      terms: ["職務経歴書", "경력기술서", "이력서", "resume"]
+    - id: application
+      terms: ["지원", "応募", "서류", "書類"]
+    - id: interview
+      terms: ["면접", "面接"]
+    - id: offer
+      terms: ["오퍼", "연봉", "内定", "オファー", "条件"]
+    - id: exit_onboarding
+      terms: ["퇴직", "입사", "退職", "入社"]
