@@ -153,9 +153,9 @@ def maybe_refresh(cache: dict) -> None:
 
 
 def stage_label(stage: object) -> str:
-    if isinstance(stage, int) and stage in STAGE_LABELS:
+    if isinstance(stage, int) and not isinstance(stage, bool) and stage in STAGE_LABELS:
         return f"{stage} {STAGE_LABELS[stage]}"
-    return str(stage)
+    return "unknown"
 
 
 def days_until(deadline: str, today: dt.date) -> int | None:
@@ -166,15 +166,33 @@ def days_until(deadline: str, today: dt.date) -> int | None:
 
 
 def active_companies(pipeline: dict) -> list[dict]:
-    return [c for c in pipeline.get("companies") or [] if not c.get("closed")]
+    return [c for c in _company_entries(pipeline) if not c.get("closed")]
 
 
 def closed_companies(pipeline: dict) -> list[dict]:
-    return [c for c in pipeline.get("companies") or [] if c.get("closed")]
+    return [c for c in _company_entries(pipeline) if c.get("closed")]
 
 
 def unchecked_items(company: dict) -> list[dict]:
-    return [i for i in company.get("action_items") or [] if not i.get("checked")]
+    items = company.get("action_items")
+    if not isinstance(items, list):
+        return []
+    return [
+        item for item in items
+        if isinstance(item, dict)
+        and isinstance(item.get("text"), str)
+        and isinstance(item.get("checked"), bool)
+        and not item["checked"]
+    ]
+
+
+def _company_entries(pipeline: object) -> list[dict]:
+    if not isinstance(pipeline, dict):
+        return []
+    companies = pipeline.get("companies")
+    if not isinstance(companies, list):
+        return []
+    return [company for company in companies if isinstance(company, dict)]
 
 
 def pipeline_line(pipeline: dict) -> str:
@@ -191,7 +209,7 @@ def pipeline_line(pipeline: dict) -> str:
 
 
 def _sanitize(text: Any, max_len: int = 200) -> str:
-    if text is None:
+    if not isinstance(text, str):
         return ""
     val = str(text).replace("\r", " ").replace("\n", " ")
     val = val.replace("</career_status>", "[/career_status]").replace("<career_status>", "[career_status]")
@@ -247,7 +265,14 @@ def gate_lines(pipeline: dict) -> list[str]:
 
 
 def rules_lines(rules: dict) -> list[str]:
-    active = [r for r in rules.get("rules") or [] if r.get("status") == "active"]
+    if not isinstance(rules, dict) or not isinstance(rules.get("rules"), list):
+        return []
+    active = [
+        rule for rule in rules["rules"]
+        if isinstance(rule, dict)
+        and rule.get("status") == "active"
+        and isinstance(rule.get("text"), str)
+    ]
     if not active:
         return []
     lines = [f"active_rules: {len(active)}"]
@@ -271,7 +296,7 @@ def diversity_line(pipeline: dict) -> str | None:
     only entered 選考 that evaluate verbal explanation, so an artifact they already own has
     had nowhere to be shown.
     """
-    companies = (pipeline.get("companies") or [])[-DIVERSITY_WINDOW:]
+    companies = _company_entries(pipeline)[-DIVERSITY_WINDOW:]
     known = [c for c in companies if c.get("demo_slot") in {"yes", "company_test", "no"}]
     if len(known) < DIVERSITY_WINDOW:
         return None
@@ -287,7 +312,9 @@ def build_status(
     pipeline: dict, rules: dict, today: dt.date, update: str | None = None
 ) -> str:
     """Assemble the block. Returns "" when there is nothing to report."""
-    if not isinstance(pipeline, dict) or not isinstance(pipeline.get("companies"), list) or not pipeline.get("companies"):
+    if not isinstance(pipeline, dict) or not isinstance(pipeline.get("companies"), list):
+        return ""
+    if not pipeline["companies"] or not _company_entries(pipeline):
         return ""
     lines = [pipeline_line(pipeline)]
     for line in (deadline_line(pipeline, today),):

@@ -403,7 +403,9 @@ pipeline:
             created: "string: YYYY-MM-DD" }
 
       history:       # append-only event log — funnel analysis source
-        - { date: "YYYY-MM-DD", event: "string (e.g., '応募 via doda', '書類通過')" }
+        - { date: "YYYY-MM-DD", event: "string (e.g., '応募 via doda', '書類通過')",
+            event_id: "string | optional — idempotency key for career-agent events" }
+          # Legacy entries may contain id; readers accept it, writers use event_id.
 
 # ─────────────────────────────────────────────
 # RULES

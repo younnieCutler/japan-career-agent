@@ -132,8 +132,14 @@ def _snapshot_interest_history_if_needed(entry: dict[str, Any], fields: dict[str
 def _append_history_idempotent(entry: dict[str, Any], history: dict[str, Any] | None) -> None:
     if history is None:
         return
+    if not isinstance(history, dict):
+        raise ValueError("history must be an object")
+    hist_id = history.get("event_id") or history.get("id")
+    if "id" in history:
+        history = {key: value for key, value in history.items() if key != "id"}
+        if "event_id" not in history and hist_id:
+            history["event_id"] = hist_id
     history_list = entry.setdefault("history", [])
-    hist_id = history.get("id") or history.get("event_id")
     if hist_id:
         for item in history_list:
             if isinstance(item, dict) and (item.get("id") == hist_id or item.get("event_id") == hist_id):

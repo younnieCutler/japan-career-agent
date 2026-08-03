@@ -797,7 +797,7 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
 
     hist_entry = {"date": day, "event": text[:120]}
     if event.get("id"):
-        hist_entry["id"] = event["id"]
+        hist_entry["event_id"] = event["id"]
 
     try:
         pipeline_store.upsert_company(
@@ -1376,6 +1376,19 @@ def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any],
     })
 
 
+def state_version_is_persisted(home: CareerVault, state: dict[str, Any]) -> bool:
+    version = state.get("version")
+    if not isinstance(version, str) or not version:
+        return False
+    if not (home.versions / f"{version}.json").is_file():
+        return False
+    return any(
+        row.get("version") == version
+        for row in read_jsonl(home.checkpoints)
+        if isinstance(row, dict)
+    )
+
+
 def approve(
     home: CareerVault,
     proposal_id: str,
@@ -1417,8 +1430,15 @@ def approve(
             if not any(e.get("id") == event.get("id") for e in existing_events):
                 append_jsonl(home.events, event)
 
-            state = apply_event_to_state(home.load_state(), event)
-            version = home.save_state(state)
+            state = home.load_state()
+            projected_state = apply_event_to_state(state, event)
+            if projected_state == state and state_version_is_persisted(home, state):
+                # A previous attempt reached the state/checkpoint commit but failed while
+                # marking the proposal approved. Reuse that commit on retry instead of
+                # manufacturing a second version for the same event.
+                version = state["version"]
+            else:
+                version = home.save_state(projected_state)
             updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now(), version=version)
             result = {"approved": True, "event": event, "version": version, "proposal": updated}
             if pipeline:
