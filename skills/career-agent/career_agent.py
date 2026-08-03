@@ -795,12 +795,16 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
     if event.get("deadline"):
         fields["deadline"] = event["deadline"]
 
+    hist_entry = {"date": day, "event": text[:120]}
+    if event.get("id"):
+        hist_entry["id"] = event["id"]
+
     try:
         pipeline_store.upsert_company(
             path,
             company_slug(event["company"]),
             fields,
-            history={"date": day, "event": text[:120]},
+            history=hist_entry,
         )
     except ImportError:  # pyyaml is in requirements.txt; degrade instead of breaking approve
         return None
@@ -817,7 +821,7 @@ def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[s
     next_state["stage"] = event["stage"]
     next_state["flow_phase"] = event["flow_phase"]
     next_state["last_event_id"] = event["id"]
-    actions = list(next_state.get("open_actions", []))
+    actions = [item for item in next_state.get("open_actions", []) if item.get("event_id") != event["id"]]
     if event.get("next_action"):
         actions.append({"text": event["next_action"], "event_id": event["id"], "stage": event["stage"]})
     next_state["open_actions"] = actions[-10:]

@@ -195,10 +195,12 @@ def _sanitize(text: Any, max_len: int = 200) -> str:
         return ""
     val = str(text).replace("\r", " ").replace("\n", " ")
     val = val.replace("</career_status>", "[/career_status]").replace("<career_status>", "[career_status]")
+    val = val.replace("</untrusted_career_data>", "[/untrusted_career_data]").replace("<untrusted_career_data>", "[untrusted_career_data]")
     val = val.replace("</", "[/").replace("<", "&lt;").replace(">", "&gt;")
     if len(val) > max_len:
         return val[:max_len] + "…"
     return val
+
 
 
 def deadline_line(pipeline: dict, today: dt.date) -> str | None:
@@ -285,7 +287,7 @@ def build_status(
     pipeline: dict, rules: dict, today: dt.date, update: str | None = None
 ) -> str:
     """Assemble the block. Returns "" when there is nothing to report."""
-    if not (pipeline.get("companies") or []):
+    if not isinstance(pipeline, dict) or not isinstance(pipeline.get("companies"), list) or not pipeline.get("companies"):
         return ""
     lines = [pipeline_line(pipeline)]
     for line in (deadline_line(pipeline, today),):
@@ -299,7 +301,13 @@ def build_status(
         lines.append(diversity)
     if update:
         lines.append(update)
-    return "<career_status>\n" + "\n".join(lines) + "\n</career_status>"
+    return (
+        "<career_status>\n"
+        "<untrusted_career_data>\n"
+        + "\n".join(lines)
+        + "\n</untrusted_career_data>\n"
+        "</career_status>"
+    )
 
 
 def load_yaml(path: Path) -> dict:

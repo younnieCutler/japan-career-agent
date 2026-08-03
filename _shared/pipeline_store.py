@@ -129,6 +129,18 @@ def _snapshot_interest_history_if_needed(entry: dict[str, Any], fields: dict[str
         })
 
 
+def _append_history_idempotent(entry: dict[str, Any], history: dict[str, Any] | None) -> None:
+    if history is None:
+        return
+    history_list = entry.setdefault("history", [])
+    hist_id = history.get("id") or history.get("event_id")
+    if hist_id:
+        for item in history_list:
+            if isinstance(item, dict) and (item.get("id") == hist_id or item.get("event_id") == hist_id):
+                return
+    history_list.append(history)
+
+
 def upsert_company(
     path: Path,
     slug: str,
@@ -158,8 +170,7 @@ def upsert_company(
                 if value < entry["stage"]:
                     continue
             entry[key] = value
-        if history is not None:
-            entry.setdefault("history", []).append(history)
+        _append_history_idempotent(entry, history)
         data["updated"] = str((history or {}).get("date") or dt.date.today().isoformat())
         return data
 
@@ -191,8 +202,7 @@ def _update_company_data(
         if key == "stage" and isinstance(entry.get("stage"), int) and value < entry["stage"]:
             continue
         entry[key] = value
-    if history is not None:
-        entry.setdefault("history", []).append(history)
+    _append_history_idempotent(entry, history)
     data["updated"] = str((history or {}).get("date") or dt.date.today().isoformat())
     return data
 

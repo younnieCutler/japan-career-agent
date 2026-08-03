@@ -493,6 +493,59 @@ class CareerAgentTests(unittest.TestCase):
         reasons = [action["reason"] for action in heartbeat["actions"]]
         self.assertIn("profile_deadline", reasons)
 
+    def test_approve_failure_injection_and_end_to_end_idempotency(self) -> None:
+        """Requirement 5 & 6: Artificially inject failures at pipeline/state/proposal stages, then retry and verify state is identical to single approval."""
+        from unittest.mock import patch
+        from career_agent import CareerVault, approve
+
+        home = CareerVault(self.vault)
+        self.set_profile(track="chuto", target_role="Backend Dev", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "A社に面接を申し込んだ", cwd=self.workdir))
+        proposal_id = proposed["proposal"]["id"]
+
+        pipeline_target = self.workdir / "data" / "pipeline.yml"
+
+        with patch("career_agent.pipeline_file", return_value=pipeline_target):
+            # Failure 1: Simulated failure during pipeline store write
+            with patch("pipeline_store.upsert_company", side_effect=ValueError("simulated pipeline error")):
+                with self.assertRaises(ValueError):
+                    approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+
+            # Verify vault is unchanged and proposal remains pending
+            events_file = self.vault / "02-state" / "events.jsonl"
+            self.assertEqual(len(read_jsonl(events_file)) if events_file.exists() else 0, 0)
+            pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
+            self.assertEqual(pending_props[0]["status"], "pending")
+
+            # Failure 2: Simulated failure during save_state (pipeline succeeds, state fails)
+            with patch.object(CareerVault, "save_state", side_effect=OSError("simulated state error")):
+                with self.assertRaises(OSError):
+                    approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+
+            # Verify proposal is STILL pending after failure 2
+            pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
+            self.assertEqual(pending_props[0]["status"], "pending")
+
+            # Now execute clean approval after failures (re-trying pending proposal)
+            clean_result = approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+            self.assertTrue(clean_result["approved"])
+
+            # Check deduplication across all 3 stores: events.jsonl, open_actions, pipeline.yml history
+            events = read_jsonl(self.vault / "02-state" / "events.jsonl")
+            self.assertEqual(len(events), 1)
+
+            state = home.load_state()
+            action_event_ids = [a["event_id"] for a in state.get("open_actions", [])]
+            self.assertEqual(len(action_event_ids), len(set(action_event_ids)))
+
+            import pipeline_store
+            p_data = pipeline_store.load(pipeline_target)
+            company_entry = p_data["companies"][0]
+            history_ids = [h.get("id") for h in company_entry.get("history", []) if isinstance(h, dict) and "id" in h]
+            self.assertEqual(len(history_ids), len(set(history_ids)))
+
+
 
 if __name__ == "__main__":
     unittest.main()
+
