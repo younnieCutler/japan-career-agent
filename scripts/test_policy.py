@@ -50,6 +50,7 @@ def test_candidate_outcome_percentage_guards_are_output_shaped() -> None:
         "서류통과율: 50%",
         "内定確率 60%",
         "screening passage probability < 15%",
+        "document pass: 50%",
     )
     allowed = (
         "Probability is not calibrated and is not used as a decision output.",

@@ -19,6 +19,11 @@ CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS = (
         re.IGNORECASE,
     ),
     re.compile(
+        r"\b(?:screening|document|interview|offer)\s+(?:passage|pass|entry|outcome)\s*"
+        r"[:=]\s*" + _PERCENT,
+        re.IGNORECASE,
+    ),
+    re.compile(
         r"(?:합격\s*확률|서류\s*통과\s*(?:확률|율)|면접\s*(?:진입|통과)\s*(?:확률|율)|"
         r"오퍼\s*(?:확률|율)|내정\s*(?:확률|율))\s*[:=：]?\s*" + _PERCENT
     ),
