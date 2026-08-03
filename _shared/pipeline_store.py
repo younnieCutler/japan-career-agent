@@ -80,6 +80,10 @@ def _companies(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 DECISION_STATUSES = {"proceed", "review", "conflict"}
 MATCH_MODEL_VERSIONS = {"evidence_based_v3", "legacy_v1"}
+LEGACY_WRITE_FIELDS = {
+    "match_score", "predicted_tier", "culture_fit_score", "screening_probability",
+    "platform_probability", "overall_score", "overall_grade",
+}
 
 
 def _validate_fields(fields: dict[str, Any]) -> None:
@@ -99,12 +103,15 @@ def _validate_fields(fields: dict[str, Any]) -> None:
     version = fields.get("match_model_version")
     if version is not None and version not in MATCH_MODEL_VERSIONS:
         raise ValueError(f"match_model_version must be one of {sorted(MATCH_MODEL_VERSIONS)}")
-    # match_score is legacy_v1 history. Writing a new one would put an uncalibrated 0-100 number
-    # back beside a v3 decision_status, which is the exact confusion v3 removed.
-    if "match_score" in fields:
+    if version == "legacy_v1":
+        raise ValueError("new legacy_v1 pipeline writes are refused; existing history is read-only")
+    # Legacy values remain readable on existing entries, but every new write is rejected. This
+    # prevents a retired numeric field from being placed beside a v3 decision.
+    forbidden = sorted(LEGACY_WRITE_FIELDS.intersection(fields))
+    if forbidden:
         raise ValueError(
-            "match_score is legacy_v1 and frozen; existing values are preserved but no new one is "
-            "written. Use decision_status (+ match_model_version) from _shared/matching_v3.py."
+            f"legacy_v1 fields are frozen and cannot be written: {', '.join(forbidden)}. "
+            "Use decision_status (+ match_model_version=evidence_based_v3) from _shared/matching_v3.py."
         )
 
 

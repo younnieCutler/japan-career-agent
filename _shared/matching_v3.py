@@ -21,8 +21,8 @@ Three rules the code enforces, not the prose:
   P4  Every element carries provenance; no weight in this file was invented to combine
       axes, because no axis is combined with another.
 
-The legacy Recruit-style / Persol-style / Culture Fit heuristics are NOT here. They live
-in `_shared/legacy_experimental.py` under `model_version: legacy_v1` and are off by default.
+Retired heuristic calculations are NOT here. They live in `_shared/legacy_experimental.py`
+under `model_version: legacy_v1` and are off by default.
 
 CLI (deterministic; same input -> same output):
     python3 _shared/matching_v3.py input.json
@@ -63,8 +63,17 @@ DECISION_PROCEED = "proceed"
 DECISION_REVIEW = "review"
 DECISION_CONFLICT = "conflict"
 
-SOURCE_TYPES = {"official", "job_posting", "recruiter", "user", "third_party", "inferred"}
-PROVENANCE_TYPES = {"official_framework", "observed", "derived", "heuristic", "unknown"}
+SOURCE_TYPES = {
+    # Canonical source labels.
+    "official_framework", "job_posting", "company_public_source", "user", "observed",
+    "derived", "heuristic", "unknown",
+    # Read-only aliases accepted for existing payloads.
+    "official", "recruiter", "third_party", "inferred",
+}
+PROVENANCE_TYPES = {
+    "official_framework", "job_posting", "company_public_source", "user", "observed",
+    "derived", "heuristic", "unknown",
+}
 CONFIDENCE_LEVELS = {"high", "medium", "low", "unknown"}
 INTEREST_EVIDENCE_SOURCES = {"self_report", "event_experience", "interview_experience"}
 EMPLOYER_SIGNAL_TYPES = {"scout", "message", "interview_invite", "pass_notice", "rejection"}
@@ -286,7 +295,7 @@ def eligibility_results(items: Any) -> list[dict[str, Any]]:
         if candidate_evidence is None or job_evidence is None or meets is None:
             status, source = "unknown", "unknown"
         else:
-            status = "pass" if meets else "conflict"
+            status = "matched" if meets else "conflict"
             source = item.get("source") or "observed"
         results.append({
             "requirement": item["requirement"],
@@ -357,7 +366,7 @@ def skill_results(payload: Any) -> dict[str, Any]:
         },
         "required_coverage_note": (
             "share of the CONFIRMED required skills that are met. Unknowns are excluded from "
-            "the denominator and counted separately. This is not a pass probability."
+            "the denominator and counted separately. This is not an outcome estimate."
         ),
     }
 
@@ -468,11 +477,15 @@ def _evidence_meta(item: dict[str, Any]) -> dict[str, Any]:
     if provenance is not None and provenance not in PROVENANCE_TYPES:
         raise ValidationError(f"provenance must be one of {sorted(PROVENANCE_TYPES)}, got {provenance!r}")
     if provenance is None:
-        if source_type == "official":
+        if source_type in {"official", "official_framework"}:
             provenance = "official_framework"
-        elif source_type in {"job_posting", "recruiter", "user", "third_party"}:
+        elif source_type in {"job_posting", "recruiter", "third_party"}:
             provenance = "observed"
-        elif source_type == "inferred":
+        elif source_type in {"company_public_source", "observed"}:
+            provenance = "observed"
+        elif source_type in {"user", "derived"}:
+            provenance = source_type
+        elif source_type in {"heuristic", "inferred"}:
             provenance = "heuristic"
         elif item.get("source") in {"observed", "user", "recruiter", "job_posting"}:
             provenance = "observed"
@@ -485,7 +498,13 @@ def _evidence_meta(item: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError(f"confidence must be one of {sorted(CONFIDENCE_LEVELS)}, got {confidence!r}")
     return {
         "provenance": provenance,
-        "source_type": source_type,
+        "source_type": {
+            "official": "official_framework",
+            "recruiter": "observed",
+            "third_party": "observed",
+            "inferred": "heuristic",
+        }.get(source_type, source_type),
+        "source": item.get("source"),
         "source_ref": item.get("source_ref"),
         "observed_at": item.get("observed_at"),
         "confidence": confidence,
@@ -572,7 +591,7 @@ def decision_status(
         "unknowns": unknowns,
         "conflicting_evidence": list(conflicting_evidence),
         "note": "Proceed means nothing blocks a decision on current information. "
-                "It is not a recommendation to apply and not a pass-probability estimate.",
+                "It is not a recommendation to apply and not an outcome estimate.",
     }
 
 
@@ -633,7 +652,7 @@ def evaluate(payload: dict[str, Any], *, reference: dict[str, Any] | None = None
 
 def _eligibility_detail(item: dict[str, Any]) -> str:
     """For an unknown, name the side that is missing — that is the actionable part."""
-    if item["status"] == "pass":
+    if item["status"] == "matched":
         return ""
     if item["status"] == "conflict":
         return f" — candidate: {item['candidate_evidence']} / job: {item['job_evidence']}"
@@ -650,11 +669,11 @@ def render(result: dict[str, Any]) -> str:
     header = " / ".join(str(x) for x in (result.get("company_name"), result.get("position")) if x)
     if header:
         out.append(header)
-    out.append(f"Decision Status: {result['decision_status'].upper()}")
+    out.append(f"Decision Status: {result['decision_status'].title()}")
     out.append("")
 
     out.append("Eligibility")
-    out += [f"- {item['requirement']}: {item['status'].upper()}{_eligibility_detail(item)}"
+    out += [f"- {item['requirement']}: {item['status'].title()}{_eligibility_detail(item)}"
             for item in result["eligibility"]] or ["- none recorded"]
     out.append("")
 

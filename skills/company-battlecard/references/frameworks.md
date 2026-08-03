@@ -1,11 +1,8 @@
-# frameworks.md — Stub
+# Battlecard evidence framework
 
-The canonical version is at `../../../_shared/frameworks.md`.
+Use the v3 independent axes in `_shared/matching_v3.py`. The self-analysis reflection may supply
+candidate preferences, but it is not a culture measurement. Company type is a prompt for questions,
+never a culture fact. Only company-specific evidence can support a culture or working-condition row.
 
-Always read `../../../_shared/frameworks.md` for all framework definitions:
-- SPI3 Personality Quadrant Model (12-statement diagnostic)
-- Portable Skills: 8 Core Elements
-- Skill Ontology Mapping Table
-- Hataraku Well-being Index
-- Gakuchika Evaluation Framework
-- Matching Score Calculation Formula
+Every row should include `source_type`, `source_ref`, `observed_at`, `confidence`, and `provenance`
+when available. Missing evidence is `Unknown`; it is not a tie or an advantage.

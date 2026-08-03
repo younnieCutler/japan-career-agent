@@ -285,8 +285,8 @@ def calibration_line(pipeline: dict) -> str:
     scored = [c for c in closed_companies(pipeline) if c.get("reached_stage") is not None]
     if len(scored) < CALIBRATION_MIN_SAMPLE:
         need = CALIBRATION_MIN_SAMPLE - len(scored)
-        return f"calibration: {len(scored)} scored outcomes (need {need} more)"
-    return f"calibration: {len(scored)} scored outcomes — `scripts/calibrate.py` available"
+        return f"workflow_observations: {len(scored)} reached-stage entries (need {need} more)"
+    return f"workflow_observations: {len(scored)} reached-stage entries — `scripts/calibrate.py` available"
 
 
 def diversity_line(pipeline: dict) -> str | None:

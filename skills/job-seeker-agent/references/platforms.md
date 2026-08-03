@@ -1,100 +1,75 @@
-# Platform Strategy & Routing Rules
+# Platform Routing — dated evidence, not outcome prediction
 
-This document details the strategies for specific company types, Japanese language levels, and platform routing logic.
+Platform routing is a channel recommendation. It is not a hiring model, a platform score, or a
+claim about a private agency system. Start with the candidate's stated constraints and compare
+routes on feedback, access, role coverage, and verification burden.
 
-## 1. Japanese Level Targeting Strategy
+## Inputs to collect
 
-Don't simply mark language level as "unmet" — provide level-appropriate strategy.
+- track: `shinsotsu` or `chuto`
+- role type and target industry
+- years and scope of experience
+- desired salary and whether the number is flexible
+- Japanese requirement and evidence
+- visa/work authorization constraints when relevant
+- direct application versus agent/scout preference
+- desired feedback channel (rejection reason, coaching, or no preference)
+- company-size and environment preference
 
-| JLPT | Role | Realistic targets | Platform routing |
-|------|------|------------------|-----------------|
-| N1 | Sales / Back-office / SIer | Any company type; keigo proficiency expected | Recruit Agent, doda, MyNavi Agent all viable |
-| N2 | IT Engineer | Self-developed, SIer, foreign-capital IT | Levertech (N2 floor), doda IT, Recruit Agent IT, Green |
-| N2 | Non-engineer | Korean subsidiaries, foreign-friendly SME | Must confirm N1 study plan + target date |
-| N3 | IT Engineer only | Foreign-capital startups(English OK), Korean IT | Green (direct-apply) viable; agent platforms limited |
-| N3 | Non-engineer | Korean companies, Korean subsidiaries | Pivot to Korean company track; Japan agents will not route |
-| N4 | Any | Korean companies, IT-specialized Korean-hire | Position as Korean native; MyNavi Global only |
+Missing inputs stay `Unknown`. Do not infer them from age, nationality, company type, or a platform
+name.
 
-## 2. Self-Developed (自社開発) Resume Strategy
+## Claim record
 
-Self-developed companies prioritize **ownership and self-direction**.
-- **Key appeal points:** "Identifying a problem and acting", Tech curiosity (GitHub/Qiita), Enjoyment of change.
-- **Phrasing approach:** Instead of "Handled tasks", write "Identified manual errors, wrote SQL query, cut review time."
-- **Red-flag reframes:** SES dispatch → "flexibility adapting to environments". Operations → "stable system upkeep + frontline problem awareness".
+External facts must be registered in `_shared/career_claims.yml` before becoming a reusable routing
+rule. Each record has this shape:
 
-## 3. SIer (System Integrator) Resume Strategy
-
-SIer companies prioritize **reliability, process adherence, and long-term commitment**.
-- **Required appeal items:**
-  1. 報連相 (Ho-Ren-So): Prove with an episode (e.g., "Reported inquiries within 4 hours, reducing complaints").
-  2. Long-term vision: "I want to grow long-term as an IT professional in Japan."
-  3. Teamwork / quality management / accuracy episode.
-  4. IT certification plan (e.g., ITパスポート acquisition plan).
-
-## 4. Platform Routing & Blocking Rules
-
-Based on candidate profile, recommend the best-fit platform(s):
-
-| Candidate profile | Primary platform | Why |
-|-------------------|-----------------|-----|
-| Age 20s–early 30s, first job change | MyNavi Agent | Highest screening pass rate (~50%); 70% users under 34 |
-| IT engineer, wants self-developed | Levertech | Engineer-only specialist; 96% target-company placements |
-| Age 20s–30s, broad search, needs volume | Recruit Agent | Largest job inventory in Japan; reproducibility evaluation |
-| Age 20s–30s, agency + job board hybrid | doda | Strongest Portable Skills coaching; CA curates carefully |
-| Age 35+, income 600万+, management | BizReach | Scout-based; 7.5M tier for premium access |
-| Non-traditional, startup-curious, low JLPT | Green | No registration screening; startup culture tolerance |
-| Foreign national, needs visa support | MyNavi Global | Foreign-specialist; visa/COE documentation support |
-| Startup culture, any JLPT, wants culture-first | Wantedly | No registration screening; culture/mission matching; no salary shown upfront — confirm expectations |
-| Foreign national in Japan, IT mid-career, needs sponsor | VISIONARY CAREER | Specialist in foreign national placement; navigates visa categories and COE; N2+ required |
-
-**⚠️ Platform Risk Flags (Cold Mode — surface before routing):**
-
-These flags lower the odds an agent platform routes the candidate well. They are **warnings, not blocks** —
-never remove an agent platform from the option list because of them.
-
-| Risk flag | Threshold | What it means |
-|---|---|---|
-| Short tenure (pattern) | 3+ job changes by late-20s, or any single stint <1yr | CAs face a refund obligation if the candidate leaves early, so they pitch such profiles cautiously. Direct-apply routes (Green, BizReach) avoid the CA filter |
-| Employment gap | Lev: 2~3 mo; Rec/doda: 3~6 mo; MyNavi: 6+ mo | Signals "unemployed" risk to a CA. Green is gap-tolerant |
-| JLPT N3 or below, non-engineer | All agent platforms | Agents rarely route non-engineer roles at N3. MyNavi Global or Korean-founded companies are the realistic path |
-| Fragmented skills | 3+ unrelated domains | CAs struggle to pitch the profile in one sentence. Green accepts it directly |
-
-**Feedback-loss disclosure (mandatory whenever a direct-apply route is recommended):**
-
-Direct application removes the CA filter, and it removes the rejection reason with it. Companies send a
-定型お祈りメール; only an agent or scout relays what the company actually said. A rejection with no reason
-teaches nothing, and the highest-priority company is exactly the one whose rejection is most worth
-understanding.
-
-State this whenever the routing above points to Green or BizReach:
-
-```
-⚠️ 直接応募のトレードオフ
-  Agent route:  CA filter may weaken the pitch — but a rejection comes with the company's real reason
-  Direct route: no CA filter — but a rejection comes with no reason at all (定型お祈りメール)
-
-  This company is [high/low] priority for you. The higher the priority, the more the
-  rejection reason is worth.
+```yaml
+platform:
+  name: "[platform]"
+  suitable_for:
+    - "[role or route characteristic supported by evidence]"
+  known_constraints:
+    - "[access, coverage, language, or feedback limitation]"
+  evidence:
+    - claim_id: "[career_claims.yml id]"
+      claim_type: "official|marketing_claim|survey|third_party"
+      statement: "[descriptive claim, not a candidate outcome estimate]"
+  evidence_date: "YYYY-MM-DD"
+  source: "[URL or source reference]"
+  confidence: "high|medium|low|unknown"
+  needs_reverification: true
 ```
 
-If the user takes an agent route despite a risk flag, or a direct route despite this warning, record
-`gate_override: true` on the pipeline entry. Whether these flags were right for this user is then
-measurable by `career-agent calibrate` instead of assumed.
+If there is no dated primary or directly observed source, label the item `Unknown` and do not use it
+as a routing rule. A marketing claim remains `marketing_claim`; it is not evidence of candidate
+success.
 
-**Screening passage probability output (mandatory):**
-At the end of the Platform Routing section, ALWAYS output a probability line, **immediately followed by
-the disclaimer line — the STEP is not complete without it**:
+## Route comparison template
 
+```text
+Route: [direct | agent | scout | referral]
+Observed fit: [role coverage / language / visa / feedback evidence]
+Known constraints: [what this route cannot confirm]
+Candidate-specific trade-off: [what the user gains and gives up]
+Evidence: [source and observation date, or Unknown]
+Verification question: [what to ask the platform or hiring team]
+Decision: [user chooses; no automatic application action]
 ```
-📊 Screening Passage Probability Estimate
-Target: [Role] @ [Platform]
-Document screening: [X]% (basis: [gap count, JLPT level, tenure flags])
-CA recommendation rate: [X]% (basis: [agent profiling logic — applies to agent platforms only])
-Overall passage to interview: [X]%
 
-⚠️ LLM estimate, not a statistic (±10pt or more). Agency routing also depends on placement fee
-   margins, CA quotas, and how many openings are left that week — none of which are observable here.
-   Use this to decide where to spend preparation time, never as a reason to prepare less.
+Agent routes may offer a feedback channel; direct routes may give a faster path to the company.
+These are route characteristics, not universal rules. Record an actual response or feedback event
+in `pipeline.yml` as `Observed` when it occurs.
 
-Basis: [2–3 sentence explanation citing the specific flags that drove the estimate]
-```
+## Language, work authorization, and gaps
+
+Treat Japanese ability, work authorization, employment gaps, and short tenure as requirements or
+context only when the JD, law, user, or platform documentation provides evidence. Do not convert any
+of them into an arbitrary penalty. Ask the user for the missing dates or the company/CA's explicit
+policy.
+
+## Required closing
+
+The platform section must end with the recommended route(s), the evidence behind each, the trade-off,
+and the next verification question. It must not contain an outcome-rate line or an uncalibrated
+number. A user can continue with any route after reviewing the trade-off.

@@ -1,93 +1,38 @@
-# Evaluation Perspectives (RA / CA / Direct)
+# Qualitative evidence perspectives
 
-The qualitative layer that runs **after** the v3 diagnosis, not a scoring stage.
+This layer runs after the deterministic v3 diagnosis. It is a structured conversation aid, not a
+score, grade, platform model, or hiring decision.
 
-Three rules, because this section used to be where numbers crept back in:
+## Route context
 
-1. **No scores.** Nothing here produces a 0–100 value, a grade, or a probability. The v3 axes
-   are the quantitative output and they are not re-totalled.
-2. **Evidence or nothing.** Every claim cites a confirmed fact from the diagnosis (a
-   `conflict`, a `missing`, an `unknown`). What the diagnosis marked `unknown` stays a
-   question here — it does not become a judgement.
-3. **This is a simulated read of how a recruiter might argue**, not a decision and not a
-   prediction of one.
+Record the route the user actually used (`direct`, `agent`, `scout`, `referral`, or `unknown`). A
+route may change which feedback was observed, but it does not change the candidate/JD evidence.
+Do not infer a private agency rule from a rejection or a recruiter silence.
 
-## 1. Route Scope Check
+## Company-side and candidate-side questions
 
-- **Direct-apply route (Green, BizReach, Wantedly, company site)**: no CA layer exists. Skip
-  "CA Perspective" and run "Hiring Manager Direct Evaluation".
-- **Agent route (Recruit Agent, doda, MyNavi, Levtech)**: run RA + CA.
+For an agent or scout conversation, ask what the recruiter explicitly confirmed about the role,
+requirements, language, authorization, and process. For a direct route, record the company's actual
+reply or the absence of a reply as `Observed`; absence is not negative evidence.
 
-## 2. RA (Company-Side) Perspective
+For any short tenure, work authorization, or employment-gap concern, state the documented fact and
+the question to verify. Do not describe a refund arrangement or routing practice unless a source
+directly supports it.
 
-RA evaluates the candidate from the company's perspective. Analyze:
-- Draft recommendation letter (推薦状) for presenting this candidate to the company
-- Points the company might be concerned about, and counter-arguments
-- Salary negotiation feasibility
-- **RA Risk Signal (mandatory):** Assess refund liability for any short tenure (<1yr), employment gap, or visa-related flag:
-  - **Tenure/gap risk:** If candidate has tenure <1yr or gap >3 months — "If this candidate leaves within 6 months, the agency must refund placement fee." State: `[Early-exit risk: low / medium / high — basis: X]`
-  - **Visa risk:** If `visa_status` ≠ "PR" — check three factors: (a) Is visa renewal currently in progress? (b) Does the target role's work category match the candidate's visa type? (Engineer/Specialist visa is NOT valid for pure sales or administrative roles. (c) Short tenure + non-PR visa = compounded refund risk. State: `[Visa risk: low / medium / high — basis: X]`
-  - When both flags are present simultaneously (short tenure + non-PR visa), output: `[⚠️ Compounded risk: placement refund probability elevated. CAs may decline to recommend.]`
+## Values and conditions
 
-```
-📋 RA Recommendation
-━━━━━━━━━━━━━━━━━━━━━
-Recommendation reason:    [3 lines, each citing a `matched` required skill or experience item]
-Expected company concerns: [drawn from `missing` required skills and confirmed experience gaps]
-Counter-argument:         [reframe via evidenced transferable experience — no invented claims]
-Condition adjustment:     [only when salary/conditions are confirmed on both sides; else "unknown"]
-Early-exit risk:          [low / medium / high — and the tenure/gap fact it rests on]
-Visa risk:                [low / medium / high — sponsor required? category match? COE in progress?]
-```
+Candidate values are compared with company evidence item by item:
 
-Sensitive-attribute rule (v3 P5): age, gender, nationality and family status never enter this
-read. Legal work eligibility appears only as an eligibility **fact** — stated, never scored, and
-never extended into an inference about the person.
+- `Aligned`: the user's stated condition and company evidence agree;
+- `Tradeoff`: the user can accept the stated cost, or the evidence points both ways;
+- `Conflict`: both sides are confirmed and a must-have or avoid condition disagrees;
+- `Unknown`: the company or candidate side is missing.
 
-## 3. CA (Candidate-Side) Perspective
+No retention, satisfaction, or success conclusion is derived from preference ratings. A company type
+is only a prompt for a verification question.
 
-**(Agent routes only: Recruit Agent, doda, MyNavi Agent, Levtech)**
+## Report shape
 
-CA evaluates this company from the candidate's perspective. Analyze:
-- Key pitch points when introducing this company to the candidate
-- Points the candidate might be concerned about
-- Which Career Value items are still `unknown`, and what would settle them
-
-```
-📋 CA Introduction
-━━━━━━━━━━━━━━━━━━━━━
-Key pitch:              [cite `aligned` career values and `matched` requirements]
-Expected concerns:      [cite `tradeoffs`, `conflicts`, and confirmed condition gaps]
-Open questions:         [the `unknown` career values — asked, not guessed]
-```
-
-No retention or satisfaction forecast is produced. Predicting post-hire satisfaction from four
-preference ratings was the legacy Culture Fit score, and it is discontinued
-(`legacy-v1.md`). Candidate interest, where recorded, is reported as the user's own
-statement and is not evidence about the company.
-
-## 4. Hiring Manager Direct Evaluation (direct-apply routes)
-
-On direct-apply routes there is no CA layer. The hiring manager (or HR team) reads the profile
-directly — often within 48–72 hours of an application or scout.
-
-Simulate this perspective:
-- **Profile completeness:** which required skills the profile evidences, and which it leaves
-  `unknown` to a reader who has only this document.
-- **Self-direction signals:** direct routes have no agency pre-filter, so the profile carries
-  the whole argument by itself.
-- **Speed:** direct routes move faster; a 1–2 business day response is expected.
-
-```
-🏫 Hiring Manager Direct Evaluation
-━━━━━━━━━━━━━━━━━━━━━
-Route: [Green / BizReach / Wantedly / company site]
-Evidenced on the profile:  [required skills a reader can verify from the document alone]
-Not visible to a reader:   [required skills the candidate has but the profile does not show]
-First impression:          [what a reader would take away in 30 seconds — from the text, not inferred]
-Red flags:                 [confirmed conflicts only; an `unknown` is a question, not a flag]
-```
-
-No appeal score, no culture-fit score, no scout-probability number. Where a real signal exists
-(a scout received, a message, an interview invite) it belongs in `employer_signals` as an
-observed event with its date — not converted into a likelihood.
+End with Decision Status, confirmed conflicts, three highest-value unknowns, and questions the user
+can ask. Record real employer responses as dated `Observed` signals. Never use this layer to produce
+a number that looks like an outcome forecast.

@@ -27,7 +27,7 @@ who explicitly asks for the old numbers gets them correctly labelled.
 | `culture_fit()` | **discontinued** — raises `DiscontinuedError`. Historical values stay on disk; no new one is computed. |
 | Platform modifier table (below) | legacy_v1, opt-in only |
 | `match_score` in `data/pipeline.yml` | frozen. Existing values preserved, never rewritten; the pipeline CLI refuses new writes. |
-| `predicted_tier` | frozen. `scripts/calibrate.py` still scores existing ones, labelled legacy_v1. |
+| `predicted_tier` | frozen. `scripts/legacy_calibrate.py --legacy-experimental` displays existing ones, labelled legacy_v1. |
 
 ## Running it anyway
 

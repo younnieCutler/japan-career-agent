@@ -1,83 +1,47 @@
-# 求人の真正性 (Posting Legitimacy / Ghost-Job Assessment)
+# 求人の確認可能性: posting signals, not accusations
 
-> Judge, by signals, whether a 求人 is real, active, and backed by hiring intent, so the user can prioritize
-> where to spend effort. **Present observations only — never accuse.** Every signal has legitimate explanations;
-> the judgment is the user's.
->
-> Adapted from career-ops (MIT, github/santifer/career-ops): `modes/oferta.md` Block G.
-> Localized to the Japanese market (通年採用 · エージェント経由 · 中途採用比率, etc.).
+This supplementary section records whether a posting has enough current evidence to justify the next
+verification step. It does not determine whether a job is real, rank applications, or tell the user
+to stop. All signals are observations with source, date, and confidence.
 
-This assessment is output as a supplementary section of the `kigyou-bunseki` 企業カルテ (`🔎 求人の真正性`).
-It is a signal — separate from company-data extraction — about "is this 求人 worth your time?"
+## Signals to record
 
----
+| Signal | Observation to collect | If absent |
+|---|---|---|
+| Freshness | posting date, page state, closing/redirect behavior | `Unknown` |
+| Description quality | role scope, technologies, team, requirements, conditions | `Unknown` |
+| Hiring context | official hiring page, dated company announcement, or recruiter message | `Unknown` |
+| Reposting | exact URL/title/date comparisons | `Unknown` |
+| Role plausibility | whether the stated work matches the company's public business | `Unknown` |
 
-## Signals to analyze (in order)
+Do not create a threshold from posting age, repost frequency, headcount, mid-career ratio, or a
+third-party rating. A platform or company type can suggest a question, not a fact. Agency contact is
+recorded as an `Observed` route event, not proof of hiring intent.
 
-### 1. 鮮度 (Freshness) — from the page/snapshot
-- Date posted / "X日前" label, apply-button state (active / closed / missing / redirects to a generic careers page).
-- Has the same 求人 been up for a long time (months)? — but see §edge cases (通年採用).
+## Output
 
-### 2. 記述の質 (Description Quality) — from the JD text
-- Are specific technologies/tools/team size/org context written?
-- Are the requirements realistic (years of experience vs the age of the technology, no contradiction)?
-- Is the first 6–12 months' scope clear? Is salary mentioned?
-- Ratio of role-specific vs boilerplate in the JD. Internal contradictions (junior title + staff requirements, etc.).
+```markdown
+## 求人の確認可能性
+| Signal | Observed fact | Source/date | Confidence | Next question |
+|---|---|---|---|---|
 
-### 3. 採用シグナル (Hiring Signals) — 2–3 searches (combine with Block D research)
-- `"{company}" リストラ {year}` / `"{company}" 採用凍結 {year}` — date, scale, department.
-- If layoffs are found, are they in the same department as this 求人?
-- **中途採用比率 (already extracted in the 企業カルテ):** if high (e.g., NEC majority · 日清 78% · NTT East 45%),
-  it signals an environment where mid-career hires actually settle and thrive → **positive**.
-
-### 4. 再掲載 detection
-- Has the same company + similar role been reposted before under a different URL (frequency, period)?
-
-### 5. 役割の市場文脈 (qualitative, no extra search)
-- Is this a common role that typically fills in 4–6 weeks, vs one that inherently takes longer?
-- Does this role make sense for this company's business?
-
----
-
-## Output format (append to the 企業カルテ)
-
-```
-🔎 求人の真正性: [信頼度高 / 要注意 / 要確認]
-
-| Signal | Observation | Assessment |
-|--------|-------------|------------|
-| 鮮度 | "3日前", apply button active | ✅ Positive |
-| 記述の質 | tech/team size stated, salary range present | ✅ Positive |
-| 採用シグナル | 中途比率 45%, no layoff news | ✅ Positive |
-| 再掲載 | no repost in the past 6 months | ◽ Neutral |
-| 市場文脈 | DE typically fills in 4–6 weeks | ◽ Neutral |
-
-📝 Context: [legitimate explanations — 通年採用 / niche role / government, if applicable]
+Summary: Confirmed / Unknown / Contradictory / Stale
+User decision: [the user chooses whether the available evidence is sufficient]
 ```
 
-**Tier definitions:**
-- **信頼度高** — multiple signals suggest a real, active opening
-- **要注意** — mixed signals, proceed with note
-- **要確認** — multiple ghost-job indicators, confirm before investing time
+If multiple signals are missing, say `Insufficient Data`. Do not convert it into a negative judgment.
+If sources disagree, mark `Contradictory` and show both sources. Do not accuse a company of a ghost
+posting.
 
----
+## Context questions
 
-## Japan-specific edge cases (adjust thresholds)
+- Is the role still listed on the official page, and who confirms its current scope?
+- Which team, manager, location, language, and authorization conditions are confirmed?
+- Is this a pipeline or evergreen role, and what evidence supports that description?
+- If an agent supplied the posting, what did the CA explicitly confirm and on what date?
 
-| Case | Handling |
-|------|----------|
-| **通年採用 / ポテンシャル採用** | "随時募集" is not a ghost job = a pipeline role. Do not penalize long postings |
-| **Via agent (non-public 求人)** | Freshness signals are unavailable. But **active agent contact is itself a positive signal** |
-| **Government / academic** | Long selection (60–90 days) is standard. Relax thresholds |
-| **Startup / pre-revenue** | The JD may be vague because the role is genuinely undefined. Weight vagueness less |
-| **Large-firm always-open slots** | Mass hiring (e.g., SHIFT 2,500/yr) is normal. Do not misjudge repost frequency as ghost |
-| **No date available** | If no other signal is concerning, default to **要注意** (never 要確認 without evidence) |
+## Evidence and freshness
 
----
-
-## Ethics & Anti-Fabrication Gate
-- **No accusations.** Not "this company is faking the hiring," but "the following signals were observed; the call is yours."
-- For layoffs / 採用凍結, cite the **search source and date**. Do not invent them from guesswork.
-- If there is no data, write `データなし`. Do not drop to 要確認 when there is no concerning signal.
-- Response language follows the SKILL.md Language Auto-Detection rule. Domain terms (求人/中途採用比率/通年採用)
-  stay in original Japanese.
+For layoffs, hiring announcements, employee ratios, salary, or other market statements, cite the exact
+source and date and register reusable claims in `_shared/career_claims.yml`. Expired claims are `Stale`.
+No number is a default or a candidate outcome estimate.

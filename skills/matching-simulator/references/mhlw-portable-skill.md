@@ -102,5 +102,5 @@ are required — an unversioned reference cannot back a reproducible result.
 
 - computing distance from 1–5 `level` values
 - `100 × (1 − distance / max_distance)` or any other 0–100 conversion
-- presenting an MHLW distance as company fit, culture fit, or pass probability
+- presenting an MHLW distance as company culture, a requirement verdict, or an outcome estimate
 - generating the 114 profiles, or a subset, from a language model

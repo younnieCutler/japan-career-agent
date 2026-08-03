@@ -1,12 +1,12 @@
 {
   "name": "japan-recruit-ai-agent",
   "owner": { "name": "younnieCutler" },
-  "description": "Japan career skill suite for 新卒 and 中途: self-analysis, documents, research, matching, execution, and local career state.",
+  "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
   "plugins": [
     {
       "name": "japan-recruit-ai-agent",
       "source": ".",
-      "description": "Japan career skill suite for 新卒 and 中途: self-analysis, documents, research, matching, execution, and local career state.",
+      "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
       "category": "career",
       "tags": ["japan", "job-search", "recruitment", "career", "matching", "tenshoku", "self-analysis"]
     }

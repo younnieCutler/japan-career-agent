@@ -1,11 +1,6 @@
-# frameworks.md — Stub
+# Hiring-side evidence framework
 
-The canonical version is at `../../../_shared/frameworks.md`.
-
-Always read `../../../_shared/frameworks.md` for all framework definitions:
-- SPI3 Personality Quadrant Model (12-statement diagnostic)
-- Portable Skills: 8 Core Elements
-- Skill Ontology Mapping Table
-- Hataraku Well-being Index
-- Gakuchika Evaluation Framework
-- Matching Score Calculation Formula
+Use `_shared/frameworks.md` and `_shared/decision_philosophy.md`. A JD should state observable
+requirements, scope, conditions, and verification questions. A work-style reflection is a prompt
+for interview questions, not an official test or a hiring score. Company type is not culture
+evidence. Record each employer claim with source, date, confidence, and provenance.

@@ -3,7 +3,7 @@
 
 Examples:
   python3 scripts/pipeline.py upsert gao --json '{"name":"GAO","stage":2}'
-  python3 scripts/pipeline.py update gao --json '{"match_score":78}'
+    python3 scripts/pipeline.py update gao --json '{"decision_status":"review","match_model_version":"evidence_based_v3"}'
   python3 scripts/pipeline.py history gao --event '企業研究を完了'
   python3 scripts/pipeline.py close gao --reason '内定辞退'
 """

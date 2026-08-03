@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end check that approve(), status_bar.py, check_action.py and calibrate.py agree on
+"""End-to-end check that approve(), status_bar.py, check_action.py and workflow observation reporting agree on
 data/pipeline.yml's shape.
 
 Each component's own unit tests build their fixtures by hand, so a root-schema mismatch between
@@ -45,15 +45,18 @@ def test_approve_then_status_bar_check_action_calibrate_agree():
     with tempfile.TemporaryDirectory() as tmp:
         vault = Path(tmp) / "vault"
         workdir = Path(tmp) / "work"
+        unrelated = Path(tmp) / "unrelated"
         workdir.mkdir()
+        unrelated.mkdir()
         run_agent(vault, workdir, "init")
 
         proposed = run_agent(vault, workdir, "run", "--mode", "chat", "--track", "chuto",
                               "--message", "内定をもらった")
-        run_agent(vault, workdir, "approve", proposed["proposal"]["id"],
-                  "--evidence", "内定をもらった", "--company", "GAO")
+        run_agent(vault, unrelated, "approve", proposed["proposal"]["id"],
+                  "--workspace", str(workdir), "--evidence", "内定をもらった", "--company", "GAO")
 
         path = workdir / "data" / "pipeline.yml"
+        assert not (unrelated / "data" / "pipeline.yml").exists()
         pipeline = status_bar.load_yaml(path)
 
         # status_bar must see the company career-agent just wrote.

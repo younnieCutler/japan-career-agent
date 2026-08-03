@@ -1,50 +1,28 @@
-# Company Battlecard Test Cases
+# company-battlecard evaluation cases
 
-Run these when iterating on the `company-battlecard` skill.
+## Case 1: independent comparison
 
-## Test Case 1: Two companies + CANDIDATE_PROFILE
-**Objective**: Personalized 5-dimension battlecard.
-- **Input**: Two COMPANY_PROFILE YAMLs + a CANDIDATE_PROFILE, "어디가 나한테 맞아?"
-- **Criteria**:
-  - All 5 dimensions evaluated (SPI3 culture fit / skill match / well-being / growth / practical factors).
-  - Per-dimension winner marked; final verdict names one company with the deciding dimensions.
-  - Candidate's wellbeing_priorities actually drive the well-being row (not generic).
-  - Output strictly adheres to the non-numeric advantage format.
+Compare two `COMPANY_PROFILE` records with a candidate profile. Render the nine required axes:
+Decision Status, hard eligibility, required skills/experience, career values, working conditions,
+practical constraints, role scope/growth evidence, candidate interest, and missing information.
+There is no total, winner score, or hidden weighting.
 
-## Test Case 2: Incomparable data marked, not guessed
-**Objective**: Missing fields degrade honestly.
-- **Input**: Company A has salary_range; Company B is a Wantedly-style profile with salary hidden.
-- **Criteria**:
-  - Salary row shows 比較不可 for B; the practical-factors dimension notes reduced confidence.
-  - No estimated salary invented for B.
+## Case 2: missing evidence
 
-## Test Case 3: No candidate profile
-**Objective**: Graceful generic mode + upstream suggestion.
-- **Input**: Two company profiles only.
-- **Criteria**:
-  - Battlecard runs on company-side facts; personalization rows (SPI3 fit, well-being alignment) marked
-    unavailable.
-  - Suggests running `job-seeker-agent` (or pasting CANDIDATE_PROFILE) for personalized evaluation.
+Hide salary or manager information for one company. The row is `Unknown` or `Insufficient Data`, with
+the exact missing item and a verification question. No estimate is inserted.
 
-## Test Case 4: Honest evaluation on a lopsided match
-**Objective**: Anti-sentiment rule.
-- **Input**: Candidate profile clearly misfits both companies (low skill overlap, opposite SPI3).
-- **Criteria**:
-  - Verdict states both are weak fits; it does NOT crown a "winner" as if it were a good option without
-    stating the absolute level ("A has the advantage in 4/5 dimensions, but neither company demonstrates a strong fit").
+## Case 3: company-type boundary
 
-## Test Case 5: 3+ companies
-**Objective**: Table scales beyond pairwise.
-- **Input**: Three company profiles.
-- **Criteria**: Single consolidated table (not sequential pairwise cards); one final ranking with rationale;
-  offer decision hands off to `tenshoku-strategy` STEP 3 → 3-2 (negotiate/offer) → 3-3 (労働条件通知書
-  review) → 4 (resign) → 4-2 (onboard).
+Provide only a company type. The output must not create a culture advantage. It may state that the type
+suggests a question to verify, not an observed fact.
 
-## Test Case 6: Career Value Fit veto
-**Objective**: A confirmed dealbreaker can override a company leading in more dimensions.
-- **Input**: Two company profiles and confirmed `must_have`/`avoid` values; one company has direct
-  conflicting evidence, the other has no evidence.
-- **Criteria**:
-  - The conflicting company is marked ineligible even if it leads in more dimensions.
-  - Missing evidence is `Unknown`, not a veto.
-  - If all companies conflict, the verdict states that no acceptable winner exists.
+## Case 4: conflict and interest independence
+
+Provide a confirmed candidate dealbreaker, conflicting company evidence, and interest level 5. The
+objective result remains `Conflict`; changing interest to 1 produces the same objective axes.
+
+## Case 5: user-owned verdict
+
+When one company has a trade-off and the other has unknowns, explain both options and the next evidence
+to collect. Do not crown a winner or instruct the user to apply or not apply.

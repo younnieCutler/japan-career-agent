@@ -119,11 +119,12 @@ sort key. Legacy values already on disk are preserved and never backfilled or re
   in `hooks/hooks.json`. Silent when `data/pipeline.yml` is absent.
 - **`check_action.py`**: user-run. Ticks one action item; the assistant must not.
 - **`pipeline.py`**: shared `upsert` / `update` / `history` / `close` CLI for every domain Skill writer.
-- **`calibrate.py`**: predicted vs actual, feedback rate per route, override outcomes. Prints nothing
-  below 3 scored outcomes. `rules` subcommand promotes a cause only at 2+ supporting entries.
+- **`calibrate.py`**: route feedback, user overrides, preparation, and other workflow observations. It
+  prints nothing below 3 reached-stage entries. `rules` promotes a cause only at 2+ supporting entries.
+  **`legacy_calibrate.py --legacy-experimental`** is the separate read-only viewer for old tier history.
   The tier table is **legacy_v1 only** — `evidence_based_v3` records no predicted grade, so there
   is deliberately no forecast to score. Scoring a Decision Status against a hiring outcome would
-  turn it back into the pass-probability estimate v3 exists to stop. Route / feedback / override /
+  turn it back into the outcome estimate v3 exists to avoid. Route / feedback / override /
   root-cause analysis is unaffected and applies to all entries.
 - **`test_status_bar.py`**, **`test_calibrate.py`**, **`test_pipeline_cli.py`**: run before touching the
   corresponding deterministic writer/reader scripts.
@@ -238,7 +239,7 @@ When the user's message or attached content matches a pattern below, activate th
 | 이력서, 職務経歴書, 履歴書, resume text pasted | `job-seeker-agent` |
 | JD text pasted — 必須条件, 歓迎条件, 募集要項 (no URL) | `hiring-manager-agent` |
 | Japanese job/company site URL pasted | `kigyou-bunseki` |
-| "매칭", "합격확률", "スコア", "マッチ", "fit", "screening" | `matching-simulator` (answers the fit question; declines the probability — no calibrated model exists) |
+| "매칭", "합격확률", "スコア", "マッチ", "fit", "screening" | `matching-simulator` (answers the evidence question; does not produce an outcome rate) |
 | Two company names + "비교", "vs", "どっちが", "compare" | `company-battlecard` |
 | CANDIDATE_PROFILE + COMPANY_PROFILE both in conversation | `matching-simulator` |
 | "신졸", "新卒", "学チカ", "graduating soon" | `job-seeker-agent` (新卒 track) |
@@ -274,8 +275,8 @@ When the user's message or attached content matches a pattern below, activate th
 
 **Self-analysis disambiguation rule:**
 - "자기분석 / 自己分析" with **no resume**, asking about strengths · values · work style · direction → `jiko-bunseki`
-- A resume / 職務経歴書 is pasted, or the user wants SPI3 scoring / CANDIDATE_PROFILE → `job-seeker-agent`
-- jiko-bunseki produces SELF_ANALYSIS_PROFILE (direction); job-seeker-agent consumes it and produces CANDIDATE_PROFILE (scoring). They are sequential, not interchangeable.
+- A resume / 職務経歴書 is pasted, or the user wants evidence mapping / CANDIDATE_PROFILE → `job-seeker-agent`
+- jiko-bunseki produces SELF_ANALYSIS_PROFILE (direction and reflection); job-seeker-agent consumes it and produces CANDIDATE_PROFILE (evidence mapping). They are sequential, not interchangeable.
 
 ---
 
@@ -285,19 +286,19 @@ The suite mirrors the real Japanese mid-career hiring process. Every user moves 
 skills are tools attached to stages. When the user asks "what should I do next?", answer from this map —
 name the stage they are at and the stage that comes next.
 
-| Stage | Market reality | Typical duration | Skill |
+| Stage | Market reality / planning use | Timing source | Skill |
 |-------|---------------|------------------|-------|
-| 0. 自己分析 | Direction before documents — agents (CA) probe your 転職軸 in the first meeting | 1–2 weeks | `jiko-bunseki` |
-| 1. 書類準備 | 履歴書 + 職務経歴書; recruiters scan ~6 seconds; 書類通過率 roughly 30–50% depending on route | 1–2 weeks | `job-seeker-agent` |
-| 2. 情報収集・企業研究 | Channel choice: 転職サイト / エージェント (RA/CA) / スカウト / リファラル; research via OpenWork · 転職会議 | parallel with 1 | `kigyou-bunseki`, `matching-simulator` |
-| 3. 応募・書類選考 | Multiple parallel applications are the norm; track every one, watch rejection patterns | 1–2 weeks per company | `tenshoku-strategy` STEP 6 (tracking) |
-| 4. 面接 | カジュアル面談 → 一次 (現場) → (二次 部長級) → 最終 (役員); ~1–2 weeks per round; お礼メール within 24h | 3–6 weeks | `job-seeker-agent` STEP 4-3 (content), `tenshoku-strategy` STEP 2 / 2-2 (manner / follow-up) |
-| 5. 内定・オファー面談 | 回答期限 is typically about 1 week; 年収交渉 happens here — not during interviews | ~1 week | `tenshoku-strategy` STEP 3 / 3-2, `company-battlecard` (multiple offers) |
-| 6. 退職交渉・引き継ぎ | 民法627条 = 2 weeks minimum; practice = 1–2 months notice; counter-offer (引き止め) is expected — decide your answer before announcing | 1–2 months | `tenshoku-strategy` STEP 4 |
-| 7. 入社 | 在留資格 change if applicable; start date coordinated at the オファー面談; 住民税/社会保険 paperwork, reference checks, 試用期間 survival | first 90 days | `tenshoku-strategy` STEP 4-2 |
+| 0. 自己分析 | Direction before documents; record the user's confirmed 転職軸 and unknowns | User state and dated notes | `jiko-bunseki` |
+| 1. 書類準備 | 履歴書 + 職務経歴書; route-specific requirements must come from the dated posting or channel | Posting / channel evidence | `job-seeker-agent` |
+| 2. 情報収集・企業研究 | Channels and review sites are options; keep company facts separate from hypotheses | Dated company sources | `kigyou-bunseki`, `matching-simulator` |
+| 3. 応募・書類選考 | Track each application and record actual responses or rejection feedback | Pipeline events | `tenshoku-strategy` STEP 6 (tracking) |
+| 4. 面接 | Round names and participants vary by company; follow the invitation and confirmed recruiter guidance | Invitation / recruiter message | `job-seeker-agent` STEP 4-3 (content), `tenshoku-strategy` STEP 2 / 2-2 (manner / follow-up) |
+| 5. 内定・オファー面談 | Confirm written conditions, response deadline, negotiation channel, and start-date constraints | Offer documents / company message | `tenshoku-strategy` STEP 3 / 3-2, `company-battlecard` (multiple offers) |
+| 6. 退職交渉・引き継ぎ | Applicable law, contract, work rules, and handover facts must be checked for this user; do not generalize a notice period | Official source / contract / work rules | `tenshoku-strategy` STEP 4 |
+| 7. 入社 | Coordinate start date and verify tax, insurance, authorization, reference-check, and probation documents | Official source / employer documents | `tenshoku-strategy` STEP 4-2 |
 
-Typical end-to-end: **3–6 months**. Stages 0–2 overlap; stages 3–5 run per-company in parallel.
-Durations and pass rates are market rules of thumb (wide margins) — verify current figures with your agent.
+Stages 0–2 may overlap, and stages 3–5 run per-company in parallel. No universal duration is asserted here;
+time-sensitive market claims belong in `_shared/career_claims.yml` and must be reverified.
 Per-company progress lives in `data/pipeline.yml` (PIPELINE schema in `_shared/schemas.yml`) — each
 company carries its own stage number from this map.
 
@@ -356,8 +357,8 @@ These apply to all 9 skills equally:
    "potential". A `Review` means specific things are unknown; say which.
 4. **Missing is not neutral** — An unknown stays `unknown`. Never a mean, never 50, never a
    default pass, and never inside a coverage denominator.
-5. **No invented probability** — No pass rate, offer rate, or company-formula claim without a
-   calibrated model, and there is none here. Observed events are reported as events with dates.
+5. **No invented outcome rate** — No pass rate, offer rate, or company-formula claim is emitted here.
+   Observed events are reported as events with dates; dated external claims remain descriptive.
 6. **Evidence grounding** — Every claim cites its source in the user's input (resume line, JD line,
    interview answer), with the observation date and confidence where it matters.
 
@@ -401,8 +402,10 @@ smoke test. Run the listed deterministic checks before committing.
 
 ```
 _shared/
-├── frameworks.md            # Canonical: SPI3, Portable Skills, Ontology, Well-being, Gakuchika,
-│                            #   Company-Type. §6 score formulas are legacy_v1 (retired).
+├── frameworks.md            # Canonical: work-style reflection, Portable Skills, Ontology, values,
+│                            #   Gakuchika, provenance, and verification questions.
+├── decision_philosophy.md   # Suite-wide axes, vocabulary, trust boundary, and legacy policy
+├── career_claims.yml        # Dated external claims; empty until a sourced claim is recorded
 ├── schemas.yml              # Canonical data contracts (schema_version 2.0, model-version tagged)
 ├── matching_v3.py           # DEFAULT matching engine — evidence_based_v3
 ├── mhlw_reference.py        # MHLW 114-profile reference interface (dataset not bundled)

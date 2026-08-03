@@ -1,11 +1,7 @@
-# frameworks.md — Stub
+# Job-seeker framework pointer
 
-The canonical version is at `../../../_shared/frameworks.md`.
+Read `../../../_shared/frameworks.md` and `../../../_shared/decision_philosophy.md`.
 
-Always read `../../../_shared/frameworks.md` for all framework definitions:
-- SPI3 Personality Quadrant Model (12-statement diagnostic)
-- Portable Skills: 8 Core Elements
-- Skill Ontology Mapping Table
-- Hataraku Well-being Index
-- Gakuchika Evaluation Framework
-- Matching Score Calculation Formula
+The custom work-style prompts are reflection only. Portable skills are grounded in user evidence;
+MHLW composition distance requires a separate 29-point allocation. Requirements use `Matched`,
+`Missing`, or `Unknown`, and no hidden score or platform formula is used.

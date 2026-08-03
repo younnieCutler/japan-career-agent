@@ -1,7 +1,7 @@
 {
   "name": "japan-recruit-ai-agent",
   "version": "1.3.0",
-  "description": "Japan career skills for 新卒 and 中途: self-analysis, documents, company research, matching, execution, and local career state.",
+  "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
   "author": { "name": "younnieCutler" },
   "license": "MIT",
   "hooks": "./hooks/hooks.json",
