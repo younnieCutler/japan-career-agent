@@ -108,10 +108,18 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         )
 
 
+CLEARABLE_FIELDS = {
+    "interest_level", "interest_reason", "interest_evidence", "interest_updated_at",
+    "next_action", "deadline", "closed_reason", "match_conflicts", "match_unknowns"
+}
+
+
 def _snapshot_interest_history_if_needed(entry: dict[str, Any], fields: dict[str, Any]) -> None:
+    if "interest_level" not in fields:
+        return
     new_level = fields.get("interest_level")
     old_level = entry.get("interest_level")
-    if new_level is not None and old_level is not None and old_level != new_level:
+    if old_level is not None and old_level != new_level:
         entry.setdefault("interest_history", []).append({
             "interest_level": old_level,
             "interest_reason": entry.get("interest_reason"),
@@ -119,6 +127,24 @@ def _snapshot_interest_history_if_needed(entry: dict[str, Any], fields: dict[str
             "interest_updated_at": entry.get("interest_updated_at"),
             "changed_at": dt.date.today().isoformat(),
         })
+
+
+def _append_history_idempotent(entry: dict[str, Any], history: dict[str, Any] | None) -> None:
+    if history is None:
+        return
+    if not isinstance(history, dict):
+        raise ValueError("history must be an object")
+    hist_id = history.get("event_id") or history.get("id")
+    if "id" in history:
+        history = {key: value for key, value in history.items() if key != "id"}
+        if "event_id" not in history and hist_id:
+            history["event_id"] = hist_id
+    history_list = entry.setdefault("history", [])
+    if hist_id:
+        for item in history_list:
+            if isinstance(item, dict) and (item.get("id") == hist_id or item.get("event_id") == hist_id):
+                return
+    history_list.append(history)
 
 
 def upsert_company(
@@ -143,13 +169,14 @@ def upsert_company(
         _snapshot_interest_history_if_needed(entry, fields)
         for key, value in fields.items():
             if value is None:
+                if key in CLEARABLE_FIELDS:
+                    entry[key] = None
                 continue
             if key == "stage" and forward_only_stage and isinstance(entry.get("stage"), int):
                 if value < entry["stage"]:
                     continue
             entry[key] = value
-        if history is not None:
-            entry.setdefault("history", []).append(history)
+        _append_history_idempotent(entry, history)
         data["updated"] = str((history or {}).get("date") or dt.date.today().isoformat())
         return data
 
@@ -175,12 +202,13 @@ def _update_company_data(
     _snapshot_interest_history_if_needed(entry, fields)
     for key, value in fields.items():
         if value is None:
+            if key in CLEARABLE_FIELDS:
+                entry[key] = None
             continue
         if key == "stage" and isinstance(entry.get("stage"), int) and value < entry["stage"]:
             continue
         entry[key] = value
-    if history is not None:
-        entry.setdefault("history", []).append(history)
+    _append_history_idempotent(entry, history)
     data["updated"] = str((history or {}).get("date") or dt.date.today().isoformat())
     return data
 

@@ -795,12 +795,16 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
     if event.get("deadline"):
         fields["deadline"] = event["deadline"]
 
+    hist_entry = {"date": day, "event": text[:120]}
+    if event.get("id"):
+        hist_entry["event_id"] = event["id"]
+
     try:
         pipeline_store.upsert_company(
             path,
             company_slug(event["company"]),
             fields,
-            history={"date": day, "event": text[:120]},
+            history=hist_entry,
         )
     except ImportError:  # pyyaml is in requirements.txt; degrade instead of breaking approve
         return None
@@ -817,7 +821,7 @@ def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[s
     next_state["stage"] = event["stage"]
     next_state["flow_phase"] = event["flow_phase"]
     next_state["last_event_id"] = event["id"]
-    actions = list(next_state.get("open_actions", []))
+    actions = [item for item in next_state.get("open_actions", []) if item.get("event_id") != event["id"]]
     if event.get("next_action"):
         actions.append({"text": event["next_action"], "event_id": event["id"], "stage": event["stage"]})
     next_state["open_actions"] = actions[-10:]
@@ -973,6 +977,8 @@ def setup(
         profile["graduation_year"] = graduation_year
     if language:
         profile["language"] = language
+    elif "language" not in profile:
+        profile["language"] = "ko"
     write_toml(home.profile, profile)
     diagnosis = doctor(home)
     return {
@@ -1370,6 +1376,19 @@ def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any],
     })
 
 
+def state_version_is_persisted(home: CareerVault, state: dict[str, Any]) -> bool:
+    version = state.get("version")
+    if not isinstance(version, str) or not version:
+        return False
+    if not (home.versions / f"{version}.json").is_file():
+        return False
+    return any(
+        row.get("version") == version
+        for row in read_jsonl(home.checkpoints)
+        if isinstance(row, dict)
+    )
+
+
 def approve(
     home: CareerVault,
     proposal_id: str,
@@ -1403,10 +1422,23 @@ def approve(
                 record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
                 raise
             event["status"] = "confirmed"
-            append_jsonl(home.events, event)
-            state = apply_event_to_state(home.load_state(), event)
-            version = home.save_state(state)
+            # External write (data/pipeline.yml) first; if this fails, vault state & ledger remain clean
             pipeline = upsert_pipeline_entry(event) if event.get("company") else None
+
+            # Vault event ledger append (idempotent guard)
+            existing_events = read_jsonl(home.events)
+            if not any(e.get("id") == event.get("id") for e in existing_events):
+                append_jsonl(home.events, event)
+
+            state = home.load_state()
+            projected_state = apply_event_to_state(state, event)
+            if projected_state == state and state_version_is_persisted(home, state):
+                # A previous attempt reached the state/checkpoint commit but failed while
+                # marking the proposal approved. Reuse that commit on retry instead of
+                # manufacturing a second version for the same event.
+                version = state["version"]
+            else:
+                version = home.save_state(projected_state)
             updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now(), version=version)
             result = {"approved": True, "event": event, "version": version, "proposal": updated}
             if pipeline:
@@ -1467,7 +1499,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--track", choices=sorted(TRACKS))
     setup_parser.add_argument("--target-role")
     setup_parser.add_argument("--graduation-year", type=int)
-    setup_parser.add_argument("--language", default="ko")
+    setup_parser.add_argument("--language", default=None)
     doctor_parser = subparsers.add_parser("doctor")
     add_vault_argument(doctor_parser)
     doctor_parser.add_argument("--fix", action="store_true", help="migrate the legacy nested data/pipeline.yml shape")

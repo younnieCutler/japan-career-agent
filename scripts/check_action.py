@@ -80,7 +80,7 @@ def check(pipeline, slug: str, item_id: str, path: Path) -> int:
     updated = pipeline_store.mutate(path, apply)
     company = next(c for c in updated.get("companies") or [] if c.get("slug") == slug)
     remaining = sum(1 for i in company.get("action_items") or [] if not i.get("checked"))
-    print(f"checked: {slug}/{item_id} — {remaining} remaining")
+    print(f"checked: {slug}/{item_id} - {remaining} remaining")
     print(path.resolve())
     return 0
 

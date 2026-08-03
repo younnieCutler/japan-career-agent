@@ -418,11 +418,29 @@ class DecisionStatusRules(unittest.TestCase):
 
     def test_experience_unknown_in_missing_information(self):
         """Experience unknown should appear in both decision_basis and missing_information."""
+        experience = "5年以上の開発経験"
         result = v3.evaluate(payload(skills={
             "required": [{"name": "SQL", "status": "matched"}],
-            "experience": [{"name": "5年以上の開発経験", "status": "unknown"}],
+            "experience": [{"name": experience, "status": "unknown"}],
         }))
-        self.assertIn("experience: 5年以上の開発経験", result["missing_information"])
+        self.assertEqual(result["missing_information"].count(f"experience: {experience}"), 1)
+
+    def test_experience_is_included_in_evidence_summary(self):
+        """Experience facts must contribute to the same evidence summary as other facts."""
+        experience = "5年以上の開発経験"
+        result = v3.evaluate(payload(skills={
+            "required": [{"name": "SQL", "status": "matched"}],
+            "preferred": [],
+            "experience": [{
+                "name": experience,
+                "status": "matched",
+                "source_type": "user",
+                "confidence": "low",
+            }],
+        }))
+        summary = result["evidence_summary"]
+        self.assertEqual(summary["counts_by_source_type"]["user"], 1)
+        self.assertIn(experience, summary["low_confidence"])
 
 
 class InterestIndependence(unittest.TestCase):

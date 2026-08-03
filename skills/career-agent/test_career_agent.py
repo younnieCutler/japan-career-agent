@@ -493,6 +493,124 @@ class CareerAgentTests(unittest.TestCase):
         reasons = [action["reason"] for action in heartbeat["actions"]]
         self.assertIn("profile_deadline", reasons)
 
+    def test_approve_failure_injection_and_end_to_end_idempotency(self) -> None:
+        """Requirement 5 & 6: Artificially inject failures at pipeline/state/proposal stages, then retry and verify state is identical to single approval."""
+        from unittest.mock import patch
+        from career_agent import CareerVault, approve
+
+        home = CareerVault(self.vault)
+        self.set_profile(track="chuto", target_role="Backend Dev", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "A社に面接を申し込んだ", cwd=self.workdir))
+        proposal_id = proposed["proposal"]["id"]
+
+        pipeline_target = self.workdir / "data" / "pipeline.yml"
+
+        with patch("career_agent.pipeline_file", return_value=pipeline_target):
+            # Failure 1: Simulated failure during pipeline store write
+            with patch("pipeline_store.upsert_company", side_effect=ValueError("simulated pipeline error")):
+                with self.assertRaises(ValueError):
+                    approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+
+            # Verify vault is unchanged and proposal remains pending
+            events_file = self.vault / "02-state" / "events.jsonl"
+            self.assertEqual(len(read_jsonl(events_file)) if events_file.exists() else 0, 0)
+            pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
+            self.assertEqual(pending_props[0]["status"], "pending")
+
+            # Failure 2: Simulated failure during save_state (pipeline succeeds, state fails)
+            with patch.object(CareerVault, "save_state", side_effect=OSError("simulated state error")):
+                with self.assertRaises(OSError):
+                    approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+
+            # Verify proposal is STILL pending after failure 2
+            pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
+            self.assertEqual(pending_props[0]["status"], "pending")
+
+            # Failure 3: proposal replacement fails after all projection stores committed.
+            # The proposal must remain retryable, while the committed projection is reusable.
+            with patch.object(CareerVault, "replace_proposal", side_effect=OSError("simulated proposal error")):
+                with self.assertRaises(OSError):
+                    approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+
+            pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
+            self.assertEqual(pending_props[0]["status"], "pending")
+            state_after_failure = home.load_state()
+            committed_version = state_after_failure["version"]
+            checkpoint_versions = [row["version"] for row in read_jsonl(home.checkpoints)]
+            version_files = sorted(path.name for path in home.versions.glob("*.json"))
+            self.assertEqual(checkpoint_versions, [committed_version])
+            self.assertEqual(version_files, [f"{committed_version}.json"])
+
+            # Retry the pending proposal. It must reuse the committed version rather than
+            # creating another checkpoint/version for the same event.
+            clean_result = approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+            self.assertTrue(clean_result["approved"])
+            self.assertEqual(clean_result["version"], committed_version)
+
+            # Check deduplication across all projection stores and state-version side effects.
+            events = read_jsonl(self.vault / "02-state" / "events.jsonl")
+            self.assertEqual(len(events), 1)
+
+            state = home.load_state()
+            action_event_ids = [a["event_id"] for a in state.get("open_actions", [])]
+            self.assertEqual(len(action_event_ids), len(set(action_event_ids)))
+
+            import pipeline_store
+            p_data = pipeline_store.load(pipeline_target)
+            company_entry = p_data["companies"][0]
+            history_ids = [h.get("event_id") for h in company_entry.get("history", []) if isinstance(h, dict) and "event_id" in h]
+            self.assertEqual(len(history_ids), len(set(history_ids)))
+            self.assertEqual(history_ids, [events[0]["id"]])
+            self.assertEqual([row["version"] for row in read_jsonl(home.checkpoints)], [committed_version])
+            self.assertEqual(sorted(path.name for path in home.versions.glob("*.json")), [f"{committed_version}.json"])
+
+            # The retry projection must be logically identical to one clean approve; UUIDs
+            # and timestamps are deliberately excluded from this projection comparison.
+            fresh_vault = self.vault.parent / "exactly-once-vault"
+            output(run(fresh_vault, "init"))
+            (fresh_vault / "00-control" / "career-profile.toml").write_text(
+                (self.vault / "00-control" / "career-profile.toml").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            fresh_home = CareerVault(fresh_vault)
+            fresh_proposed = output(run(
+                fresh_vault, "run", "--mode", "chat", "--message", "A社に面接を申し込んだ", cwd=self.workdir,
+            ))
+            fresh_target = fresh_home.path.parent / "fresh-data" / "pipeline.yml"
+            with patch("career_agent.pipeline_file", return_value=fresh_target):
+                approve(fresh_home, fresh_proposed["proposal"]["id"], evidence=["面接申込完了"], company="A社")
+
+            def logical_projection(vault, target):
+                data = pipeline_store.load(target)
+                entry = data["companies"][0]
+                state = vault.load_state()
+                return {
+                    "company": {
+                        "slug": entry["slug"],
+                        "name": entry["name"],
+                        "stage": entry.get("stage"),
+                        "next_action": entry.get("next_action"),
+                        "history": [(item.get("date"), item.get("event")) for item in entry["history"]],
+                    },
+                    "state": {
+                        "track": state.get("track"),
+                        "stage": state.get("stage"),
+                        "flow_phase": state.get("flow_phase"),
+                        "open_actions": [
+                            {"text": item.get("text"), "stage": item.get("stage")}
+                            for item in state["open_actions"]
+                        ],
+                        "deadlines": [
+                            {key: item.get(key) for key in ("date", "title", "status")}
+                            for item in state["deadlines"]
+                        ],
+                    },
+                }
+
+            self.assertEqual(logical_projection(home, pipeline_target), logical_projection(fresh_home, fresh_target))
+
+
 
 if __name__ == "__main__":
     unittest.main()
+

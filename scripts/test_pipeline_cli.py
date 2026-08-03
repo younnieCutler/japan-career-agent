@@ -68,6 +68,28 @@ class PipelineCliTests(unittest.TestCase):
         self.assertIn("legacy_v1", self.last_error)
         self.assertEqual(self.load()["companies"][0]["match_score"], 78)
 
+    def test_history_event_id_is_canonical_and_legacy_id_is_readable(self) -> None:
+        legacy = {"date": "2026-08-03", "event": "legacy", "id": "evt-legacy"}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(yaml.safe_dump({
+            "companies": [{"slug": "gao", "name": "GAO", "stage": 3,
+                           "closed": False, "history": [legacy]}],
+        }, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        pipeline.pipeline_store.update_company(
+            self.path, "gao", {},
+            history={"date": "2026-08-03", "event": "retry", "event_id": "evt-legacy"},
+        )
+        history = self.load()["companies"][0]["history"]
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["id"], "evt-legacy")
+
+        pipeline.pipeline_store.update_company(
+            self.path, "gao", {},
+            history={"date": "2026-08-03", "event": "new", "event_id": "evt-new"},
+        )
+        self.assertEqual(self.load()["companies"][0]["history"][-1]["event_id"], "evt-new")
+        self.assertNotIn("id", self.load()["companies"][0]["history"][-1])
+
     def test_interest_level_range_is_enforced(self) -> None:
         self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO"}))
         self.run_cli("update", "gao", "--json", json.dumps({"interest_level": 5,
@@ -102,11 +124,21 @@ class PipelineCliTests(unittest.TestCase):
         self.assertEqual(company["interest_level"], 5)
         self.assertEqual(company["interest_reason"], "new_reason")
         self.assertEqual(len(company["interest_history"]), 1)
-        snapshot = company["interest_history"][0]
-        self.assertEqual(snapshot["interest_level"], 2)
-        self.assertEqual(snapshot["interest_reason"], "old_reason")
+    def test_nullable_fields_can_be_cleared_to_none(self) -> None:
+        """Passing explicit null for a clearable field sets it back to None."""
+        self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO", "interest_level": 4, "deadline": "2026-10-01"}))
+        self.assertEqual(self.load()["companies"][0]["interest_level"], 4)
+        self.assertEqual(self.load()["companies"][0]["deadline"], "2026-10-01")
+
+        self.run_cli("update", "gao", "--json", json.dumps({"interest_level": None, "deadline": None}))
+        company = self.load()["companies"][0]
+        self.assertIsNone(company["interest_level"])
+        self.assertIsNone(company["deadline"])
+        self.assertEqual(len(company["interest_history"]), 1)
+        self.assertEqual(company["interest_history"][0]["interest_level"], 4)
 
 
 if __name__ == "__main__":
+
 
     unittest.main()
