@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.6.2] — 2026-08-03
+
+- Made the UserPromptSubmit launcher fail open for missing or stale plugin cache paths, unavailable
+  Python, and status-bar runtime errors while visibly reporting that execution gates and deadlines
+  were not checked.
+- Buffered POSIX and Windows status-bar output so a runtime failure emits one degraded block and
+  never leaks partial status output; a host-enforced timeout may still terminate the launcher before
+  it can print any block.
+- Added POSIX/Windows hook lifecycle regression coverage, including deleted-version cache paths and
+  paths containing spaces or non-ASCII characters, plus a partial-output regression.
+- Completed canonical `SELF_ANALYSIS_PROFILE v2` checks for known activity IDs, unique episode IDs,
+  valid behavior-to-episode references, strict optional nested shapes, and derailer identifiers with
+  allowed-ID diagnostics without changing the readable list/null contract or migrating legacy data.
+- Changed confirmed required skill and experience gaps from `Proceed` to `Review`; preferred gaps,
+  hard-conflict precedence, interest independence, and no-score semantics remain unchanged. Review
+  output now includes deterministic gap-verification questions, and pipeline persistence keeps
+  `match_required_gaps` separate from `match_unknowns`.
+- Made manifest consistency checks address Claude/Codex files and marketplace entries by identity,
+  not array order; the shared schema is now v2.3.
+- Synchronized plugin manifests, README contracts, CI, and the Claude standard-hook loading rule.
+
 ## [1.6.1] — 2026-08-03
 
 - Made Career Vault JSON, TOML, and rewritten JSONL state writes atomic while preserving TOML as the

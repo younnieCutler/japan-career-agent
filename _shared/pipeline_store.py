@@ -100,6 +100,13 @@ def _validate_fields(fields: dict[str, Any]) -> None:
     status = fields.get("decision_status")
     if status is not None and status not in DECISION_STATUSES:
         raise ValueError(f"decision_status must be one of {sorted(DECISION_STATUSES)}")
+    for field in ("match_conflicts", "match_required_gaps", "match_unknowns"):
+        values = fields.get(field)
+        if values is not None and (
+            not isinstance(values, list)
+            or not all(isinstance(item, str) and item.strip() for item in values)
+        ):
+            raise ValueError(f"{field} must be a list of non-empty strings or null")
     version = fields.get("match_model_version")
     if version is not None and version not in MATCH_MODEL_VERSIONS:
         raise ValueError(f"match_model_version must be one of {sorted(MATCH_MODEL_VERSIONS)}")
@@ -117,7 +124,8 @@ def _validate_fields(fields: dict[str, Any]) -> None:
 
 CLEARABLE_FIELDS = {
     "interest_level", "interest_reason", "interest_evidence", "interest_updated_at",
-    "next_action", "deadline", "closed_reason", "match_conflicts", "match_unknowns"
+    "next_action", "deadline", "closed_reason", "match_conflicts", "match_unknowns",
+    "match_required_gaps",
 }
 
 

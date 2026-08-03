@@ -1,7 +1,36 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildSubmission } = require("../checklist_runtime.js");
+const { buildSubmission, resolveScaleSelection } = require("../checklist_runtime.js");
+
+assert.equal(resolveScaleSelection("3", false, false), undefined);
+assert.equal(resolveScaleSelection("3", true, false), "3");
+assert.equal(resolveScaleSelection("3", true, true), "unknown");
+assert.equal(resolveScaleSelection("5", true, false), "5");
+
+function confidenceSubmission(selection) {
+  return buildSubmission({
+    behavior_tendencies: {},
+    environment_preferences: {},
+    learning_confidence: selection,
+    episodes: []
+  });
+}
+
+const numericConfidence = confidenceSubmission(resolveScaleSelection("5", true, false));
+assert.equal(numericConfidence.career_self_efficacy.learning_confidence, 5);
+assert.equal(
+  numericConfidence.unanswered_fields.includes("career_self_efficacy.learning_confidence"),
+  false
+);
+
+const untouchedConfidence = confidenceSubmission(resolveScaleSelection("3", false, false));
+assert.equal(untouchedConfidence.career_self_efficacy.learning_confidence, null);
+assert.ok(untouchedConfidence.unanswered_fields.includes("career_self_efficacy.learning_confidence"));
+
+const unknownConfidence = confidenceSubmission(resolveScaleSelection("3", false, true));
+assert.equal(unknownConfidence.career_self_efficacy.learning_confidence, null);
+assert.ok(unknownConfidence.explicit_unknown_fields.includes("career_self_efficacy.learning_confidence"));
 
 const result = buildSubmission({
   name: "  Test User  ",

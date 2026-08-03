@@ -12,6 +12,10 @@ BEHAVIOR_IDS = {
     "initiative", "execution", "discipline", "ownership", "analysis", "learning",
     "strategy", "empathy", "harmony", "communication", "support", "confidence",
 }
+ACTIVITY_IDS = {
+    "hands_on_systems", "investigate_causes", "create_expressions",
+    "help_explain", "persuade_lead", "organize_processes",
+}
 ENVIRONMENT_IDS = {
     "autonomy", "competence", "relatedness", "structure_preference", "speed_preference",
     "change_tolerance", "collaboration_preference", "feedback_frequency",
@@ -79,12 +83,17 @@ def _validate_interest(value: Any) -> None:
     for index, item in enumerate(values):
         if not isinstance(item, dict):
             raise ProfileValidationError(f"interest_hypotheses[{index}] must be an object")
-        _string(item.get("activity"), f"interest_hypotheses[{index}].activity")
+        activity = item.get("activity")
+        if not isinstance(activity, str) or activity not in ACTIVITY_IDS:
+            raise ProfileValidationError(
+                f"interest_hypotheses[{index}].activity must be a known checklist activity id; "
+                f"allowed: {sorted(ACTIVITY_IDS)}"
+            )
         _string(item.get("response_basis"), f"interest_hypotheses[{index}].response_basis")
         _confidence(item.get("confidence"), f"interest_hypotheses[{index}].confidence")
 
 
-def _validate_behavior(value: Any) -> None:
+def _validate_behavior(value: Any, episode_ids: set[str]) -> None:
     values = _list(value, "behavior_tendencies", nullable=True)
     if values is None:
         return
@@ -95,25 +104,39 @@ def _validate_behavior(value: Any) -> None:
             raise ProfileValidationError(f"{label} must be an object")
         name = item.get("name")
         if not isinstance(name, str) or name not in BEHAVIOR_IDS or name in seen:
-            raise ProfileValidationError(f"{label}.name must be a unique known tendency id")
+            raise ProfileValidationError(
+                f"{label}.name must be a unique known tendency id; allowed: {sorted(BEHAVIOR_IDS)}"
+            )
         seen.add(name)
         _scale(item.get("self_report"), f"{label}.self_report")
         _string(item.get("response_basis"), f"{label}.response_basis")
-        _strings(item.get("evidence_episode_refs"), f"{label}.evidence_episode_refs")
+        refs = _list(item.get("evidence_episode_refs"), f"{label}.evidence_episode_refs")
+        assert refs is not None
+        for ref_index, ref in enumerate(refs):
+            _string(ref, f"{label}.evidence_episode_refs[{ref_index}]")
+            if ref not in episode_ids:
+                raise ProfileValidationError(
+                    f"{label}.evidence_episode_refs[{ref_index}] references unknown episode {ref!r}"
+                )
         _confidence(item.get("confidence"), f"{label}.confidence")
 
 
-def _validate_episodes(value: Any) -> None:
+def _validate_episodes(value: Any) -> set[str]:
     values = _list(value, "evidence_episodes", nullable=True)
     if values is None:
-        return
+        return set()
     required = ("id", "experience_type", "situation", "action", "energy_effect", "source_type", "confidence")
+    episode_ids: set[str] = set()
     for index, item in enumerate(values):
         label = f"evidence_episodes[{index}]"
         if not isinstance(item, dict):
             raise ProfileValidationError(f"{label} must be an object")
         for field in required:
             _string(item.get(field), f"{label}.{field}")
+        episode_id = item["id"]
+        if episode_id in episode_ids:
+            raise ProfileValidationError(f"{label}.id must be unique within evidence_episodes")
+        episode_ids.add(episode_id)
         if not isinstance(item["energy_effect"], str) or item["energy_effect"] not in {
             "energizing", "draining", "mixed", "unknown"
         }:
@@ -122,6 +145,7 @@ def _validate_episodes(value: Any) -> None:
         if item["source_type"] != "user":
             raise ProfileValidationError(f"{label}.source_type must be user")
         _confidence(item["confidence"], f"{label}.confidence")
+    return episode_ids
 
 
 def _validate_efficacy(value: Any) -> None:
@@ -174,6 +198,61 @@ def _validate_values(value: Any, label: str) -> None:
     _strings(value["avoid"], f"{label}.avoid")
 
 
+def _validate_derailers(value: Any) -> None:
+    values = _list(value, "derailers", nullable=True)
+    if values is None:
+        return
+    required = {"strength", "overuse_risk", "watch_signal"}
+    for index, item in enumerate(values):
+        label = f"derailers[{index}]"
+        if not isinstance(item, dict) or set(item) != required:
+            raise ProfileValidationError(f"{label} must contain strength, overuse_risk, and watch_signal")
+        if item["strength"] not in BEHAVIOR_IDS:
+            raise ProfileValidationError(
+                f"{label}.strength must be a known tendency id; allowed: {sorted(BEHAVIOR_IDS)}"
+            )
+        _string(item["overuse_risk"], f"{label}.overuse_risk")
+        _string(item["watch_signal"], f"{label}.watch_signal")
+
+
+def _validate_preferred_environment_hypothesis(value: Any) -> None:
+    values = _list(value, "preferred_environment_hypothesis", nullable=True)
+    if values is None:
+        return
+    required = {"preference", "hypothesis", "verification_question", "confidence"}
+    for index, item in enumerate(values):
+        label = f"preferred_environment_hypothesis[{index}]"
+        if not isinstance(item, dict) or set(item) != required:
+            raise ProfileValidationError(
+                f"{label} must contain preference, hypothesis, verification_question, and confidence"
+            )
+        if item["preference"] not in ENVIRONMENT_IDS:
+            raise ProfileValidationError(
+                f"{label}.preference must be a known environment preference id; "
+                f"allowed: {sorted(ENVIRONMENT_IDS)}"
+            )
+        _string(item["hypothesis"], f"{label}.hypothesis")
+        _string(item["verification_question"], f"{label}.verification_question")
+        _confidence(item["confidence"], f"{label}.confidence")
+
+
+def _validate_self_pr_seeds(value: Any, episode_ids: set[str]) -> None:
+    values = _list(value, "self_pr_seeds", nullable=True)
+    if values is None:
+        return
+    required = {"episode_ref", "seed"}
+    for index, item in enumerate(values):
+        label = f"self_pr_seeds[{index}]"
+        if not isinstance(item, dict) or set(item) != required:
+            raise ProfileValidationError(f"{label} must contain episode_ref and seed")
+        _string(item["episode_ref"], f"{label}.episode_ref")
+        if item["episode_ref"] not in episode_ids:
+            raise ProfileValidationError(
+                f"{label}.episode_ref references unknown episode {item['episode_ref']!r}"
+            )
+        _string(item["seed"], f"{label}.seed")
+
+
 def validate_self_analysis_profile(value: Any) -> dict[str, Any]:
     """Validate without normalizing or migrating any field."""
     if not isinstance(value, dict):
@@ -196,8 +275,8 @@ def validate_self_analysis_profile(value: Any) -> dict[str, Any]:
         raise ProfileValidationError(f"track must be one of {sorted(TRACKS)}")
 
     _validate_interest(value["interest_hypotheses"])
-    _validate_behavior(value["behavior_tendencies"])
-    _validate_episodes(value["evidence_episodes"])
+    episode_ids = _validate_episodes(value["evidence_episodes"])
+    _validate_behavior(value["behavior_tendencies"], episode_ids)
     _validate_efficacy(value["career_self_efficacy"])
     _strings(value["perceived_barriers"], "perceived_barriers", nullable=True)
     _strings(value["perceived_supports"], "perceived_supports", nullable=True)
@@ -205,13 +284,18 @@ def validate_self_analysis_profile(value: Any) -> dict[str, Any]:
     _strings(value["value_candidates"], "value_candidates", nullable=True)
     _strings(value["avoid_candidates"], "avoid_candidates", nullable=True)
 
-    for field in ("preferred_environment_hypothesis", "verification_questions", "recommended_role_clusters", "self_pr_seeds"):
-        if field in value:
-            _list(value[field], field, nullable=True)
+    if "preferred_environment_hypothesis" in value:
+        _validate_preferred_environment_hypothesis(value["preferred_environment_hypothesis"])
+    if "verification_questions" in value:
+        _strings(value["verification_questions"], "verification_questions", nullable=True)
+    if "recommended_role_clusters" in value:
+        _strings(value["recommended_role_clusters"], "recommended_role_clusters", nullable=True)
+    if "self_pr_seeds" in value:
+        _validate_self_pr_seeds(value["self_pr_seeds"], episode_ids)
     if "career_anchors" in value:
         _validate_anchors(value["career_anchors"])
     if "derailers" in value:
-        _list(value["derailers"], "derailers", nullable=True)
+        _validate_derailers(value["derailers"])
     if "energy_map" in value:
         _validate_energy_map(value["energy_map"])
     if "career_theme" in value:

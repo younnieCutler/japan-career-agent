@@ -46,8 +46,9 @@ Use:
 
 One-sided evidence is `Unknown`. A `Conflict` requires both sides to be evidenced and disagree. A
 confirmed hard requirement, authorization, candidate must-have, or avoid/dealbreaker cannot be offset
-by skills, conditions, or interest. Explain the risk and verification question; the user owns the next
-decision.
+by skills, conditions, or interest. A confirmed required skill or experience gap is `Review`, not
+`Conflict`, because required wording alone is not automatically a hard or legal gate. Explain the
+risk and verification question; the user owns the next decision.
 
 ## Required input shape
 
@@ -98,9 +99,11 @@ Missing information: [what would change the result]
 Next verification questions: [questions, not commands]
 ```
 
-`Proceed` means no confirmed blocker exists in the supplied evidence; it is not a recommendation or
-an outcome claim. `Review` names the unknowns. `Conflict` names the confirmed disagreement. Never say
-`do not apply`; state the evidence and let the user override or continue.
+`Proceed` means there is no confirmed hard conflict, unresolved required unknown, or confirmed
+required skill/experience gap in the supplied evidence. A preferred skill gap may remain without
+forcing `Review`. `Proceed` is not a recommendation or an outcome claim. `Review` names unknowns
+and confirmed required gaps. `Conflict` names confirmed hard disagreement. Never say `do not apply`;
+state the evidence and let the user override or continue.
 
 ## Compatibility boundary
 

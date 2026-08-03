@@ -42,7 +42,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 MODEL_VERSION = "evidence_based_v3"
-RULES_VERSION = "v3.0"
+RULES_VERSION = "v3.1"
 
 # MHLW 持ち味 allocation: 9 elements, each an integer >= 1, summing to exactly 29.
 ALLOCATION_KEYS = (
@@ -558,6 +558,14 @@ def evidence_summary(facts: list[dict[str, Any]], conflicting: list[str], as_of:
 # §6.1 Decision Status
 # ─────────────────────────────────────────────────────────────
 
+def _required_gap_question(gap: str) -> str:
+    kind, _, name = gap.partition(": ")
+    if kind == "required skill":
+        return f"Is {name} a strict must-have for this role, or can it be learned after joining?"
+    if kind == "experience":
+        return f"Is {name} a strict must-have for this role, or can equivalent experience be accepted?"
+    return f"Can you verify whether {gap} is a strict requirement or can be learned after joining?"
+
 def decision_status(
     eligibility: list[dict[str, Any]],
     skills: dict[str, Any],
@@ -571,6 +579,9 @@ def decision_status(
     conflicts = [f"eligibility: {item['requirement']}" for item in eligibility if item["status"] == "conflict"]
     conflicts += [f"career value ({item['kind']}): {item['value']}" for item in values["conflicts"]]
 
+    required_gaps = [f"required skill: {item['name']}" for item in skills["required_skills"]["missing"]]
+    required_gaps += [f"experience: {item['name']}" for item in skills["experience"]["gaps"]]
+
     unknowns = [f"eligibility: {item['requirement']}" for item in eligibility if item["status"] == "unknown"]
     unknowns += [f"required skill: {item['name']}" for item in skills["required_skills"]["unknown"]]
     unknowns += [f"experience: {item['name']}" for item in skills["experience"]["unknown"]]
@@ -581,16 +592,18 @@ def decision_status(
 
     if conflicts:
         status = DECISION_CONFLICT
-    elif unknowns or conflicting_evidence:
+    elif required_gaps or unknowns or conflicting_evidence:
         status = DECISION_REVIEW
     else:
         status = DECISION_PROCEED
     return {
         "status": status,
         "conflicts": conflicts,
+        "required_gaps": required_gaps,
         "unknowns": unknowns,
         "conflicting_evidence": list(conflicting_evidence),
-        "note": "Proceed means nothing blocks a decision on current information. "
+        "note": "Proceed means no confirmed hard conflict, unresolved required unknown, or confirmed "
+        "required skill or experience gap blocks a decision on current information. "
                 "It is not a recommendation to apply and not an outcome estimate.",
     }
 
@@ -645,7 +658,10 @@ def evaluate(payload: dict[str, Any], *, reference: dict[str, Any] | None = None
         "candidate_interest": candidate_interest(payload.get("candidate_interest")),
         "employer_signals": employer_signals(payload.get("employer_signals")),
         "missing_information": missing,
-        "clarifying_questions": [f"Can you confirm — {item}?" for item in decision["unknowns"]],
+        "clarifying_questions": [
+            *[_required_gap_question(item) for item in decision["required_gaps"]],
+            *[f"Can you confirm — {item}?" for item in decision["unknowns"]],
+        ],
         "evidence_summary": evidence_summary(facts, conflicting_evidence, payload.get("as_of")),
     }
 
@@ -691,6 +707,13 @@ def render(result: dict[str, Any]) -> str:
             out.append(f"- {title}: {', '.join(names)}")
     out.append("")
 
+    out.append("Required Experience")
+    for bucket, title in (("gaps", "Missing"), ("unknown", "Unknown")):
+        names = [item["name"] for item in skills["experience"][bucket]]
+        if names:
+            out.append(f"- {title}: {', '.join(names)}")
+    out.append("")
+
     portable = result["portable_skill"]
     out.append("Portable Skills")
     if portable["status"] == "available":
@@ -726,6 +749,9 @@ def render(result: dict[str, Any]) -> str:
 
     out.append("Missing Information")
     out += [f"- {item}" for item in result["missing_information"]] or ["- none"]
+    out.append("")
+    out.append("Next Verification Questions")
+    out += [f"- {item}" for item in result["clarifying_questions"]] or ["- none"]
     return "\n".join(out)
 
 

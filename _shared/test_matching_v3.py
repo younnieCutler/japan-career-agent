@@ -89,7 +89,6 @@ def payload(**overrides):
         "skills": {
             "required": [
                 {"name": "SQL", "status": "matched", "evidence": "3年", "source_type": "user"},
-                {"name": "A/B testing", "status": "missing", "source_type": "job_posting"},
             ],
             "preferred": [],
             "experience": [],
@@ -407,15 +406,43 @@ class DecisionStatusRules(unittest.TestCase):
         self.assertEqual(result["decision_status"], v3.DECISION_PROCEED)
         self.assertIn("preferred skill: Looker", result["missing_information"])
 
-    def test_required_skill_missing_does_not_force_conflict(self):
+    def test_required_skill_missing_triggers_review_not_conflict(self):
         result = v3.evaluate(payload(skills={
             "required": [{"name": "SQL", "status": "missing"}],
         }))
-        self.assertEqual(result["decision_status"], v3.DECISION_PROCEED)
+        self.assertEqual(result["decision_status"], v3.DECISION_REVIEW)
+        self.assertEqual(result["decision_basis"]["required_gaps"], ["required skill: SQL"])
+        self.assertEqual(
+            result["clarifying_questions"],
+            ["Is SQL a strict must-have for this role, or can it be learned after joining?"],
+        )
+        self.assertIn("Next Verification Questions", v3.render(result))
+        self.assertIn("Is SQL a strict must-have", v3.render(result))
+        self.assertNotIn("required skill: SQL", result["missing_information"])
         self.assertEqual(
             [item["name"] for item in result["skills"]["required_skills"]["missing"]],
             ["SQL"],
         )
+
+    def test_required_experience_missing_triggers_review(self):
+        result = v3.evaluate(payload(skills={
+            "required": [{"name": "SQL", "status": "matched"}],
+            "experience": [{"name": "3年以上のPM経験", "status": "missing"}],
+        }))
+        self.assertEqual(result["decision_status"], v3.DECISION_REVIEW)
+        self.assertEqual(result["decision_basis"]["required_gaps"], ["experience: 3年以上のPM経験"])
+        self.assertEqual(
+            result["clarifying_questions"],
+            ["Is 3年以上のPM経験 a strict must-have for this role, or can equivalent experience be accepted?"],
+        )
+        self.assertIn("- Missing: 3年以上のPM経験", v3.render(result))
+
+    def test_preferred_skill_missing_does_not_force_review(self):
+        result = v3.evaluate(payload(skills={
+            "required": [{"name": "SQL", "status": "matched"}],
+            "preferred": [{"name": "Looker", "status": "missing"}],
+        }))
+        self.assertEqual(result["decision_status"], v3.DECISION_PROCEED)
 
     def test_experience_unknown_triggers_review(self):
         """PRD: core required experience unknown → review, not proceed."""

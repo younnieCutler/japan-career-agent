@@ -11,13 +11,15 @@ decision philosophy; `_shared/decision_philosophy.md` and `_shared/schemas.yml` 
 - `_shared/pipeline_store.py`: the lock + atomic writer for `data/pipeline.yml`; legacy fields are
   readable but new legacy writes are rejected.
 - `_shared/matching_v3.py`: independent-axis `evidence_based_v3`; no composite score, probability,
-  rank, or interest-weighted result. `Unknown` stays outside skill coverage denominators.
+  rank, or interest-weighted result. `Unknown` stays outside skill coverage denominators, while
+  confirmed required gaps get separate deterministic verification questions.
 - `scripts/status_bar.py`: nearest deadline, urgent action preview (maximum 3), relevant rules
   preview (maximum 3), all blocker companies/counts, and actionable workflow observations.
 - `skills/jiko-bunseki/checklist.html`: local raw reflection export only. The executable collection
   helper and Node regression test cover unanswered, explicit Unknown, lists, episodes, and shape.
 - `_shared/self_analysis_profile.py`: strict canonical `SELF_ANALYSIS_PROFILE v2` validation;
-  raw checklist submissions are not canonical profiles.
+  raw checklist submissions are not canonical profiles. Optional nested shapes and known IDs are
+  validated without migration.
 
 ## Deterministic checks
 
@@ -31,6 +33,7 @@ python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
 python scripts/check_readme_consistency.py
+python scripts/test_hook_contract.py
 python _shared/test_self_analysis_profile.py
 python skills/career-agent/test_state_durability.py
 node skills/jiko-bunseki/tests/test_checklist_runtime.js

@@ -106,7 +106,8 @@ engine, marks facts honestly, and reports what it found without reframing it.
 - **Criteria**:
   - `data/match_history.md` entry carries `model_version: evidence_based_v3` and no legacy
     score fields.
-  - `data/pipeline.yml` is upserted through `scripts/pipeline.py` with `decision_status` and
-    `match_model_version`; existing legacy `match_score` on that entry is left untouched and is only
+  - `data/pipeline.yml` is upserted through `scripts/pipeline.py` with `decision_status`,
+    `match_model_version`, `match_required_gaps`, and `match_unknowns`; existing legacy `match_score`
+    on that entry is left untouched and is only
     inspectable through the explicit legacy viewer.
   - Absolute paths printed and existence verified (Rule C).

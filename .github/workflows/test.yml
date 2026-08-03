@@ -23,6 +23,8 @@ jobs:
           python -m ruff check --select E4,E7,E9,F .
       - name: active policy scan
         run: python scripts/check_policy.py
+      - name: UserPromptSubmit hook lifecycle tests
+        run: python scripts/test_hook_contract.py
       - name: external claim freshness
         run: python scripts/check_claim_freshness.py
       - name: context budget guard
