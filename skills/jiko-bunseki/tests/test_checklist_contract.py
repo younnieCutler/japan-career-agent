@@ -1,15 +1,19 @@
-#!/usr/bin/env python3
 """Regression checks for the Jiko Bunseki v2 raw-response contract."""
 
+import re
+import sys
 from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[3]
 CHECKLIST = ROOT / "skills" / "jiko-bunseki" / "checklist.html"
 SCHEMA = ROOT / "_shared" / "schemas.yml"
+MATCHING = ROOT / "_shared" / "matching_v3.py"
+CAREER_AGENT = ROOT / "skills" / "career-agent" / "career_agent.py"
 
+sys.path.insert(0, str(ROOT / "_shared"))
+import matching_v3 as v3
 
 BEHAVIOR_IDS = {
     "initiative", "execution", "discipline", "ownership", "analysis", "learning",
@@ -34,6 +38,16 @@ def test_v2_submission_has_independent_unknown_safe_controls() -> None:
     assert "const PAIRS" not in source
     assert "strength_pairs" not in source
     assert 'input type="range"' not in source
+    assert 'name="${namePrefix}.${item.id}"' in source
+
+
+def test_unanswered_and_explicit_unknown_remain_distinct() -> None:
+    source = CHECKLIST.read_text(encoding="utf-8")
+    assert "if (!selected) { unanswered.push(field); return null; }" in source
+    assert "if (selected.value === 'unknown') { explicitUnknown.push(field); return null; }" in source
+    assert "function collectText" in source
+    assert "career_self_efficacy.outcome_expectation" in source
+    assert "career_self_efficacy.goal" in source
 
 
 def test_checklist_is_local_bilingual_and_does_not_calculate_results() -> None:
@@ -42,8 +56,22 @@ def test_checklist_is_local_bilingual_and_does_not_calculate_results() -> None:
     assert "function prevStep" in source
     assert "한국어" in source and "日本語" in source
     assert "navigator.clipboard" in source
-    for forbidden in ("fetch(", "XMLHttpRequest", "WebSocket", "fit score", "personality", "diagnos"):
+    for forbidden in (
+        "fetch(", "XMLHttpRequest", "WebSocket", "sendBeacon", "fit score", "personality", "diagnos",
+        "occupation recommendation", "company recommendation", "hiring probability",
+    ):
         assert forbidden.lower() not in source.lower(), forbidden
+
+
+def test_user_facing_language_spans_are_not_cross_contaminated() -> None:
+    source = CHECKLIST.read_text(encoding="utf-8")
+    japanese_spans = re.findall(r'<span class="ja">([^<]*)</span>', source)
+    korean_spans = re.findall(r'<span class="ko">([^<]*)</span>', source)
+    assert japanese_spans
+    assert korean_spans
+    assert all(not re.search(r"[가-힣]", text) for text in japanese_spans)
+    assert all(not re.search(r"[ぁ-ヿ]", text) for text in korean_spans)
+    assert "표시してください" not in source
 
 
 def test_profile_schema_is_v2_and_keeps_legacy_read_compatibility() -> None:
@@ -71,9 +99,86 @@ def test_job_seeker_handoff_keeps_reflection_separate_from_evidence() -> None:
     assert "value_candidates" in combined
 
 
+def test_raw_reflection_cannot_become_candidate_skill_evidence() -> None:
+    combined = "\n".join([
+        (ROOT / "skills" / "job-seeker-agent" / "SKILL.md").read_text(encoding="utf-8"),
+        (ROOT / "skills" / "job-seeker-agent" / "references" / "shinsotsu.md").read_text(encoding="utf-8"),
+    ])
+    assert "Do not copy raw checklist values into a skill level" in combined
+    assert "A perceived barrier is not proof of an actual skill gap" in combined
+
+
+def test_analysis_tendency_cannot_create_a_matched_requirement() -> None:
+    result = v3.evaluate({
+        "behavior_tendencies": {"analysis": 5},
+        "skills": {"required": [{"name": "analysis", "status": "unknown"}]},
+    })
+    assert [item["name"] for item in result["skills"]["required_skills"]["unknown"]] == ["analysis"]
+    assert result["skills"]["required_skills"]["matched"] == []
+
+
+def test_interest_activity_has_no_automatic_occupation_output() -> None:
+    source = CHECKLIST.read_text(encoding="utf-8").lower()
+    assert "interest_activities" in source
+    assert "occupation recommendation" not in source
+    assert "recommended_occupation" not in source
+    assert "recommended_company" not in source
+
+
+def test_value_candidates_require_confirmation_before_canonical_context() -> None:
+    jiko = (ROOT / "skills" / "jiko-bunseki" / "SKILL.md").read_text(encoding="utf-8")
+    questions = (ROOT / "skills" / "jiko-bunseki" / "references" / "questions.md").read_text(encoding="utf-8")
+    career_agent = CAREER_AGENT.read_text(encoding="utf-8")
+    assert "require a direct user statement" in jiko
+    assert "only after the user explicitly confirms" in questions
+    assert 'CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")' in career_agent
+    assert "value_candidates" not in career_agent
+
+
+def test_perceived_skill_gap_is_not_an_actual_missing_skill() -> None:
+    questions = (ROOT / "skills" / "jiko-bunseki" / "references" / "questions.md").read_text(encoding="utf-8")
+    assert "Perceived difficulty is a self-report, not evidence of an actual deficit." in questions
+    assert "perceived_barriers" in questions
+    assert "skill" in questions
+
+
+def test_legacy_v1_profile_is_read_only_and_not_converted() -> None:
+    schema = yaml.safe_load(SCHEMA.read_text(encoding="utf-8"))
+    compatibility = schema["legacy_self_analysis_profile_v1"]
+    assert "top_strengths" in compatibility["readable_fields"]
+    assert "Do not convert scores" in compatibility["migration"]
+    assert "top_strengths" not in schema["self_analysis_profile"]["required"]
+
+
+def test_raw_jiko_fields_are_not_matching_coefficients() -> None:
+    source = MATCHING.read_text(encoding="utf-8")
+    for field in (
+        "interest_activities", "behavior_tendencies", "career_self_efficacy",
+        "perceived_barriers", "environment_preferences", "value_candidates", "avoid_candidates",
+    ):
+        assert field not in source, field
+
+
+def test_career_agent_context_allowlist_excludes_raw_reflection() -> None:
+    source = CAREER_AGENT.read_text(encoding="utf-8")
+    assert 'CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")' in source
+    for field in ("interest_activities", "behavior_tendencies", "perceived_barriers", "value_candidates"):
+        assert field not in source, field
+
+
 if __name__ == "__main__":
     test_v2_submission_has_independent_unknown_safe_controls()
+    test_unanswered_and_explicit_unknown_remain_distinct()
     test_checklist_is_local_bilingual_and_does_not_calculate_results()
+    test_user_facing_language_spans_are_not_cross_contaminated()
     test_profile_schema_is_v2_and_keeps_legacy_read_compatibility()
     test_job_seeker_handoff_keeps_reflection_separate_from_evidence()
-    print("OK: 4 checklist/profile contract tests passed")
+    test_raw_reflection_cannot_become_candidate_skill_evidence()
+    test_analysis_tendency_cannot_create_a_matched_requirement()
+    test_interest_activity_has_no_automatic_occupation_output()
+    test_value_candidates_require_confirmation_before_canonical_context()
+    test_perceived_skill_gap_is_not_an_actual_missing_skill()
+    test_legacy_v1_profile_is_read_only_and_not_converted()
+    test_raw_jiko_fields_are_not_matching_coefficients()
+    test_career_agent_context_allowlist_excludes_raw_reflection()
+    print("OK: 14 checklist/profile contract tests passed")

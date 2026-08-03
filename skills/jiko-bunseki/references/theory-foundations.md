@@ -39,3 +39,28 @@ confirms it. Narrative repetition is not proof of personality, ability, or job f
 Do not copy commercial assessment items or present this custom reflection as SPI3, Gallup, Hogan,
 or any other validated instrument. Keep raw responses, episode evidence, confidence, and unknowns
 separate so the user can review the interpretation.
+
+## Academic references
+
+These references define the vocabulary used for question intent. They do not validate this custom
+worksheet, its wording, its response scale, or any downstream decision.
+
+- **RIASEC / vocational interests:** Holland, J. L. (1997). *Making Vocational Choices: A Theory
+  of Vocational Personalities and Work Environments* (3rd ed.). Psychological Assessment
+  Resources. This project uses the six activity families as exploration prompts; it does not
+  calculate a Holland Code, diagnose interests, or recommend an occupation or company.
+- **Social Cognitive Career Theory:** Lent, R. W., Brown, S. D., & Hackett, G. (1994). Toward a
+  unifying social cognitive theory of career and academic interest, choice, and performance.
+  *Journal of Vocational Behavior, 45*(1), 79–122. https://doi.org/10.1006/jvbe.1994.1027
+  This project uses the separation of interest, perceived self-efficacy, outcome expectation,
+  goals, barriers, and supports; it does not infer actual ability, predict outcomes, or assess fit.
+- **Self-Determination Theory:** Deci, E. L., & Ryan, R. M. (2000). The “What” and “Why” of Goal
+  Pursuits: Human Needs and the Self-Determination of Behavior. *Psychological Inquiry, 11*(4),
+  227–268. https://doi.org/10.1207/S15327965PLI1104_01 This project uses autonomy, competence,
+  and relatedness to generate workplace investigation questions; it does not produce a motivation
+  or company-culture score.
+- **Career Construction Theory:** Savickas, M. L. (2005). The Theory and Practice of Career
+  Construction. In S. D. Brown & R. W. Lent (Eds.), *Career Development and Counseling: Putting
+  Theory and Research to Work* (pp. 42–70). John Wiley & Sons. This project uses episodes to draft
+  possible themes for user review; it does not treat narrative repetition as a trait, ability, or
+  job-fit result.

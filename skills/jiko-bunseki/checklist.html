@@ -181,7 +181,7 @@
     <section class="step" data-step="3">
       <div class="card">
         <h2 class="section-title"><span class="ko">실제 경험을 떠올려 보세요</span><span class="ja">実際の経験を思い出してみましょう</span></h2>
-        <p class="section-desc"><span class="ko">짧게 적어도 됩니다. 경험이 없거나 떠오르지 않으면 각 항목에서 표시해 주세요.</span><span class="ja">短くて構いません。経験がない、または思い出せない場合は各欄で 표시してください。</span></p>
+        <p class="section-desc"><span class="ko">짧게 적어도 됩니다. 경험이 없거나 떠오르지 않으면 각 항목에서 표시해 주세요.</span><span class="ja">短くて構いません。経験がない、または思い出せない場合は各欄で表示してください。</span></p>
         <div class="episode">
           <h3><span class="ko">경험 A — 재미있거나 뿌듯했던 일</span><span class="ja">経験A — 楽しかった、誇らしかったこと</span></h3>
           <div class="form-group"><label for="episode-a-type"><span class="ko">경험 종류</span><span class="ja">経験の種類</span></label><select id="episode-a-type"><option value=""></option><option value="class">수업 / 授業</option><option value="research">연구 / 研究</option><option value="team_project">팀 프로젝트 / チームプロジェクト</option><option value="club">동아리 / サークル</option><option value="part_time">아르바이트 / アルバイト</option><option value="internship">인턴 / インターン</option><option value="volunteer">봉사 / ボランティア</option><option value="personal_project">개인 프로젝트 / 個人プロジェクト</option><option value="hobby">취미 / 趣味</option><option value="other">기타 / その他</option></select></div>
@@ -346,6 +346,12 @@
       return value || null;
     }
 
+    function collectText(id, field, unanswered) {
+      const value = textValue(id);
+      if (value === null) unanswered.push(field);
+      return value;
+    }
+
     function collectEpisode(prefix, unanswered, explicitUnknown) {
       const field = `episodes.${prefix}`;
       if (document.getElementById(`${prefix}-unknown`).checked) { explicitUnknown.push(field); return null; }
@@ -385,7 +391,7 @@
         interest_activities: interestActivities,
         behavior_tendencies: behaviorTendencies,
         episodes,
-        career_self_efficacy: { learning_confidence: efficacy, outcome_expectation: textValue('outcome-expectation'), goal: textValue('career-goal') },
+        career_self_efficacy: { learning_confidence: efficacy, outcome_expectation: collectText('outcome-expectation', 'career_self_efficacy.outcome_expectation', unanswered), goal: collectText('career-goal', 'career_self_efficacy.goal', unanswered) },
         perceived_barriers: barriers,
         perceived_supports: supports,
         environment_preferences: environmentPreferences,

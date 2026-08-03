@@ -19,6 +19,7 @@ It is not a hiring-outcome predictor and not a copy of a private company or agen
 | `kigyou-bunseki` | Source-labelled company and posting research |
 | `matching-simulator` | Independent-axis candidate/JD diagnosis (`Proceed` / `Review` / `Conflict`) |
 | `company-battlecard` | Company and offer comparison without a total |
+| `mock-interviewer` | User-controlled interview practice and evidence-based deep-dive questions |
 | `tenshoku-strategy` | Interview manner, follow-up, negotiation, resignation, onboarding, tracking |
 | `career-agent` | Approval-gated Vault state, proposals, deadlines, and workspace projection |
 
