@@ -14,10 +14,14 @@ ROOT = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(ROOT / "_shared"))
 sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
+sys.path.insert(0, str(ROOT / "scripts"))
 import matching_v3 as v3  # noqa: E402
 import pipeline_store  # noqa: E402
 import career_agent  # noqa: E402
 import check_claim_freshness  # noqa: E402
+import check_policy  # noqa: E402
+import check_readme_consistency  # noqa: E402
+from policy_patterns import CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS  # noqa: E402
 
 
 def test_unknown_preservation() -> None:
@@ -38,6 +42,43 @@ def test_interest_is_not_objective() -> None:
     high = v3.evaluate({**base, "candidate_interest": {"interest_level": 5}})
     for key in ("decision_status", "decision_basis", "eligibility", "skills", "career_values", "missing_information"):
         assert low[key] == high[key], key
+
+
+def test_candidate_outcome_percentage_guards_are_output_shaped() -> None:
+    rejected = (
+        "합격확률 70%",
+        "서류통과율: 50%",
+        "内定確率 60%",
+        "screening passage probability < 15%",
+        "document pass: 50%",
+    )
+    allowed = (
+        "Probability is not calibrated and is not used as a decision output.",
+        "합격확률은 이 시스템이 산출하지 않는다.",
+        "一般的な確率の説明は、候補者の結果予測とは区別する。",
+    )
+    for sample in rejected:
+        assert any(pattern.search(sample) for pattern in CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS), sample
+        assert any(pattern.search(sample) for pattern in check_policy.FORBIDDEN), sample
+        assert any(pattern.search(sample) for pattern in check_readme_consistency.FORBIDDEN), sample
+    for sample in allowed:
+        assert not any(pattern.search(sample) for pattern in CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS), sample
+
+
+def test_job_seeker_references_are_lazy_routed() -> None:
+    skill = (ROOT / "skills" / "job-seeker-agent" / "SKILL.md").read_text(encoding="utf-8")
+    assert "Do not load every file under" in skill
+    for route in (
+        "職務経歴書, resume rewrite, 自己PR",
+        "ATS, scout/search keywords",
+        "志望動機, why this company/role",
+        "면접, 面接 content, round-specific answers",
+        "新卒, 新卒 track, 学チカ",
+        "中途 segment, 第二新卒, senior IC, management",
+        "플랫폼 route recommendation",
+    ):
+        assert route in skill, route
+    assert "Read `references/platforms.md`" not in skill
 
 
 def test_company_type_is_not_culture_evidence() -> None:

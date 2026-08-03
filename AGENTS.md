@@ -159,6 +159,9 @@ so the user can confirm the output on disk. If a target file already exists, ask
 `data/rules.yml` and injects a `<career_status>` block: active companies by stage, the nearest
 deadline, unchecked action items, the user's active rules, the scored-outcome count, and a notice
 when a newer plugin version is published. No pipeline file, no output.
+Pipeline resolution is explicit `--workspace` first, then `CAREER_WORKSPACE`, then the current
+working directory. This prevents a prompt launched from an unrelated CWD from reading the wrong
+workspace projection.
 
 **Trust it, but only within its schema.** Every value is computed in code from the files on disk —
 none is estimated, and nothing in it is a summary of the conversation. It is also a lossy projection:

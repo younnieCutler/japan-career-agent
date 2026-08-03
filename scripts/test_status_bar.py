@@ -11,8 +11,11 @@ Run: python3 scripts/test_status_bar.py
 from __future__ import annotations
 
 import datetime as dt
+import os
+import subprocess
 import sys
 from pathlib import Path
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -251,6 +254,58 @@ def test_malformed_cwd_shapes_fail_closed():
 
     assert build_status({"companies": "not a list"}, rules, TODAY) == ""
     assert build_status({"companies": ["not a company"]}, rules, TODAY) == ""
+
+
+def test_workspace_resolution_explicit_env_then_cwd():
+    def write_pipeline(root: Path, slug: str) -> None:
+        data = root / "data"
+        data.mkdir(parents=True)
+        (data / "pipeline.yml").write_text(
+            f"companies:\n  - slug: {slug}\n    name: {slug}\n    stage: 4\n    closed: false\n"
+            f"    action_items:\n      - id: marker\n        text: {slug}-marker\n        checked: false\n",
+            encoding="utf-8",
+        )
+
+    def run(args, cwd: Path, env: dict[str, str]) -> str:
+        result = subprocess.run(
+            [sys.executable, str(Path(status_bar.__file__).resolve()), *args],
+            cwd=str(cwd), env=env, text=True, encoding="utf-8",
+            capture_output=True, check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        explicit = root / "explicit"
+        env = root / "env"
+        cwd = root / "cwd"
+        write_pipeline(explicit, "explicit-company")
+        write_pipeline(env, "env-company")
+        write_pipeline(cwd, "cwd-company")
+        old_cwd = Path.cwd()
+        old_workspace = os.environ.get("CAREER_WORKSPACE")
+        old_no_update = os.environ.get("JAPAN_RECRUIT_NO_UPDATE_CHECK")
+        try:
+            os.chdir(cwd)
+            child_env = os.environ.copy()
+            child_env["CAREER_WORKSPACE"] = str(env)
+            child_env["JAPAN_RECRUIT_NO_UPDATE_CHECK"] = "1"
+            assert "explicit-company" in run(["--workspace", str(explicit)], cwd, child_env)
+            assert "env-company" in run([], cwd, child_env)
+            child_env.pop("CAREER_WORKSPACE", None)
+            assert "cwd-company" in run([], cwd, child_env)
+            assert "env-company" not in run([], cwd, child_env)
+        finally:
+            os.chdir(old_cwd)
+            if old_workspace is None:
+                os.environ.pop("CAREER_WORKSPACE", None)
+            else:
+                os.environ["CAREER_WORKSPACE"] = old_workspace
+            if old_no_update is None:
+                os.environ.pop("JAPAN_RECRUIT_NO_UPDATE_CHECK", None)
+            else:
+                os.environ["JAPAN_RECRUIT_NO_UPDATE_CHECK"] = old_no_update
 
 
 def run():

@@ -7,6 +7,8 @@ import re
 import sys
 from pathlib import Path
 
+from policy_patterns import CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS
+
 ROOT = Path(__file__).resolve().parent.parent
 ACTIVE_ROOTS = (ROOT / "skills", ROOT / "_shared", ROOT / "scripts", ROOT)
 ALLOW_FILES = {
@@ -19,13 +21,9 @@ SKIP_PARTS = {"__pycache__", ".git", ".pytest_cache", "data", "career-docs"}
 # These are output-shaped claims, not ordinary discussion of the policy. Historical examples
 # remain isolated in the two explicit legacy files above.
 FORBIDDEN = (
-    re.compile(r"screening\s+passage\s+probability", re.I),
-    re.compile(r"pass\s+probability", re.I),
-    re.compile(r"offer\s+probability", re.I),
-    re.compile(r"probability\s+estimate", re.I),
+    *CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS,
     re.compile(r"Recruit-style|Persol-style", re.I),
     re.compile(r"reverse-engineer(?:s|ed|ing)?\s+(?:the\s+)?internal\s+matching", re.I),
-    re.compile(r"(?:screening|document|interview|offer)\s+(?:passage|pass|entry)\s*[:=]\s*<?\s*\d+\s*%", re.I),
     re.compile(r"(?:×|x|\*)\s*0\.2\s*(?:weight|multiplier)?", re.I),
 )
 
