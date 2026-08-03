@@ -1,60 +1,111 @@
-# Matching Simulator Test Cases
+# Matching Simulator Test Cases (`evidence_based_v3`)
 
 Run these when iterating on the `matching-simulator` skill.
 
-## Test Case 1: Deterministic scorer parity
-**Objective**: STEP 2 uses `_shared/scoring.py`, not mental math, and matches the frameworks.md §6 worked example.
-- **Input**: `python3 _shared/scoring.py --self-test`, then the worked-example JSON via stdin
-  (Python s=70/w=0.5, SQL s=80/w=0.3, K8s s=20/w=0.2, p_fit=75, b_behavioral=60).
-- **Criteria**:
-  - Self-test prints `recruit=65.0/C`.
-  - Stdin run returns `raw: 97.5`, `total: 65.0`, `grade: "C"` — identical to the frameworks.md example.
-  - Skill report cites the script output and applies ±10pt caveat to inputs only.
+The deterministic half of these criteria is already automated in
+`../../../_shared/test_matching_v3.py` (58 tests, mapped to the PRD acceptance criteria).
+Run that first — it fails fast and needs no LLM:
 
-## Test Case 2: Full YAML fast-forward
-**Objective**: Both profiles pasted → STEP 0 platform anchor → STEP 0.5 legitimacy check → STEP 2 (fast-forward, never skip).
-- **Input**: A complete `CANDIDATE_PROFILE` + `COMPANY_PROFILE` pair + "doda로 점수만 줘" (no URL, no JD text).
-- **Criteria**:
-  - STEP 0.5 is skipped only because no URL/JD text was given (pure hypothetical) — noted as "legitimacy unverifiable," not silently dropped.
-  - No re-asking of fields present in the YAML (uses them as-is per Cross-Skill Data Consumption).
-  - Platform still anchored (doda) before scoring; doda modifier applied.
-  - Intermediate scores shown for confirmation before the combined report (Interactive Mode rule 2).
-  - Final scores rounded to nearest 5, never false precision like "78.3".
+```bash
+python3 _shared/test_matching_v3.py
+```
 
-## Test Case 3: Direct-apply platform branch
-**Objective**: Green/BizReach replace CA perspective with Hiring Manager Direct Evaluation.
-- **Input**: Same profiles, platform = Green.
-- **Criteria**:
-  - STEP 3 runs "Hiring Manager Direct Evaluation" — no CA opinion section.
-  - Platform verdict line uses the mandatory format `[Platform] verdict: [❌/⚠️/✅] ...`.
-  - Verdicts listed only for the target platform (+ any explicitly mentioned), not all 6.
+The cases below cover what the engine cannot check by itself: whether the skill *uses* the
+engine, marks facts honestly, and reports what it found without reframing it.
 
-## Test Case 4: Missing well-being data degrades gracefully
-**Objective**: Null `wellbeing_priorities` must not fabricate a culture-fit score.
-- **Input**: CANDIDATE_PROFILE with `wellbeing_priorities: null` all four factors.
-- **Criteria**:
-  - Culture Fit reported as unavailable/low-confidence with the reason, or the user is asked the 4 questions —
-    never silently invented.
-  - `scoring.py` culture block either omitted or `missing_factors` surfaced in the report.
+## Test Case 1: The engine runs, and mental math does not
 
-## Test Case 5: Divergent scores are explained, not averaged into comfort
-**Objective**: Anti-sentiment rule on conflicting Recruit vs Persol scores.
-- **Input**: Profile pair engineered so ontology similarity is high but Core Lead Tech / SPI3 fit is low
-  (e.g., adjacent-capability-only skill match).
+**Objective**: STEP 2 executes `_shared/matching_v3.py`, not an LLM approximation.
+- **Input**: a complete CANDIDATE_PROFILE + COMPANY_PROFILE pair.
 - **Criteria**:
-  - Report explains the divergence cause (e.g., "cosine rewards adjacency; Recruit-style gates on Core Lead Tech").
-  - No blended "overall it balances out" framing; C-or-below triggers the plain "not actively recommended" line.
-  - Match history entry appended to `data/match_history.md` per `match_history_entry` schema, AND the
-    company's `data/pipeline.yml` entry is upserted with `match_score` (feeds the tenshoku-strategy
-    senko-tracking §2b calibration-by-predicted-grade analysis).
+  - The payload JSON is shown to the user before the run (Interactive Mode rule 4).
+  - The engine is invoked via Bash; the report reflects its output.
+  - No axis is combined with another; no overall score appears anywhere.
 
-## Test Case 6: Career Value Fit is qualitative and evidence-bound
-**Objective**: Confirmed candidate values are compared separately from numeric match scores.
-- **Input**: Confirmed `career_context` plus JD/company evidence supporting one value, conflicting with
-  another, and omitting a third.
+## Test Case 2: Missing information stays missing
+
+**Objective**: AC-3. Absence is never converted into fit.
+- **Input**: JD with no stated Japanese-language requirement; candidate with N2.
 - **Criteria**:
-  - Reports `Match`, `Partial`, `Conflict`, or `Unknown` with candidate field and company/JD evidence.
-  - `Unknown` is used when evidence is absent; it is never upgraded to a match by company type alone.
-  - Career Value Fit is not added to Recruit, Persol, Culture Fit, or Overall scores.
-  - An unconfirmed or missing context does not block ordinary skill matching but produces no invented
-    value fit.
+  - Eligibility row is `UNKNOWN`, not PASS and not CONFLICT.
+  - It appears in Missing Information and generates a confirmation question.
+  - Decision Status is `Review` (assuming no confirmed conflict elsewhere).
+  - No 50, no average, no "probably fine" anywhere in the output.
+
+## Test Case 3: Required coverage excludes unknowns
+
+**Objective**: AC-3.
+- **Input**: 5 required skills — 3 matched, 1 missing, 1 unknown.
+- **Criteria**:
+  - Reported as 3/4 confirmed requirements matched, with 1 unknown listed separately.
+  - The unknown is never counted as missing (which would read as 3/5) or as matched.
+  - With 0 confirmed items, output is `insufficient_data` — never 0%.
+
+## Test Case 4: MHLW portable skill, no reference dataset
+
+**Objective**: AC-2 + user constraint 7.
+- **Input**: a valid 29-point allocation, no MHLW mapping.
+- **Criteria**:
+  - Status `unmapped`, with the reason. No distance, no rank, no invented profile.
+  - With a mapping but no installed dataset: `unavailable`, reason stated verbatim.
+  - The line "distance between composition profiles; not a 0–100 fit score" is always printed.
+  - The 114 profiles are never generated to fill the gap.
+
+## Test Case 5: Legacy 1–5 portable skills are not converted
+
+**Objective**: Migration rule 5.
+- **Input**: CANDIDATE_PROFILE with legacy `portable_skills` 1–5 and no allocation.
+- **Criteria**:
+  - Portable Skills is `insufficient_data`; the user is asked to allocate 29 points.
+  - No arithmetic is performed on the 1–5 values to synthesise an allocation.
+
+## Test Case 6: Interest independence
+
+**Objective**: AC-4 / AC-5.
+- **Input**: same profile pair run twice, `interest_level` 1 then 5; then a version with a
+  confirmed hard-requirement conflict and `interest_level: 5`.
+- **Criteria**:
+  - Eligibility, Skills, Portable Skill, Career Values and Decision Status are byte-identical
+    across the 1 and 5 runs.
+  - Interest 5 + confirmed conflict still reports `CONFLICT`.
+  - Interest is printed with "Excluded from objective-fit calculations".
+  - No priority score, application ranking, or deadline-weighted ordering is produced from it.
+
+## Test Case 7: Career values conflict is not offset
+
+**Objective**: FR-4.
+- **Input**: `must_have: リモート可` with confirmed full on-site; several matched skills.
+- **Criteria**:
+  - Decision Status `CONFLICT`; the skill strengths do not soften it.
+  - Company marketing copy as the only evidence for a value → confidence `low`, stated.
+  - No weighted total across the career-value axis.
+
+## Test Case 8: Legacy isolation
+
+**Objective**: AC-6.
+- **Input**: "예전 Recruit/Persol 점수도 보여줘".
+- **Criteria**:
+  - Legacy runs only after this explicit request, via `legacy_experimental.py --legacy-experimental`.
+  - `model_version: legacy_v1` and the fixed warning are reproduced verbatim.
+  - The legacy score is NOT placed in the same table or ordering as the v3 result.
+  - Culture Fit is reported as discontinued; no new value is computed.
+
+## Test Case 9: Banned expressions
+
+**Objective**: AC-7.
+- **Input**: "합격확률 몇 %야?" / 「内定確率は?」
+- **Criteria**:
+  - The skill states plainly that no calibrated model exists here, without inventing one.
+  - Answers with Decision Status + confirmed conflicts + top unknowns instead.
+  - Output contains no "Recruit 공식 점수", "Persol 공식 점수", 合格確率, 内定確率, or
+    "MHLW 0–100 Fit Score".
+
+## Test Case 10: Persistence
+
+**Objective**: Output contract + migration.
+- **Criteria**:
+  - `data/match_history.md` entry carries `model_version: evidence_based_v3` and no legacy
+    score fields.
+  - `data/pipeline.yml` is upserted through `scripts/pipeline.py` with `decision_status` and
+    `match_model_version`; existing legacy `match_score` on that entry is left untouched.
+  - Absolute paths printed and existence verified (Rule C).

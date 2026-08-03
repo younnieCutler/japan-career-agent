@@ -1,11 +1,22 @@
 # Evaluation Perspectives (RA / CA / Direct)
 
-After calculating algorithm scores, simulate the "human judgment" layer inside agencies or direct-apply companies.
+The qualitative layer that runs **after** the v3 diagnosis, not a scoring stage.
 
-## 1. Platform Scope Check
+Three rules, because this section used to be where numbers crept back in:
 
-- **`target_platform` = Green or BizReach**: **No CA layer exists.** Skip "CA Perspective" entirely. Replace with "Hiring Manager Direct Evaluation".
-- **`target_platform` = Recruit Agent, doda, MyNavi, Levtech**: Run full RA + CA dual analysis.
+1. **No scores.** Nothing here produces a 0–100 value, a grade, or a probability. The v3 axes
+   are the quantitative output and they are not re-totalled.
+2. **Evidence or nothing.** Every claim cites a confirmed fact from the diagnosis (a
+   `conflict`, a `missing`, an `unknown`). What the diagnosis marked `unknown` stays a
+   question here — it does not become a judgement.
+3. **This is a simulated read of how a recruiter might argue**, not a decision and not a
+   prediction of one.
+
+## 1. Route Scope Check
+
+- **Direct-apply route (Green, BizReach, Wantedly, company site)**: no CA layer exists. Skip
+  "CA Perspective" and run "Hiring Manager Direct Evaluation".
+- **Agent route (Recruit Agent, doda, MyNavi, Levtech)**: run RA + CA.
 
 ## 2. RA (Company-Side) Perspective
 
@@ -21,46 +32,62 @@ RA evaluates the candidate from the company's perspective. Analyze:
 ```
 📋 RA Recommendation
 ━━━━━━━━━━━━━━━━━━━━━
-Recommendation reason:    [3-line summary based on skill match + SPI3 fit]
-Expected company concerns: [experience gaps, skill gaps, etc.]
-Counter-argument:         [reframe via Portable Skills, skill transfer potential]
-Condition adjustment:     [within salary range? negotiation points]
-Early-exit risk:          [low / medium / high — and why]
+Recommendation reason:    [3 lines, each citing a `matched` required skill or experience item]
+Expected company concerns: [drawn from `missing` required skills and confirmed experience gaps]
+Counter-argument:         [reframe via evidenced transferable experience — no invented claims]
+Condition adjustment:     [only when salary/conditions are confirmed on both sides; else "unknown"]
+Early-exit risk:          [low / medium / high — and the tenure/gap fact it rests on]
 Visa risk:                [low / medium / high — sponsor required? category match? COE in progress?]
 ```
 
+Sensitive-attribute rule (v3 P5): age, gender, nationality and family status never enter this
+read. Legal work eligibility appears only as an eligibility **fact** — stated, never scored, and
+never extended into an inference about the person.
+
 ## 3. CA (Candidate-Side) Perspective
 
-**(Agent platforms only: Recruit Agent, doda, MyNavi Agent, Levtech)**
+**(Agent routes only: Recruit Agent, doda, MyNavi Agent, Levtech)**
 
 CA evaluates this company from the candidate's perspective. Analyze:
 - Key pitch points when introducing this company to the candidate
 - Points the candidate might be concerned about
-- Post-hire satisfaction prediction based on culture fit
+- Which Career Value items are still `unknown`, and what would settle them
 
 ```
 📋 CA Introduction
 ━━━━━━━━━━━━━━━━━━━━━
-Key pitch:              [career growth, tech stack match, culture, etc.]
-Expected concerns:      [company size, salary, workload, etc.]
-Culture fit prediction: [well-being index-based satisfaction + retention forecast]
+Key pitch:              [cite `aligned` career values and `matched` requirements]
+Expected concerns:      [cite `tradeoffs`, `conflicts`, and confirmed condition gaps]
+Open questions:         [the `unknown` career values — asked, not guessed]
 ```
 
-## 4. Hiring Manager Direct Evaluation (Green / BizReach only)
+No retention or satisfaction forecast is produced. Predicting post-hire satisfaction from four
+preference ratings was the legacy Culture Fit score, and it is discontinued
+(`legacy-v1.md`). Candidate interest, where recorded, is reported as the user's own
+statement and is not evidence about the company.
 
-On direct-apply platforms, there is no CA layer. The hiring manager (or HR team) evaluates the profile directly — often within 48~72 hours after the candidate applies or is scouted.
+## 4. Hiring Manager Direct Evaluation (direct-apply routes)
+
+On direct-apply routes there is no CA layer. The hiring manager (or HR team) reads the profile
+directly — often within 48–72 hours of an application or scout.
 
 Simulate this perspective:
-- **Profile appeal on platform:** Does the candidate's profile stand out in the platform's search results? (For BizReach: scout-ability; for Green: company's direct interest trigger)
-- **Culture fit priority:** Direct hires weight culture fit and self-motivation more heavily than agency-routed candidates (agency already filtered for skill match).
-- **Speed and responsiveness:** Direct platforms are faster; hiring managers expect candidates to respond within 1~2 business days.
+- **Profile completeness:** which required skills the profile evidences, and which it leaves
+  `unknown` to a reader who has only this document.
+- **Self-direction signals:** direct routes have no agency pre-filter, so the profile carries
+  the whole argument by itself.
+- **Speed:** direct routes move faster; a 1–2 business day response is expected.
 
 ```
 🏫 Hiring Manager Direct Evaluation
 ━━━━━━━━━━━━━━━━━━━━━
-Platform: [Green / BizReach]
-Profile appeal score:  [X/100] — [basis: skill keywords, profile completeness, login frequency if BizReach]
-Culture fit (direct):  [X/100] — [basis: well-being index alignment]
-First impression:      [what the hiring manager would think within 30 seconds of seeing the profile]
-Red flags:             [anything that would cause immediate pass]
+Route: [Green / BizReach / Wantedly / company site]
+Evidenced on the profile:  [required skills a reader can verify from the document alone]
+Not visible to a reader:   [required skills the candidate has but the profile does not show]
+First impression:          [what a reader would take away in 30 seconds — from the text, not inferred]
+Red flags:                 [confirmed conflicts only; an `unknown` is a question, not a flag]
 ```
+
+No appeal score, no culture-fit score, no scout-probability number. Where a real signal exists
+(a scout received, a message, an interview invite) it belongs in `employer_signals` as an
+observed event with its date — not converted into a likelihood.

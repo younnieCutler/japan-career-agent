@@ -58,7 +58,7 @@ Observe → Plan → Act → Verify → Correct → Persist
 | `jiko-bunseki` | 強み、価値観、仕事スタイル、キャリアの方向性 | `SELF_ANALYSIS_PROFILE` |
 | `job-seeker-agent` | 履歴書、職務経歴書、自己PR、志望動機、ES、面接内容 | `CANDIDATE_PROFILE` |
 | `hiring-manager-agent` | 求人票の設計と採用側の評価基準 | `COMPANY_PROFILE` |
-| `matching-simulator` | 候補者と求人の適合度、根拠付きスコア | マッチレポート |
+| `matching-simulator` | 候補者と求人の適合度 — 独立した軸で診断、総合スコアなし | 適合度診断 |
 | `company-battlecard` | 2社以上の比較 | 比較レポート |
 | `kigyou-bunseki` | 企業と公開求人の調査 | 企業カルテ |
 | `tenshoku-strategy` | 面接、年収、内定、退職、入社、選考トラッキング | 実行計画 |
@@ -86,8 +86,51 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
 
-Career Value Fit は `Match`、`Partial`、`Conflict`、`Unknown` で示す定性的な判断で、既存の
-数値マッチスコアには合算しません。確認済みの dealbreaker 衝突は battlecard で企業を除外できます。
+Career Values は項目ごとに `Aligned`、`Tradeoff`、`Conflict`、`Unknown` で示し、いかなるスコアにも
+合算しません。確認済みの dealbreaker 衝突は battlecard で企業を除外できます。
+
+## 適合度診断 (`evidence_based_v3`)
+
+`matching-simulator` はマッチスコアを出力しません。独立した軸と **Decision Status**
+(`Proceed` / `Review` / `Conflict`) を報告します。
+
+| 軸 | 内容 |
+|---|---|
+| Eligibility | 必須条件ごとに `pass` / `conflict` / `unknown` |
+| Required Skill & Experience | 充足・不足・不明、および**確認済み項目のみ**を分母とする充足率 |
+| MHLW Portable Skill | 29点の構成比率間のユークリッド距離 — 0〜100のスコアではない |
+| Career Values & Conditions | 項目ごとに aligned / tradeoff / conflict / unknown、合計しない |
+| Candidate Interest | 本人が申告した1〜5の関心度と理由 — すべての客観軸から除外 |
+| Employer Signals | 観測された事象と日付のみ — 確率に変換しない |
+| Evidence & Missing Information | 出典、観測日、信頼度、相反する根拠、次に確認すべき質問 |
+
+4つの原則:
+
+- **欠損は中立ではありません。** 情報がなければ `unknown` のまま。平均値・50点・既定の合格はなく、
+  充足率の分母にも入れません。
+- **関心度は独立です。** `interest_level` を1から5に変えても客観軸と Decision Status は変わりません。
+  これを検証する回帰テストがあります。
+- **確率を作りません。** 合格率・内定率は推定せず、較正済みモデルも存在しません。`Proceed` は
+  現在の情報で判断を妨げるものがないという意味で、合格を意味しません。
+- **企業の公式を騙りません。** リクルート、doda、マイナビ、BizReach はマッチング式を公開していません。
+
+エンジンの直接実行:
+
+```bash
+python3 _shared/matching_v3.py payload.json --text   # 決定論的 — 同じ入力なら同じ出力
+python3 _shared/test_matching_v3.py                  # 受け入れ基準の回帰テスト
+```
+
+**MHLW 参照データ:** 公式の114の標準職務・職位プロファイルは**同梱していません**。再配布可能な形式と
+ライセンスが未確認であり、LLM で生成すれば診断の基準そのものを捏造することになります。バリデーション、
+距離エンジン、バージョン管理インターフェース、テストはすべて実装済みで、データセットを導入するまで
+114件のランキングは `unavailable` として報告します。形式は
+`skills/matching-simulator/references/mhlw-portable-skill.md` を参照。
+
+**レガシー (`legacy_v1`):** 従来の Recruit-style / Persol-style / Culture Fit スコアは
+`_shared/legacy_experimental.py` に隔離し、`--legacy-experimental` フラグが必須です。
+Culture Fit は新規計算を完全に停止しました。保存済みのスコアは `legacy_v1` として保持され、
+v3 の結果と同じ表やランキングに混ぜません。
 
 ## インストール
 
@@ -400,8 +443,10 @@ flowchart LR
 - ログイン、CAPTCHA、アクセス制御を回避しません。
 - 根拠のないイベントを確定台帳に保存しません。
 - オンライン実行中にインストール済みの `SKILL.md` を編集しません。
+- 合格確率・内定確率を推定せず、企業内部のアルゴリズムを再現したとも主張しません。
+- 参照データを捏造しません。存在しないデータセットは `unavailable` として報告します。
 
-スコアは近似値です。すべての主張はユーザーが提供した資料に基づきます。
+欠けている情報は欠けていると報告します。すべての主張はユーザーが提供した資料に基づきます。
 
 ## 開発
 

@@ -57,7 +57,7 @@ flowchart LR
 | `jiko-bunseki` | 강점, 가치관, 업무 스타일, 진로 방향 | `SELF_ANALYSIS_PROFILE` |
 | `job-seeker-agent` | 履歴書(이력서), 職務経歴書(직무경력서), 自己PR(자기PR), 志望動機(지원동기), ES(엔트리시트), 면접 내용 | `CANDIDATE_PROFILE` |
 | `hiring-manager-agent` | JD 설계와 채용 측 평가 기준 | `COMPANY_PROFILE` |
-| `matching-simulator` | 후보자/JD 적합도와 근거 기반 점수 | 매칭 리포트 |
+| `matching-simulator` | 후보자/JD 적합도 — 독립 축 진단, 종합점수 없음 | 적합도 진단 |
 | `company-battlecard` | 2개 이상 기업 비교 | 비교 리포트 |
 | `kigyou-bunseki` | 기업 및 공개 채용공고 조사 | 企業カルテ(기업 분석 카드) |
 | `tenshoku-strategy` | 면접, 연봉, 오퍼, 퇴직, 입사, 지원 추적 | 실행 계획 |
@@ -84,8 +84,51 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
 
-Career Value Fit은 `Match`, `Partial`, `Conflict`, `Unknown`으로 표시하는 정성 판단이며 기존 숫자
-매칭 점수에 합산하지 않습니다. 확인된 dealbreaker 충돌은 battlecard에서 해당 기업을 제외할 수 있습니다.
+Career Values는 항목별로 `Aligned`, `Tradeoff`, `Conflict`, `Unknown`으로 표시하며 어떤 점수에도
+합산하지 않습니다. 확인된 dealbreaker 충돌은 battlecard에서 해당 기업을 제외할 수 있습니다.
+
+## 적합도 진단 (`evidence_based_v3`)
+
+`matching-simulator`는 매칭 점수를 출력하지 않습니다. 독립된 축과 **Decision Status**
+(`Proceed` / `Review` / `Conflict`)를 보고합니다.
+
+| 축 | 내용 |
+|---|---|
+| Eligibility | 필수조건별 `pass` / `conflict` / `unknown` |
+| Required Skill & Experience | 충족 / 부족 / 불명, 그리고 **확인된 항목만**을 분모로 한 충족률 |
+| MHLW Portable Skill | 29점 구성비율 간 유클리드 거리 — 0~100 점수가 아님 |
+| Career Values & Conditions | 항목별 aligned / tradeoff / conflict / unknown, 총합 없음 |
+| Candidate Interest | 사용자가 직접 매긴 1~5 관심도와 이유 — 모든 객관 축에서 제외 |
+| Employer Signals | 관측된 사건과 날짜만 — 확률로 환산하지 않음 |
+| Evidence & Missing Information | 출처, 관측일, 신뢰도, 상충 근거, 다음에 확인할 질문 |
+
+네 가지 원칙:
+
+- **누락은 중립이 아닙니다.** 정보가 없으면 `unknown`으로 남깁니다. 평균값·50점·기본 통과 없음,
+  충족률 분모에도 포함하지 않습니다.
+- **관심도는 독립입니다.** `interest_level`을 1에서 5로 바꿔도 객관 축과 Decision Status는 그대로입니다.
+  이를 검증하는 회귀 테스트가 있습니다.
+- **확률을 만들지 않습니다.** 합격률·내정률을 추정하지 않으며, 보정된 모델도 없습니다. `Proceed`는
+  현재 정보로 판단을 막는 요소가 없다는 뜻이지 합격한다는 뜻이 아닙니다.
+- **기업 공식을 사칭하지 않습니다.** Recruit, doda, MyNavi, BizReach는 매칭 공식을 공개하지 않습니다.
+
+엔진 직접 실행:
+
+```bash
+python3 _shared/matching_v3.py payload.json --text   # 결정론적 — 같은 입력, 같은 출력
+python3 _shared/test_matching_v3.py                  # 수용 기준 회귀 테스트
+```
+
+**MHLW 기준 데이터:** 공식 114개 표준 직무·직위 프로필은 **포함되어 있지 않습니다**. 재배포 형식과
+라이선스가 확인되지 않았고, LLM으로 생성하면 진단의 기준 자체를 날조하게 됩니다. 검증·거리 엔진·
+버전 관리 인터페이스·테스트는 모두 구현되어 있으며, 데이터셋을 설치하기 전까지 114개 랭킹은
+`unavailable`로 보고합니다. 형식은
+`skills/matching-simulator/references/mhlw-portable-skill.md` 참조.
+
+**레거시(`legacy_v1`):** 기존 Recruit-style / Persol-style / Culture Fit 점수는
+`_shared/legacy_experimental.py`로 격리했고 `--legacy-experimental` 플래그가 필요합니다.
+Culture Fit은 신규 계산을 완전히 중단했습니다. 이미 저장된 점수는 `legacy_v1`로 보존되며 v3 결과와
+같은 표·랭킹에 합치지 않습니다.
 
 ## 설치
 
@@ -393,8 +436,10 @@ URL이 필요합니다.
 - 로그인·CAPTCHA·접근 제어를 우회하지 않습니다.
 - 근거 없는 이벤트를 확정 저장하지 않습니다.
 - 온라인 실행 중 설치된 `SKILL.md`를 수정하지 않습니다.
+- 합격확률·내정확률을 추정하지 않으며, 기업 내부 공식을 재현했다고 주장하지 않습니다.
+- 기준 데이터를 날조하지 않습니다. 없는 데이터셋은 `unavailable`로 보고합니다.
 
-점수는 근사치이며, 모든 주장은 사용자가 제공한 원문에 근거해야 합니다.
+누락된 정보는 누락으로 보고합니다. 모든 주장은 사용자가 제공한 원문에 근거해야 합니다.
 
 ## 개발
 

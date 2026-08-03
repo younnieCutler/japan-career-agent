@@ -59,7 +59,7 @@ It loads only the skill and references needed for the selected stage. It does no
 | `jiko-bunseki` | Strengths, values, work style, and career direction | `SELF_ANALYSIS_PROFILE` |
 | `job-seeker-agent` | 履歴書 (resume), 職務経歴書 (work history), 自己PR (self-PR), 志望動機 (motivation letter), ES (entry sheet), and interview content | `CANDIDATE_PROFILE` |
 | `hiring-manager-agent` | JD design and hiring-side evaluation criteria | `COMPANY_PROFILE` |
-| `matching-simulator` | Candidate/JD fit and evidence-based scoring | Match report |
+| `matching-simulator` | Candidate/JD fit — independent axes, no composite score | Fit diagnosis |
 | `company-battlecard` | Comparing two or more companies | Comparison report |
 | `kigyou-bunseki` | Company and public posting research | 企業カルテ (company card) |
 | `tenshoku-strategy` | Interviews, salary, offers, resignation, onboarding, and tracking | Execution plan |
@@ -87,8 +87,53 @@ python3 skills/career-agent/career_agent.py approve --vault "$VAULT" <proposal-i
 python3 skills/career-agent/career_agent.py context --vault "$VAULT"
 ```
 
-Career Value Fit is qualitative (`Match`, `Partial`, `Conflict`, `Unknown`) and is not merged into the
-numeric match score. A confirmed dealbreaker conflict can make a company ineligible in a battlecard.
+Career Values are reported per item as `Aligned`, `Tradeoff`, `Conflict`, or `Unknown` and are never
+merged into a score. A confirmed dealbreaker conflict can make a company ineligible in a battlecard.
+
+## Fit Diagnosis (`evidence_based_v3`)
+
+`matching-simulator` does not output a match score. It reports independent axes and a
+**Decision Status** of `Proceed` / `Review` / `Conflict`:
+
+| Axis | What it reports |
+|---|---|
+| Eligibility | per hard requirement: `pass` / `conflict` / `unknown` |
+| Required Skill & Experience | matched / missing / unknown, plus coverage over **confirmed** items only |
+| MHLW Portable Skill | Euclidean distance between 29-point composition profiles — not a 0–100 score |
+| Career Values & Conditions | aligned / tradeoff / conflict / unknown, per item, never totalled |
+| Candidate Interest | the user's own 1–5 rating and reason — excluded from every objective axis |
+| Employer Signals | observed events with dates — never converted into a probability |
+| Evidence & Missing Information | sources, dates, confidence, contradictions, and what to confirm next |
+
+Four rules hold throughout:
+
+- **Missing is not neutral.** An unknown stays `unknown` — no mean, no 50, no default pass, and
+  never inside a coverage denominator.
+- **Interest is independent.** Changing `interest_level` from 1 to 5 cannot change any objective
+  axis or the Decision Status. There is a regression test for exactly that.
+- **No probability.** No pass rate or offer rate is estimated; no calibrated model exists here.
+  `Proceed` means nothing blocks a decision on current information — not that you will pass.
+- **No brand formulas.** Recruit, doda, MyNavi and BizReach do not publish their matching
+  formulas, so nothing here claims to reproduce one.
+
+Run the engine directly:
+
+```bash
+python3 _shared/matching_v3.py payload.json --text   # deterministic; same input, same output
+python3 _shared/test_matching_v3.py                  # acceptance-criteria regression tests
+```
+
+**MHLW reference data:** the official 114 標準職務・職位 profiles are **not bundled** — their
+redistributable form and licence are unconfirmed, and generating them with a language model would
+fabricate the reference the diagnosis is measured against. Validation, the distance engine, the
+versioned dataset interface, and the tests are all implemented; the 114-profile ranking reports
+`unavailable` until a dataset is installed. Format:
+`skills/matching-simulator/references/mhlw-portable-skill.md`.
+
+**Legacy (`legacy_v1`):** the previous Recruit-style / Persol-style / Culture Fit scores are
+retired to `_shared/legacy_experimental.py` and require an explicit `--legacy-experimental` flag.
+Culture Fit produces no new values at all. Scores already saved are preserved, tagged
+`legacy_v1`, and never merged into a v3 result or ranking.
 
 ## Install
 
@@ -259,8 +304,9 @@ python3 skills/career-agent/career_agent.py doctor --vault "$VAULT" --fix
 `approve` is required before a draft event enters the confirmed ledger.
 
 All domain skills update the company pipeline through the shared writer, for example
-`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"stage":2,"match_score":78}'`; do not edit
-`data/pipeline.yml` directly.
+`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"stage":2,"match_model_version":"evidence_based_v3","decision_status":"review"}'`;
+do not edit `data/pipeline.yml` directly. The legacy `match_score` field is frozen — existing
+values are preserved, and the writer refuses new ones.
 
 ### Vault and Obsidian integration
 
@@ -404,12 +450,17 @@ profiles go under `data/`, relative to the session directory.
 - No confirmed ledger event without evidence.
 - No online edits to an installed `SKILL.md`.
 
-Scores are approximate. Claims must stay grounded in the user's source material.
+- No estimated pass or offer probability, and no claim to reproduce a company's internal formula.
+- No fabricated reference data — an unavailable dataset is reported as unavailable.
+
+Missing information is reported as missing. Claims must stay grounded in the user's source material.
 
 ## Development
 
 ```bash
 python3 -m unittest -v skills/career-agent/test_career_agent.py
+python3 _shared/test_matching_v3.py
+python3 _shared/legacy_experimental.py --self-test
 python3 -m py_compile skills/career-agent/career_agent.py
 claude plugin validate .
 ```
