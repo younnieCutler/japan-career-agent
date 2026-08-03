@@ -14,7 +14,9 @@ from policy_patterns import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-ACTIVE_ROOTS = (ROOT / "skills", ROOT / "_shared", ROOT / "scripts", ROOT / "hooks", ROOT)
+# `ROOT` already walks every subdirectory (including hooks/) via files()'s rglob below; the
+# more specific entries exist only for readability/intent, not because ROOT wouldn't cover them.
+ACTIVE_ROOTS = (ROOT / "skills", ROOT / "_shared", ROOT / "scripts", ROOT)
 ALLOW_FILES = {
     ROOT / "_shared" / "legacy_experimental.py",
     ROOT / "skills" / "matching-simulator" / "references" / "legacy-v1.md",

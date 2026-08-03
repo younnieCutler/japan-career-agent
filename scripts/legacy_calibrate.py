@@ -37,15 +37,7 @@ def report(pipeline: dict) -> int:
 
 
 def main(argv: list[str]) -> int:
-    argv = list(argv)
-    workspace = None
-    if "--workspace" in argv:
-        index = argv.index("--workspace")
-        try:
-            workspace = argv[index + 1]
-        except IndexError:
-            raise SystemExit("--workspace requires a directory argument")
-        argv = argv[:index] + argv[index + 2:]
+    argv, workspace = pipeline_store.extract_workspace_flag(list(argv))
     if argv != ["--legacy-experimental"]:
         raise SystemExit(
             "refusing legacy calibration; pass --legacy-experimental explicitly "

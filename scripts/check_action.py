@@ -87,22 +87,11 @@ def check(pipeline, slug: str, item_id: str, path: Path) -> int:
     return 0
 
 
-def _extract_workspace(argv: list[str]) -> tuple[list[str], str | None]:
-    if "--workspace" not in argv:
-        return argv, None
-    index = argv.index("--workspace")
-    try:
-        value = argv[index + 1]
-    except IndexError:
-        sys.exit("--workspace requires a directory argument")
-    return argv[:index] + argv[index + 2:], value
-
-
 def main(argv: list[str]) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    argv, workspace = _extract_workspace(list(argv))
+    argv, workspace = pipeline_store.extract_workspace_flag(list(argv))
     pipeline_path = pipeline_store.resolve_pipeline_path(workspace)
     pipeline = load(pipeline_path)
     if argv and argv[0] == "--list":

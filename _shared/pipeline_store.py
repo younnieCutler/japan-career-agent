@@ -82,6 +82,22 @@ def resolve_pipeline_path(workspace: str | Path | None = None) -> Path:
     return resolve_workspace(workspace) / "data" / "pipeline.yml"
 
 
+def extract_workspace_flag(argv: list[str]) -> tuple[list[str], str | None]:
+    """Pull a `--workspace <dir>` pair out of argv, if present.
+
+    Shared by every manual-argv-parsing CLI in this repo (calibrate.py, check_action.py,
+    legacy_calibrate.py) so the flag's syntax and error message cannot drift between copies.
+    """
+    if "--workspace" not in argv:
+        return argv, None
+    index = argv.index("--workspace")
+    try:
+        value = argv[index + 1]
+    except IndexError:
+        raise SystemExit("--workspace requires a directory argument")
+    return argv[:index] + argv[index + 2:], value
+
+
 def mutate(path: Path, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
     """Load, apply fn(data) -> data, write back — all under one exclusive lock."""
     with locked(path):

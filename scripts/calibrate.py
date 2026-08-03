@@ -172,22 +172,11 @@ def approve_rule(pipeline: dict, cause: str, text: str, rules_path: Path) -> int
     return 0
 
 
-def _extract_workspace(argv: list[str]) -> tuple[list[str], str | None]:
-    if "--workspace" not in argv:
-        return argv, None
-    index = argv.index("--workspace")
-    try:
-        value = argv[index + 1]
-    except IndexError:
-        raise SystemExit("--workspace requires a directory argument")
-    return argv[:index] + argv[index + 2:], value
-
-
 def main(argv: list[str]) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    argv, workspace = _extract_workspace(list(argv))
+    argv, workspace = pipeline_store.extract_workspace_flag(list(argv))
     root = pipeline_store.resolve_workspace(workspace)
     pipeline_path = root / "data" / "pipeline.yml"
     rules_path = root / "data" / "rules.yml"
