@@ -11,7 +11,7 @@
 #                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
 #   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
-schema_version: "2.2"
+schema_version: "2.3"
 
 legacy_field_policy:
   readable: true
@@ -90,6 +90,22 @@ self_analysis_profile:
     - career_values     # object: { must_have: list[string], avoid: list[string] } | null
     - career_context_confirmed # boolean; true only after explicit user review and Vault approval where applicable
     - notes             # list|null: boundary and provenance notes
+
+preferred_environment_hypothesis_schema:
+  - preference: "string: one of the eight environment preference ids"
+    hypothesis: "string: bounded interpretation, not a culture score"
+    verification_question: "string: question to verify the hypothesis"
+    confidence: "high | medium | low | unknown"
+
+verification_question_schema:
+  - "string: question for the user or employer; it is not evidence by itself"
+
+recommended_role_cluster_schema:
+  - "string: exploration option only, never an occupation or company recommendation"
+
+self_pr_seed_schema:
+  - episode_ref: "string: existing evidence_episodes.id from a user-confirmed episode"
+    seed: "string: reflection seed for drafting, not verified professional evidence"
 
 # New profile collection fields use `null` for unassessed and `[]` only when the user explicitly
 # reviewed a list and selected none. A missing v2 version marker means legacy v1; readers preserve
@@ -367,7 +383,7 @@ match_history_entry:
 # The per-company job-search state hub. One entry per company, keyed by slug.
 # Written by: kigyou-bunseki (entry + kyujin_legitimacy),
 #             matching-simulator (match_model_version, decision_status, match_conflicts,
-#                                 match_unknowns; interest_* only on explicit user instruction),
+#                                 match_required_gaps, match_unknowns; interest_* only on explicit user instruction),
 #             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines,
 #             closed_reason + agent_feedback on お見送り), company-battlecard (history event),
 #             career-agent `approve` of a company event (stage, next_action, deadline, history —
@@ -404,6 +420,8 @@ pipeline:
                               not a recommendation or an outcome estimate. Do not order the kanban
                               by it and do not translate it to a number."
       match_conflicts:     "list of strings | null — confirmed blockers behind a `conflict` status"
+      match_required_gaps: "list of strings | null — confirmed required skill/experience gaps behind a `review` status;
+                              distinct from unknown information"
       match_unknowns:      "list of strings | null — what is missing behind a `review` status"
 
       match_score:   "legacy_v1. integer 0–100 | null. FROZEN — matching-simulator no longer writes

@@ -6,14 +6,39 @@
   <title>자기분석 워크시트 / 自己分析ワークシート</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --ink: #172033;
+      --muted: #526070;
+      --canvas: #f6f8fb;
+      --surface: #fff;
+      --line: #d8e0ea;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --focus: #0ea5e9;
+      --soft-blue: #eff6ff;
+    }
     body {
       margin: 0;
       min-height: 100vh;
-      color: #1d1d1f;
-      background: #f5f5f7;
+      color: var(--ink);
+      background: var(--canvas);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Noto Sans JP", sans-serif;
+      line-height: 1.5;
     }
     button, input, select, textarea { font: inherit; }
+    .skip-link {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 30;
+      padding: 10px 14px;
+      color: #fff;
+      background: var(--ink);
+      border-radius: 8px;
+      transform: translateY(-140%);
+      transition: transform .2s ease;
+    }
+    .skip-link:focus { transform: translateY(0); }
     .header {
       position: sticky;
       top: 0;
@@ -23,105 +48,172 @@
       justify-content: space-between;
       gap: 16px;
       padding: 16px 24px;
-      background: #fff;
-      border-bottom: 1px solid #d2d2d7;
+      background: rgba(255,255,255,.96);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 1px 10px rgba(23,32,51,.04);
     }
     .header h1 { margin: 0; font-size: 18px; font-weight: 700; }
-    .lang-btn-group { display: flex; gap: 4px; }
+    .lang-btn-group { display: flex; gap: 6px; }
     .lang-btn, .step-btn, .submit-btn {
-      border: 1px solid #d2d2d7;
+      min-height: 44px;
+      border: 1px solid var(--line);
       border-radius: 10px;
-      background: #fff;
+      background: var(--surface);
       cursor: pointer;
     }
-    .lang-btn { padding: 6px 12px; font-size: 13px; }
-    .lang-btn.active { color: #fff; background: #0071e3; border-color: #0071e3; }
-    .container { max-width: 900px; margin: 0 auto; padding: 28px 20px 72px; }
-    .progress { margin-bottom: 18px; color: #6e6e73; font-size: 13px; }
-    .progress-bar { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: #e5e5ea; }
-    .progress-fill { width: 12.5%; height: 100%; background: #0071e3; transition: width .15s ease; }
+    .lang-btn { padding: 8px 12px; color: var(--muted); font-size: 13px; }
+    .lang-btn.active { color: #fff; background: var(--primary); border-color: var(--primary); }
+    .container { width: 100%; max-width: 900px; margin: 0 auto; padding: 28px 20px 72px; }
+    .progress { margin-bottom: 18px; color: var(--muted); font-size: 13px; }
+    .progress-bar { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: #e3eaf3; }
+    .progress-fill { width: 12.5%; height: 100%; background: var(--primary); transition: width .2s ease; }
     .card {
+      min-width: 0;
       padding: 26px;
       margin-bottom: 18px;
-      background: #fff;
+      background: var(--surface);
+      border: 1px solid rgba(216,224,234,.8);
       border-radius: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      box-shadow: 0 8px 24px rgba(23,32,51,.06);
     }
     .step { display: none; }
     .step.active { display: block; }
     .section-title { margin: 0 0 8px; font-size: 20px; }
-    .section-desc { margin: 0 0 20px; color: #6e6e73; font-size: 14px; line-height: 1.55; }
+    .section-desc { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
     .info-grid, .two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .form-group, fieldset { min-width: 0; margin: 0 0 18px; padding: 0; border: 0; }
-    label, legend { display: block; margin-bottom: 7px; color: #3a3a3c; font-size: 14px; font-weight: 650; }
+    label, legend { display: block; margin-bottom: 7px; color: var(--ink); font-size: 14px; font-weight: 650; }
     input[type="text"], select, textarea {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid #d2d2d7;
+      min-height: 44px;
+      border: 1px solid var(--line);
       border-radius: 10px;
-      background: #fff;
+      background: var(--surface);
       outline: none;
     }
     textarea { min-height: 92px; resize: vertical; line-height: 1.5; }
-    input[type="text"]:focus, select:focus, textarea:focus { border-color: #0071e3; }
+    input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--primary); }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
+    .choice:has(input:focus-visible), .check-choice:has(input:focus-visible) {
+      outline: 3px solid rgba(14,165,233,.55);
+      outline-offset: 2px;
+    }
     .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .choice-grid.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .choice, .check-choice {
       position: relative;
-      display: block;
+      display: flex;
+      align-items: center;
+      min-height: 48px;
       padding: 12px 13px;
-      border: 1px solid #d2d2d7;
+      border: 1px solid var(--line);
       border-radius: 10px;
-      background: #fff;
+      background: var(--surface);
       cursor: pointer;
       line-height: 1.4;
     }
-    .choice:hover, .check-choice:hover { border-color: #0071e3; }
+    .choice:hover, .check-choice:hover { border-color: var(--primary); background: var(--soft-blue); }
     .choice input, .check-choice input { position: absolute; opacity: 0; }
     .choice:has(input:checked), .check-choice:has(input:checked) {
-      color: #005bb5;
-      border-color: #0071e3;
-      background: #eef6ff;
+      color: #174ea6;
+      border-color: var(--primary);
+      background: var(--soft-blue);
     }
-    .scale-label { margin-top: 8px; color: #6e6e73; font-size: 12px; }
-    .unknown-choice { margin-top: 10px; color: #6e6e73; }
-    .episode { padding: 18px; margin-bottom: 14px; border: 1px solid #e5e5ea; border-radius: 12px; }
+    .scale-control { display: flex; align-items: center; gap: 10px; }
+    .scale-endpoint { flex: 0 0 auto; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .scale-range {
+      width: 100%;
+      height: 44px;
+      margin: 0;
+      accent-color: var(--primary);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .scale-range::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: #dbe5f1; }
+    .scale-range::-webkit-slider-thumb {
+      width: 28px;
+      height: 28px;
+      margin-top: -10px;
+      border: 3px solid var(--surface);
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 1px 4px rgba(23,32,51,.24);
+      appearance: none;
+    }
+    .scale-range::-moz-range-track { height: 8px; border-radius: 4px; background: #dbe5f1; }
+    .scale-range::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--surface);
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 1px 4px rgba(23,32,51,.24);
+    }
+    .scale-value {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      min-height: 32px;
+      padding: 4px 10px;
+      margin-top: 6px;
+      color: var(--primary-dark);
+      background: var(--soft-blue);
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 750;
+    }
+    .scale-value[data-empty="true"] { color: var(--muted); background: #f1f4f8; }
+    .scale-label { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; color: var(--muted); font-size: 12px; }
+    .unknown-choice { margin-top: 10px; color: var(--muted); }
+    .check-line { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 10px; margin-top: 10px; border-radius: 10px; color: var(--muted); font-size: 13px; cursor: pointer; }
+    .check-line:hover { background: #f5f8fc; }
+    .check-line input { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 2px; }
+    .episode { padding: 18px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 12px; }
     .episode h3 { margin: 0 0 14px; font-size: 16px; }
-    .check-line { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; color: #6e6e73; font-size: 13px; }
-    .check-line input { margin-top: 3px; }
     .step-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
     .step-btn, .submit-btn { padding: 11px 18px; font-weight: 650; }
-    .step-btn.primary, .submit-btn { color: #fff; background: #0071e3; border-color: #0071e3; }
+    .step-btn:hover, .lang-btn:hover { border-color: var(--primary); }
+    .step-btn.primary, .submit-btn { color: #fff; background: var(--primary); border-color: var(--primary); }
+    .step-btn.primary:hover, .submit-btn:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
     .step-btn:disabled { cursor: default; opacity: .45; }
     .submit-area { text-align: center; }
     .error-msg, .success-banner { display: none; margin-top: 12px; font-size: 13px; line-height: 1.5; }
     .error-msg.visible { display: block; color: #c62828; }
     .success-banner.visible { display: block; color: #1a7a36; }
-    .output-box { display: none; width: 100%; min-height: 280px; padding: 12px; margin-top: 14px; border: 1px solid #d2d2d7; border-radius: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; resize: vertical; }
+    .output-box { display: none; width: 100%; min-height: 280px; padding: 12px; margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; resize: vertical; }
     .output-box.visible { display: block; }
     [data-lang="ko"] .ja, [data-lang="ja"] .ko { display: none; }
     [data-lang="ko"] .ko, [data-lang="ja"] .ja { display: inline; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
     @media (max-width: 640px) {
-      .header { padding: 13px 16px; }
+      .header { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 13px 16px; }
+      .header h1 { min-width: 0; font-size: 17px; }
+      .lang-btn-group { align-self: flex-start; }
+      .lang-btn { padding-right: 9px; padding-left: 9px; }
       .container { padding: 20px 14px 56px; }
       .card { padding: 20px 16px; }
       .info-grid, .two-column, .choice-grid, .choice-grid.compact { grid-template-columns: 1fr; }
       .choice-grid.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .step-actions { position: sticky; bottom: 0; padding-top: 12px; background: rgba(255,255,255,.96); }
+      .step-actions { position: sticky; bottom: 0; z-index: 5; padding-top: 12px; background: rgba(255,255,255,.96); border-top: 1px solid var(--line); }
     }
   </style>
 </head>
 <body data-lang="ko">
+  <a class="skip-link" href="#main-content"><span class="ko">본문으로 건너뛰기</span><span class="ja">本文へ移動</span></a>
   <header class="header">
     <h1><span class="ko">자기분석 워크시트</span><span class="ja">自己分析ワークシート</span></h1>
-    <div class="lang-btn-group" aria-label="Language">
-      <button class="lang-btn active" type="button" onclick="setLang('ko')">한국어</button>
-      <button class="lang-btn" type="button" onclick="setLang('ja')">日本語</button>
+    <div class="lang-btn-group" role="group" aria-label="Language / 言語">
+      <button class="lang-btn active" type="button" data-lang="ko" aria-pressed="true" onclick="setLang('ko')">한국어</button>
+      <button class="lang-btn" type="button" data-lang="ja" aria-pressed="false" onclick="setLang('ja')">日本語</button>
     </div>
   </header>
 
-  <main class="container">
-    <div class="progress" aria-live="polite">
+  <main class="container" id="main-content">
+    <div class="progress" role="progressbar" aria-label="Progress / 進行状況" aria-valuemin="1" aria-valuemax="8" aria-valuenow="1" aria-live="polite">
       <span class="ko">단계 <span id="step-current">1</span> / 8</span>
       <span class="ja">ステップ <span id="step-current-ja">1</span> / 8</span>
       <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
@@ -285,13 +377,16 @@
 
     function renderScale(items, containerId, namePrefix) {
       document.getElementById(containerId).innerHTML = items.map(item => `
-        <fieldset>
-          <legend><span class="ko">${item.ko}</span><span class="ja">${item.ja}</span></legend>
-          <div class="choice-grid compact">
-            ${[1, 2, 3, 4, 5].map(value => `<label class="choice"><input type="radio" name="${namePrefix}.${item.id}" value="${value}"><span>${value}</span></label>`).join('')}
+        <fieldset class="scale-fieldset">
+          <legend id="${namePrefix}-${item.id}-legend"><span class="ko">${item.ko}</span><span class="ja">${item.ja}</span></legend>
+          <div class="scale-control">
+            <span class="scale-endpoint" aria-hidden="true">1</span>
+            <input id="${namePrefix}-${item.id}-range" class="scale-range" type="range" name="${namePrefix}.${item.id}" min="1" max="5" step="1" value="3" data-scale-range data-touched="false" aria-labelledby="${namePrefix}-${item.id}-legend" aria-valuetext="아직 선택하지 않음 / 未選択">
+            <span class="scale-endpoint" aria-hidden="true">5</span>
           </div>
-          <div class="scale-label"><span class="ko">1 = 전혀 그렇지 않다 · 5 = 매우 그렇다</span><span class="ja">1 = 全くそう思わない · 5 = 非常にそう思う</span></div>
-          <label class="check-line unknown-choice"><input type="radio" name="${namePrefix}.${item.id}" value="unknown"><span class="ko">잘 모르겠다 / 아직 경험이 없다</span><span class="ja">よくわからない / まだ経験がない</span></label>
+          <output class="scale-value" id="${namePrefix}-${item.id}-range-value" data-empty="true" aria-live="polite">—</output>
+          <div class="scale-label"><span class="ko">1 = 전혀 그렇지 않다 · 5 = 매우 그렇다 · 움직이지 않으면 미응답</span><span class="ja">1 = 全くそう思わない · 5 = 非常にそう思う · 動かさなければ未回答</span></div>
+          <label class="check-line unknown-choice"><input type="radio" name="${namePrefix}.${item.id}" value="unknown" data-scale-unknown="${namePrefix}-${item.id}-range"><span class="ko">잘 모르겠다 / 아직 경험이 없다</span><span class="ja">よくわからない / まだ経験がない</span></label>
         </fieldset>
       `).join('');
     }
@@ -299,7 +394,11 @@
     function setLang(lang) {
       document.body.dataset.lang = lang;
       document.documentElement.lang = lang;
-      document.querySelectorAll('.lang-btn').forEach(button => button.classList.toggle('active', button.textContent.includes(lang === 'ko' ? '한국어' : '日本語')));
+      document.querySelectorAll('.lang-btn').forEach(button => {
+        const active = button.dataset.lang === lang;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
     }
 
     function updateProgress() {
@@ -307,7 +406,41 @@
       document.getElementById('step-current').textContent = currentStep + 1;
       document.getElementById('step-current-ja').textContent = currentStep + 1;
       document.getElementById('progress-fill').style.width = `${((currentStep + 1) / TOTAL_STEPS) * 100}%`;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const progress = document.querySelector('.progress');
+      progress.setAttribute('aria-valuenow', String(currentStep + 1));
+      const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    }
+
+    function updateScaleDisplay(range) {
+      const output = document.getElementById(`${range.id}-value`);
+      const selected = range.dataset.touched === 'true';
+      output.textContent = selected ? range.value : '—';
+      output.dataset.empty = String(!selected);
+      range.setAttribute('aria-valuetext', selected ? `${range.value} / 5` : '아직 선택하지 않음 / 未選択');
+    }
+
+    function touchScale(range) {
+      range.dataset.touched = 'true';
+      const unknown = document.querySelector(`input[data-scale-unknown="${range.id}"]`);
+      if (unknown) unknown.checked = false;
+      updateScaleDisplay(range);
+    }
+
+    function bindScaleControls() {
+      document.querySelectorAll('[data-scale-range]').forEach(range => {
+        range.addEventListener('input', () => touchScale(range));
+        updateScaleDisplay(range);
+      });
+      document.querySelectorAll('[data-scale-unknown]').forEach(unknown => {
+        unknown.addEventListener('change', () => {
+          if (!unknown.checked) return;
+          const range = document.getElementById(unknown.dataset.scaleUnknown);
+          if (!range) return;
+          range.dataset.touched = 'false';
+          updateScaleDisplay(range);
+        });
+      });
     }
 
     function nextStep() {
@@ -337,7 +470,12 @@
       if (!document.getElementById('name').value.trim() || !document.getElementById('track').value) { showError(); return; }
       document.getElementById('error-msg').classList.remove('visible');
       const scaleSelections = (items, prefix) => Object.fromEntries(items.map(item => [
-        item.id, document.querySelector(`input[name="${prefix}.${item.id}"]:checked`)?.value
+        item.id,
+        JikoChecklist.resolveScaleSelection(
+          document.getElementById(`${prefix}-${item.id}-range`).value,
+          document.getElementById(`${prefix}-${item.id}-range`).dataset.touched === 'true',
+          Boolean(document.querySelector(`input[data-scale-unknown][name="${prefix}.${item.id}"]:checked`))
+        )
       ]));
       const multiSelection = (name, unknownId) => ({ values: selectedValues(name), explicit_unknown: document.getElementById(unknownId).checked });
       const episodeInput = prefix => ({
@@ -377,6 +515,7 @@
     renderScale(BEHAVIOR_TENDENCIES, 'behavior-container', 'behavior_tendencies');
     renderScale(ENVIRONMENT_PREFERENCES, 'environment-container', 'environment_preferences');
     renderScale([{ id: 'learning_confidence', ko: '관심 있는 분야를 배우면 어느 정도 해낼 수 있을 것 같나요?', ja: '関心のある分野を学んだら、どの程度できそうですか？' }], 'efficacy-container', 'career_self_efficacy');
+    bindScaleControls();
     updateProgress();
   </script>
 </body>

@@ -15,6 +15,11 @@
     return Number(selection);
   }
 
+  function resolveScaleSelection(value, touched, explicitUnknown) {
+    if (explicitUnknown) return "unknown";
+    return touched ? value : undefined;
+  }
+
   function collectMulti(input, field, unanswered, explicitUnknown) {
     const values = Array.isArray(input && input.values) ? input.values : [];
     if (!values.length && input && input.explicit_unknown) {
@@ -107,5 +112,5 @@
     };
   }
 
-  return { buildSubmission };
+  return { buildSubmission, resolveScaleSelection };
 });

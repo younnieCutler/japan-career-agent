@@ -558,6 +558,14 @@ def evidence_summary(facts: list[dict[str, Any]], conflicting: list[str], as_of:
 # §6.1 Decision Status
 # ─────────────────────────────────────────────────────────────
 
+def _required_gap_question(gap: str) -> str:
+    kind, _, name = gap.partition(": ")
+    if kind == "required skill":
+        return f"Is {name} a strict must-have for this role, or can it be learned after joining?"
+    if kind == "experience":
+        return f"Is {name} a strict must-have for this role, or can equivalent experience be accepted?"
+    return f"Can you verify whether {gap} is a strict requirement or can be learned after joining?"
+
 def decision_status(
     eligibility: list[dict[str, Any]],
     skills: dict[str, Any],
@@ -650,7 +658,10 @@ def evaluate(payload: dict[str, Any], *, reference: dict[str, Any] | None = None
         "candidate_interest": candidate_interest(payload.get("candidate_interest")),
         "employer_signals": employer_signals(payload.get("employer_signals")),
         "missing_information": missing,
-        "clarifying_questions": [f"Can you confirm — {item}?" for item in decision["unknowns"]],
+        "clarifying_questions": [
+            *[_required_gap_question(item) for item in decision["required_gaps"]],
+            *[f"Can you confirm — {item}?" for item in decision["unknowns"]],
+        ],
         "evidence_summary": evidence_summary(facts, conflicting_evidence, payload.get("as_of")),
     }
 
@@ -738,6 +749,9 @@ def render(result: dict[str, Any]) -> str:
 
     out.append("Missing Information")
     out += [f"- {item}" for item in result["missing_information"]] or ["- none"]
+    out.append("")
+    out.append("Next Verification Questions")
+    out += [f"- {item}" for item in result["clarifying_questions"]] or ["- none"]
     return "\n".join(out)
 
 

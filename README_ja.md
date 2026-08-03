@@ -52,14 +52,17 @@ status barは `--workspace` の明示パス、`CAREER_WORKSPACE`、現在のCWD�
 - 通常のstatus barでは行動につながらない反復情報を減らしますが、すべてのblockerと制限付きの
   action/rule previewは残します。
 - UserPromptSubmit launcherは古いplugin pathや存在しないscriptをPython実行前に確認し、問題が
-  あってもpromptをblockしません。代わりにgateとdeadlineを確認できなかったことをdegraded
-  状態として表示します。Claude manifestは標準hookファイルを重複宣言しません。
+  あってもpromptをblockしません。POSIX/Windows launcherはstatus出力をbufferし、正常終了時
+  だけ出力するため、runtime失敗ではdegraded blockを一つだけ表示します。ただしhostがtimeout
+  でprocessを終了した場合、出力前に終わることがあります。Claude manifestは標準hookファイル
+  を重複宣言しません。
 - `_shared/self_analysis_profile.py`がcanonical v2 profileを検証します。checklist exportは
   raw reflectionのままで、未評価は`null`、確認済みで空のリストは`[]`と区別します。episode
-  ID、activity ID、behaviorからepisodeへの参照も検証し、matchingやVault contextへ自動投入
-  しません。
+  ID、activity ID、behaviorからepisodeへの参照、optional nested shapeも検証し、matchingや
+  Vault contextへ自動投入しません。
 - 確認済みのrequired skillまたはexperience gapは`Proceed`ではなく`Review`です。preferred gapは
-  独立軸として残し、scoreや採用結果の予測は追加しません。
+  独立軸として残します。required gapには決定的な確認質問を付け、pipelineでも
+  `match_required_gaps`と`match_unknowns`を分けます。scoreや採用結果の予測は追加しません。
 
 ```powershell
 $env:CAREER_VAULT='C:\path\to\career-vault'

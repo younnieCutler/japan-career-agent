@@ -11,6 +11,7 @@ CHECKLIST = ROOT / "skills" / "jiko-bunseki" / "checklist.html"
 CHECKLIST_RUNTIME = ROOT / "skills" / "jiko-bunseki" / "checklist_runtime.js"
 SCHEMA = ROOT / "_shared" / "schemas.yml"
 MATCHING = ROOT / "_shared" / "matching_v3.py"
+PROFILE = ROOT / "_shared" / "self_analysis_profile.py"
 CAREER_AGENT = ROOT / "skills" / "career-agent" / "career_agent.py"
 
 _matching_spec = spec_from_file_location("matching_v3_contract_target", MATCHING)
@@ -18,6 +19,12 @@ if _matching_spec is None or _matching_spec.loader is None:
     raise ImportError(f"cannot load {MATCHING}")
 v3 = module_from_spec(_matching_spec)
 _matching_spec.loader.exec_module(v3)
+
+_profile_spec = spec_from_file_location("self_analysis_profile_contract_target", PROFILE)
+if _profile_spec is None or _profile_spec.loader is None:
+    raise ImportError(f"cannot load {PROFILE}")
+profile = module_from_spec(_profile_spec)
+_profile_spec.loader.exec_module(profile)
 
 BEHAVIOR_IDS = {
     "initiative", "execution", "discipline", "ownership", "analysis", "learning",
@@ -44,8 +51,18 @@ def test_v2_submission_has_independent_unknown_safe_controls() -> None:
     assert 'value="unknown"' in source
     assert "const PAIRS" not in source
     assert "strength_pairs" not in source
-    assert 'input type="range"' not in source
+    assert 'type="range"' in source
+    assert 'data-touched="false"' in source
+    assert "dataset.touched === 'true'" in source
+    assert "data-scale-unknown" in source
     assert 'name="${namePrefix}.${item.id}"' in source
+
+
+def test_checklist_activity_ids_match_profile_validator() -> None:
+    source = CHECKLIST.read_text(encoding="utf-8")
+    ids = re.findall(r'name="interest_activities" value="([^"]+)"', source)
+    assert len(ids) == len(set(ids))
+    assert set(ids) == profile.ACTIVITY_IDS
 
 
 def test_unanswered_and_explicit_unknown_remain_distinct() -> None:
@@ -87,7 +104,7 @@ def test_user_facing_language_spans_are_not_cross_contaminated() -> None:
 def test_profile_schema_is_v2_and_keeps_legacy_read_compatibility() -> None:
     schema = yaml.safe_load(SCHEMA.read_text(encoding="utf-8"))
     profile = schema["self_analysis_profile"]
-    assert schema["schema_version"] == "2.2"
+    assert schema["schema_version"] == "2.3"
     assert {
         "self_analysis_version", "candidate_name", "language_preference", "track",
         "interest_hypotheses", "behavior_tendencies", "evidence_episodes",
@@ -95,6 +112,9 @@ def test_profile_schema_is_v2_and_keeps_legacy_read_compatibility() -> None:
         "environment_preferences", "value_candidates", "avoid_candidates",
     } <= set(profile["required"])
     assert profile["optional"]
+    pipeline_company = schema["pipeline"]["companies"][0]
+    assert "match_required_gaps" in pipeline_company
+    assert "match_unknowns" in pipeline_company
     compatibility = schema["legacy_self_analysis_profile_v1"]
     assert compatibility["readable_fields"]
     assert "Do not convert" in compatibility["migration"]
@@ -178,6 +198,7 @@ def test_career_agent_context_allowlist_excludes_raw_reflection() -> None:
 
 if __name__ == "__main__":
     test_v2_submission_has_independent_unknown_safe_controls()
+    test_checklist_activity_ids_match_profile_validator()
     test_unanswered_and_explicit_unknown_remain_distinct()
     test_checklist_is_local_bilingual_and_does_not_calculate_results()
     test_user_facing_language_spans_are_not_cross_contaminated()
@@ -191,4 +212,4 @@ if __name__ == "__main__":
     test_legacy_v1_profile_is_read_only_and_not_converted()
     test_raw_jiko_fields_are_not_matching_coefficients()
     test_career_agent_context_allowlist_excludes_raw_reflection()
-    print("OK: 14 checklist/profile contract tests passed")
+    print("OK: 15 checklist/profile contract tests passed")

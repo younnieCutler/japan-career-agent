@@ -7,29 +7,39 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FILES = [ROOT / ".claude-plugin" / "plugin.json", ROOT / ".codex-plugin" / "plugin.json"]
+MANIFESTS = {
+    "claude": ROOT / ".claude-plugin" / "plugin.json",
+    "codex": ROOT / ".codex-plugin" / "plugin.json",
+}
 COMMON_FIELDS = ("description", "homepage", "repository", "license", "keywords")
 
 
 def main() -> int:
-    docs = [json.loads(path.read_text(encoding="utf-8")) for path in FILES]
-    if "hooks" in docs[0]:
+    docs = {
+        name: json.loads(path.read_text(encoding="utf-8"))
+        for name, path in MANIFESTS.items()
+    }
+    claude = docs["claude"]
+    codex = docs["codex"]
+    if "hooks" in claude:
         raise SystemExit("Claude manifest must not redeclare standard hooks/hooks.json")
-    if len({doc.get("name") for doc in docs}) != 1:
+    if claude.get("name") != codex.get("name"):
         raise SystemExit("manifest name mismatch")
-    if len({doc.get("version") for doc in docs}) != 1:
+    if claude.get("version") != codex.get("version"):
         raise SystemExit("manifest version mismatch")
     for field in COMMON_FIELDS:
-        values = [doc.get(field) for doc in docs]
-        if any(value is None for value in values):
+        claude_value = claude.get(field)
+        codex_value = codex.get(field)
+        if claude_value is None or codex_value is None:
             raise SystemExit(f"manifest missing common field: {field}")
-        if values[0] != values[1]:
+        if claude_value != codex_value:
             raise SystemExit(f"manifest {field} mismatch")
     marketplace = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
-    item = marketplace["plugins"][0]
-    if item.get("name") != docs[0].get("name"):
+    item = next((entry for entry in marketplace.get("plugins", [])
+                 if entry.get("name") == claude.get("name")), None)
+    if item is None:
         raise SystemExit("marketplace plugin name mismatch")
-    print(f"manifest consistency: {docs[0]['name']} v{docs[0]['version']}")
+    print(f"manifest consistency: {claude['name']} v{claude['version']}")
     return 0
 
 

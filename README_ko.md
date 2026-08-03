@@ -63,14 +63,17 @@ pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로
 - 일반 status bar에서는 행동으로 이어지지 않는 반복 정보를 줄이지만 모든 blocker와 제한된
   action/rule 미리보기는 유지합니다.
 - UserPromptSubmit launcher는 오래된 plugin 경로와 없는 script를 Python 실행 전에 확인하고,
-  문제가 있어도 prompt를 차단하지 않습니다. 대신 gate와 deadline을 확인하지 못했다는 degraded
-  상태를 표시합니다. Claude manifest는 표준 hook 파일을 중복 선언하지 않습니다.
+  문제가 있어도 prompt를 차단하지 않습니다. POSIX/Windows launcher는 status 출력을 버퍼링한
+  뒤 정상 종료일 때만 내보내므로 runtime 실패 시 degraded block 하나만 표시합니다. 다만 host가
+  timeout으로 프로세스를 직접 종료하면 출력 전에 끝날 수 있습니다. Claude manifest는 표준 hook
+  파일을 중복 선언하지 않습니다.
 - `_shared/self_analysis_profile.py`가 canonical v2 profile을 검증합니다. checklist export는
   raw reflection으로 남고, 미평가 `null`과 검토 후 빈 목록 `[]`을 구분합니다. episode ID,
-  activity ID, behavior의 episode 참조도 검증하며 matching이나 Vault context에 자동으로
-  들어가지 않습니다.
+  activity ID, behavior의 episode 참조와 optional nested shape도 검증하며 matching이나 Vault
+  context에 자동으로 들어가지 않습니다.
 - 확인된 required skill 또는 experience gap은 `Proceed`가 아니라 `Review`입니다. preferred gap은
-  독립적으로 남고 점수나 합격 예측은 추가하지 않습니다.
+  독립적으로 남습니다. required gap에는 결정적인 확인 질문을 붙이고 `match_required_gaps`와
+  `match_unknowns`를 pipeline에서도 분리합니다. 점수나 합격 예측은 추가하지 않습니다.
 
 ## 외부 claim과 실행
 

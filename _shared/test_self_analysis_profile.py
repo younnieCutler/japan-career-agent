@@ -50,9 +50,8 @@ class SelfAnalysisProfileTests(unittest.TestCase):
         for field, invalid in (("self_analysis_version", 1), ("language_preference", "ja-JP"), ("track", "other")):
             value = valid_profile()
             value[field] = invalid
-            with self.subTest(field=field):
-                with self.assertRaises(profile.ProfileValidationError):
-                    profile.validate_self_analysis_profile(value)
+            with self.subTest(field=field), self.assertRaises(profile.ProfileValidationError):
+                profile.validate_self_analysis_profile(value)
 
     def test_scale_and_tendency_shape_are_strict(self) -> None:
         value = valid_profile()
@@ -73,7 +72,7 @@ class SelfAnalysisProfileTests(unittest.TestCase):
             "response_basis": "user selected it",
             "confidence": "medium",
         }]
-        with self.assertRaises(profile.ProfileValidationError):
+        with self.assertRaisesRegex(profile.ProfileValidationError, "hands_on_systems"):
             profile.validate_self_analysis_profile(value)
 
     def test_episode_ids_are_unique_and_behavior_refs_resolve(self) -> None:
@@ -125,8 +124,43 @@ class SelfAnalysisProfileTests(unittest.TestCase):
         }]
         self.assertEqual(profile.validate_self_analysis_profile(value), value)
         value["derailers"][0]["strength"] = "not-a-tendency"
-        with self.assertRaises(profile.ProfileValidationError):
+        with self.assertRaisesRegex(profile.ProfileValidationError, "initiative"):
             profile.validate_self_analysis_profile(value)
+
+    def test_optional_collections_validate_elements_and_episode_references(self) -> None:
+        value = valid_profile()
+        value["evidence_episodes"] = [{
+            "id": "episode-a",
+            "experience_type": "project",
+            "situation": "A project needed structure",
+            "action": "I organized the work",
+            "energy_effect": "energizing",
+            "energy_reason": None,
+            "source_type": "user",
+            "confidence": "high",
+        }]
+        value["preferred_environment_hypothesis"] = [{
+            "preference": "autonomy",
+            "hypothesis": "The user may prefer room to choose an approach.",
+            "verification_question": "How much freedom does the role provide?",
+            "confidence": "medium",
+        }]
+        value["verification_questions"] = ["What evidence would confirm this preference?"]
+        value["recommended_role_clusters"] = ["data platform exploration"]
+        value["self_pr_seeds"] = [{"episode_ref": "episode-a", "seed": "structured execution"}]
+        self.assertEqual(profile.validate_self_analysis_profile(value), value)
+
+        invalid_cases = (
+            ("preferred_environment_hypothesis", ["not an object"]),
+            ("verification_questions", [{"question": "not the declared shape"}]),
+            ("recommended_role_clusters", [42]),
+            ("self_pr_seeds", [{"episode_ref": "missing", "seed": "draft"}]),
+        )
+        for field, invalid in invalid_cases:
+            broken = copy.deepcopy(value)
+            broken[field] = invalid
+            with self.subTest(field=field), self.assertRaises(profile.ProfileValidationError):
+                profile.validate_self_analysis_profile(broken)
 
     def test_raw_submission_is_not_a_canonical_profile(self) -> None:
         value = valid_profile()

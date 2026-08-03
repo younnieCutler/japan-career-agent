@@ -52,11 +52,25 @@ def _run_hook(plugin_root: Path | None, *, script: str | None = None,
 def _assert_degraded(result: subprocess.CompletedProcess[str]) -> None:
     output = result.stdout + result.stderr
     assert result.returncode == 0, f"hook blocked prompt: {output}"
+    assert result.stdout.count("<career_status>") == 1
+    assert result.stdout.count("</career_status>") == 1
     assert "<career_status>" in result.stdout
     assert "status_bar: unavailable" in result.stdout
     assert "Execution gates and deadlines were NOT checked." in result.stdout
     assert "can't open file" not in output
     assert "Traceback" not in output
+
+
+def _assert_normal(result: subprocess.CompletedProcess[str], marker: str) -> None:
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count("<career_status>") == 1
+    assert result.stdout.count("</career_status>") == 1
+    assert marker in result.stdout
+    assert "status_bar: unavailable" not in result.stdout
+
+
+def _normal_script(marker: str) -> str:
+    return f"print('<career_status>\\n{marker}\\n</career_status>')\n"
 
 
 def test_missing_script_fails_open() -> None:
@@ -80,10 +94,7 @@ def test_missing_script_in_existing_root_fails_open() -> None:
 
 def test_present_script_runs_without_degraded_warning() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        result = _run_hook(Path(tmp), script="print('status ok')\n")
-        assert result.returncode == 0, result.stderr
-        assert "status ok" in result.stdout
-        assert "status_bar: unavailable" not in result.stdout
+        _assert_normal(_run_hook(Path(tmp), script=_normal_script("status ok")), "status ok")
 
 
 def test_python_unavailable_fails_open() -> None:
@@ -98,15 +109,13 @@ def test_runtime_failure_fails_open_without_traceback() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         result = _run_hook(Path(tmp), script="import sys\nprint('partial')\nsys.exit(1)\n")
         _assert_degraded(result)
+        assert "partial" not in result.stdout
 
 
 def test_paths_with_spaces_and_unicode_are_safe() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         plugin_root = Path(tmp) / "plugin with spaces" / "한글"
-        result = _run_hook(plugin_root, script="print('path ok')\n")
-        assert result.returncode == 0, result.stderr
-        assert "path ok" in result.stdout
-        assert "status_bar: unavailable" not in result.stdout
+        _assert_normal(_run_hook(plugin_root, script=_normal_script("path ok")), "path ok")
 
 
 def test_stale_version_delete_and_current_version_lifecycle() -> None:
@@ -115,10 +124,10 @@ def test_stale_version_delete_and_current_version_lifecycle() -> None:
         old_root = cache / "1.6.0"
         current_root = cache / "1.6.2"
 
-        assert "old" in _run_hook(old_root, script="print('old')\n").stdout
+        _assert_normal(_run_hook(old_root, script=_normal_script("old")), "old")
         shutil.rmtree(old_root)
         _assert_degraded(_run_hook(old_root))
-        assert "current" in _run_hook(current_root, script="print('current')\n").stdout
+        _assert_normal(_run_hook(current_root, script=_normal_script("current")), "current")
 
 
 def test_launcher_has_no_cache_repair_or_network_command() -> None:
@@ -132,6 +141,9 @@ def test_launcher_has_no_cache_repair_or_network_command() -> None:
     assert 'python3 "${CLAUDE_PLUGIN_ROOT}' not in command
     assert '[ ! -f "$status_bar" ]' in command
     assert "command -v python3" in command
+    assert 'status_output="$(python3 "$status_bar" 2>/dev/null)"' in command
+    assert "Out-String" in command_windows
+    assert "$statusOutput" in command_windows
 
 
 def run() -> int:

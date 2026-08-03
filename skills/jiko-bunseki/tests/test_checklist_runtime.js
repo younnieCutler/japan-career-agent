@@ -1,7 +1,11 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildSubmission } = require("../checklist_runtime.js");
+const { buildSubmission, resolveScaleSelection } = require("../checklist_runtime.js");
+
+assert.equal(resolveScaleSelection("3", false, false), undefined);
+assert.equal(resolveScaleSelection("3", true, false), "3");
+assert.equal(resolveScaleSelection("3", true, true), "unknown");
 
 const result = buildSubmission({
   name: "  Test User  ",

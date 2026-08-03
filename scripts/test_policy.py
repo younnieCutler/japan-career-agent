@@ -138,10 +138,12 @@ def test_untrusted_vault_metadata_is_marked() -> None:
 
 def test_schema_contract() -> None:
     schema = yaml.safe_load((ROOT / "_shared" / "schemas.yml").read_text(encoding="utf-8"))
-    assert schema["schema_version"] == "2.2"
+    assert schema["schema_version"] == "2.3"
     assert schema["candidate_profile"]["required"]
     assert "portable_skill_allocation" in schema["candidate_profile"]["optional"]
     assert "match_score" in schema["pipeline"]["companies"][0]
+    assert "match_required_gaps" in schema["pipeline"]["companies"][0]
+    assert "match_unknowns" in schema["pipeline"]["companies"][0]
 
 
 def test_expired_external_claim_is_detected() -> None:

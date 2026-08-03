@@ -70,14 +70,18 @@ value is merged into a v3 result.
 - The normal status bar omits repeated non-actionable detail while retaining every blocker and the
   bounded action/rule previews.
 - The UserPromptSubmit launcher checks stale or missing plugin paths before invoking Python and
-  fails open with a visible warning that gates and deadlines were not checked. The standard hook
-  manifest is loaded once and is not redeclared in the Claude manifest.
+  fails open with a visible warning that gates and deadlines were not checked. Its POSIX/Windows
+  launcher buffers status output and emits it only after a zero exit, so runtime failure produces
+  one degraded block; a host-enforced timeout can still terminate the process before it can print.
+  The standard hook manifest is loaded once and is not redeclared in the Claude manifest.
 - `_shared/self_analysis_profile.py` validates canonical v2 profiles. Checklist exports remain raw
   reflection, with `null` for unassessed and `[]` only for reviewed empty lists; episode IDs,
-  activity IDs, and behavior episode references are validated; they do not enter matching or Vault
-  context automatically.
+  activity IDs, behavior episode references, and optional nested shapes are validated; they do not
+  enter matching or Vault context automatically.
 - A confirmed required skill or experience gap is reported as `Review`, not `Conflict` or `Proceed`;
-  preferred gaps remain independent, and no score or hiring prediction is added.
+  preferred gaps remain independent, and deterministic verification questions keep required gaps
+  separate from unknown information. Pipeline state stores `match_required_gaps` separately from
+  `match_unknowns`; no score or hiring prediction is added.
 
 ## Install
 

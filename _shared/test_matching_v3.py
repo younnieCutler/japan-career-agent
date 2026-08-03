@@ -413,6 +413,13 @@ class DecisionStatusRules(unittest.TestCase):
         self.assertEqual(result["decision_status"], v3.DECISION_REVIEW)
         self.assertEqual(result["decision_basis"]["required_gaps"], ["required skill: SQL"])
         self.assertEqual(
+            result["clarifying_questions"],
+            ["Is SQL a strict must-have for this role, or can it be learned after joining?"],
+        )
+        self.assertIn("Next Verification Questions", v3.render(result))
+        self.assertIn("Is SQL a strict must-have", v3.render(result))
+        self.assertNotIn("required skill: SQL", result["missing_information"])
+        self.assertEqual(
             [item["name"] for item in result["skills"]["required_skills"]["missing"]],
             ["SQL"],
         )
@@ -424,6 +431,10 @@ class DecisionStatusRules(unittest.TestCase):
         }))
         self.assertEqual(result["decision_status"], v3.DECISION_REVIEW)
         self.assertEqual(result["decision_basis"]["required_gaps"], ["experience: 3年以上のPM経験"])
+        self.assertEqual(
+            result["clarifying_questions"],
+            ["Is 3年以上のPM経験 a strict must-have for this role, or can equivalent experience be accepted?"],
+        )
         self.assertIn("- Missing: 3年以上のPM経験", v3.render(result))
 
     def test_preferred_skill_missing_does_not_force_review(self):

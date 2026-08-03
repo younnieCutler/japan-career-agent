@@ -38,7 +38,9 @@ class PipelineCliTests(unittest.TestCase):
         self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO", "stage": 4}))
         self.run_cli("update", "gao", "--json",
                      json.dumps({"stage": 2, "match_model_version": "evidence_based_v3",
-                                 "decision_status": "review"}),
+                                 "decision_status": "review",
+                                 "match_required_gaps": ["required skill: SQL"],
+                                 "match_unknowns": ["experience: 3年以上の経験"]}),
                      "--history", "scored")
         self.run_cli("history", "gao", "--event", "interview prep")
         self.run_cli("close", "gao", "--reason", "内定辞退", "--reached-stage", "4")
@@ -46,9 +48,14 @@ class PipelineCliTests(unittest.TestCase):
         self.assertEqual(company["stage"], 4)
         self.assertEqual(company["decision_status"], "review")
         self.assertEqual(company["match_model_version"], "evidence_based_v3")
+        self.assertEqual(company["match_required_gaps"], ["required skill: SQL"])
+        self.assertEqual(company["match_unknowns"], ["experience: 3年以上の経験"])
         self.assertTrue(company["closed"])
         self.assertEqual(company["closed_reason"], "内定辞退")
         self.assertEqual(len(company["history"]), 3)
+
+        self.run_cli("update", "gao", "--json", json.dumps({"match_required_gaps": None}))
+        self.assertIsNone(self.load()["companies"][0]["match_required_gaps"])
 
     def test_legacy_match_score_is_preserved_but_never_rewritten(self) -> None:
         """Existing legacy_v1 values survive; the CLI refuses to write a new one."""
@@ -67,6 +74,14 @@ class PipelineCliTests(unittest.TestCase):
         self.assertEqual(self.run_cli_failing("update", "old", "--json", json.dumps({"match_score": 90})), 2)
         self.assertIn("legacy_v1", self.last_error)
         self.assertEqual(self.load()["companies"][0]["match_score"], 78)
+
+    def test_match_gap_fields_require_string_lists(self) -> None:
+        self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO"}))
+        code = self.run_cli_failing(
+            "update", "gao", "--json", json.dumps({"match_required_gaps": "required skill: SQL"})
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("match_required_gaps", self.last_error)
 
     def test_history_event_id_is_canonical_and_legacy_id_is_readable(self) -> None:
         legacy = {"date": "2026-08-03", "event": "legacy", "id": "evt-legacy"}
