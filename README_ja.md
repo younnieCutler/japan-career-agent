@@ -58,10 +58,27 @@ publisher、source、日付、confidence、claim type、expiryとともに登録
 公式サービスページにpublication dateがない場合は `published_at: unknown` とし、
 `observed_at` と `expires_on` は必ず明示します。
 
+## ステータスバーのネットワーク動作
+
+ステータスバーは local-first ですが、24時間に最大1回、公開マニフェスト
+（`https://raw.githubusercontent.com/younnieCutler/japan-recruit-ai-agent/main/.claude-plugin/plugin.json`）へ
+分離された非同期のバージョン確認を行うことがあります。このリクエストは
+ローカルキャッシュだけを読み書きし、pipeline・Vault・候補者データを送信しません。オフライン
+や失敗時は静かに処理を続けます。ホストの起動前に `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` を設定
+すると外部リクエストを完全に無効化できます。
+
+## 貢献と変更履歴
+
+開発手順と Ubuntu/Windows の検証基準は [`CONTRIBUTING.md`](CONTRIBUTING.md)、リリース履歴は
+[`CHANGELOG.md`](CHANGELOG.md) を参照してください。
+
 ```bash
 python scripts/check_policy.py
 python scripts/check_claim_freshness.py
 python scripts/check_reference_paths.py
+python scripts/check_agent_context.py
+python scripts/check_manifest_consistency.py
+python scripts/check_readme_consistency.py
 python _shared/test_matching_v3.py
 python scripts/test_status_bar.py
 python scripts/test_calibrate.py

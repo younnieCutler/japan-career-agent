@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [ROOT / ".claude-plugin" / "plugin.json", ROOT / ".codex-plugin" / "plugin.json"]
+COMMON_FIELDS = ("description", "homepage", "repository", "license", "keywords")
 
 
 def main() -> int:
@@ -16,6 +17,12 @@ def main() -> int:
         raise SystemExit("manifest name mismatch")
     if len({doc.get("version") for doc in docs}) != 1:
         raise SystemExit("manifest version mismatch")
+    for field in COMMON_FIELDS:
+        values = [doc.get(field) for doc in docs]
+        if any(value is None for value in values):
+            raise SystemExit(f"manifest missing common field: {field}")
+        if values[0] != values[1]:
+            raise SystemExit(f"manifest {field} mismatch")
     marketplace = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
     item = marketplace["plugins"][0]
     if item.get("name") != docs[0].get("name"):

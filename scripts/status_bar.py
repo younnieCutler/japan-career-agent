@@ -28,6 +28,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 STAGE_LABELS = {
     0: "自己分析",
@@ -220,9 +221,15 @@ def _sanitize(text: Any, max_len: int = 200) -> str:
     val = val.replace("</career_status>", "[/career_status]").replace("<career_status>", "[career_status]")
     val = val.replace("</untrusted_career_data>", "[/untrusted_career_data]").replace("<untrusted_career_data>", "[untrusted_career_data]")
     val = val.replace("</", "[/").replace("<", "&lt;").replace(">", "&gt;")
-    if len(val) > max_len:
-        return val[:max_len] + "…"
-    return val
+    if len(val) <= max_len:
+        return val
+    cut = val[:max_len]
+    # Do not leave a generated HTML entity such as `&lt` or `&gt` half-rendered.
+    # If the boundary falls inside an entity, discard that incomplete entity before the ellipsis.
+    entity_start = cut.rfind("&")
+    if entity_start >= 0 and ";" not in cut[entity_start:]:
+        cut = cut[:entity_start]
+    return cut + "…"
 
 
 

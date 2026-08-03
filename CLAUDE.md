@@ -7,14 +7,14 @@ For full system architecture, fast code maps, token-saving navigation guides, an
 
 ## Onboarding Check (Run Silently on Every Session Start)
 
-Before doing anything, run the check (paths relative to CWD) and follow the greeting/menu logic — full
-checklist, kanban format, and menu text: [AGENTS.md § Onboarding Check](./AGENTS.md#-onboarding-check-run-silently-on-every-session-start).
-This is the full procedure — it is authoritative; do not keep a shorter duplicate anywhere else.
+Before doing anything, load the full checklist and greeting/menu procedure from
+[`_shared/agent_context/onboarding.md`](./_shared/agent_context/onboarding.md). It is authoritative;
+do not keep a shorter duplicate in this entry point.
 
 ---
 
 ## Auto-Detection Routing Table
 
-When the user's message matches a pattern below, activate the corresponding skill **before responding**.
-This is the full table — it is authoritative; do not keep a shorter duplicate anywhere else:
-[AGENTS.md § Auto-Detection Routing Table](./AGENTS.md#-auto-detection-routing-table).
+When the user's message matches a pattern below, load the authoritative multilingual routing and
+disambiguation table from [`_shared/agent_context/routing.md`](./_shared/agent_context/routing.md)
+before responding. Do not keep a second routing table here.

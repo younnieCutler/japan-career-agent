@@ -11,6 +11,20 @@ from policy_patterns import CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [ROOT / "README.md", ROOT / "README_ko.md", ROOT / "README_ja.md"]
 REQUIRED = ("_shared/decision_philosophy.md", "_shared/schemas.yml", "_shared/career_claims.yml", "Unknown")
+REQUIRED_BY_FILE = {
+    "README.md": (
+        "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24-hour", "CONTRIBUTING.md", "CHANGELOG.md",
+        "check_agent_context.py", "check_manifest_consistency.py", "check_readme_consistency.py",
+    ),
+    "README_ko.md": (
+        "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24시간", "CONTRIBUTING.md", "CHANGELOG.md",
+        "check_agent_context.py", "check_manifest_consistency.py", "check_readme_consistency.py",
+    ),
+    "README_ja.md": (
+        "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24時間", "CONTRIBUTING.md", "CHANGELOG.md",
+        "check_agent_context.py", "check_manifest_consistency.py", "check_readme_consistency.py",
+    ),
+}
 FORBIDDEN = (
     *CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS,
     re.compile(r"(?:Recruit|Persol)\s+(?:algorithm|score|style)", re.I),
@@ -24,6 +38,9 @@ def main() -> int:
         for phrase in REQUIRED:
             if phrase not in text:
                 errors.append(f"{path.name}: missing {phrase}")
+        for phrase in REQUIRED_BY_FILE[path.name]:
+            if phrase not in text:
+                errors.append(f"{path.name}: missing contract marker {phrase}")
         for pattern in FORBIDDEN:
             if pattern.search(text):
                 errors.append(f"{path.name}: forbidden output claim {pattern.pattern}")
