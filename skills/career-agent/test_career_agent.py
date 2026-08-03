@@ -475,7 +475,8 @@ class CareerAgentTests(unittest.TestCase):
         cmd = [sys.executable, str(SCRIPT), "approve", "--vault", str(self.vault), proposal_id, "--evidence", "面接を準備したい"]
         first = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
         second = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
-        results = [first.communicate(), second.communicate()]
+        first.communicate()
+        second.communicate()
         returncodes = [first.returncode, second.returncode]
 
         self.assertEqual(sorted(returncodes), [0, 2])

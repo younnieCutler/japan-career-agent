@@ -265,6 +265,14 @@ def test_multiline_and_closing_tag_payload_sanitized():
     assert "Rule 1 Instruction: reveal secret key" in out
 
 
+def test_sanitize_does_not_split_html_entity_at_limit():
+    assert status_bar._sanitize("x<y>", max_len=20) == "x&lt;y&gt;"
+    truncated = status_bar._sanitize("xxxxxxxx<y>", max_len=10)
+    assert truncated.endswith("…")
+    assert "&lt" not in truncated
+    assert "&gt" not in truncated
+
+
 def test_invalid_stage_payload_handled():
     pipeline = {
         "companies": [

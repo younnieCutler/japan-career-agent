@@ -127,19 +127,35 @@ python scripts/check_claim_freshness.py
 Expired claims are warnings/failures for CI and cannot be used as durable routing rules. Marketing
 claims remain labelled as such and are never transformed into candidate outcomes.
 
+## Status bar network behavior
+
+The status bar is local-first, but it can perform one detached, non-blocking version check per
+24-hour period against the published manifest at
+`https://raw.githubusercontent.com/younnieCutler/japan-recruit-ai-agent/main/.claude-plugin/plugin.json`.
+The check reads and writes only a local cache; it does not send pipeline, Vault, or candidate data.
+It is silent when offline or when the request fails. Set `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` before
+starting the host process to disable the outbound check completely.
+
+## Contributing
+
+Development expectations and the verification matrix are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Release history is kept in [`CHANGELOG.md`](CHANGELOG.md).
+
 ## Development checks
 
 ```bash
 python scripts/check_policy.py
 python scripts/check_claim_freshness.py
 python scripts/check_reference_paths.py
+python scripts/check_agent_context.py
+python scripts/check_manifest_consistency.py
+python scripts/check_readme_consistency.py
 python _shared/test_matching_v3.py
 python scripts/test_status_bar.py
 python scripts/test_calibrate.py
 python scripts/test_pipeline_cli.py
 python scripts/test_pipeline_integration.py
 python scripts/test_policy.py
-python scripts/check_readme_consistency.py
 python skills/career-agent/test_routing.py
 python skills/career-agent/test_career_agent.py
 python skills/jiko-bunseki/tests/test_checklist_contract.py

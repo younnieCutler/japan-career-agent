@@ -59,10 +59,27 @@ pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로
 공식 서비스 페이지에 publication date가 없으면 `published_at: unknown`으로 기록하고,
 `observed_at`과 `expires_on`은 반드시 명시합니다.
 
+## 상태바 네트워크 동작
+
+상태바는 local-first이지만 24시간에 최대 한 번, 공개 매니페스트
+(`https://raw.githubusercontent.com/younnieCutler/japan-recruit-ai-agent/main/.claude-plugin/plugin.json`)를
+대상으로 분리된 비동기 버전 확인을 실행할 수 있습니다. 이 요청은 로컬 캐시만 읽고 쓰며
+pipeline, Vault, 후보자 데이터를 전송하지 않습니다. 오프라인이거나 요청이 실패하면 조용히
+넘어갑니다. 호스트를 시작하기 전에 `JAPAN_RECRUIT_NO_UPDATE_CHECK=1`을 설정하면 외부 요청을
+완전히 끌 수 있습니다.
+
+## 기여 및 변경 이력
+
+개발 절차와 Ubuntu/Windows 검증 기준은 [`CONTRIBUTING.md`](CONTRIBUTING.md)에,
+릴리스 이력은 [`CHANGELOG.md`](CHANGELOG.md)에 있습니다.
+
 ```bash
 python scripts/check_policy.py
 python scripts/check_claim_freshness.py
 python scripts/check_reference_paths.py
+python scripts/check_agent_context.py
+python scripts/check_manifest_consistency.py
+python scripts/check_readme_consistency.py
 python _shared/test_matching_v3.py
 python scripts/test_status_bar.py
 python scripts/test_calibrate.py
