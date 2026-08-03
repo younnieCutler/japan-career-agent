@@ -20,6 +20,8 @@
 - Made manifest consistency checks address Claude/Codex files and marketplace entries by identity,
   not array order; the shared schema is now v2.3.
 - Synchronized plugin manifests, README contracts, CI, and the Claude standard-hook loading rule.
+- Fixed Jiko checklist export wiring so the learning-confidence slider preserves numeric,
+  unanswered, and explicit-Unknown states.
 
 ## [1.6.1] — 2026-08-03
 

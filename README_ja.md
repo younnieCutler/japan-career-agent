@@ -31,6 +31,7 @@
 - `kigyou-bunseki`: 出典・日付付きの企業／求人調査
 - `matching-simulator`: 独立軸による診断と `Proceed` / `Review` / `Conflict`
 - `company-battlecard`: 合計点を作らない企業・オファー比較
+- `mock-interviewer`: ユーザー主導の面接練習と根拠付き深掘り質問
 - `tenshoku-strategy`: 面接マナー、follow-up、年収交渉、退職、入社、tracking
 - `career-agent`: 承認ゲート付きVault状態とCWD workspace projection
 
@@ -110,9 +111,12 @@ python scripts/test_calibrate.py
 python scripts/test_pipeline_cli.py
 python scripts/test_pipeline_integration.py
 python scripts/test_policy.py
-python _shared/test_self_analysis_profile.py
+python skills/career-agent/test_routing.py
+python skills/career-agent/test_career_agent.py
 python skills/career-agent/test_state_durability.py
+python skills/jiko-bunseki/tests/test_checklist_contract.py
 node skills/jiko-bunseki/tests/test_checklist_runtime.js
+python _shared/test_self_analysis_profile.py
 ```
 
 CIはUbuntuとWindowsで動作します。legacyデータは読み取り可能ですが、新しいlegacy writeと、

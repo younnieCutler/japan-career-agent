@@ -34,8 +34,12 @@ python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
 python scripts/check_readme_consistency.py
 python scripts/test_hook_contract.py
+python scripts/test_pipeline_cli.py
 python _shared/test_self_analysis_profile.py
+python skills/career-agent/test_career_agent.py
+python skills/career-agent/test_routing.py
 python skills/career-agent/test_state_durability.py
+python skills/jiko-bunseki/tests/test_checklist_contract.py
 node skills/jiko-bunseki/tests/test_checklist_runtime.js
 ```
 
