@@ -86,8 +86,8 @@ entry point. `scripts/check_agent_context.py` and `scripts/check_reference_paths
 user runs `python scripts/check_action.py <slug> <id>`. Active rules are read-only to domain
 skills. An unchecked interview action keeps `interview-prep generation BLOCKED` for that company.
 
-Before committing, read `.agents/PRE_COMMIT_CHECKLIST.md` when present and never commit it. Verify
+Before committing, read `.agents/PRE_COMMIT_CHECKLIST.md` when present and never commit it. Run
+`python scripts/run_all_checks.py` after installing the documented dependencies. It covers
 data-contract readers/writers, existing-state transitions, KO/JA/EN routing, Windows behavior,
 compatibility, retry safety, a lifecycle smoke test, policy/reference/context/manifest/README/release
-consistency checks, and the focused tests for changed code. Run `python scripts/check_release_consistency.py`
-after any version, README, manifest, or CHANGELOG change.
+consistency checks, and the focused tests for changed code.

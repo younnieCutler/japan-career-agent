@@ -97,28 +97,11 @@ publisher、source、日付、confidence、claim type、expiryとともに登録
 [`CHANGELOG.md`](CHANGELOG.md) を参照してください。
 
 ```bash
-python scripts/check_policy.py
-python scripts/check_claim_freshness.py
-python scripts/check_context_budget.py
-python scripts/check_reference_paths.py
-python scripts/check_agent_context.py
-python scripts/check_manifest_consistency.py
-python scripts/check_readme_consistency.py
-python scripts/check_release_consistency.py
-python scripts/test_hook_contract.py
-python _shared/test_matching_v3.py
-python scripts/test_status_bar.py
-python scripts/test_calibrate.py
-python scripts/test_pipeline_cli.py
-python scripts/test_pipeline_integration.py
-python scripts/test_policy.py
-python skills/career-agent/test_routing.py
-python skills/career-agent/test_career_agent.py
-python skills/career-agent/test_state_durability.py
-python skills/jiko-bunseki/tests/test_checklist_contract.py
-node skills/jiko-bunseki/tests/test_checklist_runtime.js
-python _shared/test_self_analysis_profile.py
+python scripts/run_all_checks.py
 ```
+
+このrunnerがリポジトリの標準検証経路です。リリース・ドキュメント整合性、policy、CIテスト
+マトリクス、Jiko export contractをまとめて実行します。
 
 CIはUbuntuとWindowsで動作します。legacyデータは読み取り可能ですが、新しいlegacy writeと、
 1–5のlegacy portable skillをMHLW 29-point allocationへ自動変換する処理は拒否します。

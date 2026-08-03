@@ -24,6 +24,8 @@
   unanswered, and explicit-Unknown states.
 - Added a deterministic release-consistency check for both plugin manifests, all README release
   markers, and the top CHANGELOG heading; CI and contributor checks now run it.
+- Added `scripts/run_all_checks.py` as the single cross-platform verification entry point so local
+  and CI command coverage cannot drift silently.
 
 ## [1.6.1] — 2026-08-03
 

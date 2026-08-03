@@ -98,28 +98,11 @@ pipeline, Vault, 후보자 데이터를 전송하지 않습니다. 오프라인�
 릴리스 이력은 [`CHANGELOG.md`](CHANGELOG.md)에 있습니다.
 
 ```bash
-python scripts/check_policy.py
-python scripts/check_claim_freshness.py
-python scripts/check_context_budget.py
-python scripts/check_reference_paths.py
-python scripts/check_agent_context.py
-python scripts/check_manifest_consistency.py
-python scripts/check_readme_consistency.py
-python scripts/check_release_consistency.py
-python scripts/test_hook_contract.py
-python _shared/test_matching_v3.py
-python scripts/test_status_bar.py
-python scripts/test_calibrate.py
-python scripts/test_pipeline_cli.py
-python scripts/test_pipeline_integration.py
-python scripts/test_policy.py
-python skills/career-agent/test_routing.py
-python skills/career-agent/test_career_agent.py
-python skills/career-agent/test_state_durability.py
-python skills/jiko-bunseki/tests/test_checklist_contract.py
-node skills/jiko-bunseki/tests/test_checklist_runtime.js
-python _shared/test_self_analysis_profile.py
+python scripts/run_all_checks.py
 ```
+
+이 runner가 저장소의 표준 검증 경로입니다. 릴리스·문서 정합성, policy, CI 테스트 매트릭스와
+Jiko export contract를 한 번에 실행합니다.
 
 CI는 Ubuntu와 Windows에서 실행됩니다. 기존 legacy 데이터는 읽을 수 있지만 신규 legacy write와
 MHLW 29-point allocation으로의 자동 변환은 거부합니다.

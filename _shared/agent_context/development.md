@@ -26,23 +26,11 @@ decision philosophy; `_shared/decision_philosophy.md` and `_shared/schemas.yml` 
 Run from the repository root:
 
 ```bash
-python scripts/check_context_budget.py
-python scripts/check_policy.py
-python scripts/check_claim_freshness.py
-python scripts/check_reference_paths.py
-python scripts/check_agent_context.py
-python scripts/check_manifest_consistency.py
-python scripts/check_readme_consistency.py
-python scripts/check_release_consistency.py
-python scripts/test_hook_contract.py
-python scripts/test_pipeline_cli.py
-python _shared/test_self_analysis_profile.py
-python skills/career-agent/test_career_agent.py
-python skills/career-agent/test_routing.py
-python skills/career-agent/test_state_durability.py
-python skills/jiko-bunseki/tests/test_checklist_contract.py
-node skills/jiko-bunseki/tests/test_checklist_runtime.js
+python scripts/run_all_checks.py
 ```
+
+The runner is the canonical local/CI verification path; it includes the repository checks used by
+CI and keeps the release/document/version gates in the same command sequence.
 
 The Ubuntu/Windows CI matrix also runs the routing, Career Agent lifecycle, matching, status bar,
 pipeline, policy, and Jiko source-contract tests. `requirements.txt` supplies runtime YAML support;
