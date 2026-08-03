@@ -466,17 +466,21 @@
       return value || null;
     }
 
+    function scaleSelection(prefix, id) {
+      const range = document.getElementById(`${prefix}-${id}-range`);
+      return JikoChecklist.resolveScaleSelection(
+        range.value,
+        range.dataset.touched === 'true',
+        Boolean(document.querySelector(`input[data-scale-unknown][name="${prefix}.${id}"]:checked`))
+      );
+    }
+
     function exportAnswers() {
       if (!document.getElementById('name').value.trim() || !document.getElementById('track').value) { showError(); return; }
       document.getElementById('error-msg').classList.remove('visible');
-      const scaleSelections = (items, prefix) => Object.fromEntries(items.map(item => [
-        item.id,
-        JikoChecklist.resolveScaleSelection(
-          document.getElementById(`${prefix}-${item.id}-range`).value,
-          document.getElementById(`${prefix}-${item.id}-range`).dataset.touched === 'true',
-          Boolean(document.querySelector(`input[data-scale-unknown][name="${prefix}.${item.id}"]:checked`))
-        )
-      ]));
+      const scaleSelections = (items, prefix) => Object.fromEntries(
+        items.map(item => [item.id, scaleSelection(prefix, item.id)])
+      );
       const multiSelection = (name, unknownId) => ({ values: selectedValues(name), explicit_unknown: document.getElementById(unknownId).checked });
       const episodeInput = prefix => ({
         id: prefix,
@@ -492,7 +496,7 @@
         track: document.getElementById('track').value,
         behavior_tendencies: scaleSelections(BEHAVIOR_TENDENCIES, 'behavior_tendencies'),
         environment_preferences: scaleSelections(ENVIRONMENT_PREFERENCES, 'environment_preferences'),
-        learning_confidence: document.querySelector('input[name="career_self_efficacy.learning_confidence"]:checked')?.value,
+        learning_confidence: scaleSelection('career_self_efficacy', 'learning_confidence'),
         outcome_expectation: document.getElementById('outcome-expectation').value,
         goal: document.getElementById('career-goal').value,
         episodes: ['episode-a', 'episode-b'].map(episodeInput),

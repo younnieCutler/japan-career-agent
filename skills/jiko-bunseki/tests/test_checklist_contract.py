@@ -74,6 +74,14 @@ def test_unanswered_and_explicit_unknown_remain_distinct() -> None:
     assert "career_self_efficacy.goal" in source
 
 
+def test_learning_confidence_uses_shared_scale_export_path() -> None:
+    source = CHECKLIST.read_text(encoding="utf-8")
+    assert "function scaleSelection(prefix, id)" in source
+    assert "items.map(item => [item.id, scaleSelection(prefix, item.id)])" in source
+    assert "scaleSelection('career_self_efficacy', 'learning_confidence')" in source
+    assert 'input[name="career_self_efficacy.learning_confidence"]:checked' not in source
+
+
 def test_checklist_is_local_bilingual_and_does_not_calculate_results() -> None:
     source = "\n".join([
         CHECKLIST.read_text(encoding="utf-8"),
@@ -200,6 +208,7 @@ if __name__ == "__main__":
     test_v2_submission_has_independent_unknown_safe_controls()
     test_checklist_activity_ids_match_profile_validator()
     test_unanswered_and_explicit_unknown_remain_distinct()
+    test_learning_confidence_uses_shared_scale_export_path()
     test_checklist_is_local_bilingual_and_does_not_calculate_results()
     test_user_facing_language_spans_are_not_cross_contaminated()
     test_profile_schema_is_v2_and_keeps_legacy_read_compatibility()
@@ -212,4 +221,4 @@ if __name__ == "__main__":
     test_legacy_v1_profile_is_read_only_and_not_converted()
     test_raw_jiko_fields_are_not_matching_coefficients()
     test_career_agent_context_allowlist_excludes_raw_reflection()
-    print("OK: 15 checklist/profile contract tests passed")
+    print("OK: 16 checklist/profile contract tests passed")
