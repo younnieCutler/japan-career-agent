@@ -11,7 +11,7 @@
 #                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
 #   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
-schema_version: "2.1"
+schema_version: "2.2"
 
 legacy_field_policy:
   readable: true
@@ -52,35 +52,91 @@ legacy_field_policy:
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
-# Produced by: jiko-bunseki (Phase 2; Phase 3 fields stay null until the depth-dive runs)
-# Consumed by: job-seeker-agent, matching-simulator, company-battlecard, tenshoku-strategy,
-#              mock-interviewer (reuses only confirmed career context; candidate scoring remains separate)
+# Produced by: jiko-bunseki (raw v2 responses become hypotheses; only user-reviewed statements are canonical)
+# Consumed by: job-seeker-agent and downstream skills that receive confirmed career context
 # Pipeline position: runs BEFORE job-seeker-agent for direction-setting.
 # ─────────────────────────────────────────────
 self_analysis_profile:
   required:
-    - candidate_name       # string
-    - language_preference  # string: "ko" | "ja"
-    - track                # string: "shinsotsu" | "chuto"
-    - top_strengths        # list of objects: see top_strength_schema
-    - strength_clusters    # object: see strength_cluster_schema
-    - work_style           # object: see self_work_style_schema
-    - wellbeing_priorities # object: same structure as wellbeing_schema (1–5)
+    - self_analysis_version # integer: 2 for new profiles
+    - candidate_name        # string
+    - language_preference   # string: "ko" | "ja" | "en"
+    - track                 # string: "shinsotsu" | "chuto"
+    - interest_hypotheses   # list|null: user-reviewed activity hypotheses
+    - behavior_tendencies   # list|null: user-reviewed behavior hypotheses
+    - evidence_episodes     # list|null: user-provided episodes; not automatically professional evidence
+    - career_self_efficacy  # object|null: perceived confidence, goal, and outcome expectation
+    - perceived_barriers    # list|null: user-reported barriers
+    - perceived_supports    # list|null: user-reported supports
+    - environment_preferences # object|null: independent self-reported preferences
+    - value_candidates      # list|null: candidates, not canonical must-have values
+    - avoid_candidates      # list|null: candidates, not canonical avoid values
 
   optional:
-    - preferred_environment_hypothesis # list of observed preferences and verification questions
-                                       # preferred_company_type remains a read-only legacy alias
-    - preferred_role_environment # list of strings (e.g., "high-autonomy", "fast-feedback")
-    - recommended_role_clusters  # list of strings
-    - risk_flags                 # list of strings (evidence-based only; omit if none)
-    - self_pr_seeds              # list of strings: reusable in self-PR / interview
-    # --- Phase 3 depth layer (null until Phase 3 runs) ---
+    - preferred_environment_hypothesis # list|null: hypothesis + verification question objects
+    - verification_questions           # list|null: questions for the user or employer
+    - recommended_role_clusters        # list|null: exploration options, never prescriptions
+    - self_pr_seeds                    # list|null: only from user-confirmed experiences
+    # --- Existing depth/context fields; null until explicitly reviewed ---
     - career_anchors    # object: { primary: string, secondary: list, will_not_give_up: string } | null
     - derailers         # list of objects: { strength, overuse_risk, watch_signal } | null
     - energy_map        # object: { energizes: list, drains: list, misfit_flag: string|null } | null
     - career_theme      # string: one line connecting past to future | null
     - career_values     # object: { must_have: list[string], avoid: list[string] } | null
-    - career_context_confirmed # boolean; true only after explicit user review of all non-null Phase 3 values
+    - career_context_confirmed # boolean; true only after explicit user review and Vault approval where applicable
+    - notes             # list|null: boundary and provenance notes
+
+# New profile collection fields use `null` for unassessed and `[]` only when the user explicitly
+# reviewed a list and selected none. A missing v2 version marker means legacy v1; readers preserve
+# that shape and never infer v2 values from it.
+interest_hypothesis_schema:
+  - activity: "string: activity id from the checklist"
+    response_basis: "string: transparent user response basis"
+    confidence: "high | medium | low | unknown"
+
+behavior_tendency_schema:
+  - name: "string: one of the twelve behavior tendency ids"
+    self_report: "integer 1–5 | null"
+    response_basis: "string: response and episode basis"
+    evidence_episode_refs: "list[string]"
+    confidence: "high | medium | low | unknown"
+
+evidence_episode_schema:
+  - id: "string: episode-a | episode-b | user-confirmed id"
+    experience_type: "string"
+    situation: "string"
+    action: "string"
+    energy_effect: "energizing | draining | mixed | unknown"
+    energy_reason: "string | null"
+    source_type: "user"
+    confidence: "high | medium | low | unknown"
+
+career_self_efficacy_schema:
+  learning_confidence: "integer 1–5 | null: perceived ability to learn, not actual ability"
+  outcome_expectation: "string | null"
+  goal: "string | null"
+
+environment_preferences_v2_schema:
+  autonomy: ~
+  competence: ~
+  relatedness: ~
+  structure_preference: ~
+  speed_preference: ~
+  change_tolerance: ~
+  collaboration_preference: ~
+  feedback_frequency: ~
+
+# Read-only v1 compatibility fields. New writers must not create these from v2 responses.
+legacy_self_analysis_profile_v1:
+  readable_fields:
+    - top_strengths
+    - strength_clusters
+    - work_style
+    - wellbeing_priorities
+    - preferred_role_environment
+    - risk_flags
+    - preferred_company_type
+  migration: "Preserve verbatim. Do not convert scores, clusters, or paired responses into v2 fields."
 
 top_strength_schema:
   - name:    "string: strength id (e.g., 'ownership', 'analysis')"

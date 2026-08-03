@@ -3,711 +3,411 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>자기분석 체크시트 / 自己分析チェックシート</title>
+  <title>자기분석 워크시트 / 自己分析ワークシート</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    *, *::before, *::after { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Noto Sans JP", sans-serif;
-      background: #f5f5f7;
-      color: #1d1d1f;
+      margin: 0;
       min-height: 100vh;
+      color: #1d1d1f;
+      background: #f5f5f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Noto Sans JP", sans-serif;
     }
-
+    button, input, select, textarea { font: inherit; }
     .header {
-      background: #fff;
-      border-bottom: 1px solid #d2d2d7;
-      padding: 16px 24px;
       position: sticky;
       top: 0;
-      z-index: 100;
+      z-index: 10;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 16px;
+      padding: 16px 24px;
+      background: #fff;
+      border-bottom: 1px solid #d2d2d7;
     }
-
-    .header h1 {
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .lang-btn-group {
-      display: flex;
-      gap: 4px;
-    }
-
-    .lang-btn {
-      padding: 6px 14px;
-      border-radius: 20px;
+    .header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+    .lang-btn-group { display: flex; gap: 4px; }
+    .lang-btn, .step-btn, .submit-btn {
       border: 1px solid #d2d2d7;
+      border-radius: 10px;
       background: #fff;
       cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.15s;
     }
-
-    .lang-btn.active {
-      background: #0071e3;
-      color: #fff;
-      border-color: #0071e3;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 32px 24px 80px;
-    }
-
+    .lang-btn { padding: 6px 12px; font-size: 13px; }
+    .lang-btn.active { color: #fff; background: #0071e3; border-color: #0071e3; }
+    .container { max-width: 900px; margin: 0 auto; padding: 28px 20px 72px; }
+    .progress { margin-bottom: 18px; color: #6e6e73; font-size: 13px; }
+    .progress-bar { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: #e5e5ea; }
+    .progress-fill { width: 12.5%; height: 100%; background: #0071e3; transition: width .15s ease; }
     .card {
+      padding: 26px;
+      margin-bottom: 18px;
       background: #fff;
       border-radius: 16px;
-      padding: 28px;
-      margin-bottom: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
     }
-
-    .section-title {
-      font-size: 17px;
-      font-weight: 700;
-      color: #1d1d1f;
-      margin-bottom: 6px;
+    .step { display: none; }
+    .step.active { display: block; }
+    .section-title { margin: 0 0 8px; font-size: 20px; }
+    .section-desc { margin: 0 0 20px; color: #6e6e73; font-size: 14px; line-height: 1.55; }
+    .info-grid, .two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .form-group, fieldset { min-width: 0; margin: 0 0 18px; padding: 0; border: 0; }
+    label, legend { display: block; margin-bottom: 7px; color: #3a3a3c; font-size: 14px; font-weight: 650; }
+    input[type="text"], select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      background: #fff;
+      outline: none;
     }
-
-    .section-desc {
-      font-size: 13px;
-      color: #6e6e73;
-      margin-bottom: 20px;
-      line-height: 1.5;
-    }
-
-    /* Basic info */
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .form-group label {
+    textarea { min-height: 92px; resize: vertical; line-height: 1.5; }
+    input[type="text"]:focus, select:focus, textarea:focus { border-color: #0071e3; }
+    .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .choice-grid.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .choice, .check-choice {
+      position: relative;
       display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #6e6e73;
-      margin-bottom: 6px;
-    }
-
-    .form-group input,
-    .form-group select {
-      width: 100%;
-      padding: 10px 14px;
+      padding: 12px 13px;
       border: 1px solid #d2d2d7;
       border-radius: 10px;
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      border-color: #0071e3;
-    }
-
-    /* Strength pairs */
-    .pair-row {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 0;
-      border-bottom: 1px solid #f2f2f2;
-    }
-
-    .pair-row:last-child { border-bottom: none; }
-
-    .pair-num {
-      grid-column: 1 / -1;
-      font-size: 11px;
-      font-weight: 700;
-      color: #aeaeb2;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-
-    .pair-text {
-      font-size: 14px;
-      line-height: 1.5;
-      color: #1d1d1f;
-    }
-
-    .pair-text.right { text-align: right; }
-
-    .radio-group {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    .radio-option {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      cursor: pointer;
-    }
-
-    .radio-option input[type="radio"] { display: none; }
-
-    .radio-dot {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: 2px solid #d2d2d7;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s;
       background: #fff;
+      cursor: pointer;
+      line-height: 1.4;
     }
-
-    .radio-option input:checked + .radio-dot {
+    .choice:hover, .check-choice:hover { border-color: #0071e3; }
+    .choice input, .check-choice input { position: absolute; opacity: 0; }
+    .choice:has(input:checked), .check-choice:has(input:checked) {
+      color: #005bb5;
       border-color: #0071e3;
-      background: #0071e3;
+      background: #eef6ff;
     }
-
-    .radio-option input:checked + .radio-dot::after {
-      content: '';
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #fff;
-    }
-
-    .radio-label {
-      font-size: 10px;
-      font-weight: 700;
-      color: #aeaeb2;
-    }
-
-    .radio-option:has(input:checked) .radio-label {
-      color: #0071e3;
-    }
-
-    .pair-row.missing .pair-text {
-      background: #fff2f0;
-      border-radius: 6px;
-      padding: 2px 6px;
-    }
-
-    /* Slider */
-    .slider-row {
-      padding: 14px 0;
-      border-bottom: 1px solid #f2f2f2;
-    }
-
-    .slider-row:last-child { border-bottom: none; }
-
-    .slider-row.missing .slider-question {
-      background: #fff2f0;
-      border-radius: 6px;
-      padding: 2px 6px;
-    }
-
-    .slider-question {
-      font-size: 14px;
-      line-height: 1.5;
-      margin-bottom: 12px;
-    }
-
-    .slider-control {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .slider-scale-label {
-      font-size: 11px;
-      color: #aeaeb2;
-      white-space: nowrap;
-    }
-
-    input[type="range"] {
-      flex: 1;
-      -webkit-appearance: none;
-      height: 4px;
-      border-radius: 2px;
-      background: #d2d2d7;
-      outline: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #0071e3;
-      cursor: pointer;
-      box-shadow: 0 1px 4px rgba(0,113,227,0.3);
-    }
-
-    .slider-value {
-      font-size: 16px;
-      font-weight: 700;
-      color: #0071e3;
-      min-width: 24px;
-      text-align: center;
-    }
-
-    /* Submit */
-    .submit-section {
-      text-align: center;
-    }
-
-    .submit-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 36px;
-      background: #0071e3;
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    .submit-btn:hover { background: #0077ed; }
-
-    .error-msg {
-      display: none;
-      color: #ff3b30;
-      font-size: 13px;
-      margin-top: 12px;
-    }
-
-    .error-msg.visible { display: block; }
-
-    .success-banner {
-      display: none;
-      margin-top: 16px;
-      padding: 14px 20px;
-      background: #e8f8ee;
-      border: 1px solid #34c759;
-      border-radius: 10px;
-      color: #1a7a36;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .success-banner.visible { display: block; }
-
-    .output-box {
-      display: none;
-      margin-top: 16px;
-      width: 100%;
-      height: 200px;
-      padding: 12px;
-      border: 1px solid #d2d2d7;
-      border-radius: 10px;
-      font-family: "SF Mono", "Menlo", monospace;
-      font-size: 12px;
-      resize: vertical;
-      background: #f9f9fb;
-    }
-
+    .scale-label { margin-top: 8px; color: #6e6e73; font-size: 12px; }
+    .unknown-choice { margin-top: 10px; color: #6e6e73; }
+    .episode { padding: 18px; margin-bottom: 14px; border: 1px solid #e5e5ea; border-radius: 12px; }
+    .episode h3 { margin: 0 0 14px; font-size: 16px; }
+    .check-line { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; color: #6e6e73; font-size: 13px; }
+    .check-line input { margin-top: 3px; }
+    .step-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
+    .step-btn, .submit-btn { padding: 11px 18px; font-weight: 650; }
+    .step-btn.primary, .submit-btn { color: #fff; background: #0071e3; border-color: #0071e3; }
+    .step-btn:disabled { cursor: default; opacity: .45; }
+    .submit-area { text-align: center; }
+    .error-msg, .success-banner { display: none; margin-top: 12px; font-size: 13px; line-height: 1.5; }
+    .error-msg.visible { display: block; color: #c62828; }
+    .success-banner.visible { display: block; color: #1a7a36; }
+    .output-box { display: none; width: 100%; min-height: 280px; padding: 12px; margin-top: 14px; border: 1px solid #d2d2d7; border-radius: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; resize: vertical; }
     .output-box.visible { display: block; }
-
-    /* Lang visibility */
     [data-lang="ko"] .ja, [data-lang="ja"] .ko { display: none; }
     [data-lang="ko"] .ko, [data-lang="ja"] .ja { display: inline; }
-    .pair-text.ko-text, .pair-text.ja-text,
-    .slider-question .ko, .slider-question .ja { display: block; }
-    [data-lang="ko"] .ja-text { display: none; }
-    [data-lang="ja"] .ko-text { display: none; }
-
-    @media (max-width: 600px) {
-      .info-grid { grid-template-columns: 1fr; }
-      .pair-row { grid-template-columns: 1fr; }
-      .pair-text.right { text-align: left; }
-      .radio-group { justify-content: center; }
+    @media (max-width: 640px) {
+      .header { padding: 13px 16px; }
+      .container { padding: 20px 14px 56px; }
+      .card { padding: 20px 16px; }
+      .info-grid, .two-column, .choice-grid, .choice-grid.compact { grid-template-columns: 1fr; }
+      .choice-grid.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .step-actions { position: sticky; bottom: 0; padding-top: 12px; background: rgba(255,255,255,.96); }
     }
   </style>
 </head>
 <body data-lang="ko">
-
-<div class="header">
-  <h1>
-    <span class="ko">자기분석 체크시트</span>
-    <span class="ja">自己分析チェックシート</span>
-  </h1>
-  <div class="lang-btn-group">
-    <button class="lang-btn active" onclick="setLang('ko')">한국어</button>
-    <button class="lang-btn" onclick="setLang('ja')">日本語</button>
-  </div>
-</div>
-
-<div class="container">
-
-  <!-- Basic Info -->
-  <div class="card">
-    <div class="section-title">
-      <span class="ko">기본 정보</span>
-      <span class="ja">基本情報</span>
+  <header class="header">
+    <h1><span class="ko">자기분석 워크시트</span><span class="ja">自己分析ワークシート</span></h1>
+    <div class="lang-btn-group" aria-label="Language">
+      <button class="lang-btn active" type="button" onclick="setLang('ko')">한국어</button>
+      <button class="lang-btn" type="button" onclick="setLang('ja')">日本語</button>
     </div>
-    <div class="section-desc">
-      <span class="ko">이름과 트랙을 입력해주세요.</span>
-      <span class="ja">お名前とトラックを入力してください。</span>
+  </header>
+
+  <main class="container">
+    <div class="progress" aria-live="polite">
+      <span class="ko">단계 <span id="step-current">1</span> / 8</span>
+      <span class="ja">ステップ <span id="step-current-ja">1</span> / 8</span>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
     </div>
-    <div class="info-grid">
-      <div class="form-group">
-        <label>
-          <span class="ko">이름</span>
-          <span class="ja">お名前</span>
-        </label>
-        <input type="text" id="name" placeholder="홍길동 / 山田太郎">
+
+    <section class="step active" data-step="0">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">시작하기</span><span class="ja">はじめに</span></h2>
+        <p class="section-desc"><span class="ko">답이 떠오르지 않는 항목은 비워 두거나 ‘잘 모르겠다’를 선택할 수 있습니다.</span><span class="ja">答えが浮かばない項目は空欄のまま、または「よくわからない」を選べます。</span></p>
+        <div class="info-grid">
+          <div class="form-group">
+            <label for="name"><span class="ko">이름</span><span class="ja">お名前</span></label>
+            <input id="name" type="text" autocomplete="name" placeholder="홍길동 / 山田太郎">
+          </div>
+          <div class="form-group">
+            <label for="track"><span class="ko">트랙</span><span class="ja">トラック</span></label>
+            <select id="track">
+              <option value="">선택 / 選択</option>
+              <option value="shinsotsu">新卒 / 신졸</option>
+              <option value="chuto">中途 / 중도</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>
-          <span class="ko">트랙</span>
-          <span class="ja">トラック</span>
-        </label>
-        <select id="track">
-          <option value="">
-            선택 / 選択
-          </option>
-          <option value="shinsotsu">新卒 / 신졸</option>
-          <option value="chuto">中途 / 중도</option>
-        </select>
+      <div class="step-actions"><span></span><button class="step-btn primary" type="button" onclick="nextStep()"><span class="ko">다음</span><span class="ja">次へ</span></button></div>
+    </section>
+
+    <section class="step" data-step="1">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">어떤 활동이 조금 더 끌리나요?</span><span class="ja">どんな活動に少し惹かれますか？</span></h2>
+        <p class="section-desc"><span class="ko">직업을 결정하는 질문이 아닙니다. 지금 탐색해 보고 싶은 활동을 골라 주세요.</span><span class="ja">職業を決める質問ではありません。今、少し探ってみたい活動を選んでください。</span></p>
+        <fieldset>
+          <legend><span class="ko">여러 개를 골라도 됩니다.</span><span class="ja">複数選べます。</span></legend>
+          <div class="choice-grid" id="interest-choices">
+            <label class="check-choice"><input type="checkbox" name="interest_activities" value="hands_on_systems"><span class="ko">실제 물건이나 시스템을 직접 다뤄보기</span><span class="ja">実際の物やシステムを直接扱う</span></label>
+            <label class="check-choice"><input type="checkbox" name="interest_activities" value="investigate_causes"><span class="ko">숫자나 정보를 보고 원인을 찾기</span><span class="ja">数字や情報から原因を探す</span></label>
+            <label class="check-choice"><input type="checkbox" name="interest_activities" value="create_expressions"><span class="ko">새로운 아이디어나 표현 만들기</span><span class="ja">新しいアイデアや表現をつくる</span></label>
+            <label class="check-choice"><input type="checkbox" name="interest_activities" value="help_explain"><span class="ko">사람을 돕거나 설명하기</span><span class="ja">人を助けたり説明したりする</span></label>
+            <label class="check-choice"><input type="checkbox" name="interest_activities" value="persuade_lead"><span class="ko">사람을 설득하고 움직이기</span><span class="ja">人を説得し、動かす</span></label>
+            <label class="check-choice"><input type="checkbox" name="interest_activities" value="organize_processes"><span class="ko">자료나 일을 체계적으로 정리하기</span><span class="ja">資料や仕事を体系的に整理する</span></label>
+          </div>
+          <label class="check-line"><input id="interest-unknown" type="checkbox"><span class="ko">아직 잘 모르겠다</span><span class="ja">まだよくわからない</span></label>
+        </fieldset>
       </div>
-    </div>
-  </div>
+      <div class="step-actions"><button class="step-btn" type="button" onclick="prevStep()"><span class="ko">이전</span><span class="ja">戻る</span></button><button class="step-btn primary" type="button" onclick="nextStep()"><span class="ko">다음</span><span class="ja">次へ</span></button></div>
+    </section>
 
-  <!-- Section 1: Strength Pairs -->
-  <div class="card">
-    <div class="section-title">
-      <span class="ko">섹션 1 — 강점 경향 (24쌍)</span>
-      <span class="ja">セクション 1 — 強み傾向（24ペア）</span>
-    </div>
-    <div class="section-desc">
-      <span class="ko">각 쌍에서 자신에게 더 가까운 쪽을 선택하세요.<br>SL(강좌) ← L(약좌) ← N(중립) → R(약우) → SR(강우)</span>
-      <span class="ja">各ペアで自分により近い方を選んでください。<br>SL(強左) ← L(弱左) ← N(中立) → R(弱右) → SR(強右)</span>
-    </div>
-    <div id="pairs-container"></div>
-  </div>
-
-  <!-- Section 2: Work Style -->
-  <div class="card">
-    <div class="section-title">
-      <span class="ko">섹션 2 — 업무 스타일 (6개)</span>
-      <span class="ja">セクション 2 — 仕事スタイル（6項目）</span>
-    </div>
-    <div class="section-desc">
-      <span class="ko">각 항목에 1~5점으로 답하세요. (1=전혀 그렇지 않다 / 5=매우 그렇다)</span>
-      <span class="ja">各項目を1〜5点で答えてください。（1=全くそう思わない / 5=非常にそう思う）</span>
-    </div>
-    <div id="workstyle-container"></div>
-  </div>
-
-  <!-- Section 3: Wellbeing -->
-  <div class="card">
-    <div class="section-title">
-      <span class="ko">섹션 3 — 웰빙 우선순위 (4개)</span>
-      <span class="ja">セクション 3 — ウェルビーイング優先度（4項目）</span>
-    </div>
-    <div class="section-desc">
-      <span class="ko">일할 때 중요하게 생각하는 정도를 1~5점으로 답하세요.</span>
-      <span class="ja">働く際にどれほど重要と思うかを1〜5点で答えてください。</span>
-    </div>
-    <div id="wellbeing-container"></div>
-  </div>
-
-  <!-- Submit -->
-  <div class="card submit-section">
-    <button class="submit-btn" onclick="exportAnswers()">
-      <span class="ko">제출 및 JSON 복사</span>
-      <span class="ja">提出してJSONをコピー</span>
-    </button>
-    <div class="error-msg" id="error-msg">
-      <span class="ko">⚠️ 미응답 항목이 있습니다. 모든 항목을 입력해주세요.</span>
-      <span class="ja">⚠️ 未回答の項目があります。すべての項目を入力してください。</span>
-    </div>
-    <div class="success-banner" id="success-banner">
-      <span class="ko">✅ 클립보드에 복사되었습니다. 아래 JSON을 Claude 대화창에 붙여넣기 해주세요.</span>
-      <span class="ja">✅ クリップボードにコピーされました。下のJSONをClaudeの会話に貼り付けてください。</span>
-    </div>
-    <textarea class="output-box" id="output-box" readonly></textarea>
-  </div>
-
-</div>
-
-<script>
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-const PAIRS = [
-  { left_ko: "완벽한 조건을 기다리기보다 움직이고 싶다", left_ja: "完璧な条件を待つより動き出したい",
-    right_ko: "움직이기 전에 증거를 확인하고 싶다", right_ja: "動く前に証拠を確認したい",
-    left_strength: "initiative", right_strength: "analysis" },
-  { left_ko: "구체적인 진전을 볼 수 있을 때 생산적이 된다", left_ja: "具体的な進展が見えるとき生産的になれる",
-    right_ko: "결과가 나오지 않아도 새로운 것을 배우는 것이 보상이다", right_ja: "成果が出なくても新しいことを学ぶのがご褒美だ",
-    left_strength: "execution", right_strength: "learning" },
-  { left_ko: "명확한 규칙과 반복 프로세스에서 최고 성과를 낸다", left_ja: "明確なルールと繰り返しのプロセスで最高のパフォーマンスを発揮する",
-    right_ko: "타인이 고려하지 않은 경로를 발견하는 것을 선호한다", right_ja: "他の人が考慮しなかった経路を見つけることを好む",
-    left_strength: "discipline", right_strength: "strategy" },
-  { left_ko: "약속하면 책임감을 느낀다", left_ja: "約束したら責任感を感じる",
-    right_ko: "누군가 불안하거나 낙담해 있음을 빨리 감지한다", right_ja: "誰かが不安だったり落ち込んでいたりするのを素早く察知する",
-    left_strength: "ownership", right_strength: "empathy" },
-  { left_ko: "갈등이 생기기 전에 불필요한 마찰을 줄인다", left_ja: "対立が生まれる前に不要な摩擦を減らす",
-    right_ko: "타인이 따를 수 있도록 아이디어를 설명한다", right_ja: "他者がついてこられるようにアイデアを説明する",
-    left_strength: "harmony", right_strength: "communication" },
-  { left_ko: "타인의 성장을 지원하는 것이 의미 있다", left_ja: "他者の成長を支援することが意味深い",
-    right_ko: "충분한 재확인 없이도 자신의 판단을 신뢰한다", right_ja: "十分な確認がなくても自分の判断を信頼する",
-    left_strength: "support", right_strength: "confidence" },
-  { left_ko: "긴급한 상황에서 빠르게 움직인다", left_ja: "緊急の状況で素早く動く",
-    right_ko: "명확한 할 일 목록이 에너지원이다", right_ja: "明確なTo-Doリストがエネルギーの源だ",
-    left_strength: "initiative", right_strength: "execution" },
-  { left_ko: "본능 대신 증거로 시스템을 개선하는 것을 선호한다", left_ja: "本能ではなく証拠でシステムを改善することを好む",
-    right_ko: "즉시 유용하지 않아도 새 개념을 탐색하는 것을 좋아한다", right_ja: "すぐに役立たなくても新しい概念の探求が好きだ",
-    left_strength: "analysis", right_strength: "learning" },
-  { left_ko: "질서와 예측 가능성이 침착함을 유지하는 데 도움이 된다", left_ja: "秩序と予測可能性が冷静さの維持に役立つ",
-    right_ko: "복잡한 상황에서 여러 실행 경로를 파악한다", right_ja: "複雑な状況で複数の実行経路を把握する",
-    left_strength: "discipline", right_strength: "strategy" },
-  { left_ko: "약속을 완전히 해결할 때까지 기억한다", left_ja: "約束を完全に解決するまで覚えている",
-    right_ko: "타인이 언급하기 전에 감정 변화를 감지한다", right_ja: "他者が言及する前に感情の変化を察知する",
-    left_strength: "ownership", right_strength: "empathy" },
-  { left_ko: "논쟁에서 이기는 것보다 실질적인 합의를 중시한다", left_ja: "議論で勝つより実質的な合意を重視する",
-    right_ko: "메시지가 중요하면 명확하게 전달하는 방법을 생각한다", right_ja: "メッセージが重要なら明確に伝える方法を考える",
-    left_strength: "harmony", right_strength: "communication" },
-  { left_ko: "타인이 성공하도록 적극적으로 개입한다", left_ja: "他者が成功できるよう積極的に介入する",
-    right_ko: "정보가 불완전할 때도 결정할 수 있다", right_ja: "情報が不完全でも決断できる",
-    left_strength: "support", right_strength: "confidence" },
-  { left_ko: "행동 자체가 명확성을 만들어낸다", left_ja: "行動そのものが明確性を生み出す",
-    right_ko: "끝없는 개선보다 눈에 띄는 완료를 중시한다", right_ja: "際限のない改善より目に見える完了を重視する",
-    left_strength: "initiative", right_strength: "execution" },
-  { left_ko: "첫 번째 본능은 '원인이 무엇인지' 묻는 것이다", left_ja: "最初の本能は「原因は何か」を問うことだ",
-    right_ko: "학습하거나 개선하지 않으면 불안해진다", right_ja: "学習または改善しないと不安になる",
-    left_strength: "analysis", right_strength: "learning" },
-  { left_ko: "루틴, 체크리스트, 질서 있는 인수인계를 선호한다", left_ja: "ルーティン、チェックリスト、秩序ある引き継ぎを好む",
-    right_ko: "여러 선택지 중 최적 경로를 선택하는 것을 즐긴다", right_ja: "複数の選択肢から最適な経路を選ぶことを楽しむ",
-    left_strength: "discipline", right_strength: "strategy" },
-  { left_ko: "공동 작업을 모호한 상태로 두지 않는다", left_ja: "共同作業を曖昧な状態にしておかない",
-    right_ko: "타인의 감정을 감지한 후 표현 방식을 조정한다", right_ja: "他者の感情を察知した後、表現方法を調整する",
-    left_strength: "ownership", right_strength: "empathy" },
-  { left_ko: "그룹이 계속 움직일 수 있는 교집합을 찾는다", left_ja: "グループが動き続けられる共通点を追求する",
-    right_ko: "복잡함을 누구나 이해할 수 있는 언어로 번역한다", right_ja: "複雑さを誰でも理解できる言葉に翻訳する",
-    left_strength: "harmony", right_strength: "communication" },
-  { left_ko: "타인이 능력을 갖추도록 도울 때 인내심이 있다", left_ja: "他者が能力を身につけるのを助けるとき忍耐強い",
-    right_ko: "계속 움직이기 위해 외부 검증이 필요하지 않다", right_ja: "動き続けるために外部の検証は必要ない",
-    left_strength: "support", right_strength: "confidence" },
-  { left_ko: "다음 단계를 시작하는 역할이 편하다", left_ja: "次のステップを開始する役割が得意だ",
-    right_ko: "루프를 종료하고 항목을 완료하는 것을 즐긴다", right_ja: "ループを終了してタスクを完了することを楽しむ",
-    left_strength: "initiative", right_strength: "execution" },
-  { left_ko: "결론을 내리기 전에 데이터, 논리, 패턴을 찾는다", left_ja: "結論を出す前にデータ、論理、パターンを探す",
-    right_ko: "새 기술과 프레임워크가 에너지원이다", right_ja: "新しい技術とフレームワークがエネルギーの源だ",
-    left_strength: "analysis", right_strength: "learning" },
-  { left_ko: "기대와 방법이 명시적일 때 최고 성과를 낸다", left_ja: "期待と方法が明示的なとき最高のパフォーマンスを発揮する",
-    right_ko: "타인이 놓친 기회를 포착하는 것을 선호한다", right_ja: "他者が見逃した機会を捉えることを好む",
-    left_strength: "discipline", right_strength: "strategy" },
-  { left_ko: "작은 약속도 책임감을 느낀다", left_ja: "小さな約束でも責任感を感じる",
-    right_ko: "직접 말하지 않아도 필요한 지원을 감지한다", right_ja: "直接言わなくても必要なサポートを察知する",
-    left_strength: "ownership", right_strength: "empathy" },
-  { left_ko: "공개적인 대면보다 안정적인 협력을 선호한다", left_ja: "公開的な対立より安定した協力を好む",
-    right_ko: "명확한 설명으로 타인을 설득하는 것을 즐긴다", right_ja: "明確な説明で他者を説得することを楽しむ",
-    left_strength: "harmony", right_strength: "communication" },
-  { left_ko: "타인을 성장시키는 데 시간을 투자할 의사가 있다", left_ja: "他者を成長させるために時間を投資する意欲がある",
-    right_ko: "자신의 판단을 뒷받침할 때 침착함을 유지한다", right_ja: "自分の判断を裏付けるとき冷静さを保つ",
-    left_strength: "support", right_strength: "confidence" },
-];
-
-const WORK_STYLE = [
-  { key: "autonomy",
-    ko: "상세한 지시 없이 스스로 접근 방식을 결정하는 것을 선호한다",
-    ja: "詳細な指示なしに自分でアプローチを決めることを好む" },
-  { key: "structure_preference",
-    ko: "프로세스, 규칙, 기대가 명확할 때 더 잘 수행한다",
-    ja: "プロセス、ルール、期待が明確なときよりよく機能する" },
-  { key: "speed_preference",
-    ko: "완벽한 버전보다 실행 가능한 버전을 빠르게 배포하고 개선하는 것을 선호한다",
-    ja: "完璧なバージョンより実行可能なバージョンを素早くリリースして改善することを好む" },
-  { key: "change_tolerance",
-    ko: "빈번한 변화와 모호함이 소진하기보다 에너지원이 된다",
-    ja: "頻繁な変化と曖昧さが消耗よりもエネルギーの源になる" },
-  { key: "collaboration_preference",
-    ko: "혼자 소유하기보다 타인과 함께 중요한 문제를 해결하는 것을 선호한다",
-    ja: "一人で所有するより他者と共に重要な問題を解決することを好む" },
-  { key: "feedback_frequency",
-    ko: "정기적인 피드백, 1-on-1, 활발한 매니저 지원을 원한다",
-    ja: "定期的なフィードバック、1on1、積極的なマネージャーサポートを望む" },
-];
-
-const WELLBEING = [
-  { key: "autonomy",
-    ko: "자기결정감 — 자신의 방식으로 일할 수 있는 자유가 중요하다",
-    ja: "自律感 — 自分のやり方で働ける自由が大切だ" },
-  { key: "social_contribution",
-    ko: "사회기여감 — 내 일이 사회에 좋은 영향을 미친다는 실감이 중요하다",
-    ja: "社会貢献感 — 自分の仕事が社会に良い影響を与えているという実感が大切だ" },
-  { key: "management_quality",
-    ko: "상사의 매니지먼트 — 신뢰할 수 있는 매니저가 있는 환경이 중요하다",
-    ja: "上司のマネジメント — 信頼できるマネージャーがいる環境が大切だ" },
-  { key: "mutual_respect",
-    ko: "조직 내 상호존중 — 서로 존중하는 팀 문화가 중요하다",
-    ja: "組織内の相互尊重 — 互いに尊重し合うチームカルチャーが大切だ" },
-];
-
-// ── Render ────────────────────────────────────────────────────────────────────
-
-function renderPairs() {
-  const container = document.getElementById('pairs-container');
-  container.innerHTML = PAIRS.map((p, i) => `
-    <div class="pair-row" id="pair-${i}">
-      <div class="pair-num">쌍 ${String(i+1).padStart(2,'0')} / ペア ${String(i+1).padStart(2,'0')}</div>
-      <div class="pair-text ko-text">${p.left_ko}</div>
-      <div class="pair-text ja-text">${p.left_ja}</div>
-      <div class="radio-group">
-        ${['SL','L','N','R','SR'].map(v => `
-          <label class="radio-option">
-            <input type="radio" name="pair_${i}" value="${v}">
-            <div class="radio-dot"></div>
-            <span class="radio-label">${v}</span>
-          </label>
-        `).join('')}
+    <section class="step" data-step="2">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">평소 어떻게 행동하는 편인가요?</span><span class="ja">普段どのように行動する傾向がありますか？</span></h2>
+        <p class="section-desc"><span class="ko">각 문장을 독립적으로 답하세요. 두 가지가 모두 높거나 모두 낮을 수 있습니다.</span><span class="ja">各文に独立して答えてください。二つとも高い、または低いこともあります。</span></p>
+        <div id="behavior-container"></div>
       </div>
-      <div class="pair-text right ko-text">${p.right_ko}</div>
-      <div class="pair-text right ja-text">${p.right_ja}</div>
-    </div>
-  `).join('');
-}
+      <div class="step-actions"><button class="step-btn" type="button" onclick="prevStep()"><span class="ko">이전</span><span class="ja">戻る</span></button><button class="step-btn primary" type="button" onclick="nextStep()"><span class="ko">다음</span><span class="ja">次へ</span></button></div>
+    </section>
 
-function renderSliders(items, containerId, prefix) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = items.map((item, i) => `
-    <div class="slider-row" id="${prefix}-${i}">
-      <div class="slider-question">
-        <span class="ko-text">${item.ko}</span>
-        <span class="ja-text">${item.ja}</span>
+    <section class="step" data-step="3">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">실제 경험을 떠올려 보세요</span><span class="ja">実際の経験を思い出してみましょう</span></h2>
+        <p class="section-desc"><span class="ko">짧게 적어도 됩니다. 경험이 없거나 떠오르지 않으면 각 항목에서 표시해 주세요.</span><span class="ja">短くて構いません。経験がない、または思い出せない場合は各欄で 표시してください。</span></p>
+        <div class="episode">
+          <h3><span class="ko">경험 A — 재미있거나 뿌듯했던 일</span><span class="ja">経験A — 楽しかった、誇らしかったこと</span></h3>
+          <div class="form-group"><label for="episode-a-type"><span class="ko">경험 종류</span><span class="ja">経験の種類</span></label><select id="episode-a-type"><option value=""></option><option value="class">수업 / 授業</option><option value="research">연구 / 研究</option><option value="team_project">팀 프로젝트 / チームプロジェクト</option><option value="club">동아리 / サークル</option><option value="part_time">아르바이트 / アルバイト</option><option value="internship">인턴 / インターン</option><option value="volunteer">봉사 / ボランティア</option><option value="personal_project">개인 프로젝트 / 個人プロジェクト</option><option value="hobby">취미 / 趣味</option><option value="other">기타 / その他</option></select></div>
+          <div class="form-group"><label for="episode-a-situation"><span class="ko">무슨 일이었나?</span><span class="ja">どんな出来事でしたか？</span></label><textarea id="episode-a-situation"></textarea></div>
+          <div class="form-group"><label for="episode-a-action"><span class="ko">본인이 실제로 한 것은 무엇인가?</span><span class="ja">自分が実際にしたことは何ですか？</span></label><textarea id="episode-a-action"></textarea></div>
+          <div class="form-group"><label for="episode-a-energy"><span class="ko">어떤 부분이 재미있거나 뿌듯했나?</span><span class="ja">どの部分が楽しかった、または誇らしかったですか？</span></label><textarea id="episode-a-energy"></textarea></div>
+          <label class="check-line"><input id="episode-a-unknown" type="checkbox"><span class="ko">지금은 떠오르는 경험이 없다</span><span class="ja">今は思い出せる経験がない</span></label>
+        </div>
+        <div class="episode">
+          <h3><span class="ko">경험 B — 힘들거나 에너지가 빠졌던 일</span><span class="ja">経験B — 大変だった、エネルギーを消耗したこと</span></h3>
+          <div class="form-group"><label for="episode-b-type"><span class="ko">경험 종류</span><span class="ja">経験の種類</span></label><select id="episode-b-type"><option value=""></option><option value="class">수업 / 授業</option><option value="research">연구 / 研究</option><option value="team_project">팀 프로젝트 / チームプロジェクト</option><option value="club">동아리 / サークル</option><option value="part_time">아르바이트 / アルバイト</option><option value="internship">인턴 / インターン</option><option value="volunteer">봉사 / ボランティア</option><option value="personal_project">개인 프로젝트 / 個人プロジェクト</option><option value="hobby">취미 / 趣味</option><option value="other">기타 / その他</option></select></div>
+          <div class="form-group"><label for="episode-b-situation"><span class="ko">무슨 일이었나?</span><span class="ja">どんな出来事でしたか？</span></label><textarea id="episode-b-situation"></textarea></div>
+          <div class="form-group"><label for="episode-b-action"><span class="ko">본인이 실제로 한 것은 무엇인가?</span><span class="ja">自分が実際にしたことは何ですか？</span></label><textarea id="episode-b-action"></textarea></div>
+          <div class="form-group"><label for="episode-b-energy"><span class="ko">무엇이 특히 힘들었나?</span><span class="ja">何が特に大変でしたか？</span></label><textarea id="episode-b-energy"></textarea></div>
+          <label class="check-line"><input id="episode-b-unknown" type="checkbox"><span class="ko">지금은 떠오르는 경험이 없다</span><span class="ja">今は思い出せる経験がない</span></label>
+        </div>
       </div>
-      <div class="slider-control">
-        <span class="slider-scale-label ko">전혀 아님</span>
-        <span class="slider-scale-label ja">全くない</span>
-        <input type="range" min="1" max="5" value="3" data-touched="false" id="${prefix}_val_${i}"
-               onclick="markSliderAnswered(this)"
-               oninput="markSliderAnswered(this); document.getElementById('${prefix}_display_${i}').textContent=this.value">
-        <span class="slider-scale-label ko">매우 그렇다</span>
-        <span class="slider-scale-label ja">非常にそう</span>
-        <span class="slider-value" id="${prefix}_display_${i}">3</span>
+      <div class="step-actions"><button class="step-btn" type="button" onclick="prevStep()"><span class="ko">이전</span><span class="ja">戻る</span></button><button class="step-btn primary" type="button" onclick="nextStep()"><span class="ko">다음</span><span class="ja">次へ</span></button></div>
+    </section>
+
+    <section class="step" data-step="4">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">관심과 장벽을 나눠서 생각해 보세요</span><span class="ja">関心と壁を分けて考えてみましょう</span></h2>
+        <p class="section-desc"><span class="ko">어렵다고 느끼는 것과 실제 능력은 같은 뜻이 아닙니다.</span><span class="ja">難しいと感じることと、実際の能力は同じ意味ではありません。</span></p>
+        <fieldset><legend><span class="ko">관심 있는 분야를 배우면 어느 정도 해낼 수 있을 것 같나요?</span><span class="ja">関心のある分野を学んだら、どの程度できそうですか？</span></legend><div class="choice-grid compact" id="efficacy-container"></div></fieldset>
+        <div class="two-column">
+          <div class="form-group"><label for="outcome-expectation"><span class="ko">배우면 어떤 결과를 기대하나요?</span><span class="ja">学んだらどんな結果を期待しますか？</span></label><textarea id="outcome-expectation"></textarea></div>
+          <div class="form-group"><label for="career-goal"><span class="ko">지금 시도해 보고 싶은 목표는?</span><span class="ja">今、試してみたい目標は？</span></label><textarea id="career-goal"></textarea></div>
+        </div>
+        <fieldset><legend><span class="ko">가장 크게 느끼는 장벽은 무엇인가요?</span><span class="ja">一番大きいと感じる壁は何ですか？</span></legend><div class="choice-grid"><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="experience_gap"><span class="ko">경험 부족</span><span class="ja">経験不足</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="skill_gap"><span class="ko">기술 부족</span><span class="ja">スキル不足</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="major"><span class="ko">전공</span><span class="ja">専攻</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="education"><span class="ko">학력</span><span class="ja">学歴</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="japanese"><span class="ko">일본어</span><span class="ja">日本語</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="english"><span class="ko">영어</span><span class="ja">英語</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="information_gap"><span class="ko">정보 부족</span><span class="ja">情報不足</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="confidence"><span class="ko">자신감</span><span class="ja">自信</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="economic"><span class="ko">경제적 조건</span><span class="ja">経済的条件</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="family_region"><span class="ko">가족 / 지역 조건</span><span class="ja">家族・地域条件</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="unclear_direction"><span class="ko">무엇을 원하는지 모름</span><span class="ja">何を望むか分からない</span></label><label class="check-choice"><input type="checkbox" name="perceived_barriers" value="other"><span class="ko">기타</span><span class="ja">その他</span></label></div><label class="check-line"><input id="barriers-unknown" type="checkbox"><span class="ko">아직 잘 모르겠다</span><span class="ja">まだよくわからない</span></label></fieldset>
+        <fieldset><legend><span class="ko">도움이 된다고 느끼는 지원은?</span><span class="ja">助けになると感じる支援は？</span></legend><div class="choice-grid"><label class="check-choice"><input type="checkbox" name="perceived_supports" value="mentor"><span class="ko">멘토나 상담자</span><span class="ja">メンターや相談相手</span></label><label class="check-choice"><input type="checkbox" name="perceived_supports" value="learning_resources"><span class="ko">학습 자료와 시간</span><span class="ja">学習資料と時間</span></label><label class="check-choice"><input type="checkbox" name="perceived_supports" value="peer_team"><span class="ko">동료나 팀</span><span class="ja">仲間やチーム</span></label><label class="check-choice"><input type="checkbox" name="perceived_supports" value="feedback"><span class="ko">구체적인 피드백</span><span class="ja">具体的なフィードバック</span></label><label class="check-choice"><input type="checkbox" name="perceived_supports" value="training"><span class="ko">교육과 온보딩</span><span class="ja">研修やオンボーディング</span></label><label class="check-choice"><input type="checkbox" name="perceived_supports" value="other"><span class="ko">기타</span><span class="ja">その他</span></label></div><label class="check-line"><input id="supports-unknown" type="checkbox"><span class="ko">아직 잘 모르겠다</span><span class="ja">まだよくわからない</span></label></fieldset>
       </div>
-    </div>
-  `).join('');
-}
+      <div class="step-actions"><button class="step-btn" type="button" onclick="prevStep()"><span class="ko">이전</span><span class="ja">戻る</span></button><button class="step-btn primary" type="button" onclick="nextStep()"><span class="ko">다음</span><span class="ja">次へ</span></button></div>
+    </section>
 
-// ── Lang ──────────────────────────────────────────────────────────────────────
+    <section class="step" data-step="5">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">어떤 환경에서 일하기 쉬울까요?</span><span class="ja">どんな環境なら働きやすそうですか？</span></h2>
+        <p class="section-desc"><span class="ko">이 답변은 회사 문화를 판정하지 않습니다. 나중에 확인할 질문을 만드는 데 사용합니다.</span><span class="ja">この回答は会社文化を判定しません。後で確認する質問をつくるために使います。</span></p>
+        <div id="environment-container"></div>
+      </div>
+      <div class="step-actions"><button class="step-btn" type="button" onclick="prevStep()"><span class="ko">이전</span><span class="ja">戻る</span></button><button class="step-btn primary" type="button" onclick="nextStep()"><span class="ko">다음</span><span class="ja">次へ</span></button></div>
+    </section>
 
-function setLang(lang) {
-  document.body.setAttribute('data-lang', lang);
-  document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`).classList.add('active');
-}
+    <section class="step" data-step="6">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">중요하게 생각하는 조건 후보</span><span class="ja">大切だと思う条件の候補</span></h2>
+        <p class="section-desc"><span class="ko">여기서 고른 항목은 후보입니다. 확인 전에는 must-have로 저장되지 않습니다.</span><span class="ja">ここで選んだ項目は候補です。確認前にmust-haveとして保存されません。</span></p>
+        <div class="choice-grid"><label class="check-choice"><input type="checkbox" name="value_candidates" value="target_role"><span class="ko">원하는 직무</span><span class="ja">希望する職種</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="learning"><span class="ko">배울 기회</span><span class="ja">学ぶ機会</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="stability"><span class="ko">안정성</span><span class="ja">安定性</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="compensation"><span class="ko">높은 보상</span><span class="ja">高い報酬</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="location"><span class="ko">근무지역</span><span class="ja">勤務地</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="remote"><span class="ko">리모트</span><span class="ja">リモート</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="work_life_balance"><span class="ko">워라밸</span><span class="ja">ワークライフバランス</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="manager"><span class="ko">좋은 관리자</span><span class="ja">良いマネージャー</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="autonomy"><span class="ko">자율성</span><span class="ja">自律性</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="social_meaning"><span class="ko">사회적 의미</span><span class="ja">社会的な意味</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="colleagues"><span class="ko">좋은 동료</span><span class="ja">良い同僚</span></label><label class="check-choice"><input type="checkbox" name="value_candidates" value="overseas"><span class="ko">해외 경험</span><span class="ja">海外経験</span></label></div><label class="check-line"><input id="values-unknown" type="checkbox"><span class="ko">아직 잘 모르겠다</span><span class="ja">まだよくわからない</span></label>
+      </div>
+      <div class="step-actions"><button class="step-btn" type="button" onclick="prevStep()"><span class="ko">이전</span><span class="ja">戻る</span></button><button class="step-btn primary" type="button" onclick="nextStep()"><span class="ko">다음</span><span class="ja">次へ</span></button></div>
+    </section>
 
-function markSliderAnswered(input) {
-  input.dataset.touched = 'true';
-  input.closest('.slider-row').classList.remove('missing');
-}
+    <section class="step" data-step="7">
+      <div class="card">
+        <h2 class="section-title"><span class="ko">피하고 싶은 조건 후보</span><span class="ja">避けたい条件の候補</span></h2>
+        <p class="section-desc"><span class="ko">이 항목도 후보입니다. 사용자가 확인하기 전에는 avoid로 확정되지 않습니다.</span><span class="ja">この項目も候補です。ユーザーが確認するまでavoidとして確定されません。</span></p>
+        <div class="choice-grid"><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="frequent_transfer"><span class="ko">잦은 전근</span><span class="ja">頻繁な転勤</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="excessive_overtime"><span class="ko">지나친 야근</span><span class="ja">過度な残業</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="sales_pressure"><span class="ko">강한 실적 압박</span><span class="ja">強い成果プレッシャー</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="unclear_role"><span class="ko">역할이 매우 불명확함</span><span class="ja">役割が非常に曖昧</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="low_autonomy"><span class="ko">낮은 자율성</span><span class="ja">低い自律性</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="constant_reorganization"><span class="ko">지속적인 조직 변경</span><span class="ja">継続的な組織変更</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="too_alone"><span class="ko">지나치게 혼자 일함</span><span class="ja">一人で働きすぎる</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="too_many_meetings"><span class="ko">지나치게 많은 회의</span><span class="ja">会議が多すぎる</span></label><label class="check-choice"><input type="checkbox" name="avoid_candidates" value="other"><span class="ko">기타</span><span class="ja">その他</span></label></div><label class="check-line"><input id="avoid-unknown" type="checkbox"><span class="ko">아직 잘 모르겠다</span><span class="ja">まだよくわからない</span></label>
+      </div>
+      <div class="card submit-area">
+        <p class="section-desc"><span class="ko">JSON에는 답변 원문만 들어갑니다. 다음 단계에서 AI가 가설을 보여주고, 확인 후에만 프로필에 반영합니다.</span><span class="ja">JSONには回答の原文だけが入ります。次の対話で仮説を示し、確認後にプロフィールへ反映します。</span></p>
+        <button class="submit-btn" type="button" onclick="exportAnswers()"><span class="ko">JSON 내보내기</span><span class="ja">JSONを書き出す</span></button>
+        <div class="error-msg" id="error-msg" role="alert"><span class="ko">이름과 트랙을 입력해 주세요.</span><span class="ja">お名前とトラックを入力してください。</span></div>
+        <div class="success-banner" id="success-banner"><span class="ko">JSON이 아래에 표시되었습니다. 복사해서 대화창에 붙여넣어 주세요.</span><span class="ja">JSONを下に表示しました。コピーして会話欄に貼り付けてください。</span></div>
+        <textarea class="output-box" id="output-box" readonly aria-label="JSON output"></textarea>
+      </div>
+      <div class="step-actions"><button class="step-btn" type="button" onclick="prevStep()"><span class="ko">이전</span><span class="ja">戻る</span></button><span></span></div>
+    </section>
+  </main>
 
-function collectSliderAnswers(items, prefix, missing) {
-  return items.map((_, i) => {
-    const input = document.getElementById(`${prefix}_val_${i}`);
-    if (input.dataset.touched !== 'true') {
-      missing.push(`${prefix}_${i}`);
-      return null;
+  <script>
+    const BEHAVIOR_TENDENCIES = [
+      { id: "initiative", ko: "정보가 완벽하지 않아도 작은 행동부터 시작하는 편이다.", ja: "情報が完璧でなくても、小さな行動から始めるほうだ。" },
+      { id: "execution", ko: "구체적인 진전이나 완료를 볼 때 에너지가 생기는 편이다.", ja: "具体的な進展や完了が見えると、エネルギーが出るほうだ。" },
+      { id: "discipline", ko: "명확한 규칙과 반복 가능한 절차가 있을 때 일하기 쉽다.", ja: "明確なルールと繰り返せる手順があると、働きやすい。" },
+      { id: "ownership", ko: "맡은 약속은 끝까지 확인하려는 편이다.", ja: "引き受けた約束は、最後まで確認しようとするほうだ。" },
+      { id: "analysis", ko: "결정 전에 근거와 빠진 정보를 확인하는 편이다.", ja: "決める前に、根拠と足りない情報を確認するほうだ。" },
+      { id: "learning", ko: "당장 쓰이지 않아도 새 개념을 배우는 데 흥미를 느낀다.", ja: "すぐ使わなくても、新しい概念を学ぶことに興味を感じる。" },
+      { id: "strategy", ko: "복잡한 상황에서 여러 가능한 경로를 비교하는 편이다.", ja: "複雑な状況で、複数の可能な道筋を比べるほうだ。" },
+      { id: "empathy", ko: "상대가 말하기 전에도 감정 변화를 알아차리는 편이다.", ja: "相手が話す前に、感情の変化に気づくほうだ。" },
+      { id: "harmony", ko: "갈등에서 승리보다 함께 일할 수 있는 합의를 찾는 편이다.", ja: "対立では勝つことより、一緒に働ける合意を探すほうだ。" },
+      { id: "communication", ko: "복잡한 내용을 다른 사람이 이해하기 쉽게 설명하는 편이다.", ja: "複雑な内容を、他の人が理解しやすく説明するほうだ。" },
+      { id: "support", ko: "다른 사람이 성장하거나 문제를 해결하도록 돕는 일에 의미를 느낀다.", ja: "他の人の成長や問題解決を助けることに意味を感じる。" },
+      { id: "confidence", ko: "정보가 완벽하지 않아도 내 판단으로 결정을 내릴 수 있는 편이다.", ja: "情報が完璧でなくても、自分の判断で決められるほうだ。" }
+    ];
+
+    const ENVIRONMENT_PREFERENCES = [
+      { id: "autonomy", ko: "상세한 지시 없이 스스로 접근 방식을 결정하는 자유가 중요하다.", ja: "細かな指示なしに、自分で方法を決める自由が大切だ。" },
+      { id: "competence", ko: "배우고 연습하며 일을 해낼 수 있다는 감각이 중요하다.", ja: "学び、練習し、仕事をやり遂げられる感覚が大切だ。" },
+      { id: "relatedness", ko: "팀에서 존중받고 소속감을 느끼는 것이 중요하다.", ja: "チームで尊重され、つながりを感じることが大切だ。" },
+      { id: "structure_preference", ko: "프로세스, 규칙, 기대가 명확할 때 더 잘 수행한다.", ja: "プロセス、ルール、期待が明確なとき、よりよく機能する。" },
+      { id: "speed_preference", ko: "실행 가능한 버전을 빠르게 내고 개선하는 것을 선호한다.", ja: "実行できる版を早く出して改善することを好む。" },
+      { id: "change_tolerance", ko: "빈번한 변화와 모호함이 소진하기보다 에너지원이 된다.", ja: "頻繁な変化や曖昧さが、消耗よりエネルギーになる。" },
+      { id: "collaboration_preference", ko: "혼자 소유하기보다 타인과 함께 중요한 문제를 해결하는 것을 선호한다.", ja: "一人で抱えるより、他者と重要な問題を解くことを好む。" },
+      { id: "feedback_frequency", ko: "정기적인 피드백과 매니저의 지원이 중요하다.", ja: "定期的なフィードバックとマネージャーの支援が大切だ。" }
+    ];
+
+    let currentStep = 0;
+    const TOTAL_STEPS = 8;
+
+    function renderScale(items, containerId, namePrefix) {
+      document.getElementById(containerId).innerHTML = items.map(item => `
+        <fieldset>
+          <legend><span class="ko">${item.ko}</span><span class="ja">${item.ja}</span></legend>
+          <div class="choice-grid compact">
+            ${[1, 2, 3, 4, 5].map(value => `<label class="choice"><input type="radio" name="${namePrefix}.${item.id}" value="${value}"><span>${value}</span></label>`).join('')}
+          </div>
+          <div class="scale-label"><span class="ko">1 = 전혀 그렇지 않다 · 5 = 매우 그렇다</span><span class="ja">1 = 全くそう思わない · 5 = 非常にそう思う</span></div>
+          <label class="check-line unknown-choice"><input type="radio" name="${namePrefix}.${item.id}" value="unknown"><span class="ko">잘 모르겠다 / 아직 경험이 없다</span><span class="ja">よくわからない / まだ経験がない</span></label>
+        </fieldset>
+      `).join('');
     }
-    return parseInt(input.value);
-  });
-}
 
-// ── Export ────────────────────────────────────────────────────────────────────
-
-function exportAnswers() {
-  const name = document.getElementById('name').value.trim();
-  const track = document.getElementById('track').value;
-  const lang = document.body.getAttribute('data-lang');
-
-  const missing = [];
-
-  if (!name) missing.push('name');
-  if (!track) missing.push('track');
-
-  const strengthPairs = PAIRS.map((_, i) => {
-    const selected = document.querySelector(`input[name="pair_${i}"]:checked`);
-    if (!selected) { missing.push(`pair_${i}`); return null; }
-    return selected.value;
-  });
-
-  const workStyle = collectSliderAnswers(WORK_STYLE, 'ws', missing);
-  const wellbeing = collectSliderAnswers(WELLBEING, 'wb', missing);
-
-  // Highlight missing pairs
-  PAIRS.forEach((_, i) => {
-    const row = document.getElementById(`pair-${i}`);
-    if (!document.querySelector(`input[name="pair_${i}"]:checked`)) {
-      row.classList.add('missing');
-    } else {
-      row.classList.remove('missing');
+    function setLang(lang) {
+      document.body.dataset.lang = lang;
+      document.documentElement.lang = lang;
+      document.querySelectorAll('.lang-btn').forEach(button => button.classList.toggle('active', button.textContent.includes(lang === 'ko' ? '한국어' : '日本語')));
     }
-  });
 
-  [['ws', WORK_STYLE], ['wb', WELLBEING]].forEach(([prefix, items]) => {
-    items.forEach((_, i) => {
-      const input = document.getElementById(`${prefix}_val_${i}`);
-      document.getElementById(`${prefix}-${i}`).classList.toggle('missing', input.dataset.touched !== 'true');
-    });
-  });
-
-  if (missing.length > 0) {
-    document.getElementById('error-msg').classList.add('visible');
-    if (missing.some(m => m.startsWith('pair'))) {
-      document.querySelector('#pairs-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else if (missing.some(m => m.startsWith('ws_'))) {
-      document.querySelector('#workstyle-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else if (missing.some(m => m.startsWith('wb_'))) {
-      document.querySelector('#wellbeing-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      document.getElementById('name').focus();
+    function updateProgress() {
+      document.querySelectorAll('.step').forEach(step => step.classList.toggle('active', Number(step.dataset.step) === currentStep));
+      document.getElementById('step-current').textContent = currentStep + 1;
+      document.getElementById('step-current-ja').textContent = currentStep + 1;
+      document.getElementById('progress-fill').style.width = `${((currentStep + 1) / TOTAL_STEPS) * 100}%`;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    return;
-  }
 
-  document.getElementById('error-msg').classList.remove('visible');
+    function nextStep() {
+      if (currentStep === 0 && (!document.getElementById('name').value.trim() || !document.getElementById('track').value)) {
+        showError();
+        return;
+      }
+      if (currentStep < TOTAL_STEPS - 1) { currentStep += 1; updateProgress(); }
+    }
 
-  const result = {
-    jiko_bunseki_submission: true,
-    name,
-    language: lang,
-    track,
-    strength_pairs: strengthPairs,
-    work_style: workStyle,
-    wellbeing
-  };
+    function prevStep() {
+      if (currentStep > 0) { currentStep -= 1; updateProgress(); }
+    }
 
-  const json = JSON.stringify(result, null, 2);
+    function showError() { document.getElementById('error-msg').classList.add('visible'); }
 
-  navigator.clipboard.writeText(json).catch(() => {});
+    function selectedValues(name) {
+      return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(input => input.value);
+    }
 
-  const outputBox = document.getElementById('output-box');
-  outputBox.value = json;
-  outputBox.classList.add('visible');
-  document.getElementById('success-banner').classList.add('visible');
-  outputBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  outputBox.select();
-}
+    function collectScale(name, field, unanswered, explicitUnknown) {
+      const selected = document.querySelector(`input[name="${name}"]:checked`);
+      if (!selected) { unanswered.push(field); return null; }
+      if (selected.value === 'unknown') { explicitUnknown.push(field); return null; }
+      return Number(selected.value);
+    }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+    function collectMulti(name, unknownId, field, unanswered, explicitUnknown) {
+      const values = selectedValues(name);
+      if (!values.length && document.getElementById(unknownId).checked) { explicitUnknown.push(field); return []; }
+      if (!values.length) unanswered.push(field);
+      return values;
+    }
 
-renderPairs();
-renderSliders(WORK_STYLE, 'workstyle-container', 'ws');
-renderSliders(WELLBEING, 'wellbeing-container', 'wb');
-</script>
+    function textValue(id) {
+      const value = document.getElementById(id).value.trim();
+      return value || null;
+    }
+
+    function collectEpisode(prefix, unanswered, explicitUnknown) {
+      const field = `episodes.${prefix}`;
+      if (document.getElementById(`${prefix}-unknown`).checked) { explicitUnknown.push(field); return null; }
+      const values = {
+        id: prefix,
+        experience_type: document.getElementById(`${prefix}-type`).value || null,
+        situation: textValue(`${prefix}-situation`),
+        action: textValue(`${prefix}-action`),
+        energy_reason: textValue(`${prefix}-energy`)
+      };
+      const touched = Object.values(values).some(value => value !== null && value !== prefix);
+      if (!touched) { unanswered.push(field); return null; }
+      Object.entries(values).forEach(([key, value]) => { if (key !== 'id' && value === null) unanswered.push(`${field}.${key}`); });
+      return values;
+    }
+
+    function exportAnswers() {
+      if (!document.getElementById('name').value.trim() || !document.getElementById('track').value) { showError(); return; }
+      document.getElementById('error-msg').classList.remove('visible');
+      const unanswered = [];
+      const explicitUnknown = [];
+      const behaviorTendencies = Object.fromEntries(BEHAVIOR_TENDENCIES.map(item => [item.id, collectScale(`behavior_tendencies.${item.id}`, `behavior_tendencies.${item.id}`, unanswered, explicitUnknown)]));
+      const environmentPreferences = Object.fromEntries(ENVIRONMENT_PREFERENCES.map(item => [item.id, collectScale(`environment_preferences.${item.id}`, `environment_preferences.${item.id}`, unanswered, explicitUnknown)]));
+      const efficacy = collectScale('career_self_efficacy.learning_confidence', 'career_self_efficacy.learning_confidence', unanswered, explicitUnknown);
+      const episodes = ['episode-a', 'episode-b'].map(prefix => collectEpisode(prefix, unanswered, explicitUnknown)).filter(Boolean);
+      const interestActivities = collectMulti('interest_activities', 'interest-unknown', 'interest_activities', unanswered, explicitUnknown);
+      const barriers = collectMulti('perceived_barriers', 'barriers-unknown', 'perceived_barriers', unanswered, explicitUnknown);
+      const supports = collectMulti('perceived_supports', 'supports-unknown', 'perceived_supports', unanswered, explicitUnknown);
+      const values = collectMulti('value_candidates', 'values-unknown', 'value_candidates', unanswered, explicitUnknown);
+      const avoid = collectMulti('avoid_candidates', 'avoid-unknown', 'avoid_candidates', unanswered, explicitUnknown);
+      const result = {
+        jiko_bunseki_submission: true,
+        submission_version: 2,
+        name: document.getElementById('name').value.trim(),
+        language: document.body.dataset.lang,
+        track: document.getElementById('track').value,
+        interest_activities: interestActivities,
+        behavior_tendencies: behaviorTendencies,
+        episodes,
+        career_self_efficacy: { learning_confidence: efficacy, outcome_expectation: textValue('outcome-expectation'), goal: textValue('career-goal') },
+        perceived_barriers: barriers,
+        perceived_supports: supports,
+        environment_preferences: environmentPreferences,
+        value_candidates: values,
+        avoid_candidates: avoid,
+        unanswered_fields: unanswered,
+        explicit_unknown_fields: explicitUnknown
+      };
+      const json = JSON.stringify(result, null, 2);
+      const output = document.getElementById('output-box');
+      output.value = json;
+      output.classList.add('visible');
+      document.getElementById('success-banner').classList.add('visible');
+      if (navigator.clipboard) navigator.clipboard.writeText(json).catch(() => {});
+      output.focus();
+      output.select();
+    }
+
+    renderScale(BEHAVIOR_TENDENCIES, 'behavior-container', 'behavior_tendencies');
+    renderScale(ENVIRONMENT_PREFERENCES, 'environment-container', 'environment_preferences');
+    renderScale([{ id: 'learning_confidence', ko: '관심 있는 분야를 배우면 어느 정도 해낼 수 있을 것 같나요?', ja: '関心のある分野を学んだら、どの程度できそうですか？' }], 'efficacy-container', 'career_self_efficacy');
+    updateProgress();
+  </script>
 </body>
 </html>

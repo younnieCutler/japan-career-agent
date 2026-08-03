@@ -1,57 +1,92 @@
-# Jiko Bunseki Question Bank
+# Jiko Bunseki v2 question bank
 
-The paired statements are a transparent reflection exercise. The response scale describes the
-user's current preference; it does not measure a stable personality trait.
+These are original reflection prompts. They describe the user's current self-report and do not
+measure a stable personality trait or predict work performance.
 
-## Strength tendencies
+## Interest activities
 
-- `initiative`: starts motion before conditions feel perfect
-- `communication`: explains ideas clearly
-- `confidence`: trusts own judgement under uncertainty
-- `execution`: gains energy from visible progress
-- `discipline`: prefers order and repeatable process
-- `ownership`: feels responsible for commitments
-- `analysis`: checks evidence and logic gaps
-- `learning`: gains energy from acquiring knowledge
-- `strategy`: sees several workable paths
-- `empathy`: notices emotional cues
-- `harmony`: seeks workable agreement
-- `support`: helps others grow and stabilize
+Treat the six activity ids as exploration prompts, not as a public RIASEC result:
 
-The 24 pair mappings remain the same as the checklist. Each tendency appears four times. Summarize
-the responses transparently and use ties as ties; do not imply that a small difference is a real
-psychological distinction.
+- `hands_on_systems`: handling real objects or systems;
+- `investigate_causes`: finding causes in numbers or information;
+- `create_expressions`: making new ideas or expressions;
+- `help_explain`: helping or explaining to people;
+- `persuade_lead`: persuading and moving people;
+- `organize_processes`: organizing work or information.
 
-## Work style and wellbeing
+The output is an interest hypothesis. It is never an automatic occupation, role, or company
+recommendation.
 
-Ask six work-style items and four wellbeing items on a 1–5 self-report scale:
+## Behavior tendencies
+
+Ask each item independently on `1–5` or `잘 모르겠다 / よくわからない`:
+
+- `initiative`: starts a small action before conditions feel perfect;
+- `execution`: gains energy from visible progress or completion;
+- `discipline`: works more easily with clear rules and repeatable process;
+- `ownership`: follows through on commitments;
+- `analysis`: checks evidence and missing information before deciding;
+- `learning`: enjoys learning a new concept even when immediate use is unclear;
+- `strategy`: compares several workable paths in a complex situation;
+- `empathy`: notices emotional changes before they are stated;
+- `harmony`: seeks workable agreement rather than winning a conflict;
+- `communication`: explains complexity so another person can understand it;
+- `support`: finds meaning in helping another person grow or solve a problem;
+- `confidence`: can decide from their own judgement under incomplete information.
+
+Two tendencies may both be high or both be low. Do not rank them, average them, or create a total.
+Use the response basis and any linked episode when writing a hypothesis.
+
+## Episodes
+
+Ask for one episode that felt energizing or proud and one that felt draining. For each, collect:
+
+- experience type;
+- what happened;
+- what the user actually did;
+- what created energy or drain.
+
+An episode can support a preparation story only after the user confirms the wording. An omitted or
+partial episode remains Unknown; it does not prove a tendency or skill.
+
+## Self-efficacy, barriers, and supports
+
+Keep these separate:
+
+- `learning_confidence`: how capable the user feels of learning a field;
+- `outcome_expectation`: what result the user expects from learning;
+- `goal`: what the user wants to try;
+- `perceived_barriers`: experience, skill, major, education, language, information, confidence,
+  economic, family/region, direction, or other barriers;
+- `perceived_supports`: mentors, resources, peers, feedback, training, or other supports.
+
+Perceived difficulty is a self-report, not evidence of an actual deficit. A missing answer remains
+Unknown. Do not average disagreement between the checklist and a later explanation.
+
+## Environment preferences
+
+Ask each item independently on `1–5` or Unknown:
 
 1. `autonomy`
-2. `structure_preference`
-3. `speed_preference`
-4. `change_tolerance`
-5. `collaboration_preference`
-6. `feedback_frequency`
+2. `competence`
+3. `relatedness`
+4. `structure_preference`
+5. `speed_preference`
+6. `change_tolerance`
+7. `collaboration_preference`
+8. `feedback_frequency`
 
-Wellbeing priorities are `autonomy`, `social_contribution`, `management_quality`, and
-`mutual_respect`. A `3` is a response, not a neutral assumption for a missing answer.
-
-## Interpretation
-
-Use the strongest response patterns to generate an environment hypothesis, not a company-type map.
-For example:
+`relatedness` is a need for respect and connection. It is not the same as preferring to collaborate.
+Convert a confirmed preference into a verification question, for example:
 
 ```text
-Preference: structure_preference is high; change_tolerance is low.
-Hypothesis: explicit processes and predictable handoffs may reduce friction.
+Observed preference: structure_preference is high; change_tolerance is low.
+Environment hypothesis: explicit processes and predictable handoffs may reduce friction.
 Verify: approval chain, incident practice, and how exceptions are handled.
 ```
 
-Ask the user whether the interpretation is accurate. Generate role clusters only as starting points
-and include the evidence that led there. A generic label such as “startup fit” or “SIer fit” is not
-allowed without observed workplace evidence.
+## Candidate values
 
-## Missing and contradictory answers
-
-Malformed or missing answers remain `Unknown`. If the checklist and the user's later explanation
-disagree, report `Contradictory` and ask which statement should be retained. Do not average the two.
+`value_candidates` and `avoid_candidates` are exploratory lists. They become
+`career_values.must_have` or `career_values.avoid` only after the user explicitly confirms the
+proposed wording. A checkbox alone is not a canonical decision.

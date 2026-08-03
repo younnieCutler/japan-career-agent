@@ -12,10 +12,15 @@ duration, observable change, or learning instead of estimating.
 
 ## Step 2 — work-style reflection
 
-The custom 12-statement exercise is `SPI3-inspired reflection`, not official SPI3 or a validated
-assessment. Store responses and user-reviewed tendencies; do not use them to declare a company-type
-fit. Translate a preference into questions about manager style, decision ownership, feedback,
-training, and day-to-day work.
+The v2 `jiko-bunseki` worksheet is an original reflection instrument, not official SPI3 or a
+validated assessment. Interest activities, behavior tendencies, self-efficacy, barriers, supports,
+and environment preferences remain separate self-reports. Do not use them to declare a company-type
+fit or professional skill. Translate a confirmed preference into questions about manager style,
+decision ownership, feedback, training, and day-to-day work.
+
+Use a checklist episode as a starting point for 学チカ only after independently confirming the
+situation, the student's own task and actions, collaboration, result, and reflection. A tendency
+such as `analysis = 5` cannot substitute for an episode or prove a technical skill.
 
 ## Step 3 — evidence review
 

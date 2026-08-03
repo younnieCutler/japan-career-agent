@@ -1,10 +1,9 @@
 ---
 name: jiko-bunseki
 description: >
-  A user-led self-reflection skill for Japan job hunting. It helps the user name strengths,
-  work-style preferences, career values, energy patterns, and questions to verify in a workplace.
-  Its forced-choice and Likert prompts are reflection instruments, not official SPI3 or
-  psychometric diagnosis. It saves a SELF_ANALYSIS_PROFILE only after review.
+  A user-led self-reflection workflow for Japan job hunting. It helps the user name interests,
+  behavior hypotheses, real experiences, work-environment preferences, barriers, and questions to
+  verify. It saves a SELF_ANALYSIS_PROFILE only after user review.
 
   Use when:
   - the user asks for 自己分析, strengths, values, work style, career anchors, or direction
@@ -14,25 +13,30 @@ description: >
 
 # Jiko Bunseki — user-led self-reflection
 
-Follow [`../../_shared/decision_philosophy.md`](../../_shared/decision_philosophy.md). This skill
-generates hypotheses for reflection and verification. It does not diagnose personality, predict
-work performance, or determine that a particular company type is suitable.
+Follow [`../../_shared/decision_philosophy.md`](../../_shared/decision_philosophy.md) and the
+canonical `SELF_ANALYSIS_PROFILE` contract in
+[`../../_shared/schemas.yml`](../../_shared/schemas.yml). The workflow produces hypotheses for
+reflection and verification. It does not diagnose personality, predict work performance, or decide
+that a particular role or company is suitable.
 
 ## Boundary
 
-The checklist is a custom reflection instrument. It is not official SPI3, Gallup, Hogan, or a
-validated replacement for any assessment. Numeric responses are preserved as self-reported inputs
-or transparent descriptive summaries; they are not an official score and do not enter
-`Decision Status` or company matching as a hidden coefficient.
+The checklist is an original reflection worksheet informed by public career theories. It is not an
+official SPI3, Gallup, Hogan, RIASEC, SCCT, SDT, or other validated psychometric assessment.
+Numeric responses are self-reported inputs only. They are never converted into a total, a hidden
+coefficient, `Decision Status`, or company matching result.
 
-Company type is never a conclusion from a trait. Convert the result into:
+Use this shape when presenting a conclusion:
 
 ```text
-Observed preference: [user-confirmed preference and source]
-Environment hypothesis: [a workplace feature worth investigating]
+Observed preference: [user-confirmed preference and response basis]
+Environment hypothesis: [workplace feature worth investigating]
 Required verification: [manager autonomy, approval layers, team practices, release cadence, etc.]
 Contradiction: [if another confirmed preference points in a different direction]
 ```
+
+Company type is never inferred from a tendency. Interest, behavior, self-efficacy, values, and
+conditions remain separate.
 
 ## Trust and persistence
 
@@ -50,77 +54,67 @@ Ask before overwriting. After every save, print the absolute path and verify tha
 
 ## Workflow
 
-### Phase 1 — checklist
+### Phase 0 — existing context
 
-Check for an existing profile, detect the user's language, and provide `checklist.html`. Wait for
-the JSON submission; do not infer answers from a resume. The checklist contains 24 paired prompts,
-six work-style prompts, and four wellbeing-priority prompts.
+Check for `./data/self_analysis_profile.yml` and any returned Vault context before starting. If a
+profile exists, identify it and ask whether it is current, needs updating, or should be replaced.
+Profiles without `self_analysis_version: 2` are readable v1 history. Do not convert old
+`top_strengths`, `strength_clusters`, `work_style`, `wellbeing_priorities`, or numeric values.
+
+### Phase 1 — raw checklist
+
+Provide `checklist.html` and wait for its JSON submission. The single local file supports Korean and
+Japanese, has back/next navigation, and makes no network requests. It exports raw responses only:
+
+- `interest_activities`
+- twelve independent `behavior_tendencies`
+- optional energizing and draining `episodes`
+- `career_self_efficacy`, `perceived_barriers`, and `perceived_supports`
+- eight independent `environment_preferences`
+- `value_candidates` and `avoid_candidates`
+
+`null` is valid. `unanswered_fields` means the user did not answer; `explicit_unknown_fields`
+means the user chose `잘 모르겠다` / `よくわからない`. Keep the distinction when reporting.
+
+Do not infer answers from a resume or from omitted fields. Do not save a profile from the raw JSON.
 
 ### Phase 2 — reflection report
 
-Read `references/questions.md`, parse the submission, and show:
+Read `references/questions.md` and `references/theory-foundations.md`, parse the submission, and
+show:
 
-1. the user's selected tendencies and the transparent response basis;
-2. work-style and wellbeing priorities as self-reported values;
-3. two to four environment hypotheses with verification questions;
-4. possible role directions phrased as options, not prescriptions;
-5. self-PR seeds only from user-provided experiences;
-6. contradictions and missing context.
+1. selected activities and their transparent response basis;
+2. behavior tendencies as self-reported hypotheses, never as stable traits;
+3. episodes and the actions the user actually described;
+4. self-efficacy, outcome expectation, barriers, and supports as separate self-reports;
+5. environment preferences, keeping `relatedness` separate from collaboration preference;
+6. two to four environment hypotheses with verification questions;
+7. value and avoid candidates, clearly marked as candidates;
+8. possible role directions as options, not prescriptions;
+9. self-PR seeds only from user-provided experiences;
+10. contradictions, unanswered fields, and missing context.
 
-Do not convert a preference into a company stereotype. Do not call the output a personality result.
-If a response is absent or malformed, ask again and keep it `Unknown`.
+If a response is absent or malformed, ask again and keep it `Unknown`. Never treat perceived
+self-efficacy as proof of actual skill. A tendency such as `analysis = 5` is not evidence of SQL,
+data analysis, or any other professional skill.
 
-### Phase 3 — optional depth conversation
+### Phase 3 — user confirmation and optional depth
 
-Read `references/depth-layer.md`. Ask one block at a time about career anchors, overuse risks,
-energizing/draining episodes, and a career theme. Present every derived statement as a hypothesis
-until the user confirms it. Explicit must-have and avoid values may flow downstream only after that
-confirmation.
+Show each proposed hypothesis and ask whether it is accurate, inaccurate, or still unknown. Only
+user-confirmed statements and user-provided episodes may enter the canonical profile. Explicit
+`career_values.must_have` and `career_values.avoid` require a direct user statement, not a checkbox
+candidate alone.
 
-### Downstream handoff
+For deeper work, read `references/depth-layer.md` one block at a time. Career anchors, overuse risks,
+energy patterns, and a career theme remain hypotheses until the user confirms them. A contradiction
+stays visible and is not averaged away.
 
-Recommend `job-seeker-agent` for evidence-grounded resume work. The next skill must still collect
-and verify candidate evidence; this profile never substitutes for work history or a job posting.
+## Downstream handoff
 
-## Profile shape
+Recommend `job-seeker-agent` for evidence-grounded resume work. A self-analysis tendency is context
+for questions, not candidate evidence. The next skill must independently collect and verify work,
+student, project, or job-posting evidence.
 
-```yaml
-# === SELF_ANALYSIS_PROFILE ===
-candidate_name: "[user-confirmed]"
-language_preference: "ko|ja|en"
-track: "shinsotsu|chuto"
-top_strengths:
-  - name: "[tendency]"
-    response_basis: "[paired responses or user episode]"
-    confidence: "high|medium|low|unknown"
-strength_clusters: null
-work_style:
-  autonomy: null
-  structure_preference: null
-  speed_preference: null
-  change_tolerance: null
-  collaboration_preference: null
-  feedback_frequency: null
-wellbeing_priorities:
-  autonomy: null
-  social_contribution: null
-  management_quality: null
-  mutual_respect: null
-preferred_environment_hypothesis: []
-verification_questions: []
-recommended_role_clusters: []
-risk_flags: []
-self_pr_seeds: []
-career_anchors: null
-derailers: null
-energy_map: null
-career_theme: null
-career_values: null
-career_context_confirmed: false
-notes:
-  - "Custom work-style reflection; not an official aptitude assessment."
-# === END SELF_ANALYSIS_PROFILE ===
-```
-
-Keep unassessed fields `null`. Do not write `preferred_company_type` for new profiles; if an old
-profile has it, read it as a user hypothesis and ask the user to review it.
+Only confirmed career context may flow to Career Agent. The allowlisted fields remain
+`career_anchors`, `career_theme`, `energy_map`, and `career_values`; Vault approval is still required.
+`matching_v3` does not consume RIASEC activities or behavior tendencies as a fit input.

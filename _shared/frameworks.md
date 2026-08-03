@@ -5,18 +5,14 @@ private recruiter system. All active skills also follow `_shared/decision_philos
 
 ## 1. Work-style reflection
 
-The four tendency labels below are a compact reflection vocabulary used by the custom checklist:
+`jiko-bunseki` v2 records twelve independent behavior-tendency self-reports and eight independent
+environment preferences. The wording is an original reflection instrument informed by public
+career theories; it is not official SPI3, a diagnosis, or a validated predictor.
 
-| Label | Working meaning |
-|---|---|
-| `creation` | enjoys making or exploring something new |
-| `result` | values visible outcomes and completion |
-| `harmony` | seeks workable coordination and mutual respect |
-| `order` | prefers clarity, process, and predictable handoffs |
-
-The 12-statement exercise is `SPI3-inspired reflection` only. It is not official SPI3, a diagnosis,
-or a validated predictor. Preserve the user's responses and confidence; do not use a label to infer
-company culture or determine a company type. Translate a preference into a workplace question.
+Preserve the user's response basis, confidence, episodes, and unknowns. Do not turn a tendency into
+a professional skill, company culture claim, company type, or matching coefficient. Translate a
+confirmed preference into a workplace question about manager autonomy, approval layers, feedback,
+training, release cadence, or team practice.
 
 ## 2. Portable skills — resume evidence lens
 

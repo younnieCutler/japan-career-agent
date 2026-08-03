@@ -117,10 +117,16 @@ decision without manufacturing a metric.
 
 ### STEP 2 — Work-style reflection (optional)
 
-If the user wants self-analysis, use the `jiko-bunseki` output as a reflection instrument. The
-12-statement or Likert exercise is not official SPI3 and is not a psychometric diagnosis. Store it
-as `work_style_reflection` plus user-confirmed hypotheses. Never map a reflection result directly to
-a company type. Convert preferences into verification questions, for example:
+If the user wants self-analysis, use the v2 `jiko-bunseki` output as a reflection instrument. Its
+activity interests, independent behavior tendencies, self-efficacy, and environment preferences
+are hypotheses and self-reports, not professional evidence. An `analysis = 5` response is not proof
+of SQL or data-analysis skill. A perceived barrier is not proof of an actual skill gap.
+
+Use the user's episodes as candidate material only after independently confirming the situation,
+the user's own actions, scope, result, and reflection. Keep student-era evidence labelled for 新卒.
+Do not copy raw checklist values into a skill level, portable-skill allocation, or hiring claim.
+Never map a reflection result directly to a company type. Convert confirmed preferences into
+verification questions, for example:
 
 ```text
 Observed preference: high autonomy preference; high change tolerance.
@@ -128,7 +134,8 @@ Environment hypothesis: a team with visible decision ownership may be worth inve
 Verify with: manager autonomy, approval layers, release cadence, and escalation practice.
 ```
 
-The candidate's values are explicit only when the user states them. A company type is a question to
+The candidate's values are explicit only when the user states and confirms them. `value_candidates`
+and `avoid_candidates` remain drafts until that confirmation. A company type is a question to
 verify, not evidence of culture.
 
 ### STEP 3 — Skills and transferability

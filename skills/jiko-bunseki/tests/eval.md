@@ -12,8 +12,9 @@ preserves nulls for unanswered phases, and records source/confidence for derived
 
 ## Case 3: reflection boundary
 
-The forced-choice/Likert exercise is labelled `Work-style reflection` or `SPI3-inspired reflection`.
-It is not official SPI3, a diagnosis, a validated personality prediction, or a company-type fit score.
+The v2 worksheet is labelled as an original self-reflection instrument. It is not official SPI3,
+RIASEC, SCCT, SDT, or another validated assessment; it is not a diagnosis, personality prediction,
+or company-type fit result.
 
 ## Case 4: preference to verification
 
