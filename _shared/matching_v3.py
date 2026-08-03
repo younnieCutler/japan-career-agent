@@ -64,6 +64,7 @@ DECISION_REVIEW = "review"
 DECISION_CONFLICT = "conflict"
 
 SOURCE_TYPES = {"official", "job_posting", "recruiter", "user", "third_party", "inferred"}
+PROVENANCE_TYPES = {"official_framework", "observed", "derived", "heuristic", "unknown"}
 CONFIDENCE_LEVELS = {"high", "medium", "low", "unknown"}
 INTEREST_EVIDENCE_SOURCES = {"self_report", "event_experience", "interview_experience"}
 EMPLOYER_SIGNAL_TYPES = {"scout", "message", "interview_invite", "pass_notice", "rejection"}
@@ -460,10 +461,27 @@ def _evidence_meta(item: dict[str, Any]) -> dict[str, Any]:
     source_type = item.get("source_type")
     if source_type is not None and source_type not in SOURCE_TYPES:
         raise ValidationError(f"source_type must be one of {sorted(SOURCE_TYPES)}, got {source_type!r}")
+    provenance = item.get("provenance")
+    if provenance is not None and provenance not in PROVENANCE_TYPES:
+        raise ValidationError(f"provenance must be one of {sorted(PROVENANCE_TYPES)}, got {provenance!r}")
+    if provenance is None:
+        if source_type == "official":
+            provenance = "official_framework"
+        elif source_type in {"job_posting", "recruiter", "user", "third_party"}:
+            provenance = "observed"
+        elif source_type == "inferred":
+            provenance = "heuristic"
+        elif item.get("source") in {"observed", "user", "recruiter", "job_posting"}:
+            provenance = "observed"
+        elif item.get("source") == "official":
+            provenance = "official_framework"
+        else:
+            provenance = "unknown"
     confidence = item.get("confidence") or "unknown"
     if confidence not in CONFIDENCE_LEVELS:
         raise ValidationError(f"confidence must be one of {sorted(CONFIDENCE_LEVELS)}, got {confidence!r}")
     return {
+        "provenance": provenance,
         "source_type": source_type,
         "source_ref": item.get("source_ref"),
         "observed_at": item.get("observed_at"),

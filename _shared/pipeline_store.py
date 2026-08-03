@@ -108,6 +108,19 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         )
 
 
+def _snapshot_interest_history_if_needed(entry: dict[str, Any], fields: dict[str, Any]) -> None:
+    new_level = fields.get("interest_level")
+    old_level = entry.get("interest_level")
+    if new_level is not None and old_level is not None and old_level != new_level:
+        entry.setdefault("interest_history", []).append({
+            "interest_level": old_level,
+            "interest_reason": entry.get("interest_reason"),
+            "interest_evidence": entry.get("interest_evidence"),
+            "interest_updated_at": entry.get("interest_updated_at"),
+            "changed_at": dt.date.today().isoformat(),
+        })
+
+
 def upsert_company(
     path: Path,
     slug: str,
@@ -127,19 +140,13 @@ def upsert_company(
         if entry is None:
             entry = {"slug": slug, "name": fields.get("name") or slug, "closed": False, "history": []}
             companies.append(entry)
+        _snapshot_interest_history_if_needed(entry, fields)
         for key, value in fields.items():
             if value is None:
                 continue
             if key == "stage" and forward_only_stage and isinstance(entry.get("stage"), int):
                 if value < entry["stage"]:
                     continue
-            if key == "interest_level" and entry.get("interest_level") is not None and entry["interest_level"] != value:
-                entry.setdefault("interest_history", []).append({
-                    "interest_level": entry["interest_level"],
-                    "interest_reason": entry.get("interest_reason"),
-                    "interest_evidence": entry.get("interest_evidence"),
-                    "changed_at": dt.date.today().isoformat(),
-                })
             entry[key] = value
         if history is not None:
             entry.setdefault("history", []).append(history)
@@ -165,18 +172,12 @@ def _update_company_data(
     data: dict[str, Any], slug: str, fields: dict[str, Any], history: dict[str, Any] | None,
 ) -> dict[str, Any]:
     entry = next(item for item in _companies(data) if item.get("slug") == slug)
+    _snapshot_interest_history_if_needed(entry, fields)
     for key, value in fields.items():
         if value is None:
             continue
         if key == "stage" and isinstance(entry.get("stage"), int) and value < entry["stage"]:
             continue
-        if key == "interest_level" and entry.get("interest_level") is not None and entry["interest_level"] != value:
-            entry.setdefault("interest_history", []).append({
-                "interest_level": entry["interest_level"],
-                "interest_reason": entry.get("interest_reason"),
-                "interest_evidence": entry.get("interest_evidence"),
-                "changed_at": dt.date.today().isoformat(),
-            })
         entry[key] = value
     if history is not None:
         entry.setdefault("history", []).append(history)

@@ -91,14 +91,22 @@ class PipelineCliTests(unittest.TestCase):
         self.assertEqual(snapshot["interest_reason"], "まだ微妙")
         self.assertIn("changed_at", snapshot)
 
-    def test_same_interest_level_does_not_append_history(self) -> None:
-        self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO", "interest_level": 3}))
-        self.run_cli("update", "gao", "--json", json.dumps({"interest_level": 3,
-                                                             "interest_reason": "変わらない"}))
+    def test_interest_history_unaffected_by_json_field_order(self) -> None:
+        """Field order in JSON payload must not pollute the snapshot with new values."""
+        self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO", "interest_level": 2,
+                                                             "interest_reason": "old_reason"}))
+        # Note: interest_reason comes BEFORE interest_level in JSON string
+        payload = '{"interest_reason":"new_reason","interest_level":5}'
+        self.run_cli("update", "gao", "--json", payload)
         company = self.load()["companies"][0]
-        self.assertEqual(company["interest_level"], 3)
-        self.assertNotIn("interest_history", company)
+        self.assertEqual(company["interest_level"], 5)
+        self.assertEqual(company["interest_reason"], "new_reason")
+        self.assertEqual(len(company["interest_history"]), 1)
+        snapshot = company["interest_history"][0]
+        self.assertEqual(snapshot["interest_level"], 2)
+        self.assertEqual(snapshot["interest_reason"], "old_reason")
 
 
 if __name__ == "__main__":
+
     unittest.main()

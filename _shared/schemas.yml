@@ -330,6 +330,7 @@ pipeline:
         - { interest_level: "integer 1–5 — the PREVIOUS level before change",
             interest_reason: "string | null — the previous reason",
             interest_evidence: "list | null — snapshot of evidence at previous level",
+            interest_updated_at: "string YYYY-MM-DD | null — previous update timestamp",
             changed_at: "string YYYY-MM-DD — when the level was overwritten" }
 
       # ── Employer signals (evidence_based_v3, FR-6) ───────────────────

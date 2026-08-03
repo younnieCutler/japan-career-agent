@@ -602,6 +602,23 @@ class EvidenceReporting(unittest.TestCase):
         with self.assertRaises(v3.ValidationError):
             v3.eligibility_results([{"requirement": "x", "source_type": "hearsay"}])
 
+    def test_provenance_field_validation_and_default(self):
+        """PRD P4 / FR-7: Provenance is validated and derived if omitted."""
+        result = v3.evaluate(payload(skills={
+            "required": [
+                {"name": "Python", "status": "matched", "source_type": "job_posting"},
+                {"name": "SQL", "status": "matched", "provenance": "official_framework", "source_type": "official"},
+            ],
+        }))
+        python_meta = next(item for item in result["skills"]["required_skills"]["matched"] if item["name"] == "Python")
+        sql_meta = next(item for item in result["skills"]["required_skills"]["matched"] if item["name"] == "SQL")
+        self.assertEqual(python_meta["provenance"], "observed")
+        self.assertEqual(sql_meta["provenance"], "official_framework")
+
+        with self.assertRaises(v3.ValidationError):
+            v3.evaluate(payload(skills={"required": [{"name": "C++", "provenance": "invalid_provenance"}]}))
+
 
 if __name__ == "__main__":
+
     unittest.main(verbosity=2)

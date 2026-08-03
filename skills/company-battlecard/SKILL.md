@@ -28,8 +28,7 @@ archived personal notes by default. Follow `career-agent/references/shared-vault
 This skill produces a structured head-to-head comparison of two companies from the candidate's perspective.
 It answers one question: **"Given who I am, which company is the better fit — and by how much?"**
 
-The output is a table. The table has a winner column. There is no "both are great" — one has the advantage in more dimensions
-unless a confirmed Career Value Fit veto makes a company ineligible.
+The output is a table with per-dimension advantage judgment. Decision Status gating filters out ineligible companies first, and remaining trade-offs are presented clearly without arbitrary majority voting.
 
 ## Language Auto-Detection (Suite-Wide Rule — applies before Input)
 
@@ -208,11 +207,12 @@ Always output in this exact format:
 ```
 
 **Verdict rules:**
-- Apply Career Value Fit vetoes before naming the winner. A company with a confirmed conflict on a must-have/avoid is ineligible even if it leads in more dimensions.
-- If one company has advantage in 3+ dimensions: strong recommendation
-- If one company has advantage in 1~2 dimensions and the other also has 1~2: conditional recommendation (state which dimension should decide, based on candidate's stated priority)
-- If even across all dimensions: state which single dimension should be the tiebreaker based on the candidate's stated priority
-- If all companies are vetoed: "No acceptable winner — every company has a confirmed value conflict."
+- **Step 1: Decision Status Gate (PRD FR-5 / §9)**: Run or check `matching_v3` `Decision Status` for each company first. A company with `conflict` (due to hard eligibility failure or must-have/avoid value conflict) is gated out as ineligible, regardless of its performance in individual dimensions. If all companies have a `conflict` status, state: `No eligible winner — every compared company has a confirmed conflict or dealbreaker.`
+- **Step 2: Dimension Trade-off Analysis**: Do not use a simple majority vote (e.g. "3 of 5 advantages") to declare a winner. Different dimensions carry different weight depending on candidate priorities (e.g., Practical Factors like salary/visa cannot be outweighed by soft culture fit). Present the comparison as explicit trade-offs.
+- **Step 3: Recommendation Basis**:
+  - If the candidate has a declared top-priority dimension (e.g., salary, growth, remote) and one eligible company holds a clear advantage in that dimension, recommend that company and state the trade-off.
+  - If candidate priorities are equal or unstated, frame the verdict around the trade-off: *"Company A is the stronger choice for career acceleration and culture alignment, while Company B offers higher practical stability and immediate skill match. Choose A if growth is primary; choose B if practical stability is primary."*
+  - If one company is gated out (`conflict`) and the other is eligible (`proceed`/`review`), the eligible company is recommended.
 
 **選考プロセスの形 line:** read `demo_slot` from each company's `data/pipeline.yml` entry
 (`kigyou-bunseki` writes it; `unknown` if absent). Report it and stop there. It gets no score and no
@@ -224,11 +224,10 @@ every 選考 they enter tests the same single axis. That warning lives in `caree
 
 **Core principle: You are a scoring comparator, not a recruiter.**
 
-- Do not say "both are great options." State the winner unless a confirmed Career Value Fit veto
-  makes a company ineligible; if all companies are vetoed, say that no acceptable winner exists.
-- If both companies show `Insufficient Data` or disadvantage in 4+ dimensions, state: "Neither company demonstrates a strong fit on current evidence. Consider expanding your search or providing more data."
+- Do not say "both are great options." State the trade-offs clearly. If a company is gated out by a confirmed conflict, declare it ineligible.
+- If both companies show `Insufficient Data` or `Review` status across multiple dimensions, state: "Neither company demonstrates a clear decision-ready fit on current evidence. Resolve missing information before deciding."
 - Do not speculate about company culture without evidence.
-- When evidence is insufficient for a dimension, mark it `Insufficient Data` and exclude it from the advantage count.
+- When evidence is insufficient for a dimension, mark it `Insufficient Data` and exclude it from trade-off weighting.
 
 **Anti-Sentiment Rules (same as other skills in this suite):**
 - No "you can't go wrong with either choice" — the advantages say which is better.
