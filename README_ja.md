@@ -31,6 +31,7 @@
 - `kigyou-bunseki`: 出典・日付付きの企業／求人調査
 - `matching-simulator`: 独立軸による診断と `Proceed` / `Review` / `Conflict`
 - `company-battlecard`: 合計点を作らない企業・オファー比較
+- `mock-interviewer`: ユーザー主導の面接練習と根拠付き深掘り質問
 - `tenshoku-strategy`: 面接マナー、follow-up、年収交渉、退職、入社、tracking
 - `career-agent`: 承認ゲート付きVault状態とCWD workspace projection
 
@@ -96,24 +97,11 @@ publisher、source、日付、confidence、claim type、expiryとともに登録
 [`CHANGELOG.md`](CHANGELOG.md) を参照してください。
 
 ```bash
-python scripts/check_policy.py
-python scripts/check_claim_freshness.py
-python scripts/check_context_budget.py
-python scripts/check_reference_paths.py
-python scripts/check_agent_context.py
-python scripts/check_manifest_consistency.py
-python scripts/check_readme_consistency.py
-python scripts/test_hook_contract.py
-python _shared/test_matching_v3.py
-python scripts/test_status_bar.py
-python scripts/test_calibrate.py
-python scripts/test_pipeline_cli.py
-python scripts/test_pipeline_integration.py
-python scripts/test_policy.py
-python _shared/test_self_analysis_profile.py
-python skills/career-agent/test_state_durability.py
-node skills/jiko-bunseki/tests/test_checklist_runtime.js
+python scripts/run_all_checks.py
 ```
+
+このrunnerがリポジトリの標準検証経路です。リリース・ドキュメント整合性、policy、CIテスト
+マトリクス、Jiko export contractをまとめて実行します。
 
 CIはUbuntuとWindowsで動作します。legacyデータは読み取り可能ですが、新しいlegacy writeと、
 1–5のlegacy portable skillをMHLW 29-point allocationへ自動変換する処理は拒否します。

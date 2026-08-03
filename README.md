@@ -170,27 +170,11 @@ Release history is kept in [`CHANGELOG.md`](CHANGELOG.md).
 ## Development checks
 
 ```bash
-python scripts/check_policy.py
-python scripts/check_claim_freshness.py
-python scripts/check_context_budget.py
-python scripts/check_reference_paths.py
-python scripts/check_agent_context.py
-python scripts/check_manifest_consistency.py
-python scripts/check_readme_consistency.py
-python scripts/test_hook_contract.py
-python _shared/test_matching_v3.py
-python scripts/test_status_bar.py
-python scripts/test_calibrate.py
-python scripts/test_pipeline_cli.py
-python scripts/test_pipeline_integration.py
-python scripts/test_policy.py
-python skills/career-agent/test_routing.py
-python skills/career-agent/test_career_agent.py
-python skills/career-agent/test_state_durability.py
-python skills/jiko-bunseki/tests/test_checklist_contract.py
-node skills/jiko-bunseki/tests/test_checklist_runtime.js
-python _shared/test_self_analysis_profile.py
+python scripts/run_all_checks.py
 ```
+
+This runner is the canonical repository verification path and includes the release/document
+checks, policy checks, CI test matrix, and Jiko export contracts.
 
 The CI matrix covers Ubuntu and Windows. The repository also tests schema/legacy isolation,
 unknown preservation, interest independence, approval idempotency, workspace projection, and

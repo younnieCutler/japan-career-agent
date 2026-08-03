@@ -14,21 +14,15 @@ REQUIRED = ("_shared/decision_philosophy.md", "_shared/schemas.yml", "_shared/ca
 REQUIRED_BY_FILE = {
     "README.md": (
         "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24-hour", "CONTRIBUTING.md", "CHANGELOG.md",
-        "check_agent_context.py", "check_context_budget.py", "check_manifest_consistency.py",
-        "check_readme_consistency.py", "test_hook_contract.py", "test_self_analysis_profile.py",
-        "test_state_durability.py", "test_checklist_runtime.js", "1.6.2",
+        "run_all_checks.py", "mock-interviewer", "1.6.2",
     ),
     "README_ko.md": (
         "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24시간", "CONTRIBUTING.md", "CHANGELOG.md",
-        "check_agent_context.py", "check_context_budget.py", "check_manifest_consistency.py",
-        "check_readme_consistency.py", "test_hook_contract.py", "test_self_analysis_profile.py",
-        "test_state_durability.py", "test_checklist_runtime.js", "1.6.2",
+        "run_all_checks.py", "mock-interviewer", "1.6.2",
     ),
     "README_ja.md": (
         "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24時間", "CONTRIBUTING.md", "CHANGELOG.md",
-        "check_agent_context.py", "check_context_budget.py", "check_manifest_consistency.py",
-        "check_readme_consistency.py", "test_hook_contract.py", "test_self_analysis_profile.py",
-        "test_state_durability.py", "test_checklist_runtime.js", "1.6.2",
+        "run_all_checks.py", "mock-interviewer", "1.6.2",
     ),
 }
 FORBIDDEN = (
