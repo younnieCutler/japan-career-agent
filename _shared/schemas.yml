@@ -11,7 +11,27 @@
 #                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
 #   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
-schema_version: "2.0"
+schema_version: "2.1"
+
+legacy_field_policy:
+  readable: true
+  writable: false
+  fields:
+    - match_score
+    - predicted_tier
+    - culture_fit_score
+    - screening_probability
+    - platform_probability
+    - overall_score
+    - overall_grade
+    - recruit_style_score
+    - persol_style_score
+    - spi3
+    - preferred_company_type
+    - target_company_type
+    - top_performer_spi3
+    - top_performer_portable_skills
+  migration: "Preserve existing values verbatim. Do not backfill, reinterpret, or convert them into v3 fields."
 
 # ─────────────────────────────────────────────
 # MODEL VERSIONS — read this before adding any field that holds a number
@@ -20,9 +40,9 @@ schema_version: "2.0"
 #                      MHLW composition distance / Career Values / Interest / Employer
 #                      Signals / Evidence). No axis is summed with another, and no field
 #                      here may combine them into a ranking value.
-#   legacy_v1          Recruit-style, Persol-style, Culture Fit and the 0–100 match_score
-#                      derived from them. Frozen history, not produced by default. Engine:
-#                      _shared/legacy_experimental.py (opt-in flag required).
+#   legacy_v1          retired numeric history, readable only and never produced by the
+#                      evidence_based_v3 writers. Engine: _shared/legacy_experimental.py
+#                      (opt-in flag required).
 #
 # Fields below are tagged with the model version they belong to. A legacy_v1 field and an
 # evidence_based_v3 field must never be merged into one score, one grade, or one sort key —
@@ -48,7 +68,8 @@ self_analysis_profile:
     - wellbeing_priorities # object: same structure as wellbeing_schema (1–5)
 
   optional:
-    - preferred_company_type     # string: "SIer" | "self-developed startup" | "large enterprise" | null
+    - preferred_environment_hypothesis # list of observed preferences and verification questions
+                                       # preferred_company_type remains a read-only legacy alias
     - preferred_role_environment # list of strings (e.g., "high-autonomy", "fast-feedback")
     - recommended_role_clusters  # list of strings
     - risk_flags                 # list of strings (evidence-based only; omit if none)
@@ -63,11 +84,11 @@ self_analysis_profile:
 
 top_strength_schema:
   - name:    "string: strength id (e.g., 'ownership', 'analysis')"
-    score:   "integer 0–16"
+    score:   "integer 0–16: self-reported reflection value, not a psychometric or fit score"
     cluster: "string: executing | strategic_thinking | relationship_building | influencing"
 
 strength_cluster_schema:
-  # All values: integer 0–100 (normalized)
+  # All values: integer 0–100 (descriptive normalized reflection summary only; never a fit score)
   executing:              ~
   strategic_thinking:     ~
   relationship_building:  ~
@@ -90,8 +111,8 @@ self_work_style_schema:
 candidate_profile:
   required:
     - candidate_name      # string: "박민준"
-    - spi3                # object: see spi3_schema
-    - portable_skills     # object: see portable_skills_schema
+    - work_style_reflection # object: unofficial reflection instrument; not an official test
+    - skill_stack         # list of evidence-backed skills; see skill_stack_schema
     - target_role         # string: "Data Engineer"
     - jlpt_level          # string: "native" | "N1" | "N2" | "N3" | "N4" | "None" | null
                           #   "native" = Japanese native speaker; JLPT is asked only when a foreign-national
@@ -105,21 +126,30 @@ candidate_profile:
     - portable_skill_assessed_at # string YYYY-MM-DD | null
     - career_values              # object: see career_values_schema
     # --- shared ---
-    - skill_stack         # list of objects: see skill_stack_schema
-    - wellbeing_priorities  # object: see wellbeing_schema — legacy_v1 input; no new Culture Fit
-                            #   score is computed from it (see MODEL VERSIONS above)
-    - target_company_type   # string: "self-developed" | "SIer" | "SES" | "consulting" | "startup" | "large enterprise" | null
+    - spi3                 # read-only compatibility alias; not an official test result
+    - portable_skills      # read-only legacy 1–5 evidence shape; never converted
+    - wellbeing_priorities  # object: self-reported priorities; never turned into a culture total
+    - target_company_type   # read-only legacy alias; new writers use environment hypotheses/questions
     - segment                # string: "dai2_shinsotsu" | "standard" | "senior_ic" | "management" | null
                              #   中途 segment (job-seeker-agent references/segments.md §1); null for shinsotsu track
     - visa_status           # string: "PR" | "Engineer/Specialist" | "Student" | null — null for Japanese nationals
     - track                 # string: "shinsotsu" | "chuto"
 
+# Read-only compatibility shape. New writers use work_style_reflection_schema.
 spi3_schema:
+  # Read-only compatibility shape. New writers use work_style_reflection_schema.
   creation: "float 0–10 | null"
   result:   "float 0–10 | null"
   harmony:  "float 0–10 | null"
   order:    "float 0–10 | null"
-  primary_trait: "string: highest-scoring quadrant name | null"
+  primary_trait: "string: historical hypothesis label | null"
+
+work_style_reflection_schema:
+  creation: "float 0–10 | null — reflection output only"
+  result:   "float 0–10 | null — reflection output only"
+  harmony:  "float 0–10 | null — reflection output only"
+  order:    "float 0–10 | null — reflection output only"
+  primary_trait: "string | null — user-reviewed hypothesis, not a diagnosis"
 
 portable_skill_allocation_schema:
   # evidence_based_v3. MHLW ポータブルスキル見える化ツール 持ち味 input (_shared/matching_v3.py).
@@ -274,7 +304,7 @@ match_history_entry:
 #             it owns none of the other fields and never overwrites them)
 # Read by:    CLAUDE.md onboarding (session-resume kanban), tenshoku-strategy STEP 6
 #             (funnel / pattern analysis; renders career-docs/applications.md as a view),
-#             scripts/status_bar.py, scripts/calibrate.py
+#             scripts/status_bar.py, scripts/calibrate.py, scripts/legacy_calibrate.py (legacy only)
 #
 # This is the ONLY per-company state store in the suite. The Career Vault keeps the agent's flow
 # state (track, stage, deadlines, event ledger); it deliberately does not mirror the company list.
@@ -300,14 +330,14 @@ pipeline:
                               fields below. Required whenever any of them is non-null."
       decision_status:     "string: proceed | review | conflict | null — NOT a score and NOT a ranking
                               value. `proceed` means nothing blocks a decision on current information;
-                              it is not a recommendation and not a pass probability. Do not order the
+                              it is not a recommendation or an outcome estimate. Do not order the
                               kanban by it and do not translate it to a number."
       match_conflicts:     "list of strings | null — confirmed blockers behind a `conflict` status"
       match_unknowns:      "list of strings | null — what is missing behind a `review` status"
 
       match_score:   "legacy_v1. integer 0–100 | null. FROZEN — matching-simulator no longer writes
                         this. Existing values are kept so past applications stay readable and
-                        `calibrate.py` can still score them. Never compare it against, sort it with,
+                        `legacy_calibrate.py --legacy-experimental` can still display them. Never compare it against, sort it with,
                         or average it into an evidence_based_v3 result."
 
       # ── Candidate interest (evidence_based_v3, FR-5) ─────────────────
@@ -334,7 +364,7 @@ pipeline:
             changed_at: "string YYYY-MM-DD — when the level was overwritten" }
 
       # ── Employer signals (evidence_based_v3, FR-6) ───────────────────
-      # Observed events only. No signal is converted into a probability, and the ABSENCE of
+      # Observed events only. No signal is converted into an outcome estimate, and the ABSENCE of
       # signals is not a negative evaluation — it is simply nothing observed.
       employer_signals:
         - { type: "string: scout | message | interview_invite | pass_notice | rejection",
@@ -353,18 +383,18 @@ pipeline:
 
       # ── Outcome record (v1.7) ────────────────────────────────────────
       # Written by tenshoku-strategy STEP 6 when an entry closes. Without these the suite
-      # stores predictions it can never score, so no calibration is possible. Required
-      # before `closed: true` may be set.
+      # stores legacy forecast labels it can never use for v3. Required before `closed: true`
+      # may be set when an outcome record is being created.
       predicted_tier:    "legacy_v1. string: A | B | C | D | F | null — grade at application time,
                             frozen. Derived from the legacy match_score, so it exists only on entries
                             created before evidence_based_v3. FROZEN: no new value is written, and no
-                            v3 result is converted into a tier. `calibrate.py` still reports the
+                            v3 result is converted into a tier. `legacy_calibrate.py` still displays the
                             existing ones against reached_stage, labelled legacy_v1 — that comparison
                             scores the OLD grade, not the v3 diagnosis. evidence_based_v3 deliberately
                             produces nothing to calibrate against a hiring outcome: it is a
-                            diagnostic, not a probability model."
+                            diagnostic, not an outcome model."
       reached_stage:     "integer 0–7 | null — the furthest stage actually reached. Compared
-                            against predicted_tier by `career-agent calibrate`."
+                            against predicted_tier only in the explicit legacy viewer."
       feedback_obtained: "boolean — whether a real rejection reason was obtained (agent_feedback
                             non-null and not a form letter). Route-vs-learning join key."
       root_cause:        "string | null — ONE coarse label, reused verbatim across companies so it
@@ -388,9 +418,9 @@ pipeline:
       prep_lines:    "integer | null — total lines of prep documents written for this company.
                         Recorded so the user can test the 'prep volume does not predict outcome'
                         claim against their own data. No cap is enforced."
-      gate_override: "boolean — true when the user proceeded past a blocking gate (F Match,
-                        Cold Mode routing warning). Lets `career-agent calibrate` measure whether
-                        the gate was actually right for this user instead of assuming it."
+      gate_override: "boolean — true when the user chose to continue after a confirmed conflict
+                        or a routing warning. Lets workflow analysis record the user's override;
+                        it does not alter the objective result."
 
       # ── Execution gate source (v1.7) ─────────────────────────────────
       # The repeated failure this suite exists to prevent: the checklist existed and went

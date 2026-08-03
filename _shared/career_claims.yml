@@ -1,0 +1,10 @@
+# External career-market claims registry.
+# Empty is valid: an unregistered claim must not become a durable routing rule.
+schema_version: "1.0"
+claims: []
+
+# Each claim, when present, must contain:
+# id, claim, source_url, publisher, published_at, observed_at, claim_type,
+# confidence, expires_on, allowed_usage.
+# claim_type: official | marketing_claim | survey | third_party
+# allowed_usage is descriptive only; it may not contain a candidate outcome estimate.

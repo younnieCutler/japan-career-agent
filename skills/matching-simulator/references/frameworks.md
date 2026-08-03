@@ -1,12 +1,6 @@
-# frameworks.md — Stub
+# Matching references
 
-The canonical version is at `../../../_shared/frameworks.md`.
-
-Always read `../../../_shared/frameworks.md` for all framework definitions:
-- SPI3 Personality Quadrant Model (12-statement diagnostic)
-- Portable Skills: 9 Elements (MHLW)
-- Skill Ontology Mapping Table
-- Hataraku Well-being Index
-- Gakuchika Evaluation Framework
-- §6 Matching Score Calculation Formula — **legacy_v1, retired**. The default matching path
-  is the evidence-based v3 diagnosis; see `mhlw-portable-skill.md` and `legacy-v1.md`.
+The active engine is `_shared/matching_v3.py`. It reports separate requirements, eligibility,
+portable-skill evidence, values, conditions, interest, employer signals, provenance, and unknowns.
+The output is not a composite number. Retired numeric history is documented separately in
+`legacy-v1.md` and is never mixed with v3.

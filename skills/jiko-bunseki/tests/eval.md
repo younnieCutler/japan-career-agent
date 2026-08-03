@@ -1,54 +1,32 @@
-# Jiko-Bunseki (Self-Analysis) Test Cases
+# jiko-bunseki evaluation cases
 
-Run these when iterating on the `jiko-bunseki` skill.
+## Case 1: reflection completion
 
-## Test Case 1: Checklist completion and explicit answers
-**Objective**: The external checklist captures every answer explicitly before the skill begins analysis.
-- **Input**: "자기분석 하고 싶어" (no other context).
-- **Criteria**:
-- Existing-profile check runs before the checklist handoff.
-- The user completes the 24 strength pairs in the supplied HTML checklist, then pastes the generated JSON.
-- The 6 work-style and 4 wellbeing sliders are not accepted until each is explicitly touched; visible defaults are not answers.
-  - No final profile output before all phases' inputs are collected.
+The checklist must distinguish an explicit answer from a visible default. No profile is saved before
+the required answers are collected and the user confirms the result.
 
-## Test Case 2: SELF_ANALYSIS_PROFILE schema conformance
-**Objective**: Output YAML matches `_shared/schemas.yml` (v1.8).
-- **Input**: Complete a full Phase 1–2 run with mock answers.
-- **Criteria**:
-  - All `required` fields present: candidate_name, language_preference, track, top_strengths (with
-    name/score 0–16/cluster), strength_clusters (0–100), work_style (1–5), wellbeing_priorities (1–5).
-  - Phase 3 fields (career_anchors, derailers, energy_map, career_theme, career_values) are `null` — not omitted, not
-    fabricated — when Phase 3 has not run.
-  - `career_context_confirmed` is `false` before explicit user confirmation.
-  - File written to `data/self_analysis_profile.yml` (CWD-relative per Output Contract Rule C); absolute
-    path printed and existence verified after the save.
+## Case 2: schema and provenance
 
-## Test Case 3: Phase 3 depth layer is evidence-bound
-**Objective**: Anchors/derailers/energy map derive only from user answers.
-- **Input**: Run Phase 3 with terse mock answers that leave one area (e.g., energy drains) unanswered.
-- **Criteria**:
-  - Unanswered area yields a follow-up question or `null` — never an inferred filler.
-  - Each derailer ties to a scored top strength (overuse framing), not to a new invented trait.
-  - `career_theme` is one line and traceable to the user's own words.
+The saved `SELF_ANALYSIS_PROFILE` uses CWD-relative `data/`, prints and verifies its absolute path,
+preserves nulls for unanswered phases, and records source/confidence for derived summaries.
 
-## Test Case 4: Language auto-detection
-**Objective**: Suite Rule A holds.
-- **Input**: Japanese question with a Korean request sentence appended ("이 내용으로 자기분석 해줘").
-- **Criteria**: Response in Korean; domain terms (自己PR, 転職軸…) stay in Japanese script.
+## Case 3: reflection boundary
 
-## Test Case 5: Handoff to job-seeker-agent
-**Objective**: Downstream reuse without double-scoring.
-- **Input**: After a completed profile, invoke job-seeker-agent with a resume.
-- **Criteria**:
-  - job-seeker-agent reuses work_style / wellbeing_priorities / self_pr_seeds (skips those questions).
-  - SPI3 and Portable Skills are still scored fresh by job-seeker-agent — never copied from the
-    self-analysis (ownership rule).
+The forced-choice/Likert exercise is labelled `Work-style reflection` or `SPI3-inspired reflection`.
+It is not official SPI3, a diagnosis, a validated personality prediction, or a company-type fit score.
 
-## Test Case 6: Canonical value confirmation
-**Objective**: AI suggestions never become canonical without explicit confirmation.
-- **Input**: Phase 3 answers that support anchors, energy, theme, and must-have/avoid values.
-- **Criteria**:
-  - The exact proposed values are shown back to the user before saving as canonical.
-  - Rejected or unanswered values are revised or left null; no generic motive is inserted.
-  - The profile remains `career_context_confirmed: false` until the user approves the complete non-null block.
-  - With `CAREER_VAULT`, `propose-context` and `career-agent approve` are required before the context is returned.
+## Case 4: preference to verification
+
+A preference such as autonomy or change tolerance becomes an environment hypothesis and questions
+about manager autonomy, decision ownership, and release cadence. It never becomes a startup/SIer
+stereotype.
+
+## Case 5: downstream handoff
+
+`job-seeker-agent` reuses confirmed values as context but independently evaluates resume evidence. It
+does not copy old ratings or convert a legacy 1–5 portable-skill value into a 29-point allocation.
+
+## Case 6: confirmation gate
+
+Rejected or unanswered suggestions remain null or unknown. A suggestion becomes canonical only after
+explicit user confirmation or the Career Vault approval flow.

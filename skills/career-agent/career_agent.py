@@ -52,6 +52,7 @@ VAULT_DIRECTORIES = (
 CONTEXT_KINDS = {"active", "evidence", "playbook", "reference"}
 TRUSTED_SOURCE_TYPES = {"official", "personal_evidence", "curated_practice"}
 REQUIRED_CONTEXT_METADATA = {"agent_read", "agent_scope", "status", "source_type", "reviewed_on"}
+UNTRUSTED_DATA_MARKER = "untrusted_career_data"
 CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")
 SHINSOTSU_STAGES = (
     "自己分析・就活軸",
@@ -559,6 +560,8 @@ def select_context(vault: Path, track: str, stage: str) -> list[dict[str, Any]]:
             "headings": note["headings"],
             "source_type": note["source_type"],
             "selected_for": {"track": track, "stage": stage},
+            "data_trust": UNTRUSTED_DATA_MARKER,
+            "instruction_authority": "none",
         }
         for note in eligible
     ]
@@ -769,12 +772,24 @@ def company_slug(name: str) -> str:
     return slug or hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
 
 
-def pipeline_file() -> Path:
-    """CWD-relative, same convention as scripts/status_bar.py and scripts/check_action.py."""
-    return Path.cwd() / "data" / "pipeline.yml"
+def workspace_path(workspace: str | Path | None = None) -> Path:
+    """Resolve the job-search workspace explicitly when projecting Vault events.
+
+    The Vault is canonical personal state. The workspace is the CWD-relative projection used by
+    domain skills. `CAREER_WORKSPACE`/`--workspace` prevents approving from an unrelated terminal
+    directory; the legacy CWD fallback remains for API callers and old scripts.
+    """
+    raw = workspace or os.environ.get("CAREER_WORKSPACE")
+    return Path(raw).expanduser().resolve() if raw else Path.cwd().resolve()
 
 
-def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Path | None:
+def pipeline_file(workspace: str | Path | None = None) -> Path:
+    return workspace_path(workspace) / "data" / "pipeline.yml"
+
+
+def upsert_pipeline_entry(
+    event: dict[str, Any], path: Path | None = None, workspace: str | Path | None = None,
+) -> Path | None:
     """Project a confirmed company event onto data/pipeline.yml, the per-company state hub.
 
     The vault owns the agent flow (track / stage / deadlines / event ledger); pipeline.yml owns
@@ -782,7 +797,7 @@ def upsert_pipeline_entry(event: dict[str, Any], path: Path | None = None) -> Pa
     runtime actually observes are written — match_score, channel, kyujin_legitimacy and the
     outcome record stay with the domain skills that produce them, and are never overwritten here.
     """
-    path = path or pipeline_file()
+    path = path or pipeline_file(workspace)
 
     stage = PIPELINE_STAGE.get(event["stage"])
     day = str(event["occurred_at"])[:10]
@@ -881,7 +896,9 @@ def migrate_pipeline_file(path: Path) -> bool:
     return True
 
 
-def doctor(vault: CareerVault, fix: bool = False) -> dict[str, Any]:
+def doctor(
+    vault: CareerVault, fix: bool = False, workspace: str | Path | None = None,
+) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
     migrations: list[str] = []
@@ -921,7 +938,7 @@ def doctor(vault: CareerVault, fix: bool = False) -> dict[str, Any]:
                     warnings.append(f"context note expired: {note['path']}")
             except ValueError:
                 errors.append(f"context note expires_on must use YYYY-MM-DD: {note['path']}")
-    pipeline_path = pipeline_file()
+    pipeline_path = pipeline_file(workspace)
     if pipeline_path.is_file():
         pipeline_data = pipeline_store.load(pipeline_path)
         if fix and "pipeline" in pipeline_data:
@@ -1078,7 +1095,7 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
             "id": f"traj-{uuid.uuid4().hex[:12]}",
             "created_at": utc_now(),
             "mode": "chat",
-            "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message},
+            "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
             "plan": {"goal": goal},
             "act": {"proposal": None},
             "verify": {"track": "ambiguous", "external_side_effect": False},
@@ -1098,7 +1115,7 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
                 "id": f"traj-{uuid.uuid4().hex[:12]}",
                 "created_at": utc_now(),
                 "mode": "chat",
-                "observe": {"track": track, "profile_has_graduation_year": False, "message": message},
+                "observe": {"track": track, "profile_has_graduation_year": False, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
                 "plan": {"goal": goal},
                 "act": {"proposal": None},
                 "verify": {"safe_stop": True, "external_side_effect": False},
@@ -1134,7 +1151,7 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
         "id": f"traj-{uuid.uuid4().hex[:12]}",
         "created_at": utc_now(),
         "mode": "chat",
-        "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message},
+        "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
         "plan": {"track": track, "stage": stage, "flow_phase": flow_phase, "goal": "route and propose a grounded event", "next_action": event["next_action"]},
         "act": {"proposal_id": proposal["id"], "skill": skill_context(skills_root, stage), "context_count": len(context)},
         "verify": {"event_schema": "valid", "context_is_metadata_only": True, "external_side_effect": False},
@@ -1142,7 +1159,7 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
         "persist": {"proposal_id": proposal["id"]},
     }
     home.append_trajectory(trajectory)
-    return {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "proposal": proposal, "saved": str(home.proposals)}
+    return {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
 
 
 def run_heartbeat(home: CareerVault) -> dict[str, Any]:
@@ -1249,6 +1266,7 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
         "profile": {key: profile[key] for key in profile_keys if key in profile and profile[key] not in (None, "")},
         "state": state,
         "context": select_context(home.path, track, stage) if stage else [],
+        "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
         "career_context": career_context,
         "career_context_confirmed": career_context is not None,
         "career_context_event_id": career_event.get("id") if career_event else None,
@@ -1397,6 +1415,7 @@ def approve(
     company: str | None = None,
     compensation: float | None = None,
     currency: str | None = None,
+    workspace: str | Path | None = None,
 ) -> dict[str, Any]:
     with vault_lock(home):
         proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
@@ -1423,7 +1442,7 @@ def approve(
                 raise
             event["status"] = "confirmed"
             # External write (data/pipeline.yml) first; if this fails, vault state & ledger remain clean
-            pipeline = upsert_pipeline_entry(event) if event.get("company") else None
+            pipeline = upsert_pipeline_entry(event, workspace=workspace) if event.get("company") else None
 
             # Vault event ledger append (idempotent guard)
             existing_events = read_jsonl(home.events)
@@ -1489,6 +1508,12 @@ def build_parser() -> argparse.ArgumentParser:
     def add_vault_argument(command: argparse.ArgumentParser) -> None:
         command.add_argument("--vault", default=os.environ.get("CAREER_VAULT"), help="initialized Career Vault; falls back to CAREER_VAULT")
 
+    def add_workspace_argument(command: argparse.ArgumentParser) -> None:
+        command.add_argument(
+            "--workspace", default=os.environ.get("CAREER_WORKSPACE"),
+            help="job-search workspace containing data/pipeline.yml; defaults to the current directory",
+        )
+
     init_parser = subparsers.add_parser("init")
     add_vault_argument(init_parser)
     setup_parser = subparsers.add_parser(
@@ -1502,6 +1527,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--language", default=None)
     doctor_parser = subparsers.add_parser("doctor")
     add_vault_argument(doctor_parser)
+    add_workspace_argument(doctor_parser)
     doctor_parser.add_argument("--fix", action="store_true", help="migrate the legacy nested data/pipeline.yml shape")
     run = subparsers.add_parser("run")
     add_vault_argument(run)
@@ -1513,6 +1539,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(status_parser)
     approve_parser = subparsers.add_parser("approve")
     add_vault_argument(approve_parser)
+    add_workspace_argument(approve_parser)
     approve_parser.add_argument("proposal_id")
     approve_parser.add_argument("--evidence", action="append", help="evidence for an event; repeat for multiple sources")
     approve_parser.add_argument("--deadline", help="confirmed event deadline in YYYY-MM-DD")
@@ -1562,11 +1589,11 @@ def main(argv: Iterable[str] | None = None) -> int:
         else:
             home.require_initialized()
             if args.command == "doctor":
-                result = doctor(home, fix=args.fix)
+                result = doctor(home, fix=args.fix, workspace=args.workspace)
             elif args.command == "status":
                 result = status(home)
             elif args.command == "approve":
-                result = approve(home, args.proposal_id, args.evidence, args.deadline, args.company, args.compensation, args.currency)
+                result = approve(home, args.proposal_id, args.evidence, args.deadline, args.company, args.compensation, args.currency, args.workspace)
             elif args.command == "restore-state":
                 result = restore_state(home, args.version)
             elif args.command == "index":

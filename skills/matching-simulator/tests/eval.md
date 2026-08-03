@@ -87,7 +87,7 @@ engine, marks facts honestly, and reports what it found without reframing it.
 - **Criteria**:
   - Legacy runs only after this explicit request, via `legacy_experimental.py --legacy-experimental`.
   - `model_version: legacy_v1` and the fixed warning are reproduced verbatim.
-  - The legacy score is NOT placed in the same table or ordering as the v3 result.
+  - The legacy record is NOT placed in the same table or ordering as the v3 result.
   - Culture Fit is reported as discontinued; no new value is computed.
 
 ## Test Case 9: Banned expressions
@@ -107,5 +107,6 @@ engine, marks facts honestly, and reports what it found without reframing it.
   - `data/match_history.md` entry carries `model_version: evidence_based_v3` and no legacy
     score fields.
   - `data/pipeline.yml` is upserted through `scripts/pipeline.py` with `decision_status` and
-    `match_model_version`; existing legacy `match_score` on that entry is left untouched.
+    `match_model_version`; existing legacy `match_score` on that entry is left untouched and is only
+    inspectable through the explicit legacy viewer.
   - Absolute paths printed and existence verified (Rule C).

@@ -1,7 +1,8 @@
 # 面接マナー Protocol
 
 > The full process of a Japanese company interview, from 入室 (entering) to 退室 (leaving).
-> An interview is not a competence check — it is a ritual to verify "a working adult we want to work with."
+> Use this as an optional etiquette checklist. It is not a company rule, a culture diagnosis, or an outcome
+> predictor. The invitation, accessibility needs, role context, and confirmed interviewer instructions override it.
 
 ---
 
@@ -14,7 +15,10 @@
 | Interview start time | Wait to be called in the waiting room |
 
 **If you'll be late:**
-The **moment** lateness is certain, call immediately (mail is not acceptable):
+As soon as the user knows there may be a delay, use the contact route in the invitation and state the confirmed
+reason and revised arrival estimate. Do not assume that a phone call is always required or that email is always
+unacceptable.
+
 > 「本日○時に面接のお約束をいただいております○○です。大変申し訳ございませんが、○○の事情により○分ほど遅れる見込みです。」
 
 ---
@@ -101,27 +105,22 @@ entrance. Do not put on your coat or take out your phone until you have fully le
 
 ---
 
-## Common Mistakes (Severity Table)
+## Common Mistakes (clarity checklist)
 
 | Mistake | Severity | Impact |
 |---------|----------|--------|
-| Late (no contact) | 致命的 | Interview may be canceled |
-| Badmouthing a former employer | 致命的 | Character doubt → immediate reject |
-| No keigo / casual speech | 致命的 | Doubts basic working-adult competence |
-| 2 knocks | 要注意 | Read as a "restroom knock." A deduction |
-| Sitting before the interviewer | 要注意 | Read as lack of manners |
-| Crossing legs | 要注意 | Arrogant impression |
-| Bag on lap | 軽微 | Read as low manner literacy |
-| Entering with coat on | 軽微 | Should be removed when entering the building |
+| Late without contacting the stated route | high practical risk | The meeting may need to be rescheduled; ask the company |
+| Unsupported criticism or invented experience | evidence risk | It creates a contradiction; use only confirmed facts |
+| Unclear greeting or seating instruction | communication risk | Follow the interviewer or accessibility instruction |
+| Clothing, camera, or audio issue | preparation risk | Resolve it when possible and explain briefly if needed |
 
 ---
 
 ## 面接の地雷ワード (Verbal Landmines — NG remarks that lower the evaluation)
 
-Separate from manner (movement), these are **words/phrases that crater the evaluation if used carelessly**.
-Common to in-person and online. The 7 below are items explicitly covered as "地雷ワード" by the channel
-(verifiable from public chapters; detailed reasoning unverifiable). The right column is interpretation based on
-general Japanese interview norms.
+Separate from manner (movement), these are **phrases to review for clarity**. They are not guaranteed rejection
+triggers and must be evaluated against the actual role and interview evidence. Replace them only when the user's
+intended meaning is confirmed.
 
 | 地雷ワード | Why it's dangerous (interpretation) | Replacement framing |
 |-----------|--------------------------------------|---------------------|

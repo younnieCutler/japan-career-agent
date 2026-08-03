@@ -46,7 +46,7 @@ def test_counts_and_stage_breakdown():
         "<career_status>\n"
         "<untrusted_career_data>\n"
         "pipeline: 3 active (3 応募・書類 1, 4 面接 2) / 1 closed\n"
-        "calibration: 1 scored outcomes (need 2 more)\n"
+        "workflow_observations: 1 reached-stage entries (need 2 more)\n"
         "</untrusted_career_data>\n"
         "</career_status>"
     )
@@ -131,8 +131,8 @@ def test_calibration_threshold():
             ]
         }
 
-    assert "calibration: 2 scored outcomes (need 1 more)" in build_status(scored(2), {}, TODAY)
-    assert "calibration: 3 scored outcomes — `scripts/calibrate.py` available" in build_status(
+    assert "workflow_observations: 2 reached-stage entries (need 1 more)" in build_status(scored(2), {}, TODAY)
+    assert "workflow_observations: 3 reached-stage entries — `scripts/calibrate.py` available" in build_status(
         scored(3), {}, TODAY
     )
 
