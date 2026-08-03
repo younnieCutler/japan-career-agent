@@ -77,6 +77,28 @@ class PipelineCliTests(unittest.TestCase):
         self.assertEqual(self.run_cli_failing("update", "gao", "--json",
                                               json.dumps({"decision_status": "proceed_maybe"})), 2)
 
+    def test_interest_history_is_appended_on_change(self) -> None:
+        self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO", "interest_level": 2,
+                                                             "interest_reason": "まだ微妙"}))
+        self.run_cli("update", "gao", "--json", json.dumps({"interest_level": 5,
+                                                             "interest_reason": "説明会で印象が変わった"}))
+        company = self.load()["companies"][0]
+        self.assertEqual(company["interest_level"], 5)
+        self.assertEqual(company["interest_reason"], "説明会で印象が変わった")
+        self.assertEqual(len(company["interest_history"]), 1)
+        snapshot = company["interest_history"][0]
+        self.assertEqual(snapshot["interest_level"], 2)
+        self.assertEqual(snapshot["interest_reason"], "まだ微妙")
+        self.assertIn("changed_at", snapshot)
+
+    def test_same_interest_level_does_not_append_history(self) -> None:
+        self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO", "interest_level": 3}))
+        self.run_cli("update", "gao", "--json", json.dumps({"interest_level": 3,
+                                                             "interest_reason": "変わらない"}))
+        company = self.load()["companies"][0]
+        self.assertEqual(company["interest_level"], 3)
+        self.assertNotIn("interest_history", company)
+
 
 if __name__ == "__main__":
     unittest.main()

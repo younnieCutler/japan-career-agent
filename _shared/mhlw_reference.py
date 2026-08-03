@@ -54,8 +54,8 @@ UNAVAILABLE_REASON = (
     "MHLW 114-profile reference dataset is not present in this installation. "
     "Its redistributable form and licence are unconfirmed, and generating the profiles "
     "would fabricate the very reference the diagnosis is measured against. "
-    "Per-JD composition distance is still available when a mapping is supplied; "
-    "the 114-profile ranking is not."
+    "Both the 114-profile ranking and per-JD composition distance require the dataset; "
+    "neither is available without it."
 )
 
 
@@ -121,9 +121,13 @@ def load(path: Path | None = None) -> dict[str, Any]:
                 "Unversioned or unsourced reference data cannot back a reproducible result."
             )
     profiles = _validate_profiles(data.get("profiles"))
+    is_full = len(profiles) == EXPECTED_PROFILE_COUNT
     return {
-        "status": "available",
-        "reason": None,
+        "status": "available" if is_full else "partial",
+        "reason": None if is_full else (
+            f"{len(profiles)} profiles loaded; the official MHLW tool uses "
+            f"{EXPECTED_PROFILE_COUNT}. Ranking and distance are suppressed for partial datasets."
+        ),
         "expected_path": str(target),
         "dataset_version": str(data["dataset_version"]),
         "source": str(data["source"]),
@@ -131,7 +135,7 @@ def load(path: Path | None = None) -> dict[str, Any]:
         "profiles": profiles,
         "profile_count": len(profiles),
         "expected_count_mismatch": (
-            None if len(profiles) == EXPECTED_PROFILE_COUNT
+            None if is_full
             else f"{len(profiles)} profiles loaded, official tool uses {EXPECTED_PROFILE_COUNT}"
         ),
     }

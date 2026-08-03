@@ -133,6 +133,13 @@ def upsert_company(
             if key == "stage" and forward_only_stage and isinstance(entry.get("stage"), int):
                 if value < entry["stage"]:
                     continue
+            if key == "interest_level" and entry.get("interest_level") is not None and entry["interest_level"] != value:
+                entry.setdefault("interest_history", []).append({
+                    "interest_level": entry["interest_level"],
+                    "interest_reason": entry.get("interest_reason"),
+                    "interest_evidence": entry.get("interest_evidence"),
+                    "changed_at": dt.date.today().isoformat(),
+                })
             entry[key] = value
         if history is not None:
             entry.setdefault("history", []).append(history)
@@ -163,6 +170,13 @@ def _update_company_data(
             continue
         if key == "stage" and isinstance(entry.get("stage"), int) and value < entry["stage"]:
             continue
+        if key == "interest_level" and entry.get("interest_level") is not None and entry["interest_level"] != value:
+            entry.setdefault("interest_history", []).append({
+                "interest_level": entry["interest_level"],
+                "interest_reason": entry.get("interest_reason"),
+                "interest_evidence": entry.get("interest_evidence"),
+                "changed_at": dt.date.today().isoformat(),
+            })
         entry[key] = value
     if history is not None:
         entry.setdefault("history", []).append(history)

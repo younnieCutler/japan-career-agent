@@ -326,6 +326,12 @@ pipeline:
             note: "string — e.g. '説明会で開発体制の話を聞いて上がった'",
             observed_at: "string: YYYY-MM-DD" }
 
+      interest_history:          # append-only log of interest_level changes, auto-written by pipeline_store
+        - { interest_level: "integer 1–5 — the PREVIOUS level before change",
+            interest_reason: "string | null — the previous reason",
+            interest_evidence: "list | null — snapshot of evidence at previous level",
+            changed_at: "string YYYY-MM-DD — when the level was overwritten" }
+
       # ── Employer signals (evidence_based_v3, FR-6) ───────────────────
       # Observed events only. No signal is converted into a probability, and the ABSENCE of
       # signals is not a negative evaluation — it is simply nothing observed.

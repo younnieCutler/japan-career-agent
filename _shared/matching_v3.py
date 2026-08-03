@@ -533,6 +533,7 @@ def decision_status(
 
     unknowns = [f"eligibility: {item['requirement']}" for item in eligibility if item["status"] == "unknown"]
     unknowns += [f"required skill: {item['name']}" for item in skills["required_skills"]["unknown"]]
+    unknowns += [f"experience: {item['name']}" for item in skills["experience"]["unknown"]]
     unknowns += [f"career value ({item['kind']}): {item['value']}"
                  for item in values["unknown"] if item["kind"] in {"must_have", "avoid"}]
     if skills["required_coverage_status"] == "insufficient_data":

@@ -47,15 +47,18 @@ def fixture_dataset(tmp: Path) -> Path:
     """A deliberately synthetic reference file. Not MHLW data, and never presented as such."""
     import yaml
 
+    keys = list(BASE_ALLOCATION.keys())
     profiles = []
-    for index in range(3):
+    for index in range(114):
         allocation = dict(BASE_ALLOCATION)
-        allocation["planning"] += index
-        allocation["subordinate_management"] = max(1, allocation["subordinate_management"] - index)
-        # keep the total at 29
-        allocation["situational_response"] = 29 - sum(
-            v for k, v in allocation.items() if k != "situational_response"
-        )
+        # Rotate which elements gain/lose points to create variety while keeping sum at 29
+        shift_from = keys[index % len(keys)]
+        shift_to = keys[(index + 1) % len(keys)]
+        delta = min(allocation[shift_from] - 1, 3)  # never go below 1
+        allocation[shift_from] -= delta
+        allocation[shift_to] += delta
+        assert sum(allocation.values()) == 29
+        assert all(v >= 1 for v in allocation.values())
         profiles.append({"id": f"synthetic-{index}", "label": f"SYNTHETIC ROLE {index}", "allocation": allocation})
     path = tmp / "synthetic_profiles.yml"
     path.write_text(
@@ -72,6 +75,7 @@ def fixture_dataset(tmp: Path) -> Path:
         encoding="utf-8",
     )
     return path
+
 
 
 def payload(**overrides):
@@ -268,6 +272,50 @@ class ReferenceDataAvailability(unittest.TestCase):
             with self.assertRaises(ValueError):
                 mhlw_reference.load(path)
 
+    def test_full_114_fixture_is_available(self):
+        """Verify the test fixture with 114 profiles returns 'available' status."""
+        with tempfile.TemporaryDirectory() as tmp:
+            reference = mhlw_reference.load(fixture_dataset(Path(tmp)))
+        self.assertEqual(reference["status"], "available")
+        self.assertIsNone(reference["expected_count_mismatch"])
+        self.assertEqual(reference["profile_count"], 114)
+
+    def test_partial_dataset_returns_partial_status(self):
+        """A dataset with ≠114 profiles is 'partial', not 'available'."""
+        import yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "small.yml"
+            profiles = [{"id": f"p-{i}", "label": f"ROLE {i}", "allocation": dict(BASE_ALLOCATION)}
+                        for i in range(3)]
+            path.write_text(yaml.safe_dump({
+                "dataset_version": "partial-test", "source": "test", "licence": "test",
+                "profiles": profiles,
+            }, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            reference = mhlw_reference.load(path)
+        self.assertEqual(reference["status"], "partial")
+        self.assertIsNotNone(reference["expected_count_mismatch"])
+        self.assertIn("3 profiles", reference["expected_count_mismatch"])
+
+    def test_partial_dataset_suppresses_distance(self):
+        """When the dataset is partial, portable_skill_result returns unavailable."""
+        import yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "small.yml"
+            profiles = [{"id": f"p-{i}", "label": f"ROLE {i}", "allocation": dict(BASE_ALLOCATION)}
+                        for i in range(10)]
+            path.write_text(yaml.safe_dump({
+                "dataset_version": "partial-test", "source": "test", "licence": "test",
+                "profiles": profiles,
+            }, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            reference = mhlw_reference.load(path)
+            result = v3.portable_skill_result(
+                {"allocation": dict(BASE_ALLOCATION),
+                 "mhlw_mapping": {"mapped_role_profile_id": "p-0", "method": "manual",
+                                  "confidence": "high", "evidence": "test"}},
+                reference=reference)
+        self.assertEqual(result["status"], "unavailable")
+        self.assertIsNone(result["distance"])
+
 
 class SkillCoverage(unittest.TestCase):
     """AC-3. Missing values."""
@@ -358,6 +406,23 @@ class DecisionStatusRules(unittest.TestCase):
         }))
         self.assertEqual(result["decision_status"], v3.DECISION_PROCEED)
         self.assertIn("preferred skill: Looker", result["missing_information"])
+
+    def test_experience_unknown_triggers_review(self):
+        """PRD: core required experience unknown → review, not proceed."""
+        result = v3.evaluate(payload(skills={
+            "required": [{"name": "SQL", "status": "matched"}],
+            "experience": [{"name": "3年以上のPM経験", "status": "unknown"}],
+        }))
+        self.assertEqual(result["decision_status"], v3.DECISION_REVIEW)
+        self.assertIn("experience: 3年以上のPM経験", result["decision_basis"]["unknowns"])
+
+    def test_experience_unknown_in_missing_information(self):
+        """Experience unknown should appear in both decision_basis and missing_information."""
+        result = v3.evaluate(payload(skills={
+            "required": [{"name": "SQL", "status": "matched"}],
+            "experience": [{"name": "5年以上の開発経験", "status": "unknown"}],
+        }))
+        self.assertIn("experience: 5年以上の開発経験", result["missing_information"])
 
 
 class InterestIndependence(unittest.TestCase):
