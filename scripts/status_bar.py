@@ -20,6 +20,7 @@ schema change, not a summary.
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import json
 import os
@@ -361,14 +362,25 @@ def load_yaml(path: Path) -> dict:
         raise SystemExit(0)
 
 
+def workspace_path(explicit: str | Path | None = None) -> Path:
+    """Resolve pipeline workspace as explicit path, env var, then CWD."""
+    raw = explicit if explicit is not None else os.environ.get("CAREER_WORKSPACE")
+    return Path(raw).expanduser().resolve() if raw else Path.cwd().resolve()
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    argv = list(argv or [])
-    if argv and argv[0] == "--refresh-cache":
+    parser = argparse.ArgumentParser(description="Print the deterministic career status bar")
+    parser.add_argument("--refresh-cache", action="store_true")
+    parser.add_argument("--workspace", help="workspace containing data/pipeline.yml")
+    parser.add_argument("legacy_root", nargs="?", help=argparse.SUPPRESS)
+    args = parser.parse_args(list(argv or []))
+    if args.refresh_cache:
         return refresh_cache()
-    root = Path(argv[0]) if argv else Path.cwd()
+    explicit = args.workspace if args.workspace is not None else args.legacy_root
+    root = workspace_path(explicit)
     pipeline = load_yaml(root / "data" / "pipeline.yml")
     if not pipeline:
         return 0

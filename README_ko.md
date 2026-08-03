@@ -38,6 +38,10 @@
 Vault는 개인 canonical state이고, `./data/pipeline.yml`은 현재 job-search workspace의 회사별
 projection입니다. 혼동을 막기 위해 필요하면 둘 다 명시하세요.
 
+status bar는 `--workspace`로 지정한 경로, `CAREER_WORKSPACE`, 현재 CWD 순서로
+`data/pipeline.yml`을 읽습니다. 다른 디렉터리에서 실행해도 잘못된 pipeline을 읽지 않도록 하기
+위한 우선순위입니다.
+
 ```powershell
 $env:CAREER_VAULT='C:\path\to\career-vault'
 $env:CAREER_WORKSPACE='C:\path\to\job-search-workspace'

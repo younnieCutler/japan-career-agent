@@ -6,13 +6,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from policy_patterns import CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS
+
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [ROOT / "README.md", ROOT / "README_ko.md", ROOT / "README_ja.md"]
 REQUIRED = ("_shared/decision_philosophy.md", "_shared/schemas.yml", "_shared/career_claims.yml", "Unknown")
 FORBIDDEN = (
-    re.compile(r"(?:screening|document|offer)\s+(?:passage|pass)\s*[:=]\s*<?\s*\d+\s*%", re.I),
+    *CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS,
     re.compile(r"(?:Recruit|Persol)\s+(?:algorithm|score|style)", re.I),
-    re.compile(r"(?:probability|pass rate|offer rate)\s*[:=]\s*<?\s*\d+\s*%", re.I),
 )
 
 

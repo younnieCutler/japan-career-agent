@@ -84,6 +84,10 @@ git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
 The Vault is personal canonical state. `data/pipeline.yml` in the job-search workspace is the
 per-company projection used by domain skills and the status bar. Set both explicitly when needed:
 
+The status bar resolves its pipeline in this order: explicit `--workspace`, then
+`CAREER_WORKSPACE`, then the current working directory. This prevents launching a prompt from an
+unrelated CWD from reading the wrong pipeline.
+
 ```bash
 set CAREER_VAULT=C:\path\to\career-vault
 set CAREER_WORKSPACE=C:\path\to\job-search-workspace
