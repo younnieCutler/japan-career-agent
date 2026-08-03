@@ -14,15 +14,15 @@ REQUIRED = ("_shared/decision_philosophy.md", "_shared/schemas.yml", "_shared/ca
 REQUIRED_BY_FILE = {
     "README.md": (
         "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24-hour", "CONTRIBUTING.md", "CHANGELOG.md",
-        "run_all_checks.py", "mock-interviewer", "1.6.2",
+        "run_all_checks.py", "mock-interviewer", "1.6.2", "1.6.3", "check_version_bump.py",
     ),
     "README_ko.md": (
         "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24시간", "CONTRIBUTING.md", "CHANGELOG.md",
-        "run_all_checks.py", "mock-interviewer", "1.6.2",
+        "run_all_checks.py", "mock-interviewer", "1.6.2", "1.6.3", "check_version_bump.py",
     ),
     "README_ja.md": (
         "JAPAN_RECRUIT_NO_UPDATE_CHECK", "24時間", "CONTRIBUTING.md", "CHANGELOG.md",
-        "run_all_checks.py", "mock-interviewer", "1.6.2",
+        "run_all_checks.py", "mock-interviewer", "1.6.2", "1.6.3", "check_version_bump.py",
     ),
 }
 FORBIDDEN = (

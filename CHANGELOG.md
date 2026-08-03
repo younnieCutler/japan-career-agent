@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.6.3] — 2026-08-04
+
+- Locked four Career Vault writers (`add_proposal`, discover-postings dedupe-then-append, the
+  vault-index rewrite, and `restore_state`'s checkpoint append) that previously wrote without
+  `vault_lock`, so two concurrent CLI invocations on the same Vault could interleave. Added
+  `fsync` to `pipeline_store.atomic_write` and routed `calibrate.py`'s rule promotion through the
+  same lock + atomic path instead of a bare `write_text`.
+- Unified workspace resolution: `calibrate.py`, `check_action.py`, `legacy_calibrate.py`, and
+  `pipeline.py` now respect `CAREER_WORKSPACE`/`--workspace` through one shared
+  `pipeline_store.resolve_workspace()`/`resolve_pipeline_path()`/`extract_workspace_flag()`
+  implementation instead of a CWD-relative `data/pipeline.yml` each hardcoded independently.
+- Added static policy guards for a canonical writer using bare `write_text`, a frozen legacy field
+  constructed with a literal numeric value, a version-pinned plugin cache path in a hook command,
+  and a bare `# noqa`.
+- Fixed the version-pinned-cache-path guard to match a real Codex install's nested
+  `.../plugins/cache/<plugin>/<plugin>/<version>/...` layout, not only a single cache directory
+  level; the regression fixture is the exact path from the original failure, not a synthesized one.
+- Added `scripts/check_version_bump.py`: a PR that changes a non-test/non-doc file under
+  `skills/`, `_shared/`, `scripts/`, or `hooks/` without bumping both `plugin.json`s now fails
+  `run_all_checks.py`/CI instead of silently merging unversioned.
+
 ## [1.6.2] — 2026-08-03
 
 - Made the UserPromptSubmit launcher fail open for missing or stale plugin cache paths, unavailable

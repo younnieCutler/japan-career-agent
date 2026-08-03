@@ -4,7 +4,7 @@
 予測せず、Recruit・Persol・dodaなどの非公開アルゴリズムも再現しません。ユーザーが提供した
 証拠を使い、確認済みの事実、衝突、`Unknown`、根拠、次に確認すべき質問を整理します。
 
-現在のリリース: `1.6.2`。
+現在のリリース: `1.6.3`。
 
 ## Canonical rules
 
@@ -64,6 +64,19 @@ status barは `--workspace` の明示パス、`CAREER_WORKSPACE`、現在のCWD�
 - 確認済みのrequired skillまたはexperience gapは`Proceed`ではなく`Review`です。preferred gapは
   独立軸として残します。required gapには決定的な確認質問を付け、pipelineでも
   `match_required_gaps`と`match_unknowns`を分けます。scoreや採用結果の予測は追加しません。
+
+## Persistence・workspace・policy hardening (`1.6.3`)
+
+- 同じVaultへの同時CLI実行が競合しないよう、すべてのwriterにlockを追加しました。pipeline
+  atomic writerに`fsync`を追加し、rule昇格もbare `write_text`ではなく同じlock+atomic経路を
+  使うようにしました。
+- `CAREER_WORKSPACE`/`--workspace`の解決をすべてのpipeline関連コマンドで共有実装に統一し、
+  一部コマンドがCWD相対pathにデフォルトしていた問題をなくしました。
+- canonical writerでのbare `write_text`使用、legacy fieldへの数値リテラル直接代入、hook
+  commandのバージョン固定plugin cache path、理由のない`# noqa`を静的検出するチェックを
+  追加しました。cache path検査は実際のCodexインストールのネスト構造も検出するよう修正しました。
+- `scripts/check_version_bump.py`を追加し、動作を変えるPRがリリースバージョンを上げずに
+  mergeされることをCIで防ぎます。
 
 ```powershell
 $env:CAREER_VAULT='C:\path\to\career-vault'

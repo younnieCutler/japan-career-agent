@@ -9,7 +9,7 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
-Current release: `1.6.2`.
+Current release: `1.6.3`.
 
 ## What it does
 
@@ -82,6 +82,19 @@ value is merged into a v3 result.
   preferred gaps remain independent, and deterministic verification questions keep required gaps
   separate from unknown information. Pipeline state stores `match_required_gaps` separately from
   `match_unknowns`; no score or hiring prediction is added.
+
+## Persistence, workspace, and policy hardening (`1.6.3`)
+
+- Locked every Career Vault writer against a concurrent CLI invocation on the same Vault; added
+  `fsync` to the pipeline atomic writer and routed rule promotion through the same lock + atomic
+  path instead of a bare `write_text`.
+- Unified `CAREER_WORKSPACE`/`--workspace` resolution across every pipeline-touching command
+  through one shared implementation, instead of some commands defaulting to a CWD-relative path.
+- Added static guards against a canonical writer using bare `write_text`, a frozen legacy field
+  constructed with a literal numeric value, a version-pinned plugin cache path in a hook command,
+  and a bare `# noqa`; fixed the cache-path guard to match a real nested Codex install path.
+- Added `scripts/check_version_bump.py`, so a PR that changes runtime behavior without bumping the
+  release version and updating this file now fails CI instead of merging silently unversioned.
 
 ## Install
 

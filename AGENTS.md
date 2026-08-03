@@ -91,3 +91,12 @@ Before committing, read `.agents/PRE_COMMIT_CHECKLIST.md` when present and never
 data-contract readers/writers, existing-state transitions, KO/JA/EN routing, Windows behavior,
 compatibility, retry safety, a lifecycle smoke test, policy/reference/context/manifest/README/release
 consistency checks, and the focused tests for changed code.
+
+Any change to a non-test, non-doc file under `skills/`, `_shared/`, `scripts/`, or `hooks/` — not
+only a new feature, any behavior change or bug fix — bumps `.claude-plugin/plugin.json` **and**
+`.codex-plugin/plugin.json`'s `version`, adds a `CHANGELOG.md` entry, and updates the `Current
+release` line in `README.md`/`README_ko.md`/`README_ja.md`. `scripts/check_version_bump.py`
+(part of `run_all_checks.py`) fails the build if this was skipped; do not treat "consistent" in the
+PR checklist as satisfied by leaving the version untouched — it means bumped-and-then-consistent.
+A PR that is genuinely docs/test-only is the only exception, and it should not touch files outside
+`*.md` or `test_*`/`tests/` paths.

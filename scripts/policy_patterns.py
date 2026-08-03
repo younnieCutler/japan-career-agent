@@ -50,9 +50,12 @@ BANNED_OUTPUT_FIELD_PATTERNS = tuple(
 
 # POLICY-007: a hook launcher command must resolve the plugin root at runtime, never bake in
 # a specific installed version's cache directory (HOOK-005-A) — e.g. a marketplace cache path
-# ending in a semver directory segment right before the scripts directory.
+# ending in a semver directory segment right before the scripts directory. `(?:segment/)+` (not
+# a single segment) because a real Codex install nests the plugin name twice:
+# `.codex/plugins/cache/japan-recruit-ai-agent/japan-recruit-ai-agent/1.6.1/scripts/...` — the
+# original single-segment version of this pattern did not match that path.
 VERSION_PINNED_CACHE_PATH_PATTERN = re.compile(
-    r"plugins[/\\]cache[/\\][^/\\'\"]+[/\\]\d+\.\d+\.\d+[/\\]"
+    r"plugins[/\\]cache[/\\](?:[^/\\'\"]+[/\\])+\d+\.\d+\.\d+[/\\]"
 )
 
 # STATIC-002: a hash-noqa with no rule code silences every rule on the line. Require a specific

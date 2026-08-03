@@ -65,15 +65,24 @@ def files() -> list[Path]:
     return sorted(set(result))
 
 
+def _line_hits(relative_path: Path, number: int, line: str) -> list[str]:
+    hits = []
+    for pattern in FORBIDDEN:
+        if pattern.search(line):
+            hits.append(f"{relative_path}:{number}: {line.strip()}")
+    # STATIC-002: hash-noqa is a Python/Ruff magic comment; scope to .py so prose in a
+    # README/CHANGELOG describing this very rule isn't flagged for saying its name.
+    if relative_path.suffix.lower() == ".py" and BARE_NOQA_PATTERN.search(line):
+        hits.append(f"{relative_path}:{number}: bare noqa (needs a rule code): {line.strip()}")
+    return hits
+
+
 def scan() -> list[str]:
     hits = []
     for path in files():
+        relative_path = path.relative_to(ROOT)
         for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-            for pattern in FORBIDDEN:
-                if pattern.search(line):
-                    hits.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()}")
-            if BARE_NOQA_PATTERN.search(line):  # STATIC-002
-                hits.append(f"{path.relative_to(ROOT)}:{number}: bare noqa (needs a rule code): {line.strip()}")
+            hits.extend(_line_hits(relative_path, number, line))
     for path in sorted(CANONICAL_WRITER_FILES):
         if not path.is_file():
             continue

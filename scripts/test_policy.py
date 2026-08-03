@@ -86,10 +86,18 @@ def test_banned_output_field_guard_is_construction_shaped() -> None:
 
 
 def test_version_pinned_cache_path_guard() -> None:
-    """POLICY-007 / HOOK-005-A: a concrete semver segment in a plugin cache path is forbidden."""
+    """POLICY-007 / HOOK-005-A: a concrete semver segment in a plugin cache path is forbidden.
+
+    The nested-plugin-name path is the exact real failure from an earlier session (a stale
+    `CLAUDE_PLUGIN_ROOT` pointing at a Codex install that nests the plugin name twice), not a
+    synthesized case — a hand-written repro tends to quietly differ from what actually broke.
+    """
     rejected = (
         'python3 "/Users/x/.claude/plugins/cache/japan-recruit-ai-agent/1.6.1/scripts/status_bar.py"',
         r"C:\plugins\cache\japan-recruit-ai-agent\1.6.2\scripts\status_bar.py",
+        "python3: can't open file "
+        "'/Users/macbook/.codex/plugins/cache/japan-recruit-ai-agent/japan-recruit-ai-agent/"
+        "1.6.1/scripts/status_bar.py': [Errno 2] No such file or directory",
     )
     allowed = (
         'python3 "${CLAUDE_PLUGIN_ROOT}/scripts/status_bar.py"',
@@ -106,6 +114,13 @@ def test_bare_noqa_guard() -> None:
     """STATIC-002: a hash-noqa with no rule code is flagged; a coded one is allowed."""
     assert BARE_NOQA_PATTERN.search("import os  #" + " noqa")
     assert not BARE_NOQA_PATTERN.search("import os  # noqa: E402")
+
+
+def test_bare_noqa_guard_is_scoped_to_python_files() -> None:
+    """A doc describing the STATIC-002 rule by name must not be flagged for saying its name."""
+    line = "this rule forbids a bare `#" + " noqa`."
+    assert check_policy._line_hits(Path("README.md"), 1, line) == []
+    assert check_policy._line_hits(Path("scripts/example.py"), 1, "import os  #" + " noqa") != []
 
 
 def test_canonical_writers_avoid_bare_write_text() -> None:

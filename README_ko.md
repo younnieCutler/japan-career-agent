@@ -5,7 +5,7 @@
 증거를 바탕으로 무엇이 확인되었고, 무엇이 충돌하며, 무엇이 `Unknown`인지와 다음에 확인할
 질문을 정리합니다.
 
-현재 릴리스: `1.6.2`.
+현재 릴리스: `1.6.3`.
 
 ## 핵심 원칙
 
@@ -75,6 +75,19 @@ pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로
 - 확인된 required skill 또는 experience gap은 `Proceed`가 아니라 `Review`입니다. preferred gap은
   독립적으로 남습니다. required gap에는 결정적인 확인 질문을 붙이고 `match_required_gaps`와
   `match_unknowns`를 pipeline에서도 분리합니다. 점수나 합격 예측은 추가하지 않습니다.
+
+## Persistence, workspace, policy hardening (`1.6.3`)
+
+- 같은 Vault에 대한 동시 CLI 실행이 겹치지 않도록 모든 writer에 lock을 걸었습니다. pipeline
+  atomic writer에 `fsync`를 추가하고 rule 승격도 bare `write_text` 대신 같은 lock+atomic
+  경로를 쓰도록 바꿨습니다.
+- `CAREER_WORKSPACE`/`--workspace` 해석을 모든 pipeline 관련 명령어에서 공유 구현 하나로
+  통일했습니다. 일부 명령이 CWD-relative 경로로 기본 동작하던 문제를 없앴습니다.
+- canonical writer의 bare `write_text` 사용, legacy field에 숫자 리터럴 직접 대입, hook
+  command의 버전 고정 plugin cache 경로, 사유 없는 `# noqa`를 정적으로 탐지하는 검사를
+  추가했습니다. cache 경로 검사는 실제 Codex 설치의 중첩 경로도 잡도록 수정했습니다.
+- `scripts/check_version_bump.py`를 추가해, 동작을 바꾸는 PR이 릴리스 버전을 올리지 않고
+  merge되는 것을 CI에서 차단합니다.
 
 ## 외부 claim과 실행
 

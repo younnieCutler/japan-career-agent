@@ -31,6 +31,18 @@ Windows path handling and retry/idempotency behavior when applicable. Context-bu
 the reason and baseline evidence to be recorded; token reduction without semantic regression tests
 is not acceptable.
 
+## Version and release docs
+
+Any behavior change or bug fix under `skills/`, `_shared/`, `scripts/`, or `hooks/` (a fix counts —
+this is not only for new features) bumps the version in **both** `.claude-plugin/plugin.json` and
+`.codex-plugin/plugin.json`, adds a `CHANGELOG.md` entry, and updates the `Current release` line in
+all three READMEs. `scripts/check_version_bump.py` enforces this: it diffs the PR against
+`origin/main` and fails if a substantive (non-`test_*`, non-`.md`) file changed under those
+directories with no version change. It skips cleanly for a genuinely docs/test-only PR, and skips
+locally when `origin/main` hasn't been fetched — `git fetch origin main` before running
+`run_all_checks.py` if you want the same signal CI gets. Do not check the PR template's "versions
+are consistent" box by leaving the version untouched; consistency is checked only after the bump.
+
 ## Pull requests
 
 Describe the decision or contract changed, list files touched, include regression tests, and state
