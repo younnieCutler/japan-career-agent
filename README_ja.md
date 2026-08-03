@@ -4,6 +4,8 @@
 予測せず、Recruit・Persol・dodaなどの非公開アルゴリズムも再現しません。ユーザーが提供した
 証拠を使い、確認済みの事実、衝突、`Unknown`、根拠、次に確認すべき質問を整理します。
 
+現在のリリース: `1.6.1`。
+
 ## Canonical rules
 
 - hard eligibility、required skills、experience、portable skills、conditions、career values、
@@ -41,6 +43,18 @@ status barは `--workspace` の明示パス、`CAREER_WORKSPACE`、現在のCWD�
 `data/pipeline.yml`を読み込みます。別のディレクトリから起動しても誤ったpipelineを読まない
 ための優先順位です。
 
+## 信頼性とcontext hardening (`1.6.1`)
+
+- Career VaultのJSON/TOML状態と書き換え型JSONL snapshotはatomic replacementを使い、
+  append-only JSONLの既存の意味は維持します。
+- Contextは常時ロードするinvariant、タスク別lazy reference、ユーザー／evidenceの原文に
+  分けます。`python scripts/check_context_budget.py`がbyte・文字数・行数を決定的に検査します。
+- 通常のstatus barでは行動につながらない反復情報を減らしますが、すべてのblockerと制限付きの
+  action/rule previewは残します。
+- `_shared/self_analysis_profile.py`がcanonical v2 profileを検証します。checklist exportは
+  raw reflectionのままで、未評価は`null`、確認済みで空のリストは`[]`と区別し、matchingや
+  Vault contextへ自動投入しません。
+
 ```powershell
 $env:CAREER_VAULT='C:\path\to\career-vault'
 $env:CAREER_WORKSPACE='C:\path\to\job-search-workspace'
@@ -75,6 +89,7 @@ publisher、source、日付、confidence、claim type、expiryとともに登録
 ```bash
 python scripts/check_policy.py
 python scripts/check_claim_freshness.py
+python scripts/check_context_budget.py
 python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
@@ -85,6 +100,9 @@ python scripts/test_calibrate.py
 python scripts/test_pipeline_cli.py
 python scripts/test_pipeline_integration.py
 python scripts/test_policy.py
+python _shared/test_self_analysis_profile.py
+python skills/career-agent/test_state_durability.py
+node skills/jiko-bunseki/tests/test_checklist_runtime.js
 ```
 
 CIはUbuntuとWindowsで動作します。legacyデータは読み取り可能ですが、新しいlegacy writeと、

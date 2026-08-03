@@ -5,6 +5,8 @@
 증거를 바탕으로 무엇이 확인되었고, 무엇이 충돌하며, 무엇이 `Unknown`인지와 다음에 확인할
 질문을 정리합니다.
 
+현재 릴리스: `1.6.1`.
+
 ## 핵심 원칙
 
 - hard eligibility, required skills, experience, portable skills, 조건, career values, practical
@@ -52,6 +54,18 @@ python skills/career-agent/career_agent.py approve --vault $env:CAREER_VAULT --w
 `restore-state`는 rollback/undo가 아니라 state recovery입니다. append-only ledger, proposal,
 pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로 읽지 않고 metadata만 사용합니다.
 
+## 신뢰성 및 context hardening (`1.6.1`)
+
+- Career Vault의 JSON/TOML 상태와 다시 쓰는 JSONL snapshot은 atomic replacement를 사용하며,
+  append-only JSONL의 기존 의미는 유지합니다.
+- Context는 항상 로드하는 invariant, 작업별 lazy reference, 사용자/evidence 원문으로 나눕니다.
+  `python scripts/check_context_budget.py`가 byte·문자 수·줄 수 기준을 결정적으로 검사합니다.
+- 일반 status bar에서는 행동으로 이어지지 않는 반복 정보를 줄이지만 모든 blocker와 제한된
+  action/rule 미리보기는 유지합니다.
+- `_shared/self_analysis_profile.py`가 canonical v2 profile을 검증합니다. checklist export는
+  raw reflection으로 남고, 미평가 `null`과 검토 후 빈 목록 `[]`을 구분하며 matching이나 Vault
+  context에 자동으로 들어가지 않습니다.
+
 ## 외부 claim과 실행
 
 시간에 따라 바뀌는 salary·platform·market 정보는 [`_shared/career_claims.yml`](_shared/career_claims.yml)에
@@ -76,6 +90,7 @@ pipeline, Vault, 후보자 데이터를 전송하지 않습니다. 오프라인�
 ```bash
 python scripts/check_policy.py
 python scripts/check_claim_freshness.py
+python scripts/check_context_budget.py
 python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
@@ -86,6 +101,9 @@ python scripts/test_calibrate.py
 python scripts/test_pipeline_cli.py
 python scripts/test_pipeline_integration.py
 python scripts/test_policy.py
+python _shared/test_self_analysis_profile.py
+python skills/career-agent/test_state_durability.py
+node skills/jiko-bunseki/tests/test_checklist_runtime.js
 ```
 
 CI는 Ubuntu와 Windows에서 실행됩니다. 기존 legacy 데이터는 읽을 수 있지만 신규 legacy write와

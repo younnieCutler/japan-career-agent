@@ -23,6 +23,7 @@ python -m pip install "ruff>=0.8,<1"
 python -m ruff check .
 python scripts/check_policy.py
 python scripts/check_claim_freshness.py
+python scripts/check_context_budget.py
 python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
@@ -30,10 +31,15 @@ python scripts/check_readme_consistency.py
 python scripts/test_status_bar.py
 python scripts/test_pipeline_integration.py
 python _shared/test_matching_v3.py
+python _shared/test_self_analysis_profile.py
+python skills/career-agent/test_state_durability.py
+node skills/jiko-bunseki/tests/test_checklist_runtime.js
 ```
 
 When changing a writer or schema, also run its focused tests and one lifecycle smoke test. Verify
-Windows path handling and retry/idempotency behavior when applicable.
+Windows path handling and retry/idempotency behavior when applicable. Context-budget changes require
+the reason and baseline evidence to be recorded; token reduction without semantic regression tests
+is not acceptable.
 
 ## Pull requests
 

@@ -296,6 +296,23 @@ class CareerAgentTests(unittest.TestCase):
         self.assertIn("career_values requires", result.stderr)
         self.assertFalse((self.vault / "02-state" / "proposals.jsonl").exists())
 
+    def test_career_context_rejects_raw_checklist_submission(self) -> None:
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        source = self.workdir / "raw-checklist.yml"
+        source.write_text(
+            "jiko_bunseki_submission: true\n"
+            "submission_version: 2\n"
+            "name: Test User\n"
+            "language: ko\n"
+            "track: chuto\n"
+            "behavior_tendencies: {analysis: 5}\n",
+            encoding="utf-8",
+        )
+        result = run(self.vault, "propose-context", "--source", str(source))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("raw checklist submission", result.stderr)
+        self.assertFalse((self.vault / "02-state" / "proposals.jsonl").exists())
+
     def test_doctor_reports_profile_and_expired_reference_problems(self) -> None:
         incomplete = output(run(self.vault, "doctor"))
         self.assertTrue(incomplete["ok"])
@@ -614,4 +631,3 @@ class CareerAgentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

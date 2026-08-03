@@ -407,6 +407,16 @@ class DecisionStatusRules(unittest.TestCase):
         self.assertEqual(result["decision_status"], v3.DECISION_PROCEED)
         self.assertIn("preferred skill: Looker", result["missing_information"])
 
+    def test_required_skill_missing_does_not_force_conflict(self):
+        result = v3.evaluate(payload(skills={
+            "required": [{"name": "SQL", "status": "missing"}],
+        }))
+        self.assertEqual(result["decision_status"], v3.DECISION_PROCEED)
+        self.assertEqual(
+            [item["name"] for item in result["skills"]["required_skills"]["missing"]],
+            ["SQL"],
+        )
+
     def test_experience_unknown_triggers_review(self):
         """PRD: core required experience unknown → review, not proceed."""
         result = v3.evaluate(payload(skills={

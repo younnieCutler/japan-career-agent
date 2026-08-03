@@ -49,7 +49,6 @@ def test_counts_and_stage_breakdown():
         "<career_status>\n"
         "<untrusted_career_data>\n"
         "pipeline: 3 active (3 応募・書類 1, 4 面接 2) / 1 closed\n"
-        "workflow_observations: 1 reached-stage entries (need 2 more)\n"
         "</untrusted_career_data>\n"
         "</career_status>"
     )
@@ -176,7 +175,7 @@ def test_calibration_threshold():
             ]
         }
 
-    assert "workflow_observations: 2 reached-stage entries (need 1 more)" in build_status(scored(2), {}, TODAY)
+    assert "workflow_observations" not in build_status(scored(2), {}, TODAY)
     assert "workflow_observations: 3 reached-stage entries — `scripts/calibrate.py` available" in build_status(
         scored(3), {}, TODAY
     )
@@ -222,7 +221,8 @@ def test_update_line_only_when_newer():
 def test_update_line_appears_last_in_the_block():
     pipeline = {"companies": [company("a", stage=4)]}
     out = build_status(pipeline, {}, TODAY, "update: v1.2.0 available")
-    assert out.splitlines()[-3] == "update: v1.2.0 available"
+    lines = out.splitlines()
+    assert lines.index("update: v1.2.0 available") == len(lines) - 3
 
 
 def test_no_prose_lines():
@@ -368,4 +368,3 @@ def run():
 
 if __name__ == "__main__":
     raise SystemExit(run())
-

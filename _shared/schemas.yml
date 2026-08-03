@@ -55,6 +55,11 @@ legacy_field_policy:
 # Produced by: jiko-bunseki (raw v2 responses become hypotheses; only user-reviewed statements are canonical)
 # Consumed by: job-seeker-agent and downstream skills that receive confirmed career context
 # Pipeline position: runs BEFORE job-seeker-agent for direction-setting.
+# Raw `jiko_bunseki_submission` exports are not SELF_ANALYSIS_PROFILE values and must never be
+# written directly to Vault, matching input, or candidate evidence. `_shared/self_analysis_profile.py`
+# performs strict v2 validation without silent normalization. `null` means unassessed; `[]` means the
+# user reviewed that list and selected none. A missing v2 marker remains readable legacy v1 history.
+# Only explicitly confirmed career context may cross the approval-gated downstream boundary.
 # ─────────────────────────────────────────────
 self_analysis_profile:
   required:

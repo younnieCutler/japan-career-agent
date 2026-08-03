@@ -25,8 +25,12 @@ jobs:
         run: python scripts/check_policy.py
       - name: external claim freshness
         run: python scripts/check_claim_freshness.py
+      - name: context budget guard
+        run: python scripts/check_context_budget.py
       - name: career-agent test suite
         run: python skills/career-agent/test_career_agent.py
+      - name: career-agent state durability tests
+        run: python skills/career-agent/test_state_durability.py
       - name: career-agent routing tests
         run: python skills/career-agent/test_routing.py
       - name: matching v3 acceptance tests
@@ -51,9 +55,13 @@ jobs:
         run: python scripts/check_agent_context.py
       - name: policy and schema regression tests
         run: python scripts/test_policy.py
+      - name: canonical self-analysis profile tests
+        run: python _shared/test_self_analysis_profile.py
       - name: plugin manifest consistency
         run: python scripts/check_manifest_consistency.py
       - name: README consistency
         run: python scripts/check_readme_consistency.py
       - name: self-analysis checklist contract
         run: python skills/jiko-bunseki/tests/test_checklist_contract.py
+      - name: executable self-analysis export contract
+        run: node skills/jiko-bunseki/tests/test_checklist_runtime.js

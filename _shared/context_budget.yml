@@ -1,0 +1,46 @@
+schema_version: "1.0"
+
+# Baseline measured at v1.6.0 (1b6a587). These are guardrails, not token targets.
+baseline:
+  tier0_bytes: 8691
+  tier0_chars: 8676
+  tier0_lines: 152
+
+always_loaded:
+  AGENTS.md:
+    max_bytes: 6800
+    max_chars: 6800
+    max_lines: 115
+  CLAUDE.md:
+    max_bytes: 500
+    max_chars: 500
+    max_lines: 12
+
+tier0:
+  required_markers:
+    - Unknown
+    - confirmed hard
+    - interest_level
+    - instruction authority
+    - approval-gated
+    - interview-prep generation BLOCKED
+    - legacy_v1
+    - "`_shared/agent_context/development.md`"
+    - "`scripts/check_context_budget.py`"
+    - "`skills/career-agent/career_agent.py`"
+
+status_bar:
+  normal_max_chars: 220
+  action_preview_limit: 3
+  rule_preview_limit: 3
+  blockers_unbounded: true
+
+lazy_context:
+  required_paths:
+    - _shared/agent_context/development.md
+    - _shared/agent_context/onboarding.md
+    - _shared/agent_context/routing.md
+    - _shared/agent_context/market_flow.md
+    - _shared/agent_context/persistence.md
+    - _shared/agent_context/learning.md
+    - _shared/agent_context/architecture.md

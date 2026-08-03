@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.1] — 2026-08-03
+
+- Made Career Vault JSON, TOML, and rewritten JSONL state writes atomic while preserving TOML as the
+  human-editable source of truth and append-only JSONL semantics.
+- Added deterministic context-budget checks, a smaller always-loaded contract, lazy development
+  references, and status-bar trimming that preserves every blocker and bounded previews.
+- Added executable Jiko Bunseki export regression coverage and strict canonical `SELF_ANALYSIS_PROFILE
+  v2` validation; raw checklist submissions remain non-canonical.
+- Synchronized CI checks, README entry points, contributor guidance, schema notes, and plugin
+  manifests.
+
 ## [1.6.0] — 2026-08-03
 
 - Added the Jiko Bunseki v2 user-led reflection workflow with twelve independent behavior

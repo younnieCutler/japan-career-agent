@@ -352,12 +352,11 @@ def rules_lines(rules: dict, *, active_slugs: set[str] | None = None) -> list[st
     return lines
 
 
-def calibration_line(pipeline: dict, *, closed: list[dict] | None = None) -> str:
+def calibration_line(pipeline: dict, *, closed: list[dict] | None = None) -> str | None:
     closed = closed if closed is not None else closed_companies(pipeline)
     scored = [c for c in closed if c.get("reached_stage") is not None]
     if len(scored) < CALIBRATION_MIN_SAMPLE:
-        need = CALIBRATION_MIN_SAMPLE - len(scored)
-        return f"workflow_observations: {len(scored)} reached-stage entries (need {need} more)"
+        return None
     return f"workflow_observations: {len(scored)} reached-stage entries — `scripts/calibrate.py` available"
 
 
@@ -401,7 +400,9 @@ def build_status(
             lines.append(line)
     lines.extend(gate_lines(pipeline, today, active=active))
     lines.extend(rules_lines(rules, active_slugs=active_slugs))
-    lines.append(calibration_line(pipeline, closed=closed))
+    calibration = calibration_line(pipeline, closed=closed)
+    if calibration:
+        lines.append(calibration)
     diversity = diversity_line(pipeline, entries=entries)
     if diversity:
         lines.append(diversity)

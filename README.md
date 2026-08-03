@@ -9,6 +9,8 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
+Current release: `1.6.1`.
+
 ## What it does
 
 | Skill | Purpose |
@@ -57,6 +59,19 @@ allocation. The 114-profile reference dataset is not bundled; an unavailable dat
 
 Historical numeric fields are readable as `legacy_v1` only. New writers reject them and no legacy
 value is merged into a v3 result.
+
+## Reliability and context hardening (`1.6.1`)
+
+- Career Vault JSON/TOML state and rewritten JSONL snapshots use atomic replacement; append-only
+  JSONL keeps its existing append semantics.
+- Context is split into always-loaded invariants, task-specific lazy references, and user/evidence
+  source data. `python scripts/check_context_budget.py` guards deterministic byte, character, and
+  line budgets.
+- The normal status bar omits repeated non-actionable detail while retaining every blocker and the
+  bounded action/rule previews.
+- `_shared/self_analysis_profile.py` validates canonical v2 profiles. Checklist exports remain raw
+  reflection, with `null` for unassessed and `[]` only for reviewed empty lists; they do not enter
+  matching or Vault context automatically.
 
 ## Install
 
@@ -147,6 +162,7 @@ Release history is kept in [`CHANGELOG.md`](CHANGELOG.md).
 ```bash
 python scripts/check_policy.py
 python scripts/check_claim_freshness.py
+python scripts/check_context_budget.py
 python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
@@ -159,7 +175,10 @@ python scripts/test_pipeline_integration.py
 python scripts/test_policy.py
 python skills/career-agent/test_routing.py
 python skills/career-agent/test_career_agent.py
+python skills/career-agent/test_state_durability.py
 python skills/jiko-bunseki/tests/test_checklist_contract.py
+node skills/jiko-bunseki/tests/test_checklist_runtime.js
+python _shared/test_self_analysis_profile.py
 ```
 
 The CI matrix covers Ubuntu and Windows. The repository also tests schema/legacy isolation,

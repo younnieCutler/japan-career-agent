@@ -252,6 +252,7 @@
     </section>
   </main>
 
+  <script src="./checklist_runtime.js"></script>
   <script>
     const BEHAVIOR_TENDENCIES = [
       { id: "initiative", ko: "정보가 완벽하지 않아도 작은 행동부터 시작하는 편이다.", ja: "情報が完璧でなくても、小さな行動から始めるほうだ。" },
@@ -327,79 +328,42 @@
       return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(input => input.value);
     }
 
-    function collectScale(name, field, unanswered, explicitUnknown) {
-      const selected = document.querySelector(`input[name="${name}"]:checked`);
-      if (!selected) { unanswered.push(field); return null; }
-      if (selected.value === 'unknown') { explicitUnknown.push(field); return null; }
-      return Number(selected.value);
-    }
-
-    function collectMulti(name, unknownId, field, unanswered, explicitUnknown) {
-      const values = selectedValues(name);
-      if (!values.length && document.getElementById(unknownId).checked) { explicitUnknown.push(field); return []; }
-      if (!values.length) unanswered.push(field);
-      return values;
-    }
-
     function textValue(id) {
       const value = document.getElementById(id).value.trim();
       return value || null;
     }
 
-    function collectText(id, field, unanswered) {
-      const value = textValue(id);
-      if (value === null) unanswered.push(field);
-      return value;
-    }
-
-    function collectEpisode(prefix, unanswered, explicitUnknown) {
-      const field = `episodes.${prefix}`;
-      if (document.getElementById(`${prefix}-unknown`).checked) { explicitUnknown.push(field); return null; }
-      const values = {
+    function exportAnswers() {
+      if (!document.getElementById('name').value.trim() || !document.getElementById('track').value) { showError(); return; }
+      document.getElementById('error-msg').classList.remove('visible');
+      const scaleSelections = (items, prefix) => Object.fromEntries(items.map(item => [
+        item.id, document.querySelector(`input[name="${prefix}.${item.id}"]:checked`)?.value
+      ]));
+      const multiSelection = (name, unknownId) => ({ values: selectedValues(name), explicit_unknown: document.getElementById(unknownId).checked });
+      const episodeInput = prefix => ({
         id: prefix,
+        unknown: document.getElementById(`${prefix}-unknown`).checked,
         experience_type: document.getElementById(`${prefix}-type`).value || null,
         situation: textValue(`${prefix}-situation`),
         action: textValue(`${prefix}-action`),
         energy_reason: textValue(`${prefix}-energy`)
-      };
-      const touched = Object.values(values).some(value => value !== null && value !== prefix);
-      if (!touched) { unanswered.push(field); return null; }
-      Object.entries(values).forEach(([key, value]) => { if (key !== 'id' && value === null) unanswered.push(`${field}.${key}`); });
-      return values;
-    }
-
-    function exportAnswers() {
-      if (!document.getElementById('name').value.trim() || !document.getElementById('track').value) { showError(); return; }
-      document.getElementById('error-msg').classList.remove('visible');
-      const unanswered = [];
-      const explicitUnknown = [];
-      const behaviorTendencies = Object.fromEntries(BEHAVIOR_TENDENCIES.map(item => [item.id, collectScale(`behavior_tendencies.${item.id}`, `behavior_tendencies.${item.id}`, unanswered, explicitUnknown)]));
-      const environmentPreferences = Object.fromEntries(ENVIRONMENT_PREFERENCES.map(item => [item.id, collectScale(`environment_preferences.${item.id}`, `environment_preferences.${item.id}`, unanswered, explicitUnknown)]));
-      const efficacy = collectScale('career_self_efficacy.learning_confidence', 'career_self_efficacy.learning_confidence', unanswered, explicitUnknown);
-      const episodes = ['episode-a', 'episode-b'].map(prefix => collectEpisode(prefix, unanswered, explicitUnknown)).filter(Boolean);
-      const interestActivities = collectMulti('interest_activities', 'interest-unknown', 'interest_activities', unanswered, explicitUnknown);
-      const barriers = collectMulti('perceived_barriers', 'barriers-unknown', 'perceived_barriers', unanswered, explicitUnknown);
-      const supports = collectMulti('perceived_supports', 'supports-unknown', 'perceived_supports', unanswered, explicitUnknown);
-      const values = collectMulti('value_candidates', 'values-unknown', 'value_candidates', unanswered, explicitUnknown);
-      const avoid = collectMulti('avoid_candidates', 'avoid-unknown', 'avoid_candidates', unanswered, explicitUnknown);
-      const result = {
-        jiko_bunseki_submission: true,
-        submission_version: 2,
-        name: document.getElementById('name').value.trim(),
+      });
+      const result = JikoChecklist.buildSubmission({
+        name: document.getElementById('name').value,
         language: document.body.dataset.lang,
         track: document.getElementById('track').value,
-        interest_activities: interestActivities,
-        behavior_tendencies: behaviorTendencies,
-        episodes,
-        career_self_efficacy: { learning_confidence: efficacy, outcome_expectation: collectText('outcome-expectation', 'career_self_efficacy.outcome_expectation', unanswered), goal: collectText('career-goal', 'career_self_efficacy.goal', unanswered) },
-        perceived_barriers: barriers,
-        perceived_supports: supports,
-        environment_preferences: environmentPreferences,
-        value_candidates: values,
-        avoid_candidates: avoid,
-        unanswered_fields: unanswered,
-        explicit_unknown_fields: explicitUnknown
-      };
+        behavior_tendencies: scaleSelections(BEHAVIOR_TENDENCIES, 'behavior_tendencies'),
+        environment_preferences: scaleSelections(ENVIRONMENT_PREFERENCES, 'environment_preferences'),
+        learning_confidence: document.querySelector('input[name="career_self_efficacy.learning_confidence"]:checked')?.value,
+        outcome_expectation: document.getElementById('outcome-expectation').value,
+        goal: document.getElementById('career-goal').value,
+        episodes: ['episode-a', 'episode-b'].map(episodeInput),
+        interest_activities: multiSelection('interest_activities', 'interest-unknown'),
+        perceived_barriers: multiSelection('perceived_barriers', 'barriers-unknown'),
+        perceived_supports: multiSelection('perceived_supports', 'supports-unknown'),
+        value_candidates: multiSelection('value_candidates', 'values-unknown'),
+        avoid_candidates: multiSelection('avoid_candidates', 'avoid-unknown')
+      });
       const json = JSON.stringify(result, null, 2);
       const output = document.getElementById('output-box');
       output.value = json;

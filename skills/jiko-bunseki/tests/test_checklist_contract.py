@@ -8,6 +8,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 CHECKLIST = ROOT / "skills" / "jiko-bunseki" / "checklist.html"
+CHECKLIST_RUNTIME = ROOT / "skills" / "jiko-bunseki" / "checklist_runtime.js"
 SCHEMA = ROOT / "_shared" / "schemas.yml"
 MATCHING = ROOT / "_shared" / "matching_v3.py"
 CAREER_AGENT = ROOT / "skills" / "career-agent" / "career_agent.py"
@@ -29,7 +30,10 @@ ENVIRONMENT_IDS = {
 
 
 def test_v2_submission_has_independent_unknown_safe_controls() -> None:
-    source = CHECKLIST.read_text(encoding="utf-8")
+    source = "\n".join([
+        CHECKLIST.read_text(encoding="utf-8"),
+        CHECKLIST_RUNTIME.read_text(encoding="utf-8"),
+    ])
     for item_id in BEHAVIOR_IDS | ENVIRONMENT_IDS:
         assert f'id: "{item_id}"' in source, item_id
     assert "submission_version: 2" in source
@@ -45,16 +49,19 @@ def test_v2_submission_has_independent_unknown_safe_controls() -> None:
 
 
 def test_unanswered_and_explicit_unknown_remain_distinct() -> None:
-    source = CHECKLIST.read_text(encoding="utf-8")
-    assert "if (!selected) { unanswered.push(field); return null; }" in source
-    assert "if (selected.value === 'unknown') { explicitUnknown.push(field); return null; }" in source
+    source = CHECKLIST_RUNTIME.read_text(encoding="utf-8")
+    assert "if (selection === undefined)" in source
+    assert "if (selection === \"unknown\")" in source
     assert "function collectText" in source
     assert "career_self_efficacy.outcome_expectation" in source
     assert "career_self_efficacy.goal" in source
 
 
 def test_checklist_is_local_bilingual_and_does_not_calculate_results() -> None:
-    source = CHECKLIST.read_text(encoding="utf-8")
+    source = "\n".join([
+        CHECKLIST.read_text(encoding="utf-8"),
+        CHECKLIST_RUNTIME.read_text(encoding="utf-8"),
+    ])
     assert "function nextStep" in source
     assert "function prevStep" in source
     assert "한국어" in source and "日本語" in source

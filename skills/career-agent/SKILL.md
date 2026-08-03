@@ -99,7 +99,9 @@ cannot both pass the "still pending" check and double-write the event — the se
 fails cleanly instead of duplicating the ledger entry. Other commands are not lock-protected.
 
 `propose-context` validates the allowlisted Phase 3 fields from `SELF_ANALYSIS_PROFILE` and creates an
-approval-gated `career_context` event. `approve` records it without changing market stage; `context`
+approval-gated `career_context` event. A complete v2 profile is strictly validated by
+`_shared/self_analysis_profile.py`; raw checklist submissions and raw-only fields are rejected, while
+older allowlisted context fragments remain readable for compatibility. `approve` records it without changing market stage; `context`
 returns only the latest confirmed career context and its event id. Missing or unconfirmed context is
 returned as `null` / `false`, so downstream skills must not treat a draft as a user's canonical value.
 

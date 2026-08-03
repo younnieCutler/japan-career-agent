@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import tomllib
 import uuid
 
@@ -34,6 +35,7 @@ _SHARED_ROOT = Path(__file__).resolve().parent.parent.parent / "_shared"
 if str(_SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(_SHARED_ROOT))
 import pipeline_store  # noqa: E402
+import self_analysis_profile  # noqa: E402
 
 
 TRACKS = {"shinsotsu", "chuto"}
@@ -194,9 +196,26 @@ def read_json(path: Path, default: Any) -> Any:
         raise CareerError(f"invalid JSON: {path}: {exc}") from exc
 
 
-def write_json(path: Path, value: Any) -> None:
+def atomic_write_text(path: Path, payload: str) -> None:
+    """Write a complete sibling temp file, then replace the destination atomically."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def write_json(path: Path, value: Any) -> None:
+    atomic_write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
 def append_jsonl(path: Path, value: dict[str, Any]) -> None:
@@ -274,11 +293,8 @@ def string_list_from(value: dict[str, Any], field: str) -> list[str] | None:
 
 
 def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = "".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n" for row in rows)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(payload, encoding="utf-8")
-    temporary.replace(path)
+    atomic_write_text(path, payload)
 
 
 def read_toml(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -332,8 +348,7 @@ def write_toml(path: Path, values: dict[str, Any]) -> None:
         for row in rows:
             lines.extend(("", f"[[{key}]]"))
             lines.extend(f"{name} = {toml_value(item)}" for name, item in row.items() if item is not None)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    atomic_write_text(path, "\n".join(lines) + "\n")
 
 
 def parse_frontmatter(text: str) -> dict[str, Any]:
@@ -710,8 +725,9 @@ class CareerVault:
     def write_state(self, state: dict[str, Any]) -> None:
         self.ensure_runtime()
         normalized = normalized_state(state)
-        write_json(self.state, normalized)
+        # TOML is the human-editable source of truth; JSON is a replaceable cache/snapshot.
         write_toml(self.state_toml, normalized)
+        write_json(self.state, normalized)
 
     def save_state(self, state: dict[str, Any]) -> str:
         version = f"v-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:6]}"
@@ -1289,6 +1305,17 @@ def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
         raise CareerError(f"invalid career context YAML: {source_path}: {exc}") from exc
     if not isinstance(raw, dict):
         raise CareerError("career context source root must be an object")
+    raw_only = sorted(self_analysis_profile.RAW_ONLY_FIELDS.intersection(raw))
+    if raw_only:
+        raise CareerError(
+            "raw checklist submission cannot become canonical career context: "
+            + ", ".join(raw_only)
+        )
+    if "self_analysis_version" in raw:
+        try:
+            self_analysis_profile.validate_self_analysis_profile(raw)
+        except self_analysis_profile.ProfileValidationError as exc:
+            raise CareerError(str(exc)) from exc
     payload = validate_career_context(raw)
     digest = hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
