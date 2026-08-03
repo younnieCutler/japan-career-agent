@@ -55,6 +55,8 @@ projectionは巻き戻しません。Vault note本文は自動で読み込まず
 
 時間により変化するsalary・platform・market情報は [`_shared/career_claims.yml`](_shared/career_claims.yml) に
 publisher、source、日付、confidence、claim type、expiryとともに登録します。期限切れは `Stale` です。
+公式サービスページにpublication dateがない場合は `published_at: unknown` とし、
+`observed_at` と `expires_on` は必ず明示します。
 
 ```bash
 python scripts/check_policy.py

@@ -117,6 +117,9 @@ Time-sensitive salary, platform, service, and market facts belong in
 [`_shared/career_claims.yml`](_shared/career_claims.yml). Each claim requires a source, publisher,
 publication/observation dates, confidence, claim type, and expiry. Run:
 
+If an official service page has no publication date, record `published_at: unknown` and keep
+`observed_at` and `expires_on` explicit.
+
 ```bash
 python scripts/check_claim_freshness.py
 ```

@@ -14,6 +14,7 @@ REQUIRED = {
     "claim_type", "confidence", "expires_on", "allowed_usage",
 }
 CLAIM_TYPES = {"official", "marketing_claim", "survey", "third_party"}
+UNKNOWN_PUBLISHED_AT = {"unknown", "unavailable", "not_published"}
 
 
 def load_claims(path: Path = CLAIMS) -> list[dict]:
@@ -34,6 +35,8 @@ def load_claims(path: Path = CLAIMS) -> list[dict]:
         if claim["claim_type"] not in CLAIM_TYPES:
             raise ValueError(f"claims[{index}].claim_type is invalid")
         for field in ("published_at", "observed_at", "expires_on"):
+            if field == "published_at" and str(claim[field]).lower() in UNKNOWN_PUBLISHED_AT:
+                continue
             try:
                 dt.date.fromisoformat(str(claim[field]))
             except ValueError as exc:
