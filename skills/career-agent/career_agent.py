@@ -774,7 +774,7 @@ def initialize_vault(path: Path) -> dict[str, Any]:
     }
     for target, content in templates.items():
         if not target.exists():
-            target.write_text(content, encoding="utf-8")
+            atomic_write_text(target, content)  # PERSIST-001: canonical writer, no bare write_text
             created.append(str(target.relative_to(vault.path)))
     if not vault.state_toml.exists():
         write_toml(vault.state_toml, default_state())
@@ -794,13 +794,15 @@ def workspace_path(workspace: str | Path | None = None) -> Path:
     The Vault is canonical personal state. The workspace is the CWD-relative projection used by
     domain skills. `CAREER_WORKSPACE`/`--workspace` prevents approving from an unrelated terminal
     directory; the legacy CWD fallback remains for API callers and old scripts.
+
+    Delegates to `pipeline_store.resolve_workspace` (WORK-002) so every entry point in the
+    repository shares one precedence implementation instead of re-deriving it.
     """
-    raw = workspace or os.environ.get("CAREER_WORKSPACE")
-    return Path(raw).expanduser().resolve() if raw else Path.cwd().resolve()
+    return pipeline_store.resolve_workspace(workspace)
 
 
 def pipeline_file(workspace: str | Path | None = None) -> Path:
-    return workspace_path(workspace) / "data" / "pipeline.yml"
+    return pipeline_store.resolve_pipeline_path(workspace)
 
 
 def upsert_pipeline_entry(
@@ -1162,7 +1164,6 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
         "created_at": utc_now(),
         "event": event,
     }
-    home.add_proposal(proposal)
     trajectory = {
         "id": f"traj-{uuid.uuid4().hex[:12]}",
         "created_at": utc_now(),
@@ -1174,7 +1175,9 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
         "persist": {"proposal_id": proposal["id"]},
     }
-    home.append_trajectory(trajectory)
+    with vault_lock(home):  # PERSIST-005: proposals.jsonl append is a shared write, not append-only-safe alone
+        home.add_proposal(proposal)
+        home.append_trajectory(trajectory)
     return {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
 
 
@@ -1191,8 +1194,9 @@ def run_heartbeat(home: CareerVault) -> dict[str, Any]:
         "limit": 3,
         "requires_confirmation": True,
     }
-    home.add_proposal({"id": report["id"], "kind": "heartbeat", "status": "pending", "created_at": report["created_at"], "report": report})
-    home.append_trajectory({"id": f"traj-{uuid.uuid4().hex[:12]}", "created_at": utc_now(), "mode": "heartbeat", "observe": state, "plan": {"goal": "select at most three grounded actions"}, "act": report, "verify": {"action_count": len(actions), "max": 3}, "correct": {"retry_count": 0}, "persist": {"proposal_id": report["id"]}})
+    with vault_lock(home):  # PERSIST-005
+        home.add_proposal({"id": report["id"], "kind": "heartbeat", "status": "pending", "created_at": report["created_at"], "report": report})
+        home.append_trajectory({"id": f"traj-{uuid.uuid4().hex[:12]}", "created_at": utc_now(), "mode": "heartbeat", "observe": state, "plan": {"goal": "select at most three grounded actions"}, "act": report, "verify": {"action_count": len(actions), "max": 3}, "correct": {"retry_count": 0}, "persist": {"proposal_id": report["id"]}})
     return report
 
 
@@ -1208,25 +1212,27 @@ def run_discover(home: CareerVault, source: str | None) -> dict[str, Any]:
     if incoming_raw and not incoming:
         # every item in the batch was corrupted - nothing to self-correct, escalate as before.
         raise CareerError("discover postings require an original http(s) URL")
-    existing = read_jsonl(home.postings)
-    known = {item.get("dedupe_key") for item in existing}
-    added = []
-    for item in incoming:
-        if item["dedupe_key"] in known:
-            continue
-        known.add(item["dedupe_key"])
-        added.append(item)
-    for item in added:
-        append_jsonl(home.postings, item)
-    result = {"mode": "discover", "found": len(incoming), "added": len(added), "duplicates": len(incoming) - len(added), "dropped": len(invalid), "postings": added, "saved": str(home.postings), "auto_apply": False}
-    home.add_proposal({"id": f"discover-{uuid.uuid4().hex[:12]}", "kind": "posting_candidates", "status": "pending", "created_at": utc_now(), "result": result})
-    home.append_trajectory({"id": f"traj-{uuid.uuid4().hex[:12]}", "created_at": utc_now(), "mode": "discover", "observe": {"source": source, "count": len(incoming_raw)}, "plan": {"goal": "normalize public posting candidates and deduplicate"}, "act": {"added": len(added)}, "verify": {"original_urls_preserved": True, "invalid_count": len(invalid)}, "correct": {"action": "dropped_invalid_postings" if invalid else "none", "dropped": len(invalid), "retry_count": 0}, "persist": {"postings": str(home.postings)}})
+    with vault_lock(home):  # PERSIST-005: dedupe-then-append must not race a concurrent discover
+        existing = read_jsonl(home.postings)
+        known = {item.get("dedupe_key") for item in existing}
+        added = []
+        for item in incoming:
+            if item["dedupe_key"] in known:
+                continue
+            known.add(item["dedupe_key"])
+            added.append(item)
+        for item in added:
+            append_jsonl(home.postings, item)
+        result = {"mode": "discover", "found": len(incoming), "added": len(added), "duplicates": len(incoming) - len(added), "dropped": len(invalid), "postings": added, "saved": str(home.postings), "auto_apply": False}
+        home.add_proposal({"id": f"discover-{uuid.uuid4().hex[:12]}", "kind": "posting_candidates", "status": "pending", "created_at": utc_now(), "result": result})
+        home.append_trajectory({"id": f"traj-{uuid.uuid4().hex[:12]}", "created_at": utc_now(), "mode": "discover", "observe": {"source": source, "count": len(incoming_raw)}, "plan": {"goal": "normalize public posting candidates and deduplicate"}, "act": {"added": len(added)}, "verify": {"original_urls_preserved": True, "invalid_count": len(invalid)}, "correct": {"action": "dropped_invalid_postings" if invalid else "none", "dropped": len(invalid), "retry_count": 0}, "persist": {"postings": str(home.postings)}})
     return result
 
 
 def run_index(home: CareerVault, *, include_archives: bool = False) -> dict[str, Any]:
     notes = index_vault_notes(home.path, include_archives=include_archives)
-    write_jsonl(home.vault_index, notes)
+    with vault_lock(home):  # PERSIST-005: full-rewrite writer, same lock as every other canonical write
+        write_jsonl(home.vault_index, notes)
     result = {
         "mode": "index",
         "vault": str(home.path),
@@ -1515,8 +1521,9 @@ def restore_state(home: CareerVault, version: str) -> dict[str, Any]:
     state = read_json(snapshot, {})
     if not isinstance(state, dict):
         raise CareerError(f"invalid version snapshot: {version}")
-    home.write_state(state)
-    append_jsonl(home.checkpoints, {"version": version, "restored_at": utc_now(), "state": state})
+    with vault_lock(home):  # PERSIST-005: must not race a concurrent approve()'s save_state
+        home.write_state(state)
+        append_jsonl(home.checkpoints, {"version": version, "restored_at": utc_now(), "state": state})
     return {"restored": True, "version": version, "state": state,
             "ledger_retained": True,
             "note": "State only. events.jsonl, proposals.jsonl and data/pipeline.yml are unchanged."}

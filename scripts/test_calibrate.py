@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import sys
+import tempfile
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -80,12 +81,58 @@ def test_two_causes_become_promotable() -> None:
 
 def test_approve_below_threshold_exits() -> None:
     try:
-        calibrate.approve_rule({"companies": [closed("a", root_cause="missing evidence")]}, {}, "missing evidence", "review the JD")
+        calibrate.approve_rule(
+            {"companies": [closed("a", root_cause="missing evidence")]},
+            "missing evidence", "review the JD", Path("unused-rules.yml"),
+        )
     except SystemExit as exc:
         assert "1 supporting entries" in str(exc)
         assert "candidate diagnosis" in str(exc)
         return
     raise AssertionError("promotion below the threshold must exit")
+
+
+def test_approve_rule_is_atomic_and_locked() -> None:
+    """PERSIST-001/005: rule promotion goes through pipeline_store.mutate, not a bare write_text."""
+    with tempfile.TemporaryDirectory() as tmp:
+        rules_path = Path(tmp) / "rules.yml"
+        pipeline = {"companies": [
+            closed("a", root_cause="missing evidence"),
+            closed("b", root_cause="missing evidence"),
+        ]}
+        calibrate.approve_rule(pipeline, "missing evidence", "review the JD before applying", rules_path)
+        rules = calibrate.load(rules_path, required=False)
+        assert rules["rules"][0]["id"] == "missing evidence"
+        assert rules["rules"][0]["text"] == "review the JD before applying"
+        assert not list(Path(tmp).glob("*.tmp-*")), "atomic_write left a temp file behind"
+
+        try:
+            calibrate.approve_rule(pipeline, "missing evidence", "duplicate", rules_path)
+        except SystemExit as exc:
+            assert "already exists" in str(exc)
+        else:
+            raise AssertionError("re-approving the same cause must exit")
+
+
+def test_main_workspace_flag_resolves_pipeline_and_rules_paths() -> None:
+    """WORK-001: --workspace resolves both data/pipeline.yml and data/rules.yml under it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        workspace = Path(tmp) / "ws"
+        (workspace / "data").mkdir(parents=True)
+        import yaml
+
+        (workspace / "data" / "pipeline.yml").write_text(
+            yaml.safe_dump({"companies": [closed("a", root_cause="missing evidence"),
+                                          closed("b", root_cause="missing evidence")]}),
+            encoding="utf-8",
+        )
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = calibrate.main(["--workspace", str(workspace), "rules",
+                                   "--approve", "missing evidence", "--text", "review the JD"])
+        assert code == 0
+        rules = calibrate.load(workspace / "data" / "rules.yml", required=False)
+        assert rules["rules"][0]["id"] == "missing evidence"
 
 
 def run_all() -> int:

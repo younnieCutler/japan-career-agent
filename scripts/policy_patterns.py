@@ -32,3 +32,29 @@ CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS = (
         r"オファー(?:率|確率))\s*[:=：]?\s*" + _PERCENT
     ),
 )
+
+# POLICY-004: a frozen legacy_v1 field constructed with a literal numeric value — a new code
+# path fabricating a legacy-shaped score field instead of routing through
+# `_shared/matching_v3.py` + `decision_status`. Deliberately narrow — it does not match the
+# field name appearing in a Python set literal, a schema doc string, or a rejection message,
+# only a quoted-field-name-immediately-followed-by-a-colon-and-a-digit construction shape.
+BANNED_LEGACY_FIELD_NAMES = (
+    "match_score", "predicted_tier", "culture_fit_score", "screening_probability",
+    "platform_probability", "overall_score", "overall_grade",
+    "hiring_probability", "acceptance_probability",
+)
+BANNED_OUTPUT_FIELD_PATTERNS = tuple(
+    re.compile(r'["\']' + re.escape(name) + r'["\']\s*:\s*\d')
+    for name in BANNED_LEGACY_FIELD_NAMES
+)
+
+# POLICY-007: a hook launcher command must resolve the plugin root at runtime, never bake in
+# a specific installed version's cache directory (HOOK-005-A) — e.g. a marketplace cache path
+# ending in a semver directory segment right before the scripts directory.
+VERSION_PINNED_CACHE_PATH_PATTERN = re.compile(
+    r"plugins[/\\]cache[/\\][^/\\'\"]+[/\\]\d+\.\d+\.\d+[/\\]"
+)
+
+# STATIC-002: a hash-noqa with no rule code silences every rule on the line. Require a specific
+# code so a future violation of a different rule on the same line is not hidden by accident.
+BARE_NOQA_PATTERN = re.compile("#" + r"\s*noqa(?!\s*:)")

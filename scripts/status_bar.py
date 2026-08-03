@@ -133,6 +133,8 @@ def refresh_cache() -> int:
         else:
             # Keep the previous answer rather than forgetting it over one failed fetch.
             payload["latest"] = read_cache().get("latest")
+        # ponytail: non-atomic write; a torn file just fails read_cache()'s broad except and
+        # re-fetches next cycle. Regenerable cache, not canonical state — no lock/atomic needed.
         path.write_text(json.dumps(payload))
     except Exception:
         pass
@@ -442,7 +444,14 @@ def load_yaml(path: Path) -> dict:
 
 
 def workspace_path(explicit: str | Path | None = None) -> Path:
-    """Resolve pipeline workspace as explicit path, env var, then CWD."""
+    """Resolve pipeline workspace as explicit path, env var, then CWD (WORK-001).
+
+    Kept as a local, dependency-free copy — deliberately, not by oversight — because this
+    module runs on every prompt via the UserPromptSubmit hook and must not gain an import
+    that could fail before the pipeline-empty short-circuit at :465. The canonical shared
+    implementation is `_shared/pipeline_store.resolve_workspace`; this must stay identical
+    to it (see `scripts/test_status_bar.py`'s parity check against that function).
+    """
     raw = explicit if explicit is not None else os.environ.get("CAREER_WORKSPACE")
     return Path(raw).expanduser().resolve() if raw else Path.cwd().resolve()
 

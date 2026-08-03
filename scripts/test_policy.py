@@ -21,7 +21,12 @@ import career_agent  # noqa: E402
 import check_claim_freshness  # noqa: E402
 import check_policy  # noqa: E402
 import check_readme_consistency  # noqa: E402
-from policy_patterns import CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS  # noqa: E402
+from policy_patterns import (  # noqa: E402
+    BANNED_OUTPUT_FIELD_PATTERNS,
+    BARE_NOQA_PATTERN,
+    CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS,
+    VERSION_PINNED_CACHE_PATH_PATTERN,
+)
 
 
 def test_unknown_preservation() -> None:
@@ -63,6 +68,50 @@ def test_candidate_outcome_percentage_guards_are_output_shaped() -> None:
         assert any(pattern.search(sample) for pattern in check_readme_consistency.FORBIDDEN), sample
     for sample in allowed:
         assert not any(pattern.search(sample) for pattern in CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS), sample
+
+
+def test_banned_output_field_guard_is_construction_shaped() -> None:
+    """POLICY-004: only a literal `"field": <digit>` construction is flagged."""
+    rejected = ('"match_score": 82', "'hiring_probability': 90", '"overall_grade": 1')
+    allowed = (
+        '"match_score":   "legacy_v1. integer 0-100 | null. FROZEN."',  # schema doc string
+        'LEGACY_WRITE_FIELDS = {"match_score", "predicted_tier"}',       # set literal
+        "raise ValueError(f'legacy_v1 fields are frozen: match_score')",  # rejection message
+    )
+    for sample in rejected:
+        assert any(pattern.search(sample) for pattern in BANNED_OUTPUT_FIELD_PATTERNS), sample
+        assert any(pattern.search(sample) for pattern in check_policy.FORBIDDEN), sample
+    for sample in allowed:
+        assert not any(pattern.search(sample) for pattern in BANNED_OUTPUT_FIELD_PATTERNS), sample
+
+
+def test_version_pinned_cache_path_guard() -> None:
+    """POLICY-007 / HOOK-005-A: a concrete semver segment in a plugin cache path is forbidden."""
+    rejected = (
+        'python3 "/Users/x/.claude/plugins/cache/japan-recruit-ai-agent/1.6.1/scripts/status_bar.py"',
+        r"C:\plugins\cache\japan-recruit-ai-agent\1.6.2\scripts\status_bar.py",
+    )
+    allowed = (
+        'python3 "${CLAUDE_PLUGIN_ROOT}/scripts/status_bar.py"',
+        "version metadata lives in .claude-plugin/plugin.json, not the hook command",
+    )
+    for sample in rejected:
+        assert VERSION_PINNED_CACHE_PATH_PATTERN.search(sample), sample
+        assert any(pattern.search(sample) for pattern in check_policy.FORBIDDEN), sample
+    for sample in allowed:
+        assert not VERSION_PINNED_CACHE_PATH_PATTERN.search(sample), sample
+
+
+def test_bare_noqa_guard() -> None:
+    """STATIC-002: a hash-noqa with no rule code is flagged; a coded one is allowed."""
+    assert BARE_NOQA_PATTERN.search("import os  #" + " noqa")
+    assert not BARE_NOQA_PATTERN.search("import os  # noqa: E402")
+
+
+def test_canonical_writers_avoid_bare_write_text() -> None:
+    """POLICY-002: the writer contract files never call `.write_text(` directly."""
+    hits = check_policy.scan()
+    assert not any("POLICY-002" in hit for hit in hits), hits
 
 
 def test_job_seeker_references_are_lazy_routed() -> None:

@@ -4,6 +4,10 @@
     python scripts/calibrate.py            # workflow observations
     python scripts/calibrate.py rules      # repeated feedback causes
     python scripts/calibrate.py rules --approve <root_cause> --text "..."
+    python scripts/calibrate.py --workspace <dir>   # any subcommand accepts --workspace
+
+Resolves data/pipeline.yml and data/rules.yml through --workspace, then CAREER_WORKSPACE,
+then the current directory (WORK-001).
 
 The default report deliberately excludes legacy numeric tiers. Historical legacy fields can be read
 only through ``scripts/legacy_calibrate.py --legacy-experimental``; they are never mixed with v3
@@ -16,10 +20,13 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+_SHARED_ROOT = Path(__file__).resolve().parent.parent / "_shared"
+if str(_SHARED_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SHARED_ROOT))
+import pipeline_store  # noqa: E402
+
 from status_bar import closed_companies  # noqa: E402
 
-PIPELINE = Path("data/pipeline.yml")
-RULES = Path("data/rules.yml")
 MIN_SAMPLE = 3
 PROMOTION_THRESHOLD = 2
 
@@ -29,7 +36,10 @@ def load(path: Path, required: bool = True) -> dict:
 
     if not path.is_file():
         if required:
-            raise SystemExit(f"not found: {path.resolve()}\nRun this from the directory holding data/.")
+            raise SystemExit(
+                f"not found: {path.resolve()}\n"
+                "Run this from the directory holding data/, set CAREER_WORKSPACE, or pass --workspace."
+            )
         return {}
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
@@ -131,27 +141,34 @@ def rules_report(pipeline: dict, rules: dict) -> int:
     return 0
 
 
-def approve_rule(pipeline: dict, rules: dict, cause: str, text: str) -> int:
+def approve_rule(pipeline: dict, cause: str, text: str, rules_path: Path) -> int:
+    """Promote one repeated feedback cause into data/rules.yml.
+
+    Goes through `pipeline_store.mutate` (lock + atomic write, PERSIST-001/005) instead of a
+    bare `write_text`, so a crash mid-write cannot truncate rules.yml and a concurrent
+    `career_agent.py` rules read never sees a half-written file.
+    """
     counts, slugs = rule_candidates(pipeline)
     if counts[cause] < PROMOTION_THRESHOLD:
         raise SystemExit(
             f"{cause!r} has {counts[cause]} supporting entries; {PROMOTION_THRESHOLD} required.\n"
             "One company's feedback is that company's observation, not a candidate diagnosis."
         )
-    entries = rules.setdefault("rules", [])
-    if any(rule.get("id") == cause for rule in entries):
-        raise SystemExit(f"a rule for {cause!r} already exists in {RULES}")
     import datetime as dt
-    import yaml
 
-    entries.append({
-        "id": cause, "text": text, "status": "active", "source": "observed_workflow",
-        "supported_by": slugs[cause], "created": dt.date.today().isoformat(),
-    })
-    RULES.parent.mkdir(parents=True, exist_ok=True)
-    RULES.write_text(yaml.safe_dump(rules, allow_unicode=True, sort_keys=False, width=100), encoding="utf-8")
+    def apply(rules: dict) -> dict:
+        entries = rules.setdefault("rules", [])
+        if any(rule.get("id") == cause for rule in entries):
+            raise SystemExit(f"a rule for {cause!r} already exists in {rules_path}")
+        entries.append({
+            "id": cause, "text": text, "status": "active", "source": "observed_workflow",
+            "supported_by": slugs[cause], "created": dt.date.today().isoformat(),
+        })
+        return rules
+
+    pipeline_store.mutate(rules_path, apply)
     print(f"rule added: {text}")
-    print(RULES.resolve())
+    print(rules_path.resolve())
     return 0
 
 
@@ -159,19 +176,23 @@ def main(argv: list[str]) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    pipeline = load(PIPELINE)
+    argv, workspace = pipeline_store.extract_workspace_flag(list(argv))
+    root = pipeline_store.resolve_workspace(workspace)
+    pipeline_path = root / "data" / "pipeline.yml"
+    rules_path = root / "data" / "rules.yml"
+    pipeline = load(pipeline_path)
     if not argv:
         return report(pipeline)
     if argv[0] != "rules":
-        raise SystemExit("usage: calibrate.py [rules [--approve <root_cause> --text <rule>]]")
-    rules = load(RULES, required=False)
+        raise SystemExit("usage: calibrate.py [rules [--approve <root_cause> --text <rule>]] [--workspace <dir>]")
+    rules = load(rules_path, required=False)
     if "--approve" in argv:
         try:
             cause = argv[argv.index("--approve") + 1]
             text = argv[argv.index("--text") + 1]
         except (ValueError, IndexError):
             raise SystemExit('usage: calibrate.py rules --approve <root_cause> --text "<rule>"')
-        return approve_rule(pipeline, rules, cause, text)
+        return approve_rule(pipeline, cause, text, rules_path)
     return rules_report(pipeline, rules)
 
 

@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+import pipeline_store  # noqa: E402
 from calibrate import load, scored_entries  # noqa: E402
 from status_bar import STAGE_LABELS  # noqa: E402
 
@@ -35,9 +37,14 @@ def report(pipeline: dict) -> int:
 
 
 def main(argv: list[str]) -> int:
+    argv, workspace = pipeline_store.extract_workspace_flag(list(argv))
     if argv != ["--legacy-experimental"]:
-        raise SystemExit("refusing legacy calibration; pass --legacy-experimental explicitly")
-    return report(load(Path("data/pipeline.yml"), required=False))
+        raise SystemExit(
+            "refusing legacy calibration; pass --legacy-experimental explicitly "
+            "(optionally with --workspace <dir>)"
+        )
+    pipeline_path = pipeline_store.resolve_pipeline_path(workspace)
+    return report(load(pipeline_path, required=False))
 
 
 if __name__ == "__main__":

@@ -18,9 +18,11 @@ from pathlib import Path
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 
 import status_bar  # noqa: E402
 from status_bar import build_status  # noqa: E402
+import pipeline_store  # noqa: E402
 
 TODAY = dt.date(2026, 8, 2)
 
@@ -304,6 +306,22 @@ def test_malformed_cwd_shapes_fail_closed():
 
     assert build_status({"companies": "not a list"}, rules, TODAY) == ""
     assert build_status({"companies": ["not a company"]}, rules, TODAY) == ""
+
+
+def test_workspace_path_matches_shared_resolver():
+    """WORK-002: status_bar's local copy must stay identical to pipeline_store.resolve_workspace."""
+    old_workspace = os.environ.get("CAREER_WORKSPACE")
+    try:
+        os.environ.pop("CAREER_WORKSPACE", None)
+        assert status_bar.workspace_path(None) == pipeline_store.resolve_workspace(None)
+        assert status_bar.workspace_path("/tmp/explicit") == pipeline_store.resolve_workspace("/tmp/explicit")
+        os.environ["CAREER_WORKSPACE"] = "/tmp/from-env"
+        assert status_bar.workspace_path(None) == pipeline_store.resolve_workspace(None)
+    finally:
+        if old_workspace is None:
+            os.environ.pop("CAREER_WORKSPACE", None)
+        else:
+            os.environ["CAREER_WORKSPACE"] = old_workspace
 
 
 def test_workspace_resolution_explicit_env_then_cwd():

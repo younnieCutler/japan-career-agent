@@ -152,6 +152,28 @@ class PipelineCliTests(unittest.TestCase):
         self.assertEqual(len(company["interest_history"]), 1)
         self.assertEqual(company["interest_history"][0]["interest_level"], 4)
 
+    def test_workspace_flag_resolves_default_pipeline_path(self) -> None:
+        """WORK-001: --workspace (with no explicit --path) resolves <workspace>/data/pipeline.yml."""
+        workspace = Path(self.tempdir.name) / "other-workspace"
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = pipeline.main(["--workspace", str(workspace), "upsert", "gao", "--json",
+                                  json.dumps({"name": "GAO", "stage": 1})])
+        self.assertEqual(code, 0)
+        resolved = workspace / "data" / "pipeline.yml"
+        self.assertTrue(resolved.is_file())
+        self.assertEqual(yaml.safe_load(resolved.read_text(encoding="utf-8"))["companies"][0]["slug"], "gao")
+
+    def test_explicit_path_overrides_workspace(self) -> None:
+        workspace = Path(self.tempdir.name) / "ignored-workspace"
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = pipeline.main(["--workspace", str(workspace), "--path", str(self.path),
+                                  "upsert", "gao", "--json", json.dumps({"name": "GAO"})])
+        self.assertEqual(code, 0)
+        self.assertTrue(self.path.is_file())
+        self.assertFalse((workspace / "data" / "pipeline.yml").exists())
+
 
 if __name__ == "__main__":
 

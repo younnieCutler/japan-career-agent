@@ -38,7 +38,11 @@ def path_arg(raw: str) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--path", default="data/pipeline.yml", help="pipeline file (default: data/pipeline.yml)")
+    parser.add_argument(
+        "--path", default=None,
+        help="pipeline file (default: $CAREER_WORKSPACE/data/pipeline.yml, else ./data/pipeline.yml)",
+    )
+    parser.add_argument("--workspace", help="workspace containing data/pipeline.yml; ignored if --path is set")
     sub = parser.add_subparsers(dest="command", required=True)
 
     for command in ("upsert", "update"):
@@ -59,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     close.add_argument("--event", help="history event; defaults to closed_reason")
 
     args = parser.parse_args(argv)
-    path = path_arg(args.path)
+    path = path_arg(args.path) if args.path else pipeline_store.resolve_pipeline_path(args.workspace)
     history_item = None
     if args.command in {"upsert", "update"} and args.history:
         history_item = {"date": dt.date.today().isoformat(), "event": args.history}

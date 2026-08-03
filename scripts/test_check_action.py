@@ -56,6 +56,17 @@ def test_checking_twice_does_not_duplicate_history():
         assert len(reloaded["companies"][0]["history"]) == 1, reloaded
 
 
+def test_main_workspace_flag_resolves_pipeline_path():
+    """WORK-001: --workspace resolves <workspace>/data/pipeline.yml, not CWD-relative data/."""
+    with tempfile.TemporaryDirectory() as tmp:
+        workspace = Path(tmp) / "ws"
+        seeded_pipeline(workspace / "data" / "pipeline.yml")
+        code = check_action.main(["--workspace", str(workspace), "gao", "a1"])
+        assert code == 0
+        reloaded = pipeline_store.load(workspace / "data" / "pipeline.yml")
+        assert reloaded["companies"][0]["action_items"][0]["checked"] is True, reloaded
+
+
 def run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for test in tests:
