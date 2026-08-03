@@ -22,6 +22,8 @@
 - Synchronized plugin manifests, README contracts, CI, and the Claude standard-hook loading rule.
 - Fixed Jiko checklist export wiring so the learning-confidence slider preserves numeric,
   unanswered, and explicit-Unknown states.
+- Added a deterministic release-consistency check for both plugin manifests, all README release
+  markers, and the top CHANGELOG heading; CI and contributor checks now run it.
 
 ## [1.6.1] — 2026-08-03
 

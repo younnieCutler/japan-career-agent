@@ -104,6 +104,7 @@ python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
 python scripts/check_readme_consistency.py
+python scripts/check_release_consistency.py
 python scripts/test_hook_contract.py
 python _shared/test_matching_v3.py
 python scripts/test_status_bar.py

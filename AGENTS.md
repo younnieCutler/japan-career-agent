@@ -88,5 +88,6 @@ skills. An unchecked interview action keeps `interview-prep generation BLOCKED` 
 
 Before committing, read `.agents/PRE_COMMIT_CHECKLIST.md` when present and never commit it. Verify
 data-contract readers/writers, existing-state transitions, KO/JA/EN routing, Windows behavior,
-compatibility, retry safety, a lifecycle smoke test, policy/reference/context/manifest/README
-checks, and the focused tests for changed code.
+compatibility, retry safety, a lifecycle smoke test, policy/reference/context/manifest/README/release
+consistency checks, and the focused tests for changed code. Run `python scripts/check_release_consistency.py`
+after any version, README, manifest, or CHANGELOG change.
