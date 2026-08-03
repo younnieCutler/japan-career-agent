@@ -37,6 +37,11 @@ in [`_shared/agent_context/development.md`](_shared/agent_context/development.md
 - `scripts/status_bar.py` is a local-first deterministic `<career_status>` projection. It may do
   one detached 24-hour manifest version check, never sends career data, and must show every gate
   blocker even when previews are limited. Set `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` to disable it.
+- `hooks/hooks.json` must fail open: a missing target script (stale `CLAUDE_PLUGIN_ROOT` from a
+  version an update deleted mid-session) must never block the prompt. Never hardcode a concrete
+  cache version path in a hook command. Launcher failures must emit a degraded status saying that
+  execution gates and deadlines were not checked; the Claude manifest must not redeclare the
+  standard `hooks/hooks.json` file.
 
 ## Context tiers
 

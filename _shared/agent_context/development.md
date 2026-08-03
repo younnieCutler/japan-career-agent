@@ -31,6 +31,7 @@ python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
 python scripts/check_readme_consistency.py
+python scripts/test_hook_contract.py
 python _shared/test_self_analysis_profile.py
 python skills/career-agent/test_state_durability.py
 node skills/jiko-bunseki/tests/test_checklist_runtime.js

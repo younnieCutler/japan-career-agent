@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.2] — 2026-08-03
+
+- Made the UserPromptSubmit launcher fail open for missing or stale plugin cache paths, unavailable
+  Python, and status-bar runtime errors while visibly reporting that execution gates and deadlines
+  were not checked.
+- Added POSIX/Windows hook lifecycle regression coverage, including deleted-version cache paths and
+  paths containing spaces or non-ASCII characters.
+- Completed canonical `SELF_ANALYSIS_PROFILE v2` checks for known activity IDs, unique episode IDs,
+  valid behavior-to-episode references, and derailer identifiers without changing the readable
+  list/null contract or migrating legacy data.
+- Changed confirmed required skill and experience gaps from `Proceed` to `Review`; preferred gaps,
+  hard-conflict precedence, interest independence, and no-score semantics remain unchanged.
+- Synchronized plugin manifests, README contracts, CI, and the Claude standard-hook loading rule.
+
 ## [1.6.1] — 2026-08-03
 
 - Made Career Vault JSON, TOML, and rewritten JSONL state writes atomic while preserving TOML as the

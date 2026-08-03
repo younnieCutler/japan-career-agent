@@ -66,6 +66,68 @@ class SelfAnalysisProfileTests(unittest.TestCase):
         with self.assertRaises(profile.ProfileValidationError):
             profile.validate_self_analysis_profile(value)
 
+    def test_interest_activity_ids_are_known(self) -> None:
+        value = valid_profile()
+        value["interest_hypotheses"] = [{
+            "activity": "not-a-checklist-id",
+            "response_basis": "user selected it",
+            "confidence": "medium",
+        }]
+        with self.assertRaises(profile.ProfileValidationError):
+            profile.validate_self_analysis_profile(value)
+
+    def test_episode_ids_are_unique_and_behavior_refs_resolve(self) -> None:
+        def episode(identifier: str) -> dict:
+            return {
+                "id": identifier,
+                "experience_type": "project",
+                "situation": "A project needed structure",
+                "action": "I organized the work",
+                "energy_effect": "energizing",
+                "energy_reason": None,
+                "source_type": "user",
+                "confidence": "high",
+            }
+
+        duplicate = valid_profile()
+        duplicate["evidence_episodes"] = [episode("episode-a"), episode("episode-a")]
+        with self.assertRaisesRegex(profile.ProfileValidationError, "unique"):
+            profile.validate_self_analysis_profile(duplicate)
+
+        dangling = valid_profile()
+        dangling["behavior_tendencies"] = [{
+            "name": "analysis",
+            "self_report": 5,
+            "response_basis": "user said so",
+            "evidence_episode_refs": ["missing-episode"],
+            "confidence": "high",
+        }]
+        with self.assertRaisesRegex(profile.ProfileValidationError, "unknown episode"):
+            profile.validate_self_analysis_profile(dangling)
+
+        valid = valid_profile()
+        valid["evidence_episodes"] = [episode("episode-a")]
+        valid["behavior_tendencies"] = [{
+            "name": "analysis",
+            "self_report": 5,
+            "response_basis": "user said so",
+            "evidence_episode_refs": ["episode-a"],
+            "confidence": "high",
+        }]
+        self.assertEqual(profile.validate_self_analysis_profile(valid), valid)
+
+    def test_derailers_have_known_tendency_and_explicit_shape(self) -> None:
+        value = valid_profile()
+        value["derailers"] = [{
+            "strength": "analysis",
+            "overuse_risk": "over-checking",
+            "watch_signal": "decisions keep waiting for more evidence",
+        }]
+        self.assertEqual(profile.validate_self_analysis_profile(value), value)
+        value["derailers"][0]["strength"] = "not-a-tendency"
+        with self.assertRaises(profile.ProfileValidationError):
+            profile.validate_self_analysis_profile(value)
+
     def test_raw_submission_is_not_a_canonical_profile(self) -> None:
         value = valid_profile()
         value.update({"jiko_bunseki_submission": True, "submission_version": 2})

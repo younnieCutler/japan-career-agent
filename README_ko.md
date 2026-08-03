@@ -5,7 +5,7 @@
 증거를 바탕으로 무엇이 확인되었고, 무엇이 충돌하며, 무엇이 `Unknown`인지와 다음에 확인할
 질문을 정리합니다.
 
-현재 릴리스: `1.6.1`.
+현재 릴리스: `1.6.2`.
 
 ## 핵심 원칙
 
@@ -54,7 +54,7 @@ python skills/career-agent/career_agent.py approve --vault $env:CAREER_VAULT --w
 `restore-state`는 rollback/undo가 아니라 state recovery입니다. append-only ledger, proposal,
 pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로 읽지 않고 metadata만 사용합니다.
 
-## 신뢰성 및 context hardening (`1.6.1`)
+## 신뢰성 및 context hardening (`1.6.2`)
 
 - Career Vault의 JSON/TOML 상태와 다시 쓰는 JSONL snapshot은 atomic replacement를 사용하며,
   append-only JSONL의 기존 의미는 유지합니다.
@@ -62,9 +62,15 @@ pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로
   `python scripts/check_context_budget.py`가 byte·문자 수·줄 수 기준을 결정적으로 검사합니다.
 - 일반 status bar에서는 행동으로 이어지지 않는 반복 정보를 줄이지만 모든 blocker와 제한된
   action/rule 미리보기는 유지합니다.
+- UserPromptSubmit launcher는 오래된 plugin 경로와 없는 script를 Python 실행 전에 확인하고,
+  문제가 있어도 prompt를 차단하지 않습니다. 대신 gate와 deadline을 확인하지 못했다는 degraded
+  상태를 표시합니다. Claude manifest는 표준 hook 파일을 중복 선언하지 않습니다.
 - `_shared/self_analysis_profile.py`가 canonical v2 profile을 검증합니다. checklist export는
-  raw reflection으로 남고, 미평가 `null`과 검토 후 빈 목록 `[]`을 구분하며 matching이나 Vault
-  context에 자동으로 들어가지 않습니다.
+  raw reflection으로 남고, 미평가 `null`과 검토 후 빈 목록 `[]`을 구분합니다. episode ID,
+  activity ID, behavior의 episode 참조도 검증하며 matching이나 Vault context에 자동으로
+  들어가지 않습니다.
+- 확인된 required skill 또는 experience gap은 `Proceed`가 아니라 `Review`입니다. preferred gap은
+  독립적으로 남고 점수나 합격 예측은 추가하지 않습니다.
 
 ## 외부 claim과 실행
 
@@ -95,6 +101,7 @@ python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
 python scripts/check_readme_consistency.py
+python scripts/test_hook_contract.py
 python _shared/test_matching_v3.py
 python scripts/test_status_bar.py
 python scripts/test_calibrate.py

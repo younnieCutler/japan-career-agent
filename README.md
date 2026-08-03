@@ -9,7 +9,7 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
-Current release: `1.6.1`.
+Current release: `1.6.2`.
 
 ## What it does
 
@@ -60,7 +60,7 @@ allocation. The 114-profile reference dataset is not bundled; an unavailable dat
 Historical numeric fields are readable as `legacy_v1` only. New writers reject them and no legacy
 value is merged into a v3 result.
 
-## Reliability and context hardening (`1.6.1`)
+## Reliability and context hardening (`1.6.2`)
 
 - Career Vault JSON/TOML state and rewritten JSONL snapshots use atomic replacement; append-only
   JSONL keeps its existing append semantics.
@@ -69,9 +69,15 @@ value is merged into a v3 result.
   line budgets.
 - The normal status bar omits repeated non-actionable detail while retaining every blocker and the
   bounded action/rule previews.
+- The UserPromptSubmit launcher checks stale or missing plugin paths before invoking Python and
+  fails open with a visible warning that gates and deadlines were not checked. The standard hook
+  manifest is loaded once and is not redeclared in the Claude manifest.
 - `_shared/self_analysis_profile.py` validates canonical v2 profiles. Checklist exports remain raw
-  reflection, with `null` for unassessed and `[]` only for reviewed empty lists; they do not enter
-  matching or Vault context automatically.
+  reflection, with `null` for unassessed and `[]` only for reviewed empty lists; episode IDs,
+  activity IDs, and behavior episode references are validated; they do not enter matching or Vault
+  context automatically.
+- A confirmed required skill or experience gap is reported as `Review`, not `Conflict` or `Proceed`;
+  preferred gaps remain independent, and no score or hiring prediction is added.
 
 ## Install
 
@@ -167,6 +173,7 @@ python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
 python scripts/check_readme_consistency.py
+python scripts/test_hook_contract.py
 python _shared/test_matching_v3.py
 python scripts/test_status_bar.py
 python scripts/test_calibrate.py

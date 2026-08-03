@@ -13,6 +13,8 @@ COMMON_FIELDS = ("description", "homepage", "repository", "license", "keywords")
 
 def main() -> int:
     docs = [json.loads(path.read_text(encoding="utf-8")) for path in FILES]
+    if "hooks" in docs[0]:
+        raise SystemExit("Claude manifest must not redeclare standard hooks/hooks.json")
     if len({doc.get("name") for doc in docs}) != 1:
         raise SystemExit("manifest name mismatch")
     if len({doc.get("version") for doc in docs}) != 1:

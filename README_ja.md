@@ -4,7 +4,7 @@
 予測せず、Recruit・Persol・dodaなどの非公開アルゴリズムも再現しません。ユーザーが提供した
 証拠を使い、確認済みの事実、衝突、`Unknown`、根拠、次に確認すべき質問を整理します。
 
-現在のリリース: `1.6.1`。
+現在のリリース: `1.6.2`。
 
 ## Canonical rules
 
@@ -43,7 +43,7 @@ status barは `--workspace` の明示パス、`CAREER_WORKSPACE`、現在のCWD�
 `data/pipeline.yml`を読み込みます。別のディレクトリから起動しても誤ったpipelineを読まない
 ための優先順位です。
 
-## 信頼性とcontext hardening (`1.6.1`)
+## 信頼性とcontext hardening (`1.6.2`)
 
 - Career VaultのJSON/TOML状態と書き換え型JSONL snapshotはatomic replacementを使い、
   append-only JSONLの既存の意味は維持します。
@@ -51,9 +51,15 @@ status barは `--workspace` の明示パス、`CAREER_WORKSPACE`、現在のCWD�
   分けます。`python scripts/check_context_budget.py`がbyte・文字数・行数を決定的に検査します。
 - 通常のstatus barでは行動につながらない反復情報を減らしますが、すべてのblockerと制限付きの
   action/rule previewは残します。
+- UserPromptSubmit launcherは古いplugin pathや存在しないscriptをPython実行前に確認し、問題が
+  あってもpromptをblockしません。代わりにgateとdeadlineを確認できなかったことをdegraded
+  状態として表示します。Claude manifestは標準hookファイルを重複宣言しません。
 - `_shared/self_analysis_profile.py`がcanonical v2 profileを検証します。checklist exportは
-  raw reflectionのままで、未評価は`null`、確認済みで空のリストは`[]`と区別し、matchingや
-  Vault contextへ自動投入しません。
+  raw reflectionのままで、未評価は`null`、確認済みで空のリストは`[]`と区別します。episode
+  ID、activity ID、behaviorからepisodeへの参照も検証し、matchingやVault contextへ自動投入
+  しません。
+- 確認済みのrequired skillまたはexperience gapは`Proceed`ではなく`Review`です。preferred gapは
+  独立軸として残し、scoreや採用結果の予測は追加しません。
 
 ```powershell
 $env:CAREER_VAULT='C:\path\to\career-vault'
@@ -94,6 +100,7 @@ python scripts/check_reference_paths.py
 python scripts/check_agent_context.py
 python scripts/check_manifest_consistency.py
 python scripts/check_readme_consistency.py
+python scripts/test_hook_contract.py
 python _shared/test_matching_v3.py
 python scripts/test_status_bar.py
 python scripts/test_calibrate.py
