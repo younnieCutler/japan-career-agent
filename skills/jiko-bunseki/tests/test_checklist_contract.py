@@ -1,7 +1,7 @@
 """Regression checks for the Jiko Bunseki v2 raw-response contract."""
 
 import re
-import sys
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 import yaml
@@ -12,8 +12,11 @@ SCHEMA = ROOT / "_shared" / "schemas.yml"
 MATCHING = ROOT / "_shared" / "matching_v3.py"
 CAREER_AGENT = ROOT / "skills" / "career-agent" / "career_agent.py"
 
-sys.path.insert(0, str(ROOT / "_shared"))
-import matching_v3 as v3
+_matching_spec = spec_from_file_location("matching_v3_contract_target", MATCHING)
+if _matching_spec is None or _matching_spec.loader is None:
+    raise ImportError(f"cannot load {MATCHING}")
+v3 = module_from_spec(_matching_spec)
+_matching_spec.loader.exec_module(v3)
 
 BEHAVIOR_IDS = {
     "initiative", "execution", "discipline", "ownership", "analysis", "learning",
