@@ -201,13 +201,12 @@ Always output in this exact format:
 - SPI3: [A] Startup culture fits candidate's Creation trait. [B] SIer culture conflicts with low Order score.
 - ...
 
-🏆 Verdict: [Company A] has the advantage in 3 of 5 dimensions (Culture Fit, Well-being, Growth).
-   [Company B] leads in Skill Stack Match. If immediate skill readiness outweighs long-term growth
-   for this candidate, [B] becomes viable.
+🏆 Verdict: [Company A] is stronger for career acceleration and culture alignment, while [Company B] offers immediate skill match and practical stability.
+   Choose [A] if long-term growth is primary; choose [B] if immediate skill readiness is primary.
 ```
 
 **Verdict rules:**
-- **Step 1: Decision Status Gate (PRD FR-5 / §9)**: Run or check `matching_v3` `Decision Status` for each company first. A company with `conflict` (due to hard eligibility failure or must-have/avoid value conflict) is gated out as ineligible, regardless of its performance in individual dimensions. If all companies have a `conflict` status, state: `No eligible winner — every compared company has a confirmed conflict or dealbreaker.`
+- **Step 1: Decision Status Gate (PRD §6.1 / §9)**: Run or check `matching_v3` `Decision Status` for each company first. A company with `conflict` (due to hard eligibility failure or must-have/avoid value conflict) is gated out as ineligible, regardless of its performance in individual dimensions. If all companies have a `conflict` status, state: `No eligible winner — every compared company has a confirmed conflict or dealbreaker.`
 - **Step 2: Dimension Trade-off Analysis**: Do not use a simple majority vote (e.g. "3 of 5 advantages") to declare a winner. Different dimensions carry different weight depending on candidate priorities (e.g., Practical Factors like salary/visa cannot be outweighed by soft culture fit). Present the comparison as explicit trade-offs.
 - **Step 3: Recommendation Basis**:
   - If the candidate has a declared top-priority dimension (e.g., salary, growth, remote) and one eligible company holds a clear advantage in that dimension, recommend that company and state the trade-off.

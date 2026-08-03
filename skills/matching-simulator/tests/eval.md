@@ -3,7 +3,7 @@
 Run these when iterating on the `matching-simulator` skill.
 
 The deterministic half of these criteria is already automated in
-`../../../_shared/test_matching_v3.py` (52 tests, mapped to the PRD acceptance criteria).
+`../../../_shared/test_matching_v3.py` (58 tests, mapped to the PRD acceptance criteria).
 Run that first — it fails fast and needs no LLM:
 
 ```bash

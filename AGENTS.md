@@ -81,7 +81,7 @@ Was `_shared/scoring.py`. Off the default path; kept so historical scores stay r
 - CLI refuses to run without `--legacy-experimental`. Self-test: `--self-test`.
 
 ### 2d. `_shared/test_matching_v3.py`
-52 regression tests mapped to the PRD acceptance criteria. The two that matter most: interest
+58 regression tests mapped to the PRD acceptance criteria. The two that matter most: interest
 independence (AC-4) and the absence of any 0–100 field in the default result (AC-7).
 
 ### 2b. `_shared/pipeline_store.py` (Shared write path for `data/pipeline.yml`)
