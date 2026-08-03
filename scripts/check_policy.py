@@ -6,16 +6,22 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from policy_patterns import CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS
+from policy_patterns import (
+    BANNED_OUTPUT_FIELD_PATTERNS,
+    BARE_NOQA_PATTERN,
+    CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS,
+    VERSION_PINNED_CACHE_PATH_PATTERN,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
-ACTIVE_ROOTS = (ROOT / "skills", ROOT / "_shared", ROOT / "scripts", ROOT)
+ACTIVE_ROOTS = (ROOT / "skills", ROOT / "_shared", ROOT / "scripts", ROOT / "hooks", ROOT)
 ALLOW_FILES = {
     ROOT / "_shared" / "legacy_experimental.py",
     ROOT / "skills" / "matching-simulator" / "references" / "legacy-v1.md",
     ROOT / "scripts" / "check_policy.py",
+    ROOT / "scripts" / "policy_patterns.py",
 }
-SKIP_PARTS = {"__pycache__", ".git", ".pytest_cache", "data", "career-docs"}
+SKIP_PARTS = {"__pycache__", ".git", ".pytest_cache", "data", "career-docs", ".agents", ".claude"}
 
 # These are output-shaped claims, not ordinary discussion of the policy. Historical examples
 # remain isolated in the two explicit legacy files above.
@@ -24,7 +30,19 @@ FORBIDDEN = (
     re.compile(r"Recruit-style|Persol-style", re.I),
     re.compile(r"reverse-engineer(?:s|ed|ing)?\s+(?:the\s+)?internal\s+matching", re.I),
     re.compile(r"(?:×|x|\*)\s*0\.2\s*(?:weight|multiplier)?", re.I),
+    *BANNED_OUTPUT_FIELD_PATTERNS,  # POLICY-004
+    VERSION_PINNED_CACHE_PATH_PATTERN,  # POLICY-007
 )
+
+# POLICY-002: canonical persistence writers must go through the shared lock + atomic-write
+# helpers, never a bare `.write_text(`. Scoped to the files that own that contract (not every
+# script in the repo — a one-off tool writing a report file needs no lock).
+CANONICAL_WRITER_FILES = {
+    ROOT / "_shared" / "pipeline_store.py",
+    ROOT / "skills" / "career-agent" / "career_agent.py",
+    ROOT / "scripts" / "calibrate.py",
+}
+DIRECT_WRITE_TEXT_PATTERN = re.compile(r"\.write_text\(")
 
 
 def files() -> list[Path]:
@@ -52,6 +70,17 @@ def scan() -> list[str]:
             for pattern in FORBIDDEN:
                 if pattern.search(line):
                     hits.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()}")
+            if BARE_NOQA_PATTERN.search(line):  # STATIC-002
+                hits.append(f"{path.relative_to(ROOT)}:{number}: bare noqa (needs a rule code): {line.strip()}")
+    for path in sorted(CANONICAL_WRITER_FILES):
+        if not path.is_file():
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            if DIRECT_WRITE_TEXT_PATTERN.search(line) and "ponytail:" not in line:
+                hits.append(
+                    f"{path.relative_to(ROOT)}:{number}: canonical writer uses bare write_text "
+                    f"(POLICY-002): {line.strip()}"
+                )
     return hits
 
 

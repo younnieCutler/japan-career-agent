@@ -3,6 +3,10 @@
 
     python3 scripts/check_action.py <company-slug> <item-id>
     python3 scripts/check_action.py --list
+    python3 scripts/check_action.py --workspace <dir> <company-slug> <item-id>
+
+Resolves data/pipeline.yml through --workspace, then CAREER_WORKSPACE, then the current
+directory (WORK-001) — the same precedence every other pipeline-touching command uses.
 
 Deliberately a user-run command rather than something the assistant does. The gate exists
 because checklists got written and never acted on; if the assistant could tick the boxes,
@@ -23,8 +27,6 @@ _SHARED_ROOT = Path(__file__).resolve().parent.parent / "_shared"
 if str(_SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(_SHARED_ROOT))
 import pipeline_store  # noqa: E402
-
-PIPELINE = Path("data/pipeline.yml")
 
 
 def load(path: Path):
@@ -85,16 +87,29 @@ def check(pipeline, slug: str, item_id: str, path: Path) -> int:
     return 0
 
 
+def _extract_workspace(argv: list[str]) -> tuple[list[str], str | None]:
+    if "--workspace" not in argv:
+        return argv, None
+    index = argv.index("--workspace")
+    try:
+        value = argv[index + 1]
+    except IndexError:
+        sys.exit("--workspace requires a directory argument")
+    return argv[:index] + argv[index + 2:], value
+
+
 def main(argv: list[str]) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    pipeline = load(PIPELINE)
+    argv, workspace = _extract_workspace(list(argv))
+    pipeline_path = pipeline_store.resolve_pipeline_path(workspace)
+    pipeline = load(pipeline_path)
     if argv and argv[0] == "--list":
         return list_items(pipeline)
     if len(argv) != 2:
         sys.exit(__doc__.strip().splitlines()[2].strip())
-    return check(pipeline, argv[0], argv[1], PIPELINE)
+    return check(pipeline, argv[0], argv[1], pipeline_path)
 
 
 if __name__ == "__main__":

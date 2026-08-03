@@ -56,11 +56,30 @@ def atomic_write(path: Path, data: dict[str, Any]) -> None:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
-    tmp.write_text(
-        yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100),
-        encoding="utf-8",
-    )
-    os.replace(tmp, path)  # atomic on both POSIX and Windows
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(tmp, path)  # atomic on both POSIX and Windows
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def resolve_workspace(workspace: str | Path | None = None) -> Path:
+    """Explicit argument > `CAREER_WORKSPACE` > current working directory (WORK-001/002).
+
+    The single implementation every CLI entry point in this repository resolves the
+    workspace root through, so a stale relative "data/pipeline.yml" never silently reads
+    a different pipeline than the one CAREER_WORKSPACE or --workspace points at.
+    """
+    raw = workspace or os.environ.get("CAREER_WORKSPACE")
+    return Path(raw).expanduser().resolve() if raw else Path.cwd().resolve()
+
+
+def resolve_pipeline_path(workspace: str | Path | None = None) -> Path:
+    return resolve_workspace(workspace) / "data" / "pipeline.yml"
 
 
 def mutate(path: Path, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:

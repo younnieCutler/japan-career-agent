@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -101,6 +103,46 @@ class StateDurabilityTests(unittest.TestCase):
         home.write_state({"track": "chuto", "stage": "new"})
         self.assertEqual(home.load_state()["stage"], "new")
         self.assert_no_temp_files(home.state.parent)
+
+
+class VaultLockCoverageTests(unittest.TestCase):
+    """PERSIST-005: writers that share a Vault must serialize against `vault_lock`.
+
+    Proves the lock is real (not just present) by holding it in the main thread and
+    checking a background call to the writer waits for release before completing.
+    """
+
+    def setUp(self) -> None:
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.root = Path(self.tempdir.name)
+        self.home = career_agent.CareerVault(self.root / "vault")
+        self.home.ensure_runtime()
+
+    def tearDown(self) -> None:
+        self.tempdir.cleanup()
+
+    def _assert_blocks_then_completes(self, target) -> None:
+        completed = threading.Event()
+
+        def worker() -> None:
+            target()
+            completed.set()
+
+        with career_agent.vault_lock(self.home):
+            thread = threading.Thread(target=worker)
+            thread.start()
+            time.sleep(0.2)
+            self.assertFalse(completed.is_set(), "writer ran without waiting for the vault lock")
+        thread.join(timeout=2)
+        self.assertTrue(completed.is_set(), "writer never completed after the lock was released")
+
+    def test_run_index_waits_for_vault_lock(self) -> None:
+        self._assert_blocks_then_completes(lambda: career_agent.run_index(self.home))
+
+    def test_restore_state_waits_for_vault_lock(self) -> None:
+        self.home.write_state({"track": "chuto", "stage": "s0"})
+        version = self.home.save_state({"track": "chuto", "stage": "s0"})
+        self._assert_blocks_then_completes(lambda: career_agent.restore_state(self.home, version))
 
 
 if __name__ == "__main__":
