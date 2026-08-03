@@ -190,6 +190,17 @@ def pipeline_line(pipeline: dict) -> str:
     return f"pipeline: {len(active)} active ({breakdown}) / {len(closed)} closed"
 
 
+def _sanitize(text: Any, max_len: int = 200) -> str:
+    if text is None:
+        return ""
+    val = str(text).replace("\r", " ").replace("\n", " ")
+    val = val.replace("</career_status>", "[/career_status]").replace("<career_status>", "[career_status]")
+    val = val.replace("</", "[/").replace("<", "&lt;").replace(">", "&gt;")
+    if len(val) > max_len:
+        return val[:max_len] + "…"
+    return val
+
+
 def deadline_line(pipeline: dict, today: dt.date) -> str | None:
     """Nearest upcoming deadline only. Listing every date recreates the scanning problem."""
     dated = []
@@ -200,8 +211,8 @@ def deadline_line(pipeline: dict, today: dt.date) -> str | None:
     if not dated:
         return None
     days, company = min(dated, key=lambda pair: pair[0])
-    name = company.get("name") or company.get("slug") or "?"
-    detail = company.get("status") or company.get("next_action") or ""
+    name = _sanitize(company.get("name") or company.get("slug") or "?", 60)
+    detail = _sanitize(company.get("status") or company.get("next_action") or "", 100)
     when = "TODAY" if days == 0 else (f"D{days:+d}" if days > 0 else f"{-days}d OVERDUE")
     return f"deadline: {name} {company.get('deadline')} ({when}) {detail}".rstrip()
 
@@ -219,9 +230,9 @@ def gate_lines(pipeline: dict) -> list[str]:
         pending = unchecked_items(company)
         if not pending:
             continue
-        name = company.get("name") or company.get("slug") or "?"
+        name = _sanitize(company.get("name") or company.get("slug") or "?", 60)
         blocked.append(name)
-        preview = "; ".join(i.get("text", "") for i in pending[:3])
+        preview = "; ".join(_sanitize(i.get("text", ""), 80) for i in pending[:3])
         lines.append(f"unchecked_actions[{name}]: {len(pending)} — {preview}")
     if blocked:
         lines.append(
@@ -239,7 +250,7 @@ def rules_lines(rules: dict) -> list[str]:
         return []
     lines = [f"active_rules: {len(active)}"]
     for rule in active:
-        lines.append(f"  - {rule.get('text', '')}")
+        lines.append(f"  - {_sanitize(rule.get('text', ''), 150)}")
     return lines
 
 

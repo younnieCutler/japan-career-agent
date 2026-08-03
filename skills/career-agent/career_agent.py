@@ -973,6 +973,8 @@ def setup(
         profile["graduation_year"] = graduation_year
     if language:
         profile["language"] = language
+    elif "language" not in profile:
+        profile["language"] = "ko"
     write_toml(home.profile, profile)
     diagnosis = doctor(home)
     return {
@@ -1403,10 +1405,16 @@ def approve(
                 record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
                 raise
             event["status"] = "confirmed"
-            append_jsonl(home.events, event)
+            # External write (data/pipeline.yml) first; if this fails, vault state & ledger remain clean
+            pipeline = upsert_pipeline_entry(event) if event.get("company") else None
+
+            # Vault event ledger append (idempotent guard)
+            existing_events = read_jsonl(home.events)
+            if not any(e.get("id") == event.get("id") for e in existing_events):
+                append_jsonl(home.events, event)
+
             state = apply_event_to_state(home.load_state(), event)
             version = home.save_state(state)
-            pipeline = upsert_pipeline_entry(event) if event.get("company") else None
             updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now(), version=version)
             result = {"approved": True, "event": event, "version": version, "proposal": updated}
             if pipeline:
@@ -1467,7 +1475,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--track", choices=sorted(TRACKS))
     setup_parser.add_argument("--target-role")
     setup_parser.add_argument("--graduation-year", type=int)
-    setup_parser.add_argument("--language", default="ko")
+    setup_parser.add_argument("--language", default=None)
     doctor_parser = subparsers.add_parser("doctor")
     add_vault_argument(doctor_parser)
     doctor_parser.add_argument("--fix", action="store_true", help="migrate the legacy nested data/pipeline.yml shape")

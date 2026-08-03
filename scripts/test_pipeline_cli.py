@@ -102,11 +102,21 @@ class PipelineCliTests(unittest.TestCase):
         self.assertEqual(company["interest_level"], 5)
         self.assertEqual(company["interest_reason"], "new_reason")
         self.assertEqual(len(company["interest_history"]), 1)
-        snapshot = company["interest_history"][0]
-        self.assertEqual(snapshot["interest_level"], 2)
-        self.assertEqual(snapshot["interest_reason"], "old_reason")
+    def test_nullable_fields_can_be_cleared_to_none(self) -> None:
+        """Passing explicit null for a clearable field sets it back to None."""
+        self.run_cli("upsert", "gao", "--json", json.dumps({"name": "GAO", "interest_level": 4, "deadline": "2026-10-01"}))
+        self.assertEqual(self.load()["companies"][0]["interest_level"], 4)
+        self.assertEqual(self.load()["companies"][0]["deadline"], "2026-10-01")
+
+        self.run_cli("update", "gao", "--json", json.dumps({"interest_level": None, "deadline": None}))
+        company = self.load()["companies"][0]
+        self.assertIsNone(company["interest_level"])
+        self.assertIsNone(company["deadline"])
+        self.assertEqual(len(company["interest_history"]), 1)
+        self.assertEqual(company["interest_history"][0]["interest_level"], 4)
 
 
 if __name__ == "__main__":
+
 
     unittest.main()

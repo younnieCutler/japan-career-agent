@@ -124,8 +124,11 @@ def composition(allocation: dict[str, int]) -> dict[str, float]:
 def composition_distance(a: dict[str, int], b: dict[str, int]) -> float:
     """Euclidean distance between two composition profiles.
 
-    Not a fit score. There is no 0–100 conversion here and none may be added: the official
-    tool publishes no such formula (PRD §7.3.3 prohibitions).
+    MHLW (job tag) specifies the 9-element 29-point allocation framework and 114 standard
+    profiles (https://shigoto.mhlw.go.jp/User/VocationalAbilityDiagnosticTool/Step1). This implementation
+    computes Euclidean distance on the normalized composition vectors as its deterministic distance metric.
+
+    Not a fit score. There is no 0–100 conversion here and none may be added (PRD §7.3.3).
     """
     p, q = composition(a), composition(b)
     return math.sqrt(sum((p[key] - q[key]) ** 2 for key in ALLOCATION_KEYS))
@@ -595,6 +598,7 @@ def evaluate(payload: dict[str, Any], *, reference: dict[str, Any] | None = None
         eligibility
         + [item for bucket in skills["required_skills"].values() for item in bucket]
         + [item for bucket in skills["preferred_skills"].values() for item in bucket]
+        + [item for bucket in skills["experience"].values() for item in bucket]
         + [item for bucket in values.values() for item in bucket]
     )
 
@@ -605,6 +609,7 @@ def evaluate(payload: dict[str, Any], *, reference: dict[str, Any] | None = None
     missing += [f"experience: {item['name']}" for item in skills["experience"]["unknown"]]
     missing += [f"career value ({item['kind']}): {item['value']}"
                 for item in values["unknown"] if item["kind"] == "preferred"]
+    missing = list(dict.fromkeys(missing))
 
     return {
         "model_version": MODEL_VERSION,

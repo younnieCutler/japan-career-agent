@@ -108,10 +108,18 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         )
 
 
+CLEARABLE_FIELDS = {
+    "interest_level", "interest_reason", "interest_evidence", "interest_updated_at",
+    "next_action", "deadline", "closed_reason", "match_conflicts", "match_unknowns"
+}
+
+
 def _snapshot_interest_history_if_needed(entry: dict[str, Any], fields: dict[str, Any]) -> None:
+    if "interest_level" not in fields:
+        return
     new_level = fields.get("interest_level")
     old_level = entry.get("interest_level")
-    if new_level is not None and old_level is not None and old_level != new_level:
+    if old_level is not None and old_level != new_level:
         entry.setdefault("interest_history", []).append({
             "interest_level": old_level,
             "interest_reason": entry.get("interest_reason"),
@@ -143,6 +151,8 @@ def upsert_company(
         _snapshot_interest_history_if_needed(entry, fields)
         for key, value in fields.items():
             if value is None:
+                if key in CLEARABLE_FIELDS:
+                    entry[key] = None
                 continue
             if key == "stage" and forward_only_stage and isinstance(entry.get("stage"), int):
                 if value < entry["stage"]:
@@ -175,6 +185,8 @@ def _update_company_data(
     _snapshot_interest_history_if_needed(entry, fields)
     for key, value in fields.items():
         if value is None:
+            if key in CLEARABLE_FIELDS:
+                entry[key] = None
             continue
         if key == "stage" and isinstance(entry.get("stage"), int) and value < entry["stage"]:
             continue
