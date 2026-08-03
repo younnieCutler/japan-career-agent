@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0] — 2026-08-03
+
+- Added the Jiko Bunseki v2 user-led reflection workflow with twelve independent behavior
+  tendencies, separated interest, self-efficacy, environment preferences, values, and episodes,
+  and explicit unanswered versus `Unknown` handling.
+- Added bounded academic theory references for question design and interpretation. The checklist
+  remains a theory-informed reflection worksheet, not a validated assessment or recommendation
+  engine.
+- Hardened downstream contracts and regression tests so raw reflection values do not become
+  candidate skills, `matching_v3` inputs, occupation or company recommendations, or canonical
+  career context without user review and approval.
+- Fixed Japanese checklist localization and Ruff CI import-order compliance.
+
 ## [1.5.0] — 2026-08-03
 
 - Documented the status-bar version check, its 24-hour cadence, and the opt-out environment
