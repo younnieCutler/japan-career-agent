@@ -1,10 +1,44 @@
 # External career-market claims registry.
-# Empty is valid: an unregistered claim must not become a durable routing rule.
+# Each claim is dated for observation and expiry. For an official service page that exposes no
+# publication date, published_at may be `unknown`; observed_at remains mandatory.
 schema_version: "1.0"
-claims: []
+claims:
+  - id: doda_service_routes_official
+    claim: "The official doda service page presents job search, agent service, scout service, and partner-agent service as separate routes."
+    source_url: "https://doda.jp/"
+    publisher: "doda / PERSOL CAREER"
+    published_at: "unknown"
+    observed_at: "2026-08-03"
+    claim_type: official
+    confidence: high
+    expires_on: "2026-11-03"
+    allowed_usage: "Descriptive route comparison only; verify current availability before recommendation."
+
+  - id: bizreach_direct_contact_official
+    claim: "The official BizReach FAQ describes the service as a platform where companies and headhunters post jobs and candidates contact them directly through applications or scout replies; it also describes management, specialist, and global roles as common categories."
+    source_url: "https://www.bizreach.jp/"
+    publisher: "BizReach, Inc."
+    published_at: "unknown"
+    observed_at: "2026-08-03"
+    claim_type: official
+    confidence: high
+    expires_on: "2026-11-03"
+    allowed_usage: "Descriptive scout/direct-contact route context only; never convert to candidate outcome prediction."
+
+  - id: mynavi2027_program_filters_official
+    claim: "The official Mynavi 2027 guidance distinguishes internship, work-experience, and open-company/career-education programs and provides separate search filtering for those categories."
+    source_url: "https://job.mynavi.jp/conts/2027/faq/intern_career/index.html"
+    publisher: "Mynavi Corporation"
+    published_at: "unknown"
+    observed_at: "2026-08-03"
+    claim_type: official
+    confidence: high
+    expires_on: "2026-12-31"
+    allowed_usage: "Descriptive new-graduate route context only; confirm the applicable graduation cycle and program conditions."
 
 # Each claim, when present, must contain:
 # id, claim, source_url, publisher, published_at, observed_at, claim_type,
 # confidence, expires_on, allowed_usage.
+# published_at may be `unknown` for an undated official page; observed_at is still required.
 # claim_type: official | marketing_claim | survey | third_party
 # allowed_usage is descriptive only; it may not contain a candidate outcome estimate.

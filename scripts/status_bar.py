@@ -61,6 +61,8 @@ UPDATE_URL = (
 )
 CHECK_INTERVAL_SECONDS = 24 * 3600
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+ACTION_CONTEXT_LIMIT = 3
+RULE_CONTEXT_LIMIT = 3
 
 
 def update_check_disabled() -> bool:
@@ -196,9 +198,11 @@ def _company_entries(pipeline: object) -> list[dict]:
     return [company for company in companies if isinstance(company, dict)]
 
 
-def pipeline_line(pipeline: dict) -> str:
-    active = active_companies(pipeline)
-    closed = closed_companies(pipeline)
+def pipeline_line(
+    pipeline: dict, *, active: list[dict] | None = None, closed: list[dict] | None = None
+) -> str:
+    active = active if active is not None else active_companies(pipeline)
+    closed = closed if closed is not None else closed_companies(pipeline)
     if not active:
         return f"pipeline: 0 active / {len(closed)} closed"
     by_stage: dict[str, int] = {}
@@ -222,10 +226,13 @@ def _sanitize(text: Any, max_len: int = 200) -> str:
 
 
 
-def deadline_line(pipeline: dict, today: dt.date) -> str | None:
+def deadline_line(
+    pipeline: dict, today: dt.date, *, active: list[dict] | None = None
+) -> str | None:
     """Nearest upcoming deadline only. Listing every date recreates the scanning problem."""
     dated = []
-    for company in active_companies(pipeline):
+    active = active if active is not None else active_companies(pipeline)
+    for company in active:
         days = days_until(company.get("deadline"), today)
         if days is not None:
             dated.append((days, company))
@@ -238,23 +245,60 @@ def deadline_line(pipeline: dict, today: dt.date) -> str | None:
     return f"deadline: {name} {company.get('deadline')} ({when}) {detail}".rstrip()
 
 
-def gate_lines(pipeline: dict) -> list[str]:
-    """Unchecked action items, per company, and what they block.
+def _pending_action_rows(active: list[dict], today: dt.date) -> list[dict]:
+    rows = []
+    for company in active:
+        for item in unchecked_items(company):
+            deadline = item.get("deadline") or company.get("deadline")
+            rows.append({
+                "company": company,
+                "item": item,
+                "deadline": deadline,
+                "days": days_until(deadline, today),
+            })
+    return sorted(
+        rows,
+        key=lambda row: (
+            row["days"] is None,
+            row["days"] if row["days"] is not None else 0,
+            str(row["company"].get("slug") or row["company"].get("name") or ""),
+            str(row["item"].get("id") or ""),
+        ),
+    )
+
+
+def gate_lines(
+    pipeline: dict, today: dt.date, *, active: list[dict] | None = None
+) -> list[str]:
+    """Show urgent unchecked actions while retaining every blocker.
 
     This is the whole reason the status bar exists. The documented failure mode is a
     checklist that was written and then never opened before the interview it was written
-    for; a count the model cannot miss is the countermeasure.
+    for; the gate and total count cannot be compressed away. Only the most urgent action
+    previews are rendered to keep repeated context small.
     """
-    lines = []
+    active = active if active is not None else active_companies(pipeline)
+    rows = _pending_action_rows(active, today)
+    if not rows:
+        return []
+    lines = [
+        f"unchecked_actions: {min(len(rows), ACTION_CONTEXT_LIMIT)} shown / {len(rows)} total"
+    ]
+    for row in rows[:ACTION_CONTEXT_LIMIT]:
+        company = row["company"]
+        item = row["item"]
+        name = _sanitize(company.get("name") or company.get("slug") or "?", 60)
+        item_id = _sanitize(item.get("id") or "?", 40)
+        text = _sanitize(item.get("text", ""), 100)
+        lines.append(f"unchecked_action[{name}]: {item_id} — {text}")
+
     blocked = []
-    for company in active_companies(pipeline):
+    for company in active:
         pending = unchecked_items(company)
         if not pending:
             continue
         name = _sanitize(company.get("name") or company.get("slug") or "?", 60)
-        blocked.append(name)
-        preview = "; ".join(_sanitize(i.get("text", ""), 80) for i in pending[:3])
-        lines.append(f"unchecked_actions[{name}]: {len(pending)} — {preview}")
+        blocked.append(f"{name} ({len(pending)})")
     if blocked:
         lines.append(
             "gate: interview-prep generation BLOCKED for "
@@ -265,9 +309,23 @@ def gate_lines(pipeline: dict) -> list[str]:
     return lines
 
 
-def rules_lines(rules: dict) -> list[str]:
+def _rule_relevance(rule: dict, active_slugs: set[str]) -> int:
+    if rule.get("source") == "self_authored":
+        return 2
+    supported_by = rule.get("supported_by")
+    if isinstance(supported_by, list) and any(str(slug) in active_slugs for slug in supported_by):
+        return 2
+    # Preserve old active rules without routing metadata as a small fallback set; they are
+    # not treated as more relevant than explicitly supported rules.
+    if not supported_by and not rule.get("source"):
+        return 1
+    return 0
+
+
+def rules_lines(rules: dict, *, active_slugs: set[str] | None = None) -> list[str]:
     if not isinstance(rules, dict) or not isinstance(rules.get("rules"), list):
         return []
+    active_slugs = active_slugs or set()
     active = [
         rule for rule in rules["rules"]
         if isinstance(rule, dict)
@@ -276,28 +334,35 @@ def rules_lines(rules: dict) -> list[str]:
     ]
     if not active:
         return []
-    lines = [f"active_rules: {len(active)}"]
-    for rule in active:
+    ranked = sorted(
+        enumerate(active),
+        key=lambda pair: (-_rule_relevance(pair[1], active_slugs), pair[0]),
+    )
+    shown = [rule for _, rule in ranked[:RULE_CONTEXT_LIMIT]]
+    lines = [f"active_rules: {len(active)} (showing {len(shown)}; remaining {len(active) - len(shown)})"]
+    for rule in shown:
         lines.append(f"  - {_sanitize(rule.get('text', ''), 150)}")
     return lines
 
 
-def calibration_line(pipeline: dict) -> str:
-    scored = [c for c in closed_companies(pipeline) if c.get("reached_stage") is not None]
+def calibration_line(pipeline: dict, *, closed: list[dict] | None = None) -> str:
+    closed = closed if closed is not None else closed_companies(pipeline)
+    scored = [c for c in closed if c.get("reached_stage") is not None]
     if len(scored) < CALIBRATION_MIN_SAMPLE:
         need = CALIBRATION_MIN_SAMPLE - len(scored)
         return f"workflow_observations: {len(scored)} reached-stage entries (need {need} more)"
     return f"workflow_observations: {len(scored)} reached-stage entries — `scripts/calibrate.py` available"
 
 
-def diversity_line(pipeline: dict) -> str | None:
+def diversity_line(pipeline: dict, *, entries: list[dict] | None = None) -> str | None:
     """Warn when every recent application competes on the same axis.
 
     Carries no score and changes no ranking. It reports one observable fact: the user has
     only entered 選考 that evaluate verbal explanation, so an artifact they already own has
     had nowhere to be shown.
     """
-    companies = _company_entries(pipeline)[-DIVERSITY_WINDOW:]
+    entries = entries if entries is not None else _company_entries(pipeline)
+    companies = entries[-DIVERSITY_WINDOW:]
     known = [c for c in companies if c.get("demo_slot") in {"yes", "company_test", "no"}]
     if len(known) < DIVERSITY_WINDOW:
         return None
@@ -315,16 +380,22 @@ def build_status(
     """Assemble the block. Returns "" when there is nothing to report."""
     if not isinstance(pipeline, dict) or not isinstance(pipeline.get("companies"), list):
         return ""
-    if not pipeline["companies"] or not _company_entries(pipeline):
+    entries = _company_entries(pipeline)
+    if not pipeline["companies"] or not entries:
         return ""
-    lines = [pipeline_line(pipeline)]
-    for line in (deadline_line(pipeline, today),):
+    active = [company for company in entries if not company.get("closed")]
+    closed = [company for company in entries if company.get("closed")]
+    active_slugs = {
+        str(company.get("slug")) for company in active if company.get("slug") is not None
+    }
+    lines = [pipeline_line(pipeline, active=active, closed=closed)]
+    for line in (deadline_line(pipeline, today, active=active),):
         if line:
             lines.append(line)
-    lines.extend(gate_lines(pipeline))
-    lines.extend(rules_lines(rules))
-    lines.append(calibration_line(pipeline))
-    diversity = diversity_line(pipeline)
+    lines.extend(gate_lines(pipeline, today, active=active))
+    lines.extend(rules_lines(rules, active_slugs=active_slugs))
+    lines.append(calibration_line(pipeline, closed=closed))
+    diversity = diversity_line(pipeline, entries=entries)
     if diversity:
         lines.append(diversity)
     if update:

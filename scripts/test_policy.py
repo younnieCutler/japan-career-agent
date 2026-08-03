@@ -165,6 +165,27 @@ def test_expired_external_claim_is_detected() -> None:
         assert warnings and "old" in warnings[0]
 
 
+def test_undated_official_claim_uses_observation_date() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        path = Path(temp) / "claims.yml"
+        path.write_text(
+            "claims:\n"
+            "  - id: undated\n"
+            "    claim: official service description\n"
+            "    source_url: https://example.test/service\n"
+            "    publisher: Example\n"
+            "    published_at: unknown\n"
+            "    observed_at: 2026-08-03\n"
+            "    claim_type: official\n"
+            "    confidence: high\n"
+            "    expires_on: 2026-11-03\n"
+            "    allowed_usage: descriptive only\n",
+            encoding="utf-8",
+        )
+        assert check_claim_freshness.load_claims(path)[0]["published_at"] == "unknown"
+        assert check_claim_freshness.check(dt.date(2026, 8, 3), path) == []
+
+
 def run() -> int:
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_")]
     for test in tests:

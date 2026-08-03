@@ -91,7 +91,9 @@ def test_unchecked_actions_block_interview_prep():
         ]
     }
     out = build_status(pipeline, {}, TODAY)
-    assert "unchecked_actions[トリプルアイズ]: 2 — エピソードに数値を入れる; PREP 10問ドリル" in out
+    assert "unchecked_actions: 2 shown / 2 total" in out
+    assert "unchecked_action[トリプルアイズ]: num — エピソードに数値を入れる" in out
+    assert "unchecked_action[トリプルアイズ]: prep — PREP 10問ドリル" in out
     assert "gate: interview-prep generation BLOCKED for トリプルアイズ" in out
     assert "scripts/check_action.py" in out, "the bar must name the way out of the gate"
 
@@ -111,6 +113,28 @@ def test_gate_clears_when_all_checked():
     assert "BLOCKED" not in out
 
 
+def test_gate_action_preview_is_global_top_n_but_blockers_remain_visible():
+    pipeline = {
+        "companies": [
+            company("overdue", name="Overdue", deadline="2026-07-30",
+                    action_items=[{"id": "a", "text": "overdue action", "checked": False}]),
+            company("today", name="Today", deadline="2026-08-02",
+                    action_items=[{"id": "b", "text": "today action", "checked": False}]),
+            company("soon", name="Soon", deadline="2026-08-03",
+                    action_items=[{"id": "c", "text": "soon action", "checked": False}]),
+            company("later", name="Later", deadline="2026-08-20",
+                    action_items=[{"id": "d", "text": "later action", "checked": False}]),
+        ]
+    }
+    out = build_status(pipeline, {}, TODAY)
+    assert "unchecked_actions: 3 shown / 4 total" in out
+    assert "overdue action" in out
+    assert "today action" in out
+    assert "soon action" in out
+    assert "later action" not in out
+    assert "gate: interview-prep generation BLOCKED for Overdue (1), Today (1), Soon (1), Later (1)" in out
+
+
 def test_active_rules_quoted_verbatim():
     rules = {
         "rules": [
@@ -124,6 +148,24 @@ def test_active_rules_quoted_verbatim():
     assert "  - 自己PRにソフトスキルを言わない" in out
     assert "まだ根拠1件" not in out, "candidate rules are not yet rules"
     assert "もう使わない" not in out
+
+
+def test_active_rules_are_relevance_limited_with_remaining_count():
+    rules = {
+        "rules": [
+            {"text": "self-authored rule", "status": "active", "source": "self_authored"},
+            {"text": "active company rule", "status": "active", "supported_by": ["a"]},
+            {"text": "unrelated rule", "status": "active", "supported_by": ["other"]},
+            {"text": "unrelated rule 2", "status": "active", "supported_by": ["other-2"]},
+            {"text": "unrelated rule 3", "status": "active", "supported_by": ["other-3"]},
+        ]
+    }
+    out = build_status({"companies": [company("a", stage=4)]}, rules, TODAY)
+    assert "active_rules: 5 (showing 3; remaining 2)" in out
+    assert "self-authored rule" in out
+    assert "active company rule" in out
+    assert "unrelated rule" in out
+    assert "unrelated rule 3" not in out
 
 
 def test_calibration_threshold():

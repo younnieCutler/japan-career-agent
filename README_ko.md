@@ -56,6 +56,8 @@ pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로
 
 시간에 따라 바뀌는 salary·platform·market 정보는 [`_shared/career_claims.yml`](_shared/career_claims.yml)에
 출처, publisher, 날짜, confidence, claim type, expiry와 함께 등록합니다. 오래된 claim은 `Stale`입니다.
+공식 서비스 페이지에 publication date가 없으면 `published_at: unknown`으로 기록하고,
+`observed_at`과 `expires_on`은 반드시 명시합니다.
 
 ```bash
 python scripts/check_policy.py
