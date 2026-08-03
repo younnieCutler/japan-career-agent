@@ -1,51 +1,59 @@
 ---
 name: matching-simulator
 description: >
-  Simulates the matching algorithm of Japanese recruitment agencies (Recruit, Persol Career/doda).
-  Takes candidate and company profiles as input, calculates matching scores from both RA/CA
-  dual perspectives, and generates an analysis report with a numerical score (0–100).
-  Simulates Recruit-style (SPI3 personality fit) and Persol Career-style (skill ontology +
-  semantic similarity) matching.
+  Evidence-based fit diagnosis between a candidate and a specific company/position in Japan's
+  IT/marketing market. Reports independent axes — Eligibility, Required Skill & Experience,
+  MHLW Portable Skill composition distance, Career Values & Conditions, Candidate Interest,
+  Employer Signals, and Evidence/Missing Information — plus a Decision Status of
+  Proceed / Review / Conflict. It does NOT produce a single match score and does NOT estimate
+  pass or offer probability.
 
   Use when:
-  - Any question about match probability between a candidate and a job or company
-  - "am I a good fit for this role?", "what are my chances of passing screening?"
-  - "how would an agency score this match?", "from the RA/CA perspective"
+  - "am I a good fit for this role?", "この求人、自分に合う?", "이 회사 나랑 맞을까?"
+  - "what's missing before I apply?", "何を確認してから応募すべき?"
+  - "매칭", "マッチ", "fit", "screening", "합격확률" (answer the fit question; decline the probability)
   - Combining output from job-seeker-agent (CANDIDATE_PROFILE) and hiring-manager-agent (COMPANY_PROFILE)
-  Always activate when the user wonders whether a specific candidate and a specific role are a good match.
+  Always activate when the user wonders whether a specific candidate and a specific role fit.
 ---
 
-# Matching Simulator — Agency Matching Simulator
+# Matching Simulator — Evidence-Based Fit Diagnosis (`evidence_based_v3`)
+
+## What this skill is, and is not
+
+**It is** a deterministic, explainable diagnosis of what is *confirmed*, what is *missing*, and
+what is in *conflict* between one candidate and one posting.
+
+**It is not** a pass-probability estimator, and not a reconstruction of any agency's internal
+algorithm. Recruit, doda, MyNavi and BizReach do not publish their formulas; a number labelled
+with their name would be a guess wearing a brand.
+
+The previous version summed skill fit, culture fit and condition fit into one 0–100 score with
+invented coefficients. That is retired to `legacy_v1` and off by default — see
+`references/legacy-v1.md`.
+
+### The five rules this skill runs on
+
+| # | Rule |
+|---|---|
+| **P1** | Separate axes, never one total. Ability, conditions, values and interest mean different things and are not added together. |
+| **P2** | Missing is `unknown`, not neutral. No mean, no 50, no default pass. `unknown` never enters a coverage denominator. |
+| **P3** | Candidate interest is fully independent. It never moves Eligibility, Skill, Portable Skill, Career Values, or Decision Status. |
+| **P4** | Every element declares provenance: `official_framework` / `observed` / `derived` / `heuristic` / `unknown`. |
+| **P5** | Age, gender, nationality and family status are excluded from fit. Legal work eligibility is an eligibility **fact** — stated, never scored. |
+
+### Banned output (AC-7)
+
+Never write, in any language: "Recruit 공식 점수" / "Persol 공식 점수" / 「リクルートの正式スコア」,
+"합격확률" / "内定確率" / "pass probability", "MHLW 0–100 Fit Score", or an overall match score.
+If the user asks for a pass probability, say plainly that no calibrated model exists here, and
+give the Decision Status and what is missing instead.
 
 ## Shared Career Vault Context
 
-When `CAREER_VAULT` is set, read the shared `career-agent context` response before collecting profiles.
-The returned profile, state, and confirmed `career_context` are canonical unless the user corrects them;
-do not create competing local career state. Follow `career-agent/references/shared-vault-context.md`.
-
-## Overview
-
-Inside major Japanese agencies, the RA (Recruiting Advisor, company-side) and
-CA (Career Advisor, candidate-side) evaluate matches from different perspectives.
-This skill simulates both perspectives to analyze the "true potential" of a match.
-
-Core principle: **Approximates the judgment process happening inside agencies, using public
-frameworks (SPI3, Portable Skills) and heuristic weights, not the agencies' actual internal
-models.** Includes not just algorithm scores, but also a consultant-perspective read at final
-screening — treat every score as directional (see the LLM Math Limitation disclosure below), not
-a measured probability.
-
-## Interactive Mode (Required)
-
-This skill operates as an **interactive simulation**. You must follow these rules:
-
-1. **Collect, don't assume.** If candidate or company data is missing, ask the user to provide it. Do not fabricate profile data to fill gaps.
-2. **Show intermediate scores before the final report.** After calculating Recruit-style and Persol Career-style scores separately, show each score and ask: "Do these scores make sense? Tell me if anything needs adjusting." before combining into the overall score.
-3. **Ask 2~3 questions at a time, then STOP.** When collecting missing data (Case B/C), do not dump all required fields at once.
-4. **Never output the full 5-step report in one message.** Walk through steps, share intermediate results, get confirmation, then proceed.
-5. **SPI3 quick estimation requires user input.** When estimating SPI3 for a candidate without prior assessment, ask at least 3 quick questions (from `../../_shared/frameworks.md`) instead of guessing from the resume alone.
-
-The reason for this: Matching is a two-way evaluation. When users see intermediate scores and understand the reasoning, they can correct factual mistakes and add context that dramatically improves simulation accuracy.
+When `CAREER_VAULT` is set, read the shared `career-agent context` response before collecting
+profiles. The returned profile, state, and confirmed `career_context` are canonical unless the
+user corrects them; do not create competing local career state. Follow
+`career-agent/references/shared-vault-context.md`.
 
 ## Language Auto-Detection (Suite-Wide Rule — applies before STEP 0)
 
@@ -55,425 +63,301 @@ Detect the language of the user's latest message and respond in that language. N
 - Japanese domain terms stay in original script in every language: 職務経歴書, 再現性, 年収, 内定, ビザ.
 - If the message mixes languages, follow the language of the request sentence, not of pasted material.
 
-## Fixed Step Sequence (Workflow Standardization)
+## Interactive Mode (Required)
 
-Every run follows the SAME ordered steps, for every user, regardless of platform. Branching changes the
-CONTENT of a step — never its ORDER or existence.
-- Always run STEP 0 (Target Platform Selection) first; it is the fixed entry point. Then STEP 0.5 (Posting
-  Legitimacy) → STEP 1 → 2 → 3 → 4 (→ 5 if C-match or below).
-- STEP 0.5 is skipped only when the user provides no URL and no JD text (e.g., hypothetical scenario).
-  In all other cases it runs before STEP 1 — a ghost job must not consume a full simulation.
-- Branch points are fixed and explicit: STEP 0 platform — agent platforms (Recruit / doda / MyNavi / Levtech)
-  run full RA + CA dual analysis in STEP 3; direct-apply platforms (Green / BizReach) replace CA with
-  Hiring Manager Direct Evaluation. The branch decides *what* STEP 3 runs, not *whether* the step runs.
-- If the user pastes both YAML profiles and wants "just the score", still anchor on STEP 0 platform, then
-  fast-forward to STEP 2. The sequence is fast-forwarded, never skipped.
+1. **Collect, don't assume.** Missing data is asked for. It is never filled in to complete a
+   section — an unfilled field becomes `unknown` and appears in Missing Information.
+2. **Ask 2–3 items at a time, then STOP** and wait.
+3. **Never output the whole report in one message.** Show the collected evidence table, get
+   corrections, then run the diagnosis.
+4. **Show the engine input before running it.** The user must be able to see which facts were
+   marked confirmed, and correct them. A wrong `matched` is worse than an `unknown`.
 
-## Workflow
+Why: the diagnosis is only as good as the fact-marking. Users catch mis-marked facts instantly.
 
-### STEP 0: Target Platform Selection (Always run first)
+## Fixed Step Sequence
 
-Before collecting any profile data, establish which platform this simulation is for.
-The platform determines weighting formulas, CA/RA perspective scope, and risk flags.
+Every run follows the same order: STEP 0 → 0.5 → 1 → 2 → 3 → 4 (→ 5 when there are gaps to close).
+Branching changes the CONTENT of a step, never its order or existence. If the user pastes both
+profiles and wants "just the result", fast-forward to STEP 2 — fast-forwarded, never skipped.
 
-Ask the user:
-```
-Which recruitment platform should we simulate the application through?
+---
 
-A. Recruit Agent  — Reproducibility focus; via agent; SPI3 aptitude integration
-B. doda           — Portable Skills framework; CA/RA dual screening; internal pre-screen (19–22% pass)
-C. MyNavi Agent   — Under-34 specialist; ~50% doc pass; close CA support
-D. Levtech        — IT engineers only; Skill Sheet tech matching; tech-stack match first
-E. Green          — Direct apply (no CA); startup-focused; no registration screening; gap-tolerant
-F. BizReach       — Scout-based; via headhunter; 7M+ yen target; profile completeness is key
-G. Other / not sure
-```
+### STEP 0: Application Route
 
-If the user already named a company or role strongly associated with one platform (e.g., "I signed up for Levtech"), skip the question and proceed with that platform.
+Record how the user would apply: `agent` (Recruit Agent / doda / MyNavi / Levtech), `site`,
+`scout`, or `referral`. This is the `channel` field in `data/pipeline.yml`.
 
-Store the selected platform as `target_platform`. This variable controls the modifier tables in STEP 2 and the perspective scope in STEP 3.
-
-**Direct-apply platforms (E, F):** Green and BizReach have no CA layer. For these, STEP 3 RA analysis is replaced by "Hiring Manager Direct Evaluation" — see STEP 3 for details.
+The route decides **which perspectives STEP 3 runs** (agent routes have a CA layer; direct
+routes do not) and nothing else. It applies **no weighting and no multiplier** — the legacy
+platform modifier table is retired to `references/legacy-v1.md`. Route facts that are genuinely
+verifiable (e.g. "this agency requires JLPT N2 for sponsorship") belong in Eligibility as
+evidenced requirements, not in a coefficient.
 
 ---
 
 ### STEP 0.5: Posting Legitimacy Check
 
-Run this before collecting any profile data. A ghost job must never consume a full simulation.
+Run before collecting profile data. A ghost job must never consume a full diagnosis.
 
-**Skip condition:** User provided neither a URL nor JD text (pure hypothetical). In that case, note "legitimacy unverifiable" and proceed.
+**Skip condition:** neither URL nor JD text (pure hypothetical) → note "legitimacy unverifiable"
+and proceed.
 
-#### When a URL is provided
+**When a URL is provided:** read the page. *Active* (title + real description + apply path) →
+STEP 1. *Closed* (expired notice, redirect to a generic careers page, 404/410) → stop and say so.
 
-Navigate to the URL and read the page content. Classify the posting:
+**When only JD text is provided:** freshness is unverifiable — note it; the quality signals still apply.
 
-- **Active:** Job title + real description + apply/応募 path visible → proceed to STEP 1
-- **Closed:** "No longer accepting", expired notice, redirect to generic careers/search page, 404/410 → stop here. Tell the user the posting is closed. Do not run a simulation on a dead posting.
+**Signals:** named technologies/tools; team size, reporting line, first-90-days scope; realistic
+requirements; salary disclosed; role-specific vs boilerplate ratio; whether the role fits the
+company's stage.
 
-#### When only JD text is provided (no URL)
+**Output — three tiers:** High Confidence / Proceed with Caution / Suspicious. Present a short
+signals table (signal / finding / weight) and the tier, then ask whether to continue.
 
-Freshness cannot be verified. Note this and proceed; the description quality signals below still apply.
-
-#### Signals to assess
-
-**1. Description Quality** (from JD text):
-- Names specific technologies, frameworks, tools?
-- Mentions team size, reporting structure, or first-90-days scope?
-- Requirements realistic? (e.g., 5 years experience in a 2-year-old framework = red flag)
-- Salary range disclosed?
-- Ratio of role-specific content vs generic boilerplate?
-
-**2. Company Hiring Context** (qualitative, no search required):
-- Does the role make sense for this company's stage and business?
-- Is this a common role that fills in 4–6 weeks, or a legitimately hard-to-fill senior position?
-
-**3. Output — three tiers:**
-
-| Tier | Meaning |
-|------|---------|
-| **High Confidence** | Active URL + specific JD + no concerning signals |
-| **Proceed with Caution** | Mixed signals — worth noting before investing time |
-| **Suspicious** | Multiple ghost-job indicators — user should verify directly before applying |
-
-Present a brief signals table (signal / finding / weight: Positive / Neutral / Concerning) and the tier verdict. Then ask: "Should I continue with the simulation?" before proceeding to STEP 1.
-
-**Ethical framing (mandatory):** Present observations, not accusations. Every signal has legitimate explanations. The user decides how to weigh them.
+**Ethical framing (mandatory):** observations, not accusations. Every signal has legitimate
+explanations. The user weighs them.
 
 ---
 
-### STEP 1: Collect Profiles from Both Sides
+### STEP 1: Collect Evidence From Both Sides
 
-Matching requires data from both the "candidate" and the "company."
+**Case A — profiles already exist:** parse `CANDIDATE_PROFILE` / `COMPANY_PROFILE` YAML from the
+conversation, or `data/candidate_profile.yml` and `data/company_profiles/*.yml`. Use values as-is.
 
-**Case A: Already ran job-seeker-agent / hiring-manager-agent**
-→ Use profile data generated in the previous conversation.
-→ Look for `CANDIDATE_PROFILE` and/or `COMPANY_PROFILE` YAML blocks in the conversation history.
-→ If found, parse the structured data directly — this is the most accurate source.
-→ If not found, ask the user to paste the relevant output from the other skill.
+**Case B — one side only:** collect the other side (JD text, or resume/experience).
 
-**Case B: Only one side available**
-→ Collect the missing side's information.
-  - Only candidate: request JD upload or text input
-  - Only JD: request resume upload or experience text input
+**Case C — neither:** quick collection, 2–3 items at a time.
 
-**Case C: Neither available**
-→ Run quick collection. **Ask 2~3 items at a time, then STOP and wait for the user's response.**
+Mark every fact with **one** of these, and be strict about the difference:
 
-Minimum required from candidate side:
-- Skill stack
-- Years of experience
-- SPI3 traits: **Check CANDIDATE_PROFILE first.** If no profile exists, ask the user to run `job-seeker-agent` STEP 2 for the full 12-statement assessment before continuing. Only fall back to 3 quick questions if the user explicitly wants to skip `job-seeker-agent`. Running SPI3 twice creates conflicting scores — the `job-seeker-agent` result is always canonical.
-- Desired conditions (salary, work style, values)
+| Mark | Meaning |
+|---|---|
+| `matched` / `pass` | Confirmed present on the candidate side **and** required on the job side |
+| `missing` / `conflict` | Confirmed **absent or contradicted**, with both sides evidenced |
+| `unknown` | Either side is unevidenced, or the comparison cannot be made |
 
-For Career Value Fit, load confirmed `career_context` from Vault or a CWD-relative
-`data/self_analysis_profile.yml` with `career_context_confirmed: true`. A missing or unconfirmed profile
-does not block skill scoring, but Career Value Fit must be reported as unavailable unless the user states
-the value directly in the current session.
+A hard requirement is `conflict` **only** when both sides are confirmed and actually disagree.
+JD silence is `unknown`. Candidate silence is `unknown`. Not a pass, not a conflict.
 
-Company side:
-- Position name, required skills
-- Team atmosphere (autonomous/structured, individual/team-oriented)
-- Salary range
+Collect for the candidate:
+- required/preferred skills, with the evidence line for each
+- experience items relevant to the posting
+- MHLW 29-point allocation (see `references/mhlw-portable-skill.md` — ask directly; never derive
+  it from the legacy 1–5 ratings)
+- `career_values`: `must_have` / `preferred` / `avoid`, from confirmed `career_context`, from
+  Vault, or from `data/self_analysis_profile.yml` with `career_context_confirmed: true`
+- hard eligibility facts: location, work authorization, language requirement, salary floor
 
-### STEP 2: Algorithm Match Score Calculation
+Collect for the company: position, hard requirements, required and preferred skills, experience
+requirements, observed conditions (salary, overtime, remote, team), each with source and date.
 
-Refer to "Matching Score Formula" section in `../../_shared/frameworks.md`
-and calculate scores using both methods.
+**Candidate Interest (separate, optional, user-owned):** ask once — "この会社への関心度は 1–5 で
+いくつですか?理由も一言で。" Record `interest_level`, `interest_reason`, `interest_updated_at`, and
+any `interest_evidence` (説明会 / 面接 experience that changed it). Only the user sets it. If they
+do not answer, it stays `null` — never 3, never "neutral".
 
-**Deterministic scoring (preferred when a shell is available):**
-Do NOT compute the formulas by mental arithmetic. Build the JSON input and run the shared scorer:
+### STEP 2: Run the Diagnosis (deterministic)
+
+Do **not** compute this by hand. Build the JSON payload and run the engine:
 
 ```bash
-echo '{"recruit": {...}, "persol": {...}, "culture": {...}}' | python3 ../../_shared/scoring.py
+python3 "${CLAUDE_PLUGIN_ROOT:-.}/_shared/matching_v3.py" payload.json
+# add --text for the plain-text report
 ```
 
-(Schema documented in the script's docstring; `--self-test` verifies it against the frameworks.md §6 worked
-example.) The script's arithmetic is exact — the ±10pt caveat then applies only to the *inputs* (your S_i /
-w_i / P_fit / B_behavioral estimations), not the math. If no shell is available, fall back to LLM
-approximation under the "LLM Math Limitation" rules below.
+Payload shape (every block optional; omitted evidence becomes `unknown`, never a default):
 
-**First, apply the Platform Modifier table** based on `target_platform` from STEP 0.
-This adjusts how weights are distributed before running either formula.
-
-**👉 Refer to `references/platforms.md` for:**
-- Platform Modifier Table (Primary weight boost, Secondary adjustment, Hard penalty triggers per platform)
-
-Apply the modifier **before** running the per-platform formulas below.
-
-#### 2-1. Recruit-Style Matching
-
-**Evidence Grounding Rule:**
-Every score component must cite its source. Do not invent skill levels.
-- If the candidate's skill level comes from `CANDIDATE_PROFILE` YAML, cite it: `S_i = 70 [source: CANDIDATE_PROFILE.skill_stack.Python.level = intermediate]`
-- If estimated from conversation, cite: `S_i = 50 [source: user said "I did a 3-month course"]`
-- If no data exists for a required skill, set `S_i = 0` and note: `[no evidence]`
-
-```
-M_total = Σ(S_i × w_i) + α × P_fit + β × B_behavioral
-```
-
-Process:
-1. Extract required skills from JD, set importance weight (w_i) 0~1 for each
-2. Evaluate candidate's skill level per skill 0~100 (S_i)
-3. Calculate SPI3 fit (P_fit): alignment between company's primary quadrant and candidate's dominant quadrant
-4. Estimate behavioral signal score (B_behavioral): approximates Recruit's CTR/collaborative filtering on browse/application history (use 50 as neutral default if no behavioral data available)
-5. Default α=0.3, β=0.2 for composite score
-
-#### 2-2. Persol Career-style Matching
-
-```
-M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable
-```
-
-*(Approximation — actual doda セカンドマッチ uses supervised ML trained on 選考通過実績, with BERT skill extraction from 職務経歴書. Cosine similarity approximates the "match similar capability vectors" goal.)*
-
-Process:
-1. Map candidate skills to ontology higher-order capabilities → generate capability vector
-2. Map JD requirements to same higher-order capabilities → generate capability vector
-3. Calculate cosine similarity of the two vectors (0~1 → ×100)
-4. Calculate transferable skill bonus:
-   - Direct match skill: +0
-   - Adjacent capability skill: +5 (per skill)
-   - Distant capability: +0
-   Max bonus: 20 points
-
-#### 2-3. Culture Fit Score
-
-Calculate the difference between candidate's well-being priorities and company's current state
-for all 4 factors. (Refer to "Well-being Scoring Criteria" in `../../_shared/frameworks.md`)
-
-```
-Culture_fit = max(0, 100 - (sum of differences × 10))
+```json
+{
+  "company_name": "B社", "position": "Product Analyst", "as_of": "2026-08-03",
+  "eligibility": [
+    {"requirement": "勤務地", "candidate_evidence": "東京在住", "job_evidence": "東京勤務",
+     "meets": true, "source_type": "job_posting", "confidence": "high"},
+    {"requirement": "日本語要求水準", "candidate_evidence": "N2", "job_evidence": null, "meets": null}
+  ],
+  "skills": {
+    "required":  [{"name": "SQL", "status": "matched", "evidence": "3年, 職務経歴書 L12"},
+                  {"name": "A/B testing", "status": "missing", "source_type": "job_posting"},
+                  {"name": "stakeholder presentation", "status": "unknown"}],
+    "preferred": [], "experience": []
+  },
+  "portable_skill": {
+    "allocation": {"current_state_assessment": 5, "task_setting": 4, "planning": 4,
+                   "task_execution": 5, "situational_response": 3, "internal_coordination": 3,
+                   "external_coordination": 2, "manager_response": 2, "subordinate_management": 1},
+    "level": 3,
+    "mhlw_mapping": {"mapped_role_profile_id": null, "method": null,
+                     "confidence": "unknown", "evidence": null}
+  },
+  "career_values": [
+    {"value": "autonomy", "kind": "must_have", "satisfied": true,
+     "company_evidence": "裁量あり (求人票 2026-07-30)", "confidence": "medium"}
+  ],
+  "candidate_interest": {"interest_level": 5, "interest_reason": "説明会で開発体制を聞いて上がった",
+                         "interest_updated_at": "2026-08-01",
+                         "interest_evidence": [{"source": "event_experience", "note": "説明会",
+                                                "observed_at": "2026-07-20"}]},
+  "employer_signals": [{"type": "scout", "observed_at": "2026-07-01T09:00:00", "source": "doda"}],
+  "conflicting_evidence": ["求人票は残業20h、口コミは45h"]
+}
 ```
 
-#### 2-4. Career Value Fit (separate from numeric scoring)
+Field rules the engine enforces — do not work around them:
 
-Evaluate each confirmed `must_have`, `avoid`, anchor, or theme against explicit company/JD evidence.
-Do not infer a company value from a generic title or optimistic wording. Use exactly one status per item:
+- `meets` is honoured only when **both** evidence fields are present. Otherwise `unknown`.
+- `kind: avoid` uses `satisfied: true` to mean *the company has the avoided condition* → conflict.
+- Required coverage = confirmed matched ÷ (confirmed matched + confirmed missing). `unknown` is
+  excluded and reported separately. Zero confirmed requirements → `insufficient_data`, not 0%.
+- MHLW: 9 integers ≥ 1 summing to exactly 29; `level` is stored separately and never enters the
+  distance. Without a mapping that has both `method` and `evidence`, no distance is produced.
+- `as_of` is required for staleness reporting; without it, staleness is `null` rather than
+  computed from the wall clock (results must be reproducible).
 
-| Status | Meaning |
+**Decision Status** comes out of the engine, not out of judgement:
+
+| Status | Rule |
 |---|---|
-| Match | Direct company evidence supports the candidate value |
-| Partial | Evidence supports only part of the value or shows a trade-off |
-| Conflict | Direct evidence contradicts a `must_have` or confirms an `avoid` condition |
-| Unknown | No sufficient company evidence was provided |
+| `Conflict` | ≥1 confirmed eligibility failure, or a confirmed `must_have`/`avoid` conflict |
+| `Review` | no confirmed conflict, but a core requirement / condition / role fact is `unknown`, or evidence contradicts itself |
+| `Proceed` | no confirmed conflict and no core unknown |
 
-Show the candidate field and the company/JD source beside every row. Career Value Fit is qualitative and
-is never added to Recruit, Persol, Culture Fit, or Overall scores.
+`Proceed` does not mean "apply" and does not mean "you will pass". It means nothing blocks a
+decision on the information currently held.
 
-### STEP 3: RA/CA Dual-Side Analysis
+### STEP 3: Qualitative Perspectives (no scores)
 
-After calculating algorithm scores, simulate the "human judgment" layer inside agencies.
+**👉 `references/evaluation_perspectives.md`** — RA (company-side) read, CA (candidate-side)
+read, and Hiring Manager Direct Evaluation for direct-apply routes.
 
-**👉 Refer to `references/evaluation_perspectives.md` for:**
-- Platform Scope Check (Whether to run CA perspective or Direct Evaluation)
-- RA (Company-Side) Perspective & Risk Signal
-- CA (Candidate-Side) Perspective
-- Hiring Manager Direct Evaluation (Green / BizReach)
+Every statement there cites a fact from STEP 2. Nothing in STEP 3 produces a number, and nothing
+in STEP 3 may upgrade an `unknown` into a judgement.
 
-### STEP 4: Comprehensive Match Report
+### STEP 4: Report
 
-Compile all analysis into a final report.
-
-**Report structure:**
+Fixed output order:
 
 ```
-═══════════════════════════════════════
-  Matching Simulation & Vulnerability Report
-═══════════════════════════════════════
+[Company] / [Position]
+Decision Status: PROCEED | REVIEW | CONFLICT
 
-[Candidate] ○○○ × [Company] △△△ — □□ Position
-
-⚠️ Score Disclaimer: All scores are simulated LLM estimates (±10~15pt variance). Actual agency routing depends on fee margins, internal database algorithms, and human consultant quotas. Use scores ONLY to prioritize preparation areas, NOT as a pass guarantee.
-
-━━━ Top 3 Interview Vulnerabilities (深掘り リスク) ━━━
-1. [Vulnerability 1 — e.g. Core Tech gap / short tenure / undefendable metric]
-   → Likely interviewer question: 「...」
-   → Action: [Recommended grounding / framing strategy]
-2. [Vulnerability 2]
-3. [Vulnerability 3]
-
-━━━ Simulated Match Scores ━━━
-Recruit-style:  ~75/100 (B Match range)
-Persol Career-style:   ~80/100 (B Match range)
-Culture Fit:    ~90/100 (High Fit)
-Overall Estimate: ~80/100 (Directional B Match — subject to interview verification)
-
-━━━ Career Value Fit (not scored) ━━━
-전문성 축적: Match — [company/JD evidence]
-자율성: Unknown — [no sufficient company evidence]
-반복 운영 회피: Conflict — [company/JD evidence]
-
-━━━ Score Breakdown ━━━
-[Skill Match]     Skill alignment, gap analysis, transfer potential
-[Latent Ability]  SPI3 fit, behavioral signal (B_behavioral — browse/application history proxy)
-[Culture Fit]     Well-being index alignment, retention forecast
-[Condition Match] Salary, work style, location
-
-━━━ RA Opinion ━━━
-(RA analysis from STEP 3)
-
-━━━ CA Opinion ━━━
-(CA analysis from STEP 3)
-
-━━━ Final Screening Judgment ━━━
-[Motivation authenticity] Does candidate's reason connect to their career vision?
-[Practical barriers]      Visa, commute, family situation — factors outside the data
-[Timing]                  Alignment between candidate's job-change timing and hiring schedule
-
-━━━ Action Items ━━━
-Candidate: [pre-interview preparation]
-Company:   [points to verify in interview]
-
-━━━ Interview Stories (STAR+R) ━━━
-Map 3–5 stories from the candidate's experience to the JD's top requirements.
-One story per row. Reflection column is mandatory — it signals seniority.
-
-| # | JD Requirement | Story Title | S (Situation) | T (Task) | A (Action) | R (Result) | Reflection |
-|---|----------------|-------------|---------------|----------|------------|------------|------------|
-| 1 | [requirement]  | [1 line]    | [context]     | [goal]   | [what done]| [outcome]  | [learned / do differently] |
-
-Rules:
-- Do NOT fabricate stories. Only use experiences the candidate confirmed in this session or in CANDIDATE_PROFILE.
-- If a required story cannot be backed by actual experience, mark the cell: [no evidence — gap]
-- Reflection distinguishes senior candidates from junior ones: juniors describe what happened, seniors extract the lesson.
-- Red-flag questions: include 1–2 likely hard questions for this role (e.g., short tenure, gap, career change) with a recommended framing.
+1. Eligibility          — per requirement: PASS / CONFLICT / UNKNOWN + the evidence for each
+2. Required Skills      — n/m confirmed requirements matched; Missing: …; Unknown: …
+                          (or `insufficient_data` when nothing is confirmed)
+3. Portable Skills      — MHLW mapped role, distance, rank N of M, per-element composition gaps,
+                          dataset version + source.  Always print:
+                          "distance between composition profiles; not a 0–100 fit score"
+                          If unmapped / dataset unavailable, print the status and the reason.
+4. Career Values & Conditions — Aligned / Tradeoff / Conflict / Unknown, each with the company
+                          evidence sentence, its source and observation date. Company marketing
+                          copy alone → confidence `low`, say so.
+5. Candidate Interest   — n/5 and the reason, plus "Excluded from objective-fit calculations".
+                          Not recorded → "not recorded (null)". Never rendered as neutral.
+6. Employer Signals     — observed events with dates only. No signals = nothing observed, which
+                          is not a negative.
+7. Evidence & Missing Information — key missing items, low-confidence items, contradictory
+                          evidence, stale facts, and the confirmation questions most likely to
+                          change the result.
 ```
 
-### STEP 5: Improvement Recommendations
+Then STEP 3's RA/CA read, then Action Items.
 
-When match score is C or below, or a large gap is found in a specific area.
+**Interview Stories (STAR+R)** — map 3–5 confirmed experiences to the posting's top requirements,
+one per row, Reflection column mandatory. Do not fabricate stories; a requirement with no backing
+experience is marked `[no evidence — gap]`.
 
-**Candidate-side improvements:**
-- How to address skill gaps (learning roadmap, certifications)
-- Which resume/work history points to emphasize to raise the score
-- Alternative positions with higher match using the same skill set
+### STEP 5: Closing the Gaps
 
-**職務経歴書 Customization Plan** (for this specific role):
+Run when Decision Status is `Conflict` or `Review`, or required coverage shows confirmed gaps.
 
-Generate a table of up to 5 targeted changes to maximize the candidate's match score for this posting.
-Base changes on the skill gaps and score breakdown from STEP 2 — not on generic best practices.
+- **For each `conflict`:** state it plainly. A confirmed hard-requirement failure is not offset
+  by strengths elsewhere and is not "workable with preparation".
+- **For each `unknown`:** the exact question to ask, and who can answer it (求人票, CA, 面接,
+  OpenWork). Ordered by how much the answer would change the result.
+- **For each confirmed `missing` skill:** what closing it actually takes. If it is 6+ months of
+  work, say so; do not present it as a short-term optimisation.
+- **職務経歴書 customization:** up to 5 targeted changes tied to specific `missing`/`unknown`
+  items. Reorder and reframe are allowed; fabricate is not. For full ATS keyword treatment run
+  `job-seeker-agent` STEP 4-1b.
 
-| # | Section | Current state | Proposed change | Why (links to gap/score) |
-|---|---------|---------------|-----------------|--------------------------|
-| 1 | Summary | ... | ... | ... |
+## Tone
 
-Rules:
-- Only suggest changes grounded in the candidate's actual experience. Do not invent metrics or claims.
-- "Reorder" and "reframe" are allowed. "Fabricate" is not.
-- Include 5–8 JD keywords to mirror in the 職務経歴書 for ATS compatibility. (This is a quick subset — for
-  the full treatment, 表記揺れ variants, and the hit/miss/add coverage table, run `job-seeker-agent`
-  STEP 4-1b, which uses its own references/ats-keywords.md.)
+You report facts and their absence. A `Conflict` is a conflict — do not soften it with
+"but there's potential". A `Review` is not a bad result; it means specific things are unknown,
+and Missing Information says which. Never convert any axis into encouragement, a percentage, or
+a likelihood.
 
-**Company-side improvements:**
-- Which JD elements are narrowing the matching range
-- How much the candidate pool expands if adjacent skill acceptance is widened
-- ROI of training investment when accepting skillset-shift candidates
+If the user asks "what are my chances?": there is no calibrated model here that could answer
+that honestly. Give the Decision Status, the confirmed conflicts, and the top three unknowns.
+
+## Legacy (`legacy_v1`) — off by default
+
+Do not run the legacy scorer as part of a normal diagnosis. Only on an explicit request for the
+old numbers, and then per `references/legacy-v1.md`: run
+`../../_shared/legacy_experimental.py` with `--legacy-experimental`, and reproduce
+`model_version: legacy_v1` and the fixed warning verbatim.
+
+Never place a legacy score and a v3 result in the same table, ranking, or sort order. Existing
+`match_score` / `predicted_tier` values in `data/pipeline.yml` are frozen history: preserved,
+displayed as legacy when relevant, never rewritten, and never compared against a v3 result.
 
 ## Reference Files
 
-- `../../_shared/frameworks.md` — SPI3 quadrants, Portable Skills, Skill Ontology, Well-being Index, full matching formula
-- `../../_shared/scoring.py` — deterministic scorer for STEP 2 (run via Bash; `--self-test` available)
-- `references/platforms.md` — Platform modifier table and penalty multipliers
-- `references/evaluation_perspectives.md` — RA/CA simulated perspectives and Direct Hiring manager evaluation criteria
+- `../../_shared/matching_v3.py` — the v3 engine (validation, distance, decision rules)
+- `../../_shared/mhlw_reference.py` — MHLW reference-dataset interface and versioning
+- `../../_shared/test_matching_v3.py` — acceptance-criteria regression tests
+- `../../_shared/schemas.yml` — data contracts and which fields are `legacy_v1`
+- `references/mhlw-portable-skill.md` — 29-point method, mapping provenance, dataset status
+- `references/evaluation_perspectives.md` — RA / CA / direct-apply qualitative reads
+- `references/legacy-v1.md` — what was retired, why, and how to run it deliberately
+- `../../_shared/frameworks.md` — SPI3, Portable Skills definitions, Skill Ontology, Well-being.
+  Its §6 score formulas are `legacy_v1`.
+- `../../_shared/legacy_experimental.py` — retired scorer, opt-in flag required
 
 ## Cross-Skill Data Consumption
 
-This skill is designed to work with data from `job-seeker-agent` and `hiring-manager-agent`.
+Check in this order:
+1. Confirmed `career_context` from `career-agent context` when `CAREER_VAULT` is set.
+2. `data/self_analysis_profile.yml` with `career_context_confirmed: true`.
+3. `data/candidate_profile.yml` and `data/company_profiles/*.yml`.
+4. `# === SELF_ANALYSIS_PROFILE ===`, `# === CANDIDATE_PROFILE ===`, `# === COMPANY_PROFILE ===`
+   YAML blocks in the conversation.
+5. A `null` field is asked about; it is not filled in.
 
-**How to find structured data (check in this order):**
-1. Check confirmed `career_context` from `career-agent context` when `CAREER_VAULT` is set.
-2. Otherwise check `data/self_analysis_profile.yml` for `career_context_confirmed: true`.
-3. Check `data/candidate_profile.yml` and `data/company_profiles/*.yml` for saved profiles from previous sessions.
-4. Look in the conversation history for `# === SELF_ANALYSIS_PROFILE ===`, `# === CANDIDATE_PROFILE ===`,
-   and `# === COMPANY_PROFILE ===` YAML blocks.
-5. Parse the YAML directly into your scoring variables.
-6. If a field is `null`, ask the user for the missing information interactively.
-7. If no structured blocks exist, run Case B or C data collection
+A profile carrying only legacy 1–5 `portable_skills` has **no** MHLW allocation. Ask for the
+29-point allocation, or report Portable Skills as `insufficient_data`. Do not convert.
 
-**Why this matters:** Using structured data from the source skills eliminates re-interpretation errors.
-When you parse a Portable Skills score from `CANDIDATE_PROFILE`, use it as-is rather than re-evaluating.
-The source skill already applied evidence grounding and user confirmation.
+## Related Skills
 
-## Tone & Style
-
-**Core principle: You are a scoring engine, not a matchmaker.**
-
-This skill outputs a number. That number reflects reality. A low score means low match probability. Do not reframe it.
-
-**Anti-Sentiment Rules (mandatory):**
-- A score below 60 (C Match) means: "Agency consultants will not actively recommend this candidate for this position." Say this plainly.
-- Do not add "but there's potential here" or "with some preparation." If the score is low, the score is low.
-- Improvement pathways are only presented in STEP 5 — and only when the gap is bridgeable (score 55~69). For scores below 55, state the structural mismatch clearly: "The skill gap requires 6+ months of active work. This is not a short-term optimization problem."
-- When the algorithm scores conflict (e.g., Recruit-style: 75, Persol Career-style: 45), do not average them into comfort. Explain what causes the divergence.
-- Do not say "the company may appreciate X." Either the data shows it or it doesn't.
-- **Platform verdict (mandatory):** At the end of STEP 4, output a verdict for: (1) the `target_platform` from STEP 0, and (2) any other platform the user explicitly mentioned. Do NOT list all 6 platforms every time — that creates noise. Format:
-  ```
-  [Platform] verdict: [❌/⚠️/✅] [1-line reason]. Score ~[N]/100. [Implication if not obvious.]
-  ```
-  ❌ = non-referral / don't apply | ⚠️ = borderline, apply selectively | ✅ = strong fit, proceed
-  Example:
-  ```
-  Levtech verdict: ❌ Non-referral. Core Lead Tech (Spark, Airflow) absent. Score ~30/100.
-  Green verdict:   ⚠️ Borderline. Score ~60/100. Direct-apply selectively; startup culture fit is high but skill depth is thin.
-  ```
-- For agent platforms, if the early-exit risk from STEP 3 is "high", output: `[CAs are unlikely to recommend this candidate due to early-exit risk. Direct-apply platforms recommended instead.]`
-
-**LLM Math Limitation — Mandatory Disclosure:**
-
-The scoring formulas in STEP 2 (Recruit-style weighted sum, Persol Career-style cosine similarity) involve floating-point arithmetic. LLMs do not execute arithmetic reliably. **First choice is always `_shared/scoring.py` (STEP 2)** — the rules below apply to the LLM-approximation fallback, and rule 1's disclosure applies to input estimation even when the script ran.
-
-Apply these rules every time a numerical score is presented:
-1. State: *"Note: these are language model approximations, not deterministic computations. Treat all scores as directional (±10 points)."*
-2. When a score lands within 5 points of a grade boundary (e.g., 65–75 near the C/B boundary of 70): flag it explicitly — *"Score is near the B/C boundary. ±10pt margin means this could be either grade."*
-3. Never present a score like "78.3/100" with false precision. Round to the nearest 5 (e.g., "~80/100").
-
-**What is allowed:**
-- Stating the simulation's limitations: "This is a simulation. Actual agency scores depend on internal databases and consultant judgment."
-- Presenting improvement pathways in STEP 5 — as specific actions with score impact estimates, not as reassurance.
-
-**Format:**
-- Response language follows the Language Auto-Detection rule near the top of this file (auto-match the user).
-  Japanese terms stay in original script where relevant.
-- Always caveat: scores are simulated estimates, not agency guarantees
-
-## Related Skills — Before or After Matching
-
-| Situation | Recommended skill | Why |
-|-----------|------------------|-----|
-| No CANDIDATE_PROFILE yet | `job-seeker-agent` | Run STEP 1–3 first; generates CANDIDATE_PROFILE YAML for direct input here |
-| No COMPANY_PROFILE yet | `hiring-manager-agent` | Run full JD analysis; generates COMPANY_PROFILE YAML for direct input here |
-| Have a company URL, no JD text | `kigyou-bunseki` | Extracts Mission/Vision + hiring requirements to use as company-side input |
-| Score is A/B Match and user wants to compare two companies | `company-battlecard` | Head-to-head comparison once matching scores are established |
-
-**Fastest path to a score:**
-If the user already ran `job-seeker-agent` and `hiring-manager-agent`, paste both YAML blocks here.
-The simulator reads them directly — no re-entry needed. Start at STEP 2 immediately.
+| Situation | Skill |
+|---|---|
+| No CANDIDATE_PROFILE yet | `job-seeker-agent` |
+| No COMPANY_PROFILE yet | `hiring-manager-agent` |
+| Company URL, no JD text | `kigyou-bunseki` |
+| Comparing two companies | `company-battlecard` |
 
 ## Document Save (Required)
 
-After completing STEP 4 (Comprehensive Match Report), always save to:
+Save the full report to `career-docs/match-[company]-[YYYYMMDD].md`. Create `career-docs/` in the
+invocation directory (CWD) if missing — never inside the skill's install directory. Print the
+absolute path and confirm the file exists.
 
+**Match history:** append an entry to `data/match_history.md` using the `match_history_entry`
+schema in `../../_shared/schemas.yml`, with `model_version: evidence_based_v3`, `decision_status`,
+`required_coverage` (+ its status), the portable-skill status/distance, confirmed conflicts, and
+missing information. Never write the legacy score fields on a new entry.
+
+**Pipeline upsert:** upsert the company in `data/pipeline.yml` via the shared CLI:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json \
+  '{"stage":2,"match_model_version":"evidence_based_v3","decision_status":"review"}'
 ```
-Save path: career-docs/match-[company]-[YYYYMMDD].md
-```
 
-Contents: Full match report including scores (Recruit/Persol/Culture Fit/Overall), the separate Career
-Value Fit evidence table, score breakdown, RA opinion, CA opinion, final judgment, and action items.
+Create the entry at `stage: 2` (評価済 — evaluated, not applied) using the same slug as
+`data/company_profiles/`. Never edit `data/pipeline.yml` directly.
 
-If the `career-docs/` folder does not exist, create it in the invocation directory (CWD) — never inside
-the skill's install directory. After saving, print the file's absolute path and confirm it exists
-(e.g., `ls -la <path>`) so the user can verify the output on disk.
-
-**Match History:** After saving the report, also append a summary entry to `data/match_history.md`
-(CWD-relative — create `data/` in the invocation directory if missing). match_history.md is the
-append-only log of every run; the pipeline entry below holds only the latest score.
-
-**Pipeline upsert:** also upsert the company's entry in `data/pipeline.yml` (PIPELINE schema in
-`_shared/schemas.yml`): set `match_score` to the overall score. If no entry exists, create one at
-`stage: 2` (評価済 — evaluated, not applied) using the same slug as `data/company_profiles/`.
-Use the shared writer from CWD, for example:
-`python3 "${CLAUDE_PLUGIN_ROOT:-.}/scripts/pipeline.py" upsert <slug> --json '{"match_score":78,"stage":2}'`.
-Never edit `data/pipeline.yml` directly; the CLI preserves foreign fields and uses the shared lock/atomic write.
-Follow the Output Contract (print path, verify exists).
-Use the `match_history_entry` schema from `../../_shared/schemas.yml`. Include the `report_file` path.
+`decision_status` is **not** a ranking value: do not sort the pipeline by it and do not convert
+it to a number. Write `interest_level` / `interest_reason` only when the user states them, and
+never combine interest with deadline, stage, or match data into a priority score — this PRD
+builds no such feature.

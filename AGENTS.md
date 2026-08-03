@@ -45,12 +45,44 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`L1187–L1232`**: `approve()` 2-step Ledger Commit processor
 - **`L1233–L1260`**: `restore_state()` State snapshot restore — ledger is NOT rewound
 
-### 2. `_shared/scoring.py` (Deterministic Scoring Engine)
-- **`L35–L43`**: Score Grade Boundary Evaluator (`A` >= 85, `B` >= 70, `C` >= 55, `D` < 55)
-- **`L45–L58`**: `recruit_style()` — Recruit Algorithm (Skill terms + SPI3 fit + Behavioral signal)
-- **`L60–L75`**: `persol_style()` — Persol Algorithm (Cosine Similarity + Transfer Bonus)
-- **`L77–L93`**: `culture_fit()` — 4-Factor Well-being Distance Evaluator; refuses a verdict on missing factors
-- **`L96–L116`**: Self-test suite (`python3 _shared/scoring.py --self-test`)
+### 2. `_shared/matching_v3.py` (Evidence-Based Diagnosis — the default matching engine)
+`model_version: evidence_based_v3`. Independent axes; **nothing here is summed into a score**.
+- **`ALLOCATION_KEYS` / `validate_allocation()`**: MHLW 9 elements, integer >= 1, sum exactly 29.
+  `level: 1–5` is rejected as an allocation key and never enters the distance vector.
+- **`composition()` / `composition_distance()` / `rank_role_profiles()`**: normalise to ratios
+  summing to 1, Euclidean distance, stable `(distance, id)` ordering. No 0–100 conversion exists,
+  and adding one is a spec violation, not an enhancement.
+- **`portable_skill_result()`**: `available | insufficient_data | unmapped | unavailable`. A JD
+  distance requires an `mhlw_mapping` with both `method` and `evidence`.
+- **`eligibility_results()`**: tri-state. `conflict` only when BOTH sides are evidenced and
+  disagree; one-sided information is `unknown`, never a pass.
+- **`skill_results()`**: coverage = confirmed matched ÷ (confirmed matched + confirmed missing).
+  `unknown` is excluded from the denominator; zero confirmed → `insufficient_data`.
+- **`career_value_results()`**: aligned / tradeoffs / conflicts / unknown, never totalled.
+- **`candidate_interest()` / `employer_signals()`**: recorded and passed through. Interest is not
+  a parameter of `decision_status()` and must never become one — `test_matching_v3.py` guards the
+  signature on purpose.
+- **`decision_status()`**: conflict > review > proceed, from confirmed facts only.
+- **`evaluate()` / `render()`**: full result and the PRD §9 text report. CLI: `python3
+  _shared/matching_v3.py payload.json [--text]`.
+
+### 2b. `_shared/mhlw_reference.py` (MHLW 114-profile reference interface)
+- `load()` returns `status: unavailable` with a reason when no dataset is installed — the
+  dataset's licence is unconfirmed and the profiles are **never** LLM-generated. A present but
+  invalid file raises instead of degrading to "unavailable".
+- Requires `dataset_version`, `source`, `licence`; validates every profile allocation.
+
+### 2c. `_shared/legacy_experimental.py` (retired scorer — `legacy_v1`, opt-in only)
+Was `_shared/scoring.py`. Off the default path; kept so historical scores stay reproducible.
+- **`recruit_style()` / `persol_style()`**: every result stamped `model_version: legacy_v1` plus
+  the fixed "not an official Recruit/Persol model" warning.
+- **`culture_fit()`**: **discontinued** — raises `DiscontinuedError`. `100 − Σdiff × 10` produced
+  a percentage from four ordinal ratings. Historical values stay on disk; no new one is computed.
+- CLI refuses to run without `--legacy-experimental`. Self-test: `--self-test`.
+
+### 2d. `_shared/test_matching_v3.py`
+52 regression tests mapped to the PRD acceptance criteria. The two that matter most: interest
+independence (AC-4) and the absence of any 0–100 field in the default result (AC-7).
 
 ### 2b. `_shared/pipeline_store.py` (Shared write path for `data/pipeline.yml`)
 - **`L27–L41`**: `locked()` — fcntl/msvcrt exclusive lock on a `.lock` sibling file
@@ -59,16 +91,28 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`L63–L67`**: `mutate()` — load → fn(data) → atomic_write, all inside `locked()`. Both
   `career_agent.py`'s `upsert_pipeline_entry()` and `scripts/check_action.py`'s `check()` go
   through this now instead of each doing their own read-whole-file/rewrite-whole-file.
-- **`L74–L155`**: `upsert_company()`, `update_company()`, and `append_history()` — deterministic
+- **`L81–L108`**: `_validate_fields()` — stage range, `interest_level` 1–5, `decision_status` and
+  `match_model_version` enums, and the refusal to write a new legacy `match_score` (existing
+  values are preserved; only new writes are blocked).
+- **`L111–L175`**: `upsert_company()`, `update_company()`, and `append_history()` — deterministic
   company operations used by `scripts/pipeline.py`; stage updates are forward-only.
 
 ### 3. `_shared/schemas.yml` (Canonical Data Contracts)
-- **`L22–L62`**: `SELF_ANALYSIS_PROFILE` (Produced by `jiko-bunseki`, consumed by `job-seeker-agent`)
-- **`L70–L125`**: `CANDIDATE_PROFILE` (Produced by `job-seeker-agent`, consumed by match/battlecard)
-- **`L127–L149`**: `COMPANY_PROFILE` (Produced by `hiring-manager-agent` / `kigyou-bunseki`)
-- **`L151–L166`**: `MATCH_HISTORY` (Produced by `matching-simulator`)
-- **`L164–L252`**: `PIPELINE` — the suite's only per-company store; outcome record, measurement fields, `action_items`
-- **`L254–L279`**: `RULES` — the user's standing rules (`career-agent` writes on approval only)
+`schema_version: 2.0`. Read the **MODEL VERSIONS** block at the top first: every numeric field is
+tagged `evidence_based_v3` or `legacy_v1`, and the two are never merged into one score, grade, or
+sort key. Legacy values already on disk are preserved and never backfilled or rewritten.
+- `SELF_ANALYSIS_PROFILE` (Produced by `jiko-bunseki`, consumed by `job-seeker-agent`)
+- `CANDIDATE_PROFILE` — adds `portable_skill_allocation` (29 points), `portable_skill_level`
+  (excluded from distance), `career_values`. Legacy 1–5 `portable_skills` is preserved and
+  **not convertible** to an allocation.
+- `COMPANY_PROFILE` — adds `requirements` (hard / required_skills / preferred_skills /
+  experience), `conditions`, `mhlw_mapping`.
+- `MATCH_HISTORY` — `model_version` is required per entry; v3 entries carry `decision_status`
+  and coverage, and no 0–100 score. Legacy entries keep theirs verbatim.
+- `PIPELINE` — the suite's only per-company store. Adds `match_model_version`,
+  `decision_status`, `match_conflicts`, `match_unknowns`, `interest_*`, `employer_signals`.
+  `match_score` / `predicted_tier` are frozen legacy history.
+- `RULES` — the user's standing rules (`career-agent` writes on approval only)
 
 ### 4. `scripts/` (Deterministic Loop — no LLM in the path)
 - **`status_bar.py`**: `build_status()` → the `<career_status>` block. Run by the UserPromptSubmit hook
@@ -77,6 +121,10 @@ To minimize token consumption, do **NOT** read entire source files. Use line-off
 - **`pipeline.py`**: shared `upsert` / `update` / `history` / `close` CLI for every domain Skill writer.
 - **`calibrate.py`**: predicted vs actual, feedback rate per route, override outcomes. Prints nothing
   below 3 scored outcomes. `rules` subcommand promotes a cause only at 2+ supporting entries.
+  The tier table is **legacy_v1 only** — `evidence_based_v3` records no predicted grade, so there
+  is deliberately no forecast to score. Scoring a Decision Status against a hiring outcome would
+  turn it back into the pass-probability estimate v3 exists to stop. Route / feedback / override /
+  root-cause analysis is unaffected and applies to all entries.
 - **`test_status_bar.py`**, **`test_calibrate.py`**, **`test_pipeline_cli.py`**: run before touching the
   corresponding deterministic writer/reader scripts.
 
@@ -190,7 +238,7 @@ When the user's message or attached content matches a pattern below, activate th
 | 이력서, 職務経歴書, 履歴書, resume text pasted | `job-seeker-agent` |
 | JD text pasted — 必須条件, 歓迎条件, 募集要項 (no URL) | `hiring-manager-agent` |
 | Japanese job/company site URL pasted | `kigyou-bunseki` |
-| "매칭", "합격확률", "スコア", "マッチ", "fit score", "screening" | `matching-simulator` |
+| "매칭", "합격확률", "スコア", "マッチ", "fit", "screening" | `matching-simulator` (answers the fit question; declines the probability — no calibrated model exists) |
 | Two company names + "비교", "vs", "どっちが", "compare" | `company-battlecard` |
 | CANDIDATE_PROFILE + COMPANY_PROFILE both in conversation | `matching-simulator` |
 | "신졸", "新卒", "学チカ", "graduating soon" | `job-seeker-agent` (新卒 track) |
@@ -283,7 +331,13 @@ see the Output Contract (Rule C) above:
 own flow state (track · stage · deadlines · event ledger) and does **not** keep a second copy of the
 company list — on `approve`, career-agent projects the confirmed event onto `data/pipeline.yml`
 (stage · next_action · deadline · history) and never touches the fields the domain skills own
-(`match_score`, `channel`, `kyujin_legitimacy`, the outcome record).
+(`decision_status`, `channel`, `kyujin_legitimacy`, the interest fields, the outcome record, and
+the frozen legacy `match_score`).
+
+**Interest is not a priority signal.** `interest_level` exists so the user can record that they
+like a company independently of fit. No skill combines it with deadline, stage, or match data
+into a ranking or priority score, and none may start. Application-priority ordering, if it is
+ever wanted, is a separate feature with its own design.
 
 When loading a profile from `data/`, tell the user which file was loaded and ask if it's still current.
 When writing any of these, follow Rule C: print the absolute path and confirm the file exists.
@@ -294,11 +348,18 @@ When writing any of these, follow Rule C: print the absolute path and confirm th
 
 These apply to all 9 skills equally:
 
-1. **No fabrication** — Never invent STAR stories, metrics, or skill evidence not in the user's input
+1. **No fabrication** — Never invent STAR stories, metrics, skill evidence, or reference data not in
+   the user's input. This includes reference datasets: an unavailable dataset is reported as
+   unavailable, never generated.
 2. **No submissions without review** — Never submit applications or send communications on the user's behalf
-3. **Score honesty** — A low score is a low score. No reframing, no encouragement, no "potential"
-4. **Math transparency** — All numerical scores are LLM approximations (±10 pts). State this at every report boundary
-5. **Evidence grounding** — Every claim must cite its source in the user's input (resume line, interview answer, etc.)
+3. **Result honesty** — A confirmed conflict is a conflict. No reframing, no encouragement, no
+   "potential". A `Review` means specific things are unknown; say which.
+4. **Missing is not neutral** — An unknown stays `unknown`. Never a mean, never 50, never a
+   default pass, and never inside a coverage denominator.
+5. **No invented probability** — No pass rate, offer rate, or company-formula claim without a
+   calibrated model, and there is none here. Observed events are reported as events with dates.
+6. **Evidence grounding** — Every claim cites its source in the user's input (resume line, JD line,
+   interview answer), with the observation date and confidence where it matters.
 
 ---
 
@@ -340,8 +401,14 @@ smoke test. Run the listed deterministic checks before committing.
 
 ```
 _shared/
-├── frameworks.md     # Canonical: SPI3, Portable Skills, Ontology, Well-being, Gakuchika, Company-Type, Formulas
-└── schemas.yml       # Canonical: CANDIDATE_PROFILE + COMPANY_PROFILE schema contracts
+├── frameworks.md            # Canonical: SPI3, Portable Skills, Ontology, Well-being, Gakuchika,
+│                            #   Company-Type. §6 score formulas are legacy_v1 (retired).
+├── schemas.yml              # Canonical data contracts (schema_version 2.0, model-version tagged)
+├── matching_v3.py           # DEFAULT matching engine — evidence_based_v3
+├── mhlw_reference.py        # MHLW 114-profile reference interface (dataset not bundled)
+├── legacy_experimental.py   # legacy_v1 scorer — opt-in flag required, off by default
+├── test_matching_v3.py      # acceptance-criteria regression tests
+└── pipeline_store.py        # shared lock/atomic write path for data/pipeline.yml
 
 data/                 # Session memory (gitignored — personal data)
 ├── candidate_profile.yml
@@ -353,7 +420,7 @@ skills/
 ├── jiko-bunseki/         # Self-analysis: strengths/values → SELF_ANALYSIS_PROFILE (runs before job-seeker-agent)
 ├── job-seeker-agent/     # CA simulator: resume → CANDIDATE_PROFILE
 ├── hiring-manager-agent/ # RA simulator: JD → COMPANY_PROFILE
-├── matching-simulator/   # Dual-algorithm match score
+├── matching-simulator/   # Evidence-based fit diagnosis (no composite score)
 ├── company-battlecard/   # Head-to-head company comparison
 ├── kigyou-bunseki/       # URL → company data extraction
 └── tenshoku-strategy/    # 転職 execution strategy (resignation, interview, negotiation, offer,

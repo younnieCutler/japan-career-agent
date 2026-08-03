@@ -11,7 +11,24 @@
 #                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
 #   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
-schema_version: "1.8"
+schema_version: "2.0"
+
+# ─────────────────────────────────────────────
+# MODEL VERSIONS — read this before adding any field that holds a number
+#
+#   evidence_based_v3  the default. Independent axes (Eligibility / Required Skill /
+#                      MHLW composition distance / Career Values / Interest / Employer
+#                      Signals / Evidence). No axis is summed with another, and no field
+#                      here may combine them into a ranking value.
+#   legacy_v1          Recruit-style, Persol-style, Culture Fit and the 0–100 match_score
+#                      derived from them. Frozen history, not produced by default. Engine:
+#                      _shared/legacy_experimental.py (opt-in flag required).
+#
+# Fields below are tagged with the model version they belong to. A legacy_v1 field and an
+# evidence_based_v3 field must never be merged into one score, one grade, or one sort key —
+# they measure different things and one of them was never validated. Legacy values already
+# on disk stay; nothing backfills them and nothing rewrites them.
+# ─────────────────────────────────────────────
 
 # ─────────────────────────────────────────────
 # SELF_ANALYSIS_PROFILE
@@ -81,8 +98,16 @@ candidate_profile:
                           #   signal exists (job-seeker-agent references/segments.md §3)
 
   optional:
+    # --- evidence_based_v3 (all nullable; never backfilled from legacy data) ---
+    - portable_skill_allocation  # object: see portable_skill_allocation_schema — 9 integers summing to 29
+    - portable_skill_level       # integer 1–5 | null: position level. Stored beside the allocation and
+                                 #   EXCLUDED from the composition-distance vector.
+    - portable_skill_assessed_at # string YYYY-MM-DD | null
+    - career_values              # object: see career_values_schema
+    # --- shared ---
     - skill_stack         # list of objects: see skill_stack_schema
-    - wellbeing_priorities  # object: see wellbeing_schema
+    - wellbeing_priorities  # object: see wellbeing_schema — legacy_v1 input; no new Culture Fit
+                            #   score is computed from it (see MODEL VERSIONS above)
     - target_company_type   # string: "self-developed" | "SIer" | "SES" | "consulting" | "startup" | "large enterprise" | null
     - segment                # string: "dai2_shinsotsu" | "standard" | "senior_ic" | "management" | null
                              #   中途 segment (job-seeker-agent references/segments.md §1); null for shinsotsu track
@@ -96,8 +121,36 @@ spi3_schema:
   order:    "float 0–10 | null"
   primary_trait: "string: highest-scoring quadrant name | null"
 
+portable_skill_allocation_schema:
+  # evidence_based_v3. MHLW ポータブルスキル見える化ツール 持ち味 input (_shared/matching_v3.py).
+  # Hard rules, enforced by validate_allocation() — a violation is an error, not a rounding job:
+  #   - every element is an INTEGER >= 1
+  #   - the 9 elements sum to EXACTLY 29
+  #   - `portable_skill_level` (1–5) is NOT part of this object and never enters the distance vector
+  # The legacy 1–5 `portable_skills` ratings below are NOT convertible into this allocation. There is
+  # no defensible mapping from an ordinal rating to a 29-point budget, so none is performed: the user
+  # is asked to redistribute 29 points. Both objects may coexist on one profile.
+  current_state_assessment: ~   # 現状の把握
+  task_setting:             ~   # 課題の設定
+  planning:                 ~   # 計画の立案
+  task_execution:           ~   # 課題の遂行
+  situational_response:     ~   # 状況への対応
+  internal_coordination:    ~   # 社内対応
+  external_coordination:    ~   # 社外対応
+  manager_response:         ~   # 上司対応
+  subordinate_management:   ~   # 部下マネジメント
+
+career_values_schema:
+  # evidence_based_v3. Compared against company evidence in matching_v3.career_value_results().
+  # A `must_have` unmet, or an `avoid` condition present, is a Conflict — never offset by anything else.
+  must_have: []   # list of strings
+  preferred: []   # list of strings
+  avoid:     []   # list of strings
+
 portable_skills_schema:
-  # All values: integer 1–5 | null. 9 elements per _shared/frameworks.md §2 (MHLW official 2023).
+  # legacy_v1. All values: integer 1–5 | null. 9 elements per _shared/frameworks.md §2.
+  # Preserved for existing profiles and for STAR-based resume feedback. NOT used for MHLW
+  # composition distance — see portable_skill_allocation_schema.
   現状の把握:       ~   # Situation Assessment
   課題の設定:       ~   # Problem Setting
   計画の立案:       ~   # Planning
@@ -134,41 +187,87 @@ company_profile:
     - required_skills     # list of strings
 
   optional:
+    # --- evidence_based_v3 (all nullable) ---
+    - requirements        # object: see requirements_schema — the structured input for FR-1/FR-2
+    - conditions          # object: free-form observed working conditions, one key per condition
+                          #   (salary, overtime, remote, ...). Absent key = unknown; never defaulted.
+    - mhlw_mapping        # object: see mhlw_mapping_schema
+    # --- shared ---
     - industry            # string
     - headcount           # integer | null
     - company_type        # string: "self-developed" | "SIer" | "SES" | "consulting" | "startup" | "large enterprise"
     - chuto_saiyo_ratio   # number 0–100 | null: mid-career hire ratio (中途採用比率), from kigyou-bunseki when available
     - top_performer_spi3    # object: same structure as spi3_schema
-    - top_performer_portable_skills  # object: same structure as portable_skills_schema
+    - top_performer_portable_skills  # object: same structure as portable_skills_schema (legacy_v1)
     - accepted_adjacent_skills     # list of strings
-    - wellbeing_scores             # object: same structure as wellbeing_schema
+    - wellbeing_scores             # object: same structure as wellbeing_schema (legacy_v1 input)
     - salary_range        # object: { min: integer, max: integer, currency: "JPY" }
     - remote_policy       # string: "full-remote" | "hybrid" | "on-site"
     - visa_sponsorship    # boolean | null
+
+requirements_schema:
+  # evidence_based_v3. Each list item: { name, status: matched|missing|unknown, evidence,
+  # mapping_basis, source_type, source_ref, observed_at, confidence }.
+  # `status: unknown` is a first-class value: it is counted and displayed, and it is EXCLUDED
+  # from the required-coverage denominator. It is never rounded up to matched.
+  hard:             []   # list of objects: { requirement, candidate_evidence, job_evidence, meets: true|false|null }
+                         #   `meets` is only honoured when BOTH evidence fields are present; otherwise unknown.
+  required_skills:  []
+  preferred_skills: []
+  experience:       []
+
+mhlw_mapping_schema:
+  # evidence_based_v3. Without a recorded mapping basis, NO MHLW distance is generated for the posting.
+  mapped_role_profile_id: "string | null — id in the MHLW reference dataset"
+  method:     "string: manual | rule_based | heuristic_mapping | null"
+  confidence: "string: high | medium | low | unknown"
+  evidence:   "string | null — required alongside `method`; the mapping is refused without it.
+                 `heuristic_mapping` output is marked NOT official MHLW values."
 
 # ─────────────────────────────────────────────
 # MATCH_HISTORY
 # Appended to: data/match_history.md
 # Produced by: matching-simulator (STEP 4)
+#
+# Append-only. Entries written before v3 keep their legacy_v1 fields verbatim; nothing
+# rewrites, recomputes, or deletes them. New entries are evidence_based_v3 and carry no
+# 0–100 score at all — the two shapes are distinguished by `model_version` and are never
+# sorted, ranked, or averaged together.
 # ─────────────────────────────────────────────
 match_history_entry:
   - date                  # string: "YYYY-MM-DD"
+  - model_version         # string: "evidence_based_v3" | "legacy_v1" — REQUIRED on every entry
   - candidate_name        # string
   - company_name          # string
   - position_title        # string
-  - recruit_style_score   # integer 0–100 (approximate, ±10)
-  - persol_style_score    # integer 0–100 (approximate, ±10)
-  - culture_fit_score     # integer 0–100 (approximate, ±10)
-  - overall_score         # integer 0–100 (approximate, ±10)
-  - overall_grade         # string: "A" | "B" | "C" | "D"
-  - platform              # string: platform simulated (e.g., "Recruit / Levtech")
+  - platform              # string: platform context (e.g., "doda") | null
   - report_file           # string: path to markdown report if saved (e.g., "career-docs/match-xyz.md")
+
+  # --- evidence_based_v3 fields ---
+  - decision_status       # string: "proceed" | "review" | "conflict"
+  - required_coverage     # number 0–1 | null — confirmed matched / (confirmed matched + confirmed missing)
+  - required_coverage_status  # string: "available" | "insufficient_data"
+  - portable_skill_status # string: "available" | "insufficient_data" | "unmapped" | "unavailable"
+  - portable_skill_distance   # number | null — raw composition distance. NOT a 0–100 fit score.
+  - portable_skill_rank   # integer | null (with compared_profiles for the denominator)
+  - compared_profiles     # integer | null
+  - conflicts             # list of strings — confirmed blockers
+  - missing_information   # list of strings — what would change the result if confirmed
+
+  # --- legacy_v1 fields: read-only history, NOT written for new entries ---
+  - recruit_style_score   # integer 0–100 | absent on v3 entries
+  - persol_style_score    # integer 0–100 | absent on v3 entries
+  - culture_fit_score     # integer 0–100 | absent on v3 entries (calculation discontinued)
+  - overall_score         # integer 0–100 | absent on v3 entries
+  - overall_grade         # string: "A" | "B" | "C" | "D" | absent on v3 entries
 
 # ─────────────────────────────────────────────
 # PIPELINE
 # File: data/pipeline.yml (CWD-relative, per Output Contract / Rule C)
 # The per-company job-search state hub. One entry per company, keyed by slug.
-# Written by: kigyou-bunseki (entry + kyujin_legitimacy), matching-simulator (match_score),
+# Written by: kigyou-bunseki (entry + kyujin_legitimacy),
+#             matching-simulator (match_model_version, decision_status, match_conflicts,
+#                                 match_unknowns; interest_* only on explicit user instruction),
 #             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines,
 #             closed_reason + agent_feedback on お見送り), company-battlecard (history event),
 #             career-agent `approve` of a company event (stage, next_action, deadline, history —
@@ -193,8 +292,48 @@ pipeline:
       stage:         "integer 0–7: CLAUDE.md Japan 転職 Market Stage Map"
       status:        "string: free-text detail (e.g., '一次面接 scheduled 2026-07-10')"
       channel:       "string: site | agent | scout | referral | null"
-      match_score:   "integer 0–100 (latest from matching-simulator, ±10) | null"
       kyujin_legitimacy: "string: green (信頼度高) | yellow (要注意) | red (要確認) — kigyou-bunseki 求人の真正性 tiers | null"
+
+      # ── Match result (evidence_based_v3) ─────────────────────────────
+      # Written by matching-simulator. Replaces match_score as the latest-result field.
+      match_model_version: "string: evidence_based_v3 | legacy_v1 | null — which engine produced the
+                              fields below. Required whenever any of them is non-null."
+      decision_status:     "string: proceed | review | conflict | null — NOT a score and NOT a ranking
+                              value. `proceed` means nothing blocks a decision on current information;
+                              it is not a recommendation and not a pass probability. Do not order the
+                              kanban by it and do not translate it to a number."
+      match_conflicts:     "list of strings | null — confirmed blockers behind a `conflict` status"
+      match_unknowns:      "list of strings | null — what is missing behind a `review` status"
+
+      match_score:   "legacy_v1. integer 0–100 | null. FROZEN — matching-simulator no longer writes
+                        this. Existing values are kept so past applications stay readable and
+                        `calibrate.py` can still score them. Never compare it against, sort it with,
+                        or average it into an evidence_based_v3 result."
+
+      # ── Candidate interest (evidence_based_v3, FR-5) ─────────────────
+      # The user's own declared interest in this company. Deliberately isolated:
+      #   - only the user sets or changes it
+      #   - it feeds NO objective axis and NO Decision Status
+      #   - absent means null. Never 3, never "neutral", never a default
+      #   - THIS PRD BUILDS NO PRIORITY SCORE FROM IT. Do not combine interest_level with
+      #     deadline, stage, or match data into a ranking number. If application-priority
+      #     ordering is wanted later it is a separate feature with its own design.
+      interest_level:      "integer 1–5 | null"
+      interest_reason:     "string | null"
+      interest_updated_at: "string YYYY-MM-DD | null"
+      interest_evidence:
+        - { source: "string: self_report | event_experience | interview_experience",
+            note: "string — e.g. '説明会で開発体制の話を聞いて上がった'",
+            observed_at: "string: YYYY-MM-DD" }
+
+      # ── Employer signals (evidence_based_v3, FR-6) ───────────────────
+      # Observed events only. No signal is converted into a probability, and the ABSENCE of
+      # signals is not a negative evaluation — it is simply nothing observed.
+      employer_signals:
+        - { type: "string: scout | message | interview_invite | pass_notice | rejection",
+            observed_at: "string: ISO datetime",
+            source: "string — where it was observed" }
+
       next_action:   "string | null"
       deadline:      "string YYYY-MM-DD: nearest date — 面接日, 回答期限, … | null"
       closed:        "boolean: true on 内定承諾 / 内定辞退 / お見送り / 自ら見送り"
@@ -209,9 +348,14 @@ pipeline:
       # Written by tenshoku-strategy STEP 6 when an entry closes. Without these the suite
       # stores predictions it can never score, so no calibration is possible. Required
       # before `closed: true` may be set.
-      predicted_tier:    "string: A | B | C | D | F | null — grade at application time, frozen.
-                            Copy from match_score at the moment of application; do not backfill
-                            after the outcome is known."
+      predicted_tier:    "legacy_v1. string: A | B | C | D | F | null — grade at application time,
+                            frozen. Derived from the legacy match_score, so it exists only on entries
+                            created before evidence_based_v3. FROZEN: no new value is written, and no
+                            v3 result is converted into a tier. `calibrate.py` still reports the
+                            existing ones against reached_stage, labelled legacy_v1 — that comparison
+                            scores the OLD grade, not the v3 diagnosis. evidence_based_v3 deliberately
+                            produces nothing to calibrate against a hiring outcome: it is a
+                            diagnostic, not a probability model."
       reached_stage:     "integer 0–7 | null — the furthest stage actually reached. Compared
                             against predicted_tier by `career-agent calibrate`."
       feedback_obtained: "boolean — whether a real rejection reason was obtained (agent_feedback

@@ -61,13 +61,28 @@ def scored_entries(pipeline: dict) -> list[dict]:
 
 
 def tier_table(entries: list[dict]) -> list[str]:
-    """Predicted tier against the stage actually reached, per entry and aggregated."""
+    """Predicted tier against the stage actually reached — legacy_v1 entries ONLY.
+
+    `predicted_tier` came from the legacy 0-100 match_score. evidence_based_v3 produces no
+    tier and no probability, so there is deliberately nothing to calibrate on its side: it
+    is a diagnostic of what is confirmed, missing, or in conflict, not a forecast. Scoring a
+    Decision Status against a hiring outcome would turn it back into the pass-probability
+    estimate v3 exists to stop, so this table simply skips those entries.
+    """
+    legacy = [e for e in entries if e.get("predicted_tier")]
+    if not legacy:
+        return [
+            "",
+            "予測 vs 実際 (legacy_v1): no entry carries a predicted_tier.",
+            "  evidence_based_v3 records no predicted grade — by design, there is no forecast to score.",
+        ]
     lines = [
         "",
-        "予測 vs 実際",
+        "予測 vs 実際 (legacy_v1 predicted_tier only — v3 entries excluded)",
         f"{'company':<20} {'predicted':<10} {'reached':<14} {'route':<8} {'feedback':<9} override",
         "-" * 74,
     ]
+    entries = legacy
     for entry in sorted(entries, key=lambda e: str(e.get("predicted_tier") or "~")):
         reached = entry.get("reached_stage")
         label = f"{reached} {STAGE_LABELS.get(reached, '')}".strip()
@@ -85,13 +100,18 @@ def tier_table(entries: list[dict]) -> list[str]:
         by_tier.setdefault(str(entry.get("predicted_tier") or "-"), []).append(
             entry["reached_stage"]
         )
-    lines += ["", "tier ごとの平均到達ステージ"]
+    lines += ["", "tier ごとの平均到達ステージ (legacy_v1)"]
     for tier, stages in sorted(by_tier.items()):
         avg = sum(stages) / len(stages)
         lines.append(f"  {tier}: {avg:.1f} (n={len(stages)})")
     lines.append(
         "  → A tier averaging no higher than C means the grade labels are not"
         " informative for you. Stop reading them as a ranking."
+    )
+    lines.append(
+        "  ⚠️ legacy_v1: these grades came from an uncalibrated heuristic that was never an"
+        " official Recruit/Persol model. They are scored here because they were recorded, not"
+        " because they were valid."
     )
     return lines
 

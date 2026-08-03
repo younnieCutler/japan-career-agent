@@ -21,8 +21,10 @@ jobs:
         run: python skills/career-agent/test_career_agent.py
       - name: career-agent routing tests
         run: python skills/career-agent/test_routing.py
-      - name: scoring self-test
-        run: python _shared/scoring.py --self-test
+      - name: matching v3 acceptance tests
+        run: python _shared/test_matching_v3.py
+      - name: legacy_v1 scorer self-test (opt-in path)
+        run: python _shared/legacy_experimental.py --self-test
       - name: status bar tests
         run: python scripts/test_status_bar.py
       - name: calibration tests

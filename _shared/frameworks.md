@@ -139,7 +139,25 @@ A framework published by the Japanese Ministry of Health, Labour and Welfare (�
 8. **上司対応**: Report upward; provide opinion/proposals to superiors
 9. **部下マネジメント**: Understand subordinates' strengths, assign work, develop/coach
 
-### Portable Skills Scoring Criteria
+### 2b. MHLW 29-Point Allocation (used for matching)
+
+The official 見える化ツール does **not** rank by 1–5 ratings. The candidate distributes **29 points
+across the 9 elements**, both sides are normalised to composition ratios summing to 1, and the
+tool ranks 114 standard 職務・職位 profiles by Euclidean distance between those compositions.
+
+```
+p_i = a_i / Σa      q_i = r_i / Σr      d(p,q) = √( Σ (p_i − q_i)² )
+```
+
+Rules: every element is an integer ≥ 1; the 9 sum to exactly 29; `level: 1–5` is stored
+separately and never enters the distance vector. There is no official 0–100 conversion, so none
+is computed. Implementation: `matching_v3.py`. Method and dataset status:
+`skills/matching-simulator/references/mhlw-portable-skill.md`.
+
+The 1–5 criteria below are a **separate instrument** for resume/STAR feedback. They are not
+convertible into an allocation and are never auto-converted into one.
+
+### Portable Skills Scoring Criteria (1–5, resume feedback — not used for MHLW distance)
 
 Each element is rated 1–5 based on STAR analysis of the resume/career history.
 
@@ -295,9 +313,33 @@ Quantifies a student's qualitative experiences across 4 categories.
 
 ---
 
-## 6. Matching Score Calculation Formula
+## 6. Matching Score Calculation Formula — `legacy_v1`, RETIRED
 
-### Recruit Style (Weighted Sum Model)
+> ⛔ **Not the default matching path.** These formulas were retired. The default diagnosis is
+> `evidence_based_v3` (`_shared/matching_v3.py`): independent axes, tri-state facts, and a
+> Decision Status of proceed / review / conflict — no composite score.
+>
+> They are kept here so entries already written to `data/match_history.md` and
+> `data/pipeline.yml` stay readable, and are reachable only through
+> `_shared/legacy_experimental.py --legacy-experimental`. Every result carries:
+>
+> ```
+> Experimental heuristic. Not an official Recruit/Persol model,
+> not calibrated, and not a hiring-probability estimate.
+> ```
+>
+> Why retired: the brand names read as published formulas (they never were), no coefficient had
+> validation data, ability/conditions/culture/interest were summed into one number so a hard
+> conflict could be offset by an unrelated strength, and missing values were scored as neutral.
+> Full account: `skills/matching-simulator/references/legacy-v1.md`.
+>
+> **Culture Fit (`100 − Σdiff × 10`) is discontinued outright** — historical values are kept, no
+> new one is computed, and calling it raises. Replaced by the Career Values & Conditions axis,
+> which reports aligned / tradeoff / conflict / unknown per item and never totals them.
+>
+> Never place a legacy score and a v3 result in the same table, ranking, or sort order.
+
+### Recruit Style (Weighted Sum Model) — `legacy_v1`
 
 ```
 M_total = Σ(S_i × w_i) + α × P_fit + β × B_behavioral
@@ -337,7 +379,7 @@ B_behavioral (estimated behavioral signal from application/browse history) = 60
 M_raw = 63.0 + (0.3 × 75) + (0.2 × 60) = 63 + 22.5 + 12 = **97.5**
 M_total = 97.5 / 1.5 = **65 → C Match**
 
-### Persol Career Style (Semantic Similarity + Bonus Model)
+### Persol Career Style (Semantic Similarity + Bonus Model) — `legacy_v1`
 
 ```
 M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable
@@ -350,7 +392,11 @@ M_total = cos(V_candidate, V_job) × 100 + Bonus_transferable
 
 > **Evidence note:** doda's actual セカンドマッチ system (3rd-generation, ~2020) uses supervised ML trained on 選考通過実績 (historical screening outcomes), with BERT extracting skill tags from 職務経歴書 as input features. The cosine similarity formula above is a useful academic approximation of the "match similar skill vectors" goal, but not the exact implementation. The system also models bidirectionality: both "will the candidate be interested" AND "will the company select this candidate." Source: Persol techtekt engineering blog (techtekt.persol-career.co.jp).
 
-### Overall Score Interpretation
+### Overall Score Interpretation — `legacy_v1`
+
+> The v3 replacement is `decision_status`: `conflict` (a confirmed blocker), `review` (a core
+> unknown), `proceed` (neither). It is not a grade, not a ranking value, and not convertible
+> to one.
 
 | Score Range | Judgment | Agency Action |
 |-------------|----------|--------------|

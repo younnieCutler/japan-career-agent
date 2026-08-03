@@ -78,6 +78,10 @@ def _companies(data: dict[str, Any]) -> list[dict[str, Any]]:
     return companies
 
 
+DECISION_STATUSES = {"proceed", "review", "conflict"}
+MATCH_MODEL_VERSIONS = {"evidence_based_v3", "legacy_v1"}
+
+
 def _validate_fields(fields: dict[str, Any]) -> None:
     if not isinstance(fields, dict):
         raise ValueError("company fields must be a JSON object")
@@ -85,6 +89,23 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         raise ValueError("slug is the command argument, not an editable field")
     if "stage" in fields and (not isinstance(fields["stage"], int) or not 0 <= fields["stage"] <= 7):
         raise ValueError("stage must be an integer from 0 to 7")
+
+    level = fields.get("interest_level")
+    if level is not None and (isinstance(level, bool) or not isinstance(level, int) or not 1 <= level <= 5):
+        raise ValueError("interest_level must be an integer from 1 to 5, or null")
+    status = fields.get("decision_status")
+    if status is not None and status not in DECISION_STATUSES:
+        raise ValueError(f"decision_status must be one of {sorted(DECISION_STATUSES)}")
+    version = fields.get("match_model_version")
+    if version is not None and version not in MATCH_MODEL_VERSIONS:
+        raise ValueError(f"match_model_version must be one of {sorted(MATCH_MODEL_VERSIONS)}")
+    # match_score is legacy_v1 history. Writing a new one would put an uncalibrated 0-100 number
+    # back beside a v3 decision_status, which is the exact confusion v3 removed.
+    if "match_score" in fields:
+        raise ValueError(
+            "match_score is legacy_v1 and frozen; existing values are preserved but no new one is "
+            "written. Use decision_status (+ match_model_version) from _shared/matching_v3.py."
+        )
 
 
 def upsert_company(
