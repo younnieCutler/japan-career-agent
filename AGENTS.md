@@ -162,6 +162,10 @@ when a newer plugin version is published. No pipeline file, no output.
 Pipeline resolution is explicit `--workspace` first, then `CAREER_WORKSPACE`, then the current
 working directory. This prevents a prompt launched from an unrelated CWD from reading the wrong
 workspace projection.
+To bound repeated context, the bar keeps one nearest deadline, shows only the global top three
+urgent action previews, reports every blocked company and total pending count, and shows at most
+three relevant active rules with a remaining count. Compression must never hide the gate or a
+blocker the user must check.
 
 **Trust it, but only within its schema.** Every value is computed in code from the files on disk —
 none is estimated, and nothing in it is a summary of the conversation. It is also a lossy projection:
