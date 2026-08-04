@@ -1,0 +1,64 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: install verification dependencies
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          python -m pip install --quiet "ruff>=0.8,<1"
+      - name: verify before creating a tag
+        run: python scripts/run_all_checks.py
+      - name: read release identity
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python -c 'import json; print(json.load(open(".claude-plugin/plugin.json", encoding="utf-8"))["version"])')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - name: create or verify immutable tag
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          GITHUB_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          if git show-ref --tags --verify --quiet "refs/tags/$TAG"; then
+            python scripts/check_release_tag.py --tag "$TAG" --sha "$GITHUB_SHA"
+          else
+            git tag --annotate "$TAG" "$GITHUB_SHA" --message "Release $TAG"
+            git push origin "$TAG"
+            python scripts/check_release_tag.py --tag "$TAG" --sha "$GITHUB_SHA"
+          fi
+      - name: create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists"
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi

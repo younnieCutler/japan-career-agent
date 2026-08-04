@@ -20,6 +20,7 @@ CHECKS = (
     ("manifest consistency", (PYTHON, "scripts/check_manifest_consistency.py")),
     ("README consistency", (PYTHON, "scripts/check_readme_consistency.py")),
     ("release consistency", (PYTHON, "scripts/check_release_consistency.py")),
+    ("release tag checker", (PYTHON, "scripts/test_release_tag.py")),
     ("version bump gate", (PYTHON, "scripts/check_version_bump.py")),
     ("hook lifecycle", (PYTHON, "scripts/test_hook_contract.py")),
     ("career-agent", (PYTHON, "skills/career-agent/test_career_agent.py")),
