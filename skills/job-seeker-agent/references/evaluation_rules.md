@@ -51,7 +51,7 @@ source_type: user | job_posting | company_public_source | official_framework | o
 source_ref: "resume line, URL, note id, or conversation date"
 observed_at: "YYYY-MM-DD"
 confidence: high | medium | low | unknown
-provenance: official_framework | job_posting | company_public_source | user | observed | derived | heuristic | unknown
+provenance: official_framework | job_posting | company_public_source | user | observed | derived | heuristic | synthetic | unknown
 ```
 
 `heuristic` is a hypothesis. It cannot determine Eligibility, a requirement state, or Decision

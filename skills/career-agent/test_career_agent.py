@@ -4,12 +4,15 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import shutil
 from datetime import date, timedelta
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
+if str(ROOT / "_shared") not in sys.path:
+    sys.path.insert(0, str(ROOT / "_shared"))
 
 
 def run(vault: Path, command: str, *args: str, input_text: str | None = None,
@@ -116,6 +119,8 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual(proposed.returncode, 0, proposed.stderr)
         proposed_payload = json.loads(proposed.stdout)
         proposal_id = proposed_payload["proposal"]["id"]
+        self.assertTrue(proposed_payload["proposal"]["next_action"])
+        self.assertIsNone(proposed_payload["proposal"]["event"]["next_action"])
 
         listed = run(fresh_vault, "proposals")
         self.assertEqual(listed.returncode, 0, listed.stderr)
@@ -154,6 +159,53 @@ class CareerAgentTests(unittest.TestCase):
         pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8")) or {}
         self.assertEqual(pipeline["companies"][0]["name"], company)
         self.assertEqual(pipeline["companies"][0]["stage"], 4)  # 面接 → market stage 4
+        proposal_rows = read_jsonl(fresh_vault / "02-state" / "proposals.jsonl")
+        self.assertEqual(proposal_rows[0]["event"]["status"], "draft")
+        self.assertEqual(proposal_rows[0]["resolution"]["approved_event_id"], approved_payload["event"]["id"])
+        self.assertEqual(json.loads(status.stdout)["state"]["open_actions"], [])
+
+    def test_approval_consumes_instruction_preserves_long_evidence_and_legacy_slug(self) -> None:
+        import yaml
+        import pipeline_store
+
+        self.set_profile(track="chuto", target_role="Backend Engineer", career_status="active")
+        company = "株式会社Nexus (Synthetic)"
+        pipeline_path = self.workdir / "data" / "pipeline.yml"
+        pipeline_store.atomic_write(pipeline_path, {
+            "companies": [{"slug": "株式会社nexus-synthetic", "name": company, "history": []}],
+        })
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "interview evidence"))
+        long_url = "https://example.invalid/evidence/" + "x" * 220
+        approved = output(run(
+            self.vault, "approve", proposed["proposal"]["id"], "--evidence", long_url,
+            "--company", company, "--workspace", str(self.workdir), cwd=self.workdir,
+        ))
+        event = read_jsonl(self.vault / "02-state" / "events.jsonl")[0]
+        self.assertEqual(event["evidence"], [long_url])
+        self.assertEqual(event["status"], "confirmed")
+        self.assertEqual(output(run(self.vault, "status"))["state"]["open_actions"], [])
+        proposal = read_jsonl(self.vault / "02-state" / "proposals.jsonl")[0]
+        self.assertEqual(proposal["event"]["status"], "draft")
+        self.assertEqual(proposal["approved_event_id"], approved["event"]["id"])
+        self.assertEqual(proposal["resolution"]["approved_event_id"], event["id"])
+
+        data = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+        entry = data["companies"][0]
+        self.assertEqual(entry["slug"], "株式会社nexus-synthetic")
+        self.assertEqual(entry["history"][0]["event_id"], event["id"])
+        self.assertEqual(entry["history"][0]["event"], event["title"])
+        self.assertNotIn(long_url, yaml.safe_dump(data, allow_unicode=True))
+        self.assertNotIn(b"\r\n", (self.vault / "02-state" / "events.jsonl").read_bytes())
+        self.assertNotIn(b"\r\n", pipeline_path.read_bytes())
+
+        second = output(run(self.vault, "run", "--mode", "chat", "--message", "prepare interview"))
+        output(run(
+            self.vault, "approve", second["proposal"]["id"], "--evidence", "prepare interview",
+            "--company", "Nexus Two (Synthetic)", "--next-action", "Prepare interview notes",
+            "--workspace", str(self.workdir), cwd=self.workdir,
+        ))
+        actions = output(run(self.vault, "run", "--mode", "heartbeat"))["actions"]
+        self.assertTrue(any(item["text"] == "Prepare interview notes" for item in actions))
 
     def test_proposals_lists_metadata_only_and_filters_status(self) -> None:
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
@@ -308,7 +360,7 @@ class CareerAgentTests(unittest.TestCase):
     def test_heartbeat_is_capped_and_discover_deduplicates(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "中途で面接の締切を確認したい"))
-        output(run(self.vault, "approve", proposed["proposal"]["id"], "--evidence", "面接の締切を確認したい", "--deadline", "2099-01-01"))
+        output(run(self.vault, "approve", proposed["proposal"]["id"], "--evidence", "面接の締切を確認したい", "--deadline", "2099-01-01", "--next-action", "Prepare interview evidence"))
         heartbeat = output(run(self.vault, "run", "--mode", "heartbeat"))
         self.assertLessEqual(len(heartbeat["actions"]), 3)
         self.assertIn("estimated_minutes", heartbeat["actions"][0])
@@ -323,6 +375,70 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual(first["duplicates"], 1)
         self.assertEqual(second["duplicates"], 2)
         self.assertFalse(second["auto_apply"])
+
+    def test_discover_stdin_is_strict_utf8_and_keeps_japanese(self) -> None:
+        self.set_profile(track="chuto", target_role="Backend Engineer", career_status="active")
+        payload = json.dumps({
+            "company": "株式会社E2E (Synthetic)",
+            "role": "バックエンド開発者",
+            "url": "https://example.invalid/e2e",
+            "provenance": "synthetic",
+            "source_ref": "synthetic://e2e/stdin",
+        }, ensure_ascii=False).encode("utf-8")
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "run", "--vault", str(self.vault), "--mode", "discover"],
+            input=payload,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8"))
+        discovered = json.loads(result.stdout.decode("utf-8"))
+        self.assertEqual(discovered["postings"][0]["company"], "株式会社E2E (Synthetic)")
+        self.assertEqual(discovered["postings"][0]["provenance"], "synthetic")
+
+        invalid = subprocess.run(
+            [sys.executable, str(SCRIPT), "run", "--vault", str(self.vault), "--mode", "discover"],
+            input=b'{"company":"bad","url":"https://example.invalid/bad","x":"\xff"}',
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(invalid.returncode, 2)
+        self.assertIn("valid UTF-8", invalid.stderr.decode("utf-8"))
+
+    def test_windows_powershell_utf8_source_path_round_trip(self) -> None:
+        if os.name != "nt":
+            self.skipTest("PowerShell regression is Windows-only")
+        shells = []
+        for name in ("powershell", "pwsh"):
+            path = shutil.which(name)
+            if path and path not in shells:
+                shells.append(path)
+        if not shells:
+            self.skipTest("PowerShell 5/7 is not installed")
+        source = self.vault.parent / "powershell-postings.json"
+        with source.open("w", encoding="utf-8", newline="\n") as stream:
+            json.dump({
+                "company": "株式会社PowerShell (Synthetic)",
+                "role": "データエンジニア",
+                "url": "https://example.invalid/powershell",
+                "provenance": "synthetic",
+                "source_ref": "synthetic://e2e/powershell",
+            }, stream, ensure_ascii=False)
+        for index, shell in enumerate(shells):
+            vault = self.vault.parent / f"powershell-vault-{index}"
+            output(run(vault, "setup", "--track", "chuto", "--target-role", "Backend Engineer"))
+            command = (
+                "$env:PYTHONIOENCODING='utf-8'; "
+                f"& '{sys.executable}' '{SCRIPT}' run --vault '{vault}' --mode discover --source '{source}'"
+            )
+            result = subprocess.run(
+                [shell, "-NoProfile", "-NonInteractive", "-Command", command],
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
+            payload = json.loads(result.stdout.decode("utf-8"))
+            self.assertEqual(payload["postings"][0]["company"], "株式会社PowerShell (Synthetic)")
 
     def test_context_selector_excludes_capture_and_archive_bodies(self) -> None:
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
@@ -488,7 +604,7 @@ class CareerAgentTests(unittest.TestCase):
         first = output(run(self.vault, "run", "--mode", "chat", "--message", "職務経歴書を直したい"))
         early = output(run(self.vault, "approve", first["proposal"]["id"], "--evidence", "職務経歴書を直したい"))
         second = output(run(self.vault, "run", "--mode", "chat", "--message", "内定をもらった"))
-        output(run(self.vault, "approve", second["proposal"]["id"], "--evidence", "内定をもらった"))
+        output(run(self.vault, "approve", second["proposal"]["id"], "--evidence", "内定をもらった", "--next-action", "Compare offer conditions"))
 
         restored = output(run(self.vault, "restore-state", early["version"]))
         self.assertTrue(restored["ledger_retained"])

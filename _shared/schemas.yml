@@ -323,7 +323,9 @@ company_profile:
 
 requirements_schema:
   # evidence_based_v3. Each list item: { name, status: matched|missing|unknown, evidence,
-  # mapping_basis, source_type, source_ref, observed_at, confidence }.
+  # mapping_basis, source_type, source_ref, observed_at, confidence, provenance }.
+  # provenance may be synthetic only for clearly marked fixtures, and then source_ref must use
+  # the synthetic:// URI scheme. Synthetic evidence is never an observed company fact.
   # `status: unknown` is a first-class value: it is counted and displayed, and it is EXCLUDED
   # from the required-coverage denominator. It is never rounded up to matched.
   hard:             []   # list of objects: { requirement, candidate_evidence, job_evidence, meets: true|false|null }
@@ -521,8 +523,8 @@ pipeline:
             checked: "boolean",
             created: "string: YYYY-MM-DD" }
 
-      history:       # append-only event log — funnel analysis source
-        - { date: "YYYY-MM-DD", event: "string (e.g., '応募 via doda', '書類通過')",
+      history:       # append-only projection log; canonical evidence remains in events.jsonl
+        - { date: "YYYY-MM-DD", event: "short event title",
             event_id: "string | optional — idempotency key for career-agent events" }
           # Legacy entries may contain id; readers accept it, writers use event_id.
 

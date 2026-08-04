@@ -70,7 +70,7 @@ source_type: official_framework | job_posting | company_public_source | user | o
 source_ref: "URL, resume line, note id, or conversation date"
 observed_at: "YYYY-MM-DD"
 confidence: high | medium | low | unknown
-provenance: official_framework | job_posting | company_public_source | user | observed | derived | heuristic | unknown
+provenance: official_framework | job_posting | company_public_source | user | observed | derived | heuristic | synthetic | unknown
 ```
 
 `heuristic` is a question-generating hypothesis, not a fact. The absence of a field remains

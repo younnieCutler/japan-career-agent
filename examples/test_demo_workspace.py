@@ -26,6 +26,21 @@ def contains_forbidden_outcome_key(value: object) -> bool:
     return False
 
 
+def assert_synthetic_provenance(value: object) -> None:
+    if isinstance(value, dict):
+        if "provenance" in value:
+            if value["provenance"] != "synthetic":
+                raise SystemExit("synthetic demo evidence must use provenance=synthetic")
+            source_ref = value.get("source_ref")
+            if not isinstance(source_ref, str) or not source_ref.startswith("synthetic://"):
+                raise SystemExit("synthetic demo evidence must use a synthetic:// source_ref")
+        for child in value.values():
+            assert_synthetic_provenance(child)
+    elif isinstance(value, list):
+        for child in value:
+            assert_synthetic_provenance(child)
+
+
 def main() -> int:
     for required in (
         ROOT / "examples" / "demo-workspace" / "candidate-profile.example.yml",
@@ -35,6 +50,9 @@ def main() -> int:
         if not required.is_file():
             raise SystemExit(f"missing demo fixture: {required}")
     payload = json.loads(INPUT.read_text(encoding="utf-8"))
+    if not str(payload.get("company_name", "")).endswith("(Synthetic)"):
+        raise SystemExit("demo negative fixture must use a reserved synthetic company name")
+    assert_synthetic_provenance(payload)
     if contains_forbidden_outcome_key(payload):
         raise SystemExit("demo input contains a forbidden outcome field")
     result = subprocess.run(

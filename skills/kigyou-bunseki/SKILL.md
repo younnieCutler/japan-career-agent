@@ -41,7 +41,7 @@ source_type: official_framework | job_posting | company_public_source | user | o
 source: "[URL, document, or user statement]"
 observed_at: "YYYY-MM-DD"
 confidence: high | medium | low | unknown
-provenance: official_framework | job_posting | company_public_source | user | observed | derived | heuristic | unknown
+provenance: official_framework | job_posting | company_public_source | user | observed | derived | heuristic | synthetic | unknown
 ```
 
 `heuristic` is a hypothesis and never decides eligibility or Decision Status.

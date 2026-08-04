@@ -673,6 +673,26 @@ class EvidenceReporting(unittest.TestCase):
         with self.assertRaises(v3.ValidationError):
             v3.evaluate(payload(skills={"required": [{"name": "C++", "provenance": "invalid_provenance"}]}))
 
+    def test_synthetic_provenance_requires_synthetic_source_ref(self):
+        result = v3.evaluate(payload(skills={
+            "required": [{
+                "name": "Python",
+                "status": "matched",
+                "provenance": "synthetic",
+                "source_ref": "synthetic://test/python",
+            }],
+        }))
+        matched = result["skills"]["required_skills"]["matched"][0]
+        self.assertEqual(matched["provenance"], "synthetic")
+        self.assertEqual(matched["source_ref"], "synthetic://test/python")
+
+        for item in (
+            {"provenance": "synthetic", "source_ref": "https://example.invalid/fixture"},
+            {"provenance": "observed", "source_ref": "synthetic://test/mismatch"},
+        ):
+            with self.subTest(item=item), self.assertRaises(v3.ValidationError):
+                v3.evaluate(payload(skills={"required": [{"name": "Python", "status": "matched", **item}]}))
+
 
 if __name__ == "__main__":
 

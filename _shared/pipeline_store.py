@@ -13,7 +13,7 @@ import os
 import datetime as dt
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 try:
     import fcntl
@@ -58,7 +58,7 @@ def atomic_write(path: Path, data: dict[str, Any]) -> None:
     tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
             stream.write(yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100))
             stream.flush()
             os.fsync(stream.fileno())
@@ -204,6 +204,7 @@ def upsert_company(
     *,
     history: dict[str, Any] | None = None,
     forward_only_stage: bool = True,
+    slug_aliases: Iterable[str] = (),
 ) -> dict[str, Any]:
     """Merge one company through the shared lock/atomic-write path."""
     _validate_fields(fields)
@@ -212,7 +213,8 @@ def upsert_company(
 
     def apply(data: dict[str, Any]) -> dict[str, Any]:
         companies = _companies(data)
-        entry = next((item for item in companies if item.get("slug") == slug), None)
+        accepted_slugs = {slug, *(alias for alias in slug_aliases if alias)}
+        entry = next((item for item in companies if item.get("slug") in accepted_slugs), None)
         if entry is None:
             entry = {"slug": slug, "name": fields.get("name") or slug, "closed": False, "history": []}
             companies.append(entry)

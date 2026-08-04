@@ -39,7 +39,7 @@ python skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --me
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python skills/career-agent/career_agent.py status --vault "$VAULT"
-python skills/career-agent/career_agent.py approve --vault "$VAULT" --workspace "/path/to/job-search-workspace" <proposal-id> --evidence "resume line 12"
+python skills/career-agent/career_agent.py approve --vault "$VAULT" --workspace "/path/to/job-search-workspace" <proposal-id> --evidence "resume line 12" --next-action "Prepare interview notes"
 python skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python skills/career-agent/career_agent.py index --vault "$VAULT"
 python skills/career-agent/career_agent.py context --vault "$VAULT"
@@ -57,15 +57,19 @@ the human-readable state summary, and runtime JSON is a replaceable cache.
 
 The loop records `observe → plan → act → verify → correct → persist` in `02-state/trajectories.jsonl`.
 Facts are append-only in `02-state/events.jsonl`; version snapshots live in `.career-agent/versions/`.
-A chat run creates only a `draft` event proposal. `approve` is required before a confirmed event
-reaches the ledger.
+A chat run creates only a `draft` event proposal. Its `proposal.next_action` is the approval
+instruction and is consumed by `approve`; a post-approval action must be supplied explicitly with
+`--next-action`. `approve` is required before a confirmed event reaches the ledger. Proposal event
+snapshots remain `draft`; `resolution.approved_event_id` links them to the confirmed append-only
+event.
 
 Per-company progress is **not** kept in the Vault. When an approved event names a company, the
 runtime projects it onto `data/pipeline.yml` in the explicit workspace (`--workspace` or
 `CAREER_WORKSPACE`; legacy fallback is the current directory). The workspace is the suite-wide
 company hub that domain skills write and `status_bar.py` / `calibrate.py` read for workflow observations. It sets `stage` (agent
-stage mapped to the 0–7 market stage map, forward-only), `next_action`, `deadline` and a `history`
-line; every other field belongs to the domain skills and is left untouched.
+stage mapped to the 0–7 market stage map, forward-only), `next_action`, `deadline` and a short
+`history` entry containing `date`, `event_id`, and event title. Evidence URLs and provenance stay
+canonical in `02-state/events.jsonl`; they are not copied into the projection.
 
 `scripts/check_action.py` is the other writer of `data/pipeline.yml`. Both go through
 `_shared/pipeline_store.py`'s `mutate()` (lock the file, load, apply the change, write to a temp
@@ -113,10 +117,17 @@ relative paths, and source kind in `.career-agent/vault-index.jsonl`; it never i
 Confirmed events must include evidence. Pass one or more `--evidence` values when approving; numeric
 claims without matching evidence are rejected.
 Heartbeat emits at most three actions, each with its source event, stage, flow phase, deadline, and
-confirmation flag. `discover` accepts a local JSON export of public postings; every posting requires
-an original http(s) URL (there is no company+role fallback — a posting without one is dropped, not
-silently kept), and postings are deduplicated by that URL. It records candidates only; it never
-applies.
+confirmation flag. `discover` accepts a local UTF-8 JSON export of public postings via `--source`;
+every posting requires an original http(s) URL (there is no company+role fallback — a posting
+without one is dropped, not silently kept), and postings are deduplicated by that URL. Stdin is
+decoded as strict UTF-8; configure PowerShell UTF-8 explicitly, and prefer `--source postings.json`
+because upstream PowerShell 5 can irreversibly replace non-ASCII bytes. Synthetic fixtures must use
+`provenance: synthetic`, a `synthetic://` source reference, and a clearly fictional company name.
+It records candidates only; it never applies.
+
+For a fresh-vault E2E audit, `scripts/e2e_capture.py` wraps the same CLI subprocesses and appends
+redacted argv, timestamps, exit code, stdout, and stderr to a caller-owned `commands.jsonl`. It is
+an audit artifact, not a second runtime ledger.
 
 The runtime uses the request language for response metadata (`ko`, `ja`, or `en`), keeps Japanese
 career terms in the source text, and pauses when track intent is not explicit rather than inventing
