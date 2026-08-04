@@ -89,6 +89,15 @@ from lifecycle import (  # noqa: E402
     state_version_is_persisted,
     vault_lock,
 )
+from projection import (  # noqa: E402
+    _legacy_company_slug,
+    apply_event_to_state,
+    company_slug,
+    migrate_pipeline_file,
+    pipeline_file,
+    upsert_pipeline_entry,
+    workspace_path,
+)
 from persistence import (  # noqa: E402
     append_jsonl,
     atomic_write_text,
@@ -131,6 +140,16 @@ _LIFECYCLE_COMPATIBILITY_EXPORTS = (
     count_consecutive_safe_stops,
     record_failed_attempt,
     state_version_is_persisted,
+)
+
+_PROJECTION_COMPATIBILITY_EXPORTS = (
+    _legacy_company_slug,
+    apply_event_to_state,
+    company_slug,
+    migrate_pipeline_file,
+    pipeline_file,
+    upsert_pipeline_entry,
+    workspace_path,
 )
 
 _ROUTING_COMPATIBILITY_EXPORTS = (
@@ -340,7 +359,7 @@ _LEGAL_ENTITY_MARKERS = (
 )
 
 
-def _canonical_company_name(name: str) -> str:
+def _legacy_canonical_company_name(name: str) -> str:
     value = unicodedata.normalize("NFKC", name).strip()
     marker_pattern = "|".join(re.escape(marker) for marker in _LEGAL_ENTITY_MARKERS)
     value = re.sub(rf"^(?:{marker_pattern})\s*", "", value, flags=re.IGNORECASE)
@@ -348,22 +367,22 @@ def _canonical_company_name(name: str) -> str:
     return value.casefold().strip()
 
 
-def _legacy_company_slug(name: str) -> str:
+def _legacy_runtime_company_slug(name: str) -> str:
     return re.sub(r"[^\w]+", "-", name.strip().lower(), flags=re.UNICODE).strip("-")
 
 
-def company_slug(name: str) -> str:
+def _legacy_company_slug(name: str) -> str:
     """Canonical join key for pipeline and company-profile projections.
 
     Existing legacy slugs are preserved by the pipeline writer when an alias already exists;
     this function only defines the key for new entries.
     """
-    canonical = _canonical_company_name(name)
+    canonical = _legacy_canonical_company_name(name)
     slug = re.sub(r"[^\w]+", "-", canonical, flags=re.UNICODE).strip("-")
     return slug or hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
 
 
-def workspace_path(workspace: str | Path | None = None) -> Path:
+def _legacy_workspace_path(workspace: str | Path | None = None) -> Path:
     """Resolve the job-search workspace explicitly when projecting Vault events.
 
     The Vault is canonical personal state. The workspace is the CWD-relative projection used by
@@ -376,11 +395,11 @@ def workspace_path(workspace: str | Path | None = None) -> Path:
     return pipeline_store.resolve_workspace(workspace)
 
 
-def pipeline_file(workspace: str | Path | None = None) -> Path:
+def _legacy_pipeline_file(workspace: str | Path | None = None) -> Path:
     return pipeline_store.resolve_pipeline_path(workspace)
 
 
-def upsert_pipeline_entry(
+def _legacy_upsert_pipeline_entry(
     event: dict[str, Any], path: Path | None = None, workspace: str | Path | None = None,
 ) -> Path | None:
     """Project a confirmed company event onto data/pipeline.yml, the per-company state hub.
@@ -421,7 +440,7 @@ def upsert_pipeline_entry(
     return path
 
 
-def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
+def _legacy_apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     next_state = dict(state)
     if event.get("type") == "career_context":
         # Canonical career values are a confirmed context projection, not a market-stage transition.
@@ -444,7 +463,7 @@ def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[s
     return next_state
 
 
-def _merge_pipeline_companies(nested: list[dict[str, Any]], top_level: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _legacy_merge_pipeline_companies(nested: list[dict[str, Any]], top_level: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged: dict[str, dict[str, Any]] = {}
     order: list[str] = []
     for company in [*nested, *top_level]:
@@ -462,7 +481,7 @@ def _merge_pipeline_companies(nested: list[dict[str, Any]], top_level: list[dict
     return [merged[slug] for slug in order]
 
 
-def migrate_pipeline_file(path: Path) -> bool:
+def _legacy_migrate_pipeline_file(path: Path) -> bool:
     """Flatten the pre-1.2.0 nested pipeline shape without dropping either company list."""
     data = pipeline_store.load(path)
     nested = data.get("pipeline")
@@ -477,7 +496,7 @@ def migrate_pipeline_file(path: Path) -> bool:
         top_companies = current.get("companies") or []
         if not isinstance(nested_companies, list) or not isinstance(top_companies, list):
             raise CareerError(f"{path}: legacy pipeline companies must be lists")
-        current["companies"] = _merge_pipeline_companies(nested_companies, top_companies)
+        current["companies"] = _legacy_merge_pipeline_companies(nested_companies, top_companies)
         nested_updated = legacy.get("updated")
         top_updated = current.get("updated")
         if nested_updated or top_updated:
@@ -1180,7 +1199,7 @@ def approve(
         currency=currency,
         workspace=workspace,
         next_action=next_action,
-        pipeline_writer=lambda event: upsert_pipeline_entry(event, workspace=workspace),
+        pipeline_writer=lambda event: upsert_pipeline_entry(event, path=pipeline_file(workspace), workspace=workspace),
         state_projector=apply_event_to_state,
     )
 
