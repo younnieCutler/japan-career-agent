@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import e2e_artifact as artifact
 
@@ -108,6 +108,12 @@ class ContractClassificationTests(unittest.TestCase):
 
 
 class RedactionTests(unittest.TestCase):
+    def test_path_variants_keep_raw_and_resolved_forms(self) -> None:
+        path = Path(tempfile.gettempdir())
+        variants = artifact._path_variants(path)
+        self.assertIn(str(path), variants)
+        self.assertIn(str(path.resolve()), variants)
+
     def test_known_and_generic_local_paths_are_found(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -117,7 +123,10 @@ class RedactionTests(unittest.TestCase):
             source.mkdir()
             stage.mkdir()
             (source / "leak.txt").write_text(
-                f"home={Path.home()}\nother=C:\\Users\\Other\\private\\file.txt\n",
+                "home="
+                f"{Path.home()}\n"
+                f"windows={PureWindowsPath('C:/Users/Other/private/file.txt')}\n"
+                f"posix={PurePosixPath('/home/Other/private/file.txt')}\n",
                 encoding="utf-8",
             )
             pairs = artifact._redaction_roots(repo, source, stage)

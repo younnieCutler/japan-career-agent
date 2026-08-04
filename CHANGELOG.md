@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.9] — 2026-08-04
+
+- Hardened E2E artifact redaction across Windows raw/resolved path forms and POSIX/Windows
+  absolute-path detection, with regression coverage for cross-platform fixtures.
+
 ## [1.6.8] — 2026-08-04
 
 - Added reproducible E2E artifact packaging with clean-tree/expected-commit gates, repository and

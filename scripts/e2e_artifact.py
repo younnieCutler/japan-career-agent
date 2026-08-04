@@ -39,8 +39,8 @@ FIXTURE_STATUSES = frozenset(
     {"PASS", "PASS_AFTER_FIXTURE_CORRECTION", "PASS_AFTER_RETRY", "FAIL"}
 )
 _LOCAL_PATH_PATTERNS = (
-    re.compile(r"(?i)(?<![A-Za-z0-9_])[A-Z]:[\\/]+Users[\\/][^\r\n\"']+"),
-    re.compile(r"(?i)(?<![A-Za-z0-9_])(?:[A-Z]:[\\/]+(?:tmp|temp)[\\/]|/tmp/|/var/tmp/|/Users/|/home/)[^\r\n\"']+"),
+    re.compile(r"(?i)(?<![A-Za-z0-9_])[A-Z]:[\\/]+[^\r\n\"']+"),
+    re.compile(r"(?i)(?<![A-Za-z0-9_])(?:/tmp/|/var/tmp/|/Users/|/home/)[^\r\n\"']+"),
 )
 
 
@@ -256,14 +256,23 @@ def fixture_result_status(
 
 
 def _path_variants(path: Path) -> set[str]:
-    value = str(path.expanduser().resolve())
-    windows = value.replace("/", "\\")
-    variants = {
-        value,
-        value.replace("\\", "/"),
-        windows,
-        windows.replace("\\", "\\\\"),
-    }
+    expanded = path.expanduser()
+    values = {str(expanded), str(expanded.absolute())}
+    try:
+        values.add(str(expanded.resolve()))
+    except OSError:
+        pass
+    variants: set[str] = set()
+    for value in values:
+        windows = value.replace("/", "\\")
+        variants.update(
+            {
+                value,
+                value.replace("\\", "/"),
+                windows,
+                windows.replace("\\", "\\\\"),
+            }
+        )
     # JSON command logs may escape both backslashes and non-ASCII user-directory characters.
     variants.update(json.dumps(item, ensure_ascii=True)[1:-1] for item in tuple(variants))
     return variants
