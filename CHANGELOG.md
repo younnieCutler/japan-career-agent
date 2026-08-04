@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.13] - 2026-08-04
+
+- Moved canonical JSON/TOML/JSONL writers and Vault metadata/state ownership out of `runtime.py`.
+- Preserved the public runtime compatibility surface while making the persistence and Vault modules
+  independent of the runtime facade.
+
 ## [1.6.12] — 2026-08-04
 
 - Extracted Career Agent vocabulary, typed DTO contracts, and pure event/context validation from

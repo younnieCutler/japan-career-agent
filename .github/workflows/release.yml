@@ -1,10 +1,13 @@
 name: release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
+      publish:
+        description: "Publish the verified tag and GitHub Release"
+        required: false
+        default: false
+        type: boolean
       dry_run:
         description: "Run checks and tag validation without pushing a tag or creating a Release"
         required: false
@@ -32,31 +35,23 @@ jobs:
         run: |
           python -m pip install --quiet -r requirements.txt
           python -m pip install --quiet "ruff>=0.8,<1"
-      - name: read release identity and detect version change
+      - name: read release identity and enforce the explicit release gate
         id: release
         shell: bash
         run: |
           set -euo pipefail
           current_version="$(python -c 'import json; print(json.load(open(".claude-plugin/plugin.json", encoding="utf-8"))["version"])')"
-          event_name="${{ github.event_name }}"
-          if [[ "$event_name" == "push" ]]; then
-            previous_ref="${{ github.event.before }}"
-          else
-            git fetch origin main --force
-            previous_ref="origin/main"
-          fi
-          previous_version="$(git show "$previous_ref:.claude-plugin/plugin.json" 2>/dev/null | python -c 'import json, sys; print(json.load(sys.stdin)["version"])' || true)"
+          publish="${{ inputs.publish || 'false' }}"
           dry_run="${{ inputs.dry_run || 'false' }}"
           echo "version=$current_version" >> "$GITHUB_OUTPUT"
           echo "tag=v$current_version" >> "$GITHUB_OUTPUT"
-          echo "previous_ref=$previous_ref" >> "$GITHUB_OUTPUT"
           echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
-          if [[ "$current_version" == "$previous_version" ]]; then
+          if [[ "$publish" != "true" && "$dry_run" != "true" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No release version change against $previous_ref ($current_version); skipping checks, tag, and GitHub Release."
+            echo "Release gate is closed. Select publish or dry_run when dispatching the workflow."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Release version changed against $previous_ref: ${previous_version:-<none>} -> $current_version"
+            echo "Explicit release gate opened for v$current_version (publish=$publish, dry_run=$dry_run)."
           fi
       - name: verify before creating a tag
         if: steps.release.outputs.changed == 'true'
