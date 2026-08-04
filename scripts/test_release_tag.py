@@ -42,6 +42,13 @@ def release_version_changed(root: Path, previous_ref: str) -> bool:
     return current != previous
 
 
+def publish_allowed(publish: str, github_ref: str, head_sha: str, origin_main_sha: str) -> bool:
+    """Mirror the workflow gate that limits real publishing to current main."""
+    return publish != "true" or (
+        github_ref == "refs/heads/main" and head_sha == origin_main_sha
+    )
+
+
 class ReleaseTagTests(unittest.TestCase):
     def test_version_unchanged_main_commit_is_not_a_release_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -121,6 +128,9 @@ class ReleaseTagTests(unittest.TestCase):
             "workflow_dispatch:",
             "publish:",
             "dry_run:",
+            'if [[ "$publish" == "true" ]]; then',
+            'refs/heads/main',
+            "HEAD must equal origin/main before publishing.",
             "contents: write",
             "python scripts/run_all_checks.py",
             "scripts/check_release_tag.py",
@@ -136,6 +146,12 @@ class ReleaseTagTests(unittest.TestCase):
         self.assertNotIn("branches: [main]", workflow)
         self.assertNotIn("github.event.before", workflow)
         self.assertLess(workflow.index("python scripts/run_all_checks.py"), workflow.index("git tag --annotate"))
+
+    def test_publish_requires_current_main_head(self) -> None:
+        self.assertFalse(publish_allowed("true", "refs/heads/agent/v17-11-canary-final", "abc", "abc"))
+        self.assertFalse(publish_allowed("true", "refs/heads/main", "abc", "def"))
+        self.assertTrue(publish_allowed("true", "refs/heads/main", "abc", "abc"))
+        self.assertTrue(publish_allowed("false", "refs/heads/agent/v17-11-canary-final", "abc", "def"))
 
 
 if __name__ == "__main__":
