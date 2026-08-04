@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.17] - 2026-08-04
+
+- Completed the Career Agent architecture boundary: `runtime.py` is now orchestration/CLI plus
+  compatibility exports, while extracted owner modules contain the domain algorithms.
+- Reduced the boundary guard to a final `PASS` state and documented the ownership map.
+
 ## [1.6.16] - 2026-08-04
 
 - Moved company slug normalization, workspace resolution, pipeline writes, event-to-state
