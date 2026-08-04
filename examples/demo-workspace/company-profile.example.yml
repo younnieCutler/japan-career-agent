@@ -10,8 +10,9 @@ requirements:
 eligibility:
   - requirement: work location
     evidence: "Full on-site work is required"
-    source_type: synthetic_fixture
+    source_type: job_posting
     source: examples/demo-workspace/company-profile.example.yml
+    source_ref: synthetic://demo/company-profile/work-location
     observed_at: "2026-08-04"
     confidence: high
-    provenance: synthetic_fixture
+    provenance: synthetic

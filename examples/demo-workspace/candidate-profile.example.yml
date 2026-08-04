@@ -4,11 +4,12 @@ target_role: "Platform Engineer"
 track: chuto
 evidence:
   - fact: "Python platform maintenance"
-    source_type: synthetic_fixture
+    source_type: user
     source: examples/demo-workspace/candidate-profile.example.yml
+    source_ref: synthetic://demo/candidate-profile/python
     observed_at: "2026-08-04"
     confidence: high
-    provenance: synthetic_fixture
+    provenance: synthetic
 skills:
   - name: Python
     status: matched

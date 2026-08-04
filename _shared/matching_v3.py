@@ -72,7 +72,7 @@ SOURCE_TYPES = {
 }
 PROVENANCE_TYPES = {
     "official_framework", "job_posting", "company_public_source", "user", "observed",
-    "derived", "heuristic", "unknown",
+    "derived", "heuristic", "synthetic", "unknown",
 }
 CONFIDENCE_LEVELS = {"high", "medium", "low", "unknown"}
 INTEREST_EVIDENCE_SOURCES = {"self_report", "event_experience", "interview_experience"}
@@ -476,6 +476,11 @@ def _evidence_meta(item: dict[str, Any]) -> dict[str, Any]:
     provenance = item.get("provenance")
     if provenance is not None and provenance not in PROVENANCE_TYPES:
         raise ValidationError(f"provenance must be one of {sorted(PROVENANCE_TYPES)}, got {provenance!r}")
+    source_ref = item.get("source_ref")
+    if provenance == "synthetic" and (not isinstance(source_ref, str) or not source_ref.startswith("synthetic://")):
+        raise ValidationError("synthetic provenance requires a synthetic:// source_ref")
+    if isinstance(source_ref, str) and source_ref.startswith("synthetic://") and provenance != "synthetic":
+        raise ValidationError("synthetic:// source_ref requires synthetic provenance")
     if provenance is None:
         if source_type in {"official", "official_framework"}:
             provenance = "official_framework"
@@ -505,7 +510,7 @@ def _evidence_meta(item: dict[str, Any]) -> dict[str, Any]:
             "inferred": "heuristic",
         }.get(source_type, source_type),
         "source": item.get("source"),
-        "source_ref": item.get("source_ref"),
+        "source_ref": source_ref,
         "observed_at": item.get("observed_at"),
         "confidence": confidence,
     }

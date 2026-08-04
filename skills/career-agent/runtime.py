@@ -17,6 +17,7 @@ import re
 import sys
 import tempfile
 import tomllib
+import unicodedata
 import uuid
 
 try:
@@ -220,7 +221,7 @@ def write_json(path: Path, value: Any) -> None:
 
 def append_jsonl(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as stream:
+    with path.open("a", encoding="utf-8", newline="\n") as stream:
         stream.write(json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
@@ -620,6 +621,14 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
             raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
 
 
+def approval_action_for(message: str) -> str:
+    return {
+        "ko": "근거를 확인한 뒤 이벤트 확정",
+        "ja": "根拠を確認してからイベントを確定する",
+        "en": "Confirm evidence before saving",
+    }[language_for(message)]
+
+
 def make_event(message: str, track: str, stage: str, flow_phase: str, *, status: str = "draft") -> dict[str, Any]:
     event_id = f"evt-{uuid.uuid4().hex[:12]}"
     language = language_for(message)
@@ -627,11 +636,6 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
         "ko": "사용자 입력 기반 경력 이벤트",
         "ja": "ユーザー入力に基づくキャリアイベント",
         "en": "User-reported career event",
-    }[language]
-    next_action = {
-        "ko": "근거를 확인한 뒤 이벤트 확정",
-        "ja": "根拠を確認してからイベントを確定する",
-        "en": "Confirm evidence before saving",
     }[language]
     event = {
         "id": event_id,
@@ -644,7 +648,7 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
         "summary": message.strip(),
         "evidence": [],
         "source": "user_message",
-        "next_action": next_action,
+        "next_action": None,
         "deadline": None,
         "status": status,
     }
@@ -782,9 +786,31 @@ def initialize_vault(path: Path) -> dict[str, Any]:
     return {"initialized": True, "vault": str(vault.path), "created": created, "next": "Fill 00-control/career-profile.toml, then run doctor --vault <path>."}
 
 
+_LEGAL_ENTITY_MARKERS = (
+    "株式会社", "有限会社", "合同会社", "(株)",
+)
+
+
+def _canonical_company_name(name: str) -> str:
+    value = unicodedata.normalize("NFKC", name).strip()
+    marker_pattern = "|".join(re.escape(marker) for marker in _LEGAL_ENTITY_MARKERS)
+    value = re.sub(rf"^(?:{marker_pattern})\s*", "", value, flags=re.IGNORECASE)
+    value = re.sub(rf"\s*(?:{marker_pattern})$", "", value, flags=re.IGNORECASE)
+    return value.casefold().strip()
+
+
+def _legacy_company_slug(name: str) -> str:
+    return re.sub(r"[^\w]+", "-", name.strip().lower(), flags=re.UNICODE).strip("-")
+
+
 def company_slug(name: str) -> str:
-    """Join key for data/pipeline.yml and data/company_profiles/{slug}.yml."""
-    slug = re.sub(r"[^\w]+", "-", name.strip().lower(), flags=re.UNICODE).strip("-")
+    """Canonical join key for pipeline and company-profile projections.
+
+    Existing legacy slugs are preserved by the pipeline writer when an alias already exists;
+    this function only defines the key for new entries.
+    """
+    canonical = _canonical_company_name(name)
+    slug = re.sub(r"[^\w]+", "-", canonical, flags=re.UNICODE).strip("-")
     return slug or hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
 
 
@@ -819,7 +845,6 @@ def upsert_pipeline_entry(
 
     stage = PIPELINE_STAGE.get(event["stage"])
     day = str(event["occurred_at"])[:10]
-    text = (event.get("summary") or event["title"]).strip()
     fields = {"name": event["company"]}
     if stage is not None:
         fields["stage"] = stage
@@ -828,7 +853,9 @@ def upsert_pipeline_entry(
     if event.get("deadline"):
         fields["deadline"] = event["deadline"]
 
-    hist_entry = {"date": day, "event": text[:120]}
+    # pipeline.yml is a projection, not a second evidence ledger. The canonical event title is
+    # intentionally short and evidence/source URLs remain only in events.jsonl.
+    hist_entry = {"date": day, "event": event["title"]}
     if event.get("id"):
         hist_entry["event_id"] = event["id"]
 
@@ -838,6 +865,7 @@ def upsert_pipeline_entry(
             company_slug(event["company"]),
             fields,
             history=hist_entry,
+            slug_aliases=(_legacy_company_slug(event["company"]),),
         )
     except ImportError:  # pyyaml is in requirements.txt; degrade instead of breaking approve
         return None
@@ -1050,12 +1078,27 @@ def setup(
     }
 
 
+def decode_utf8(payload: bytes, *, source: str) -> str:
+    try:
+        return payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CareerError(f"{source} must be valid UTF-8") from exc
+
+
+def read_stdin_utf8() -> str:
+    stream = getattr(sys.stdin, "buffer", None)
+    raw = stream.read() if stream is not None else sys.stdin.read()
+    if isinstance(raw, bytes):
+        return decode_utf8(raw, source="stdin")
+    return raw
+
+
 def load_posting_records(source: str | None) -> list[dict[str, Any]]:
     if source:
         path = Path(source).expanduser()
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(decode_utf8(path.read_bytes(), source=str(path)))
     else:
-        raw = sys.stdin.read().strip()
+        raw = read_stdin_utf8().strip()
         if not raw:
             return []
         data = json.loads(raw)
@@ -1068,27 +1111,39 @@ def load_posting_records(source: str | None) -> list[dict[str, Any]]:
 
 def posting_key(posting: dict[str, Any]) -> str:
     url = str(posting.get("url") or posting.get("source_url") or "").strip()
+    source_ref = str(posting.get("source_ref") or "").strip()
     company = str(posting.get("company") or posting.get("company_name") or "").strip().lower()
     role = str(posting.get("role") or posting.get("job_title") or "").strip().lower()
-    raw = url or f"{company}|{role}"
+    raw = url or source_ref or f"{company}|{role}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def normalize_posting(posting: dict[str, Any]) -> dict[str, Any]:
     url = str(posting.get("url") or posting.get("source_url") or "").strip()
-    if not url.startswith(("https://", "http://")):
-        raise CareerError("discover postings require an original http(s) URL")
+    provenance = posting.get("provenance") or "observed"
+    if provenance not in {"observed", "job_posting", "synthetic", "unknown"}:
+        raise CareerError("posting provenance must be observed, job_posting, synthetic, or unknown")
+    source_ref = str(posting.get("source_ref") or url).strip()
+    if provenance == "synthetic":
+        if url:
+            raise CareerError("synthetic postings must omit url; use source_ref synthetic://...")
+        if not source_ref.startswith("synthetic://"):
+            raise CareerError("synthetic postings require a synthetic:// source_ref")
+    elif not url.startswith(("https://", "http://")):
+        raise CareerError("public postings require an original http(s) URL")
     return {
         "company": str(posting.get("company") or posting.get("company_name") or "不明").strip(),
         "role": str(posting.get("role") or posting.get("job_title") or "不明").strip(),
         "graduation_year": posting.get("graduation_year"),
         "target": posting.get("target") or posting.get("audience"),
         "deadline": posting.get("deadline"),
-        "original_url": url,
+        "original_url": url or None,
         "checked_at": posting.get("checked_at") or utc_now(),
         "dedupe_key": posting_key(posting),
         "status": "candidate",
-        "source": "public_search_input",
+        "source": "synthetic_fixture" if provenance == "synthetic" else "public_search_input",
+        "source_ref": source_ref,
+        "provenance": provenance,
     }
 
 
@@ -1180,11 +1235,13 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
     flow_phase = flow_phase_for(message, track, state, profile, reference)
     context = select_context(home.path, track, stage)
     event = make_event(message, track, stage, flow_phase)
+    approval_action = approval_action_for(message)
     proposal = {
         "id": f"proposal-{uuid.uuid4().hex[:12]}",
         "kind": "event",
         "status": "pending",
         "created_at": utc_now(),
+        "next_action": approval_action,
         "event": event,
     }
     trajectory = {
@@ -1192,7 +1249,7 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
         "created_at": utc_now(),
         "mode": "chat",
         "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
-        "plan": {"track": track, "stage": stage, "flow_phase": flow_phase, "goal": "route and propose a grounded event", "next_action": event["next_action"]},
+        "plan": {"track": track, "stage": stage, "flow_phase": flow_phase, "goal": "route and propose a grounded event", "next_action": approval_action},
         "act": {"proposal_id": proposal["id"], "skill": skill_context(skills_root, stage), "context_count": len(context)},
         "verify": {"event_schema": "valid", "context_is_metadata_only": True, "external_side_effect": False},
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
@@ -1234,7 +1291,7 @@ def run_discover(home: CareerVault, source: str | None) -> dict[str, Any]:
             invalid.append(str(exc))
     if incoming_raw and not incoming:
         # every item in the batch was corrupted - nothing to self-correct, escalate as before.
-        raise CareerError("discover postings require an original http(s) URL")
+        raise CareerError("discover postings require an original http(s) URL or a synthetic:// source_ref")
     with vault_lock(home):  # PERSIST-005: dedupe-then-append must not race a concurrent discover
         existing = read_jsonl(home.postings)
         known = {item.get("dedupe_key") for item in existing}
@@ -1472,6 +1529,7 @@ def approve(
     compensation: float | None = None,
     currency: str | None = None,
     workspace: str | Path | None = None,
+    next_action: str | None = None,
 ) -> dict[str, Any]:
     with vault_lock(home):
         proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
@@ -1491,6 +1549,9 @@ def approve(
                 event["compensation"] = compensation
             if currency is not None:
                 event["currency"] = currency
+            # The proposal's next_action is an approval instruction, not a confirmed career
+            # action. Only an explicit post-approval action survives into the ledger/state.
+            event["next_action"] = next_action.strip() if next_action and next_action.strip() else None
             try:
                 validate_event(event, for_confirmation=True)
             except CareerError as exc:
@@ -1525,7 +1586,21 @@ def approve(
                 version = state["version"]
             else:
                 version = home.save_state(projected_state)
-            updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now(), version=version)
+            resolved_at = utc_now()
+            resolution = {
+                "status": "approved",
+                "resolved_at": resolved_at,
+                "approved_event_id": event["id"],
+                "state_version": version,
+            }
+            updated = home.replace_proposal(
+                proposal_id,
+                status="approved",
+                approved_at=resolved_at,
+                version=version,
+                approved_event_id=event["id"],
+                resolution=resolution,
+            )
             result = {"approved": True, "event": event, "version": version, "proposal": updated}
             if pipeline:
                 result["pipeline"] = str(pipeline)
@@ -1646,6 +1721,7 @@ def build_parser() -> argparse.ArgumentParser:
     approve_parser.add_argument("--company", help="company name for an offer/application event")
     approve_parser.add_argument("--compensation", type=float, help="compensation amount for an offer/application event")
     approve_parser.add_argument("--currency", help="currency for --compensation, e.g. JPY")
+    approve_parser.add_argument("--next-action", help="actual action that remains after approval")
     restore_parser = subparsers.add_parser(
         "restore-state",
         help="replace the current state with a saved snapshot; the append-only ledger is kept",
@@ -1697,7 +1773,10 @@ def main(argv: Iterable[str] | None = None) -> int:
                     raise CareerError("--limit must be a positive integer")
                 result = list_proposals(home, include_all=args.include_all, limit=args.limit)
             elif args.command == "approve":
-                result = approve(home, args.proposal_id, args.evidence, args.deadline, args.company, args.compensation, args.currency, args.workspace)
+                result = approve(
+                    home, args.proposal_id, args.evidence, args.deadline, args.company,
+                    args.compensation, args.currency, args.workspace, args.next_action,
+                )
             elif args.command == "restore-state":
                 result = restore_state(home, args.version)
             elif args.command == "index":
@@ -1707,7 +1786,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             elif args.command == "propose-context":
                 result = propose_career_context(home, args.source)
             elif args.mode == "chat":
-                message = args.message if args.message is not None else sys.stdin.read().strip()
+                message = args.message if args.message is not None else read_stdin_utf8().strip()
                 if not message:
                     raise CareerError("chat requires --message or stdin")
                 result = run_chat(home, skills_root, message, args.track)

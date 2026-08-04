@@ -104,7 +104,7 @@ company_evidence:
     source_ref: "[URL or JD line]"
     observed_at: "YYYY-MM-DD"
     confidence: "high|medium|low|unknown"
-    provenance: "job_posting|company_public_source|user|observed|heuristic|unknown"
+    provenance: "job_posting|company_public_source|user|observed|heuristic|synthetic|unknown"
 working_environment_questions: []
 unknowns: []
 ```
