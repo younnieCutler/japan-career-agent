@@ -1,0 +1,15 @@
+updated: "2026-08-04"
+companies:
+  - slug: aozora-systems-synthetic
+    name: "Aozora Systems (Synthetic)"
+    stage: 2
+    closed: false
+    decision_status: review
+    match_model_version: evidence_based_v3
+    match_required_gaps:
+      - "required skill: Kubernetes"
+    match_unknowns:
+      - "eligibility: work authorization"
+    history:
+      - date: "2026-08-04"
+        event: "Synthetic diagnosis fixture loaded"

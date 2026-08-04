@@ -1,0 +1,17 @@
+# SYNTHETIC EXAMPLE ONLY — no real company or job posting.
+company_name: "Aozora Systems (Synthetic)"
+position: "Platform Engineer"
+requirements:
+  required:
+    - Python
+    - Kubernetes
+  preferred:
+    - Terraform
+eligibility:
+  - requirement: work location
+    evidence: "Full on-site work is required"
+    source_type: synthetic_fixture
+    source: examples/demo-workspace/company-profile.example.yml
+    observed_at: "2026-08-04"
+    confidence: high
+    provenance: synthetic_fixture

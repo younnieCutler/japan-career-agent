@@ -4,7 +4,7 @@
 予測せず、Recruit・Persol・dodaなどの非公開アルゴリズムも再現しません。ユーザーが提供した
 証拠を使い、確認済みの事実、衝突、`Unknown`、根拠、次に確認すべき質問を整理します。
 
-現在のリリース: `1.6.3`。
+現在のリリース: `1.6.4`。
 
 ## Canonical rules
 
@@ -84,6 +84,24 @@ $env:CAREER_WORKSPACE='C:\path\to\job-search-workspace'
 python skills/career-agent/career_agent.py context --vault $env:CAREER_VAULT
 python skills/career-agent/career_agent.py approve --vault $env:CAREER_VAULT --workspace $env:CAREER_WORKSPACE <proposal-id>
 ```
+
+## 5分 Quickstart
+
+cloneしたリポジトリのルートで実行します。`proposals` が表示したIDを `PROPOSAL_ID` に
+置き換えてから `approve` を実行してください。
+
+```bash
+python skills/career-agent/career_agent.py setup --vault .career-agent-vault --track chuto --target-role "Platform Engineer"
+python skills/career-agent/career_agent.py run --vault .career-agent-vault --mode chat --message "転職の面接を準備したい"
+python skills/career-agent/career_agent.py proposals --vault .career-agent-vault
+python skills/career-agent/career_agent.py approve --vault .career-agent-vault --workspace . PROPOSAL_ID --evidence "転職の面接を準備したい" --company "Aozora Systems (Synthetic)"
+python skills/career-agent/career_agent.py status --vault .career-agent-vault
+python -c "from pathlib import Path; print(Path('data/pipeline.yml').read_text(encoding='utf-8'))"
+```
+
+流れは setup → chat proposal → proposal確認 → evidence付きapprove → confirmed statusと
+workspace projectionの確認です。approveはユーザー主導のままで、応募送信やメッセージ送信は
+行いません。
 
 `restore-state`はrollback/undoではなくstate recoveryです。append-only ledger、proposal、pipeline
 projectionは巻き戻しません。Vault note本文は自動で読み込まずmetadataだけを使います。

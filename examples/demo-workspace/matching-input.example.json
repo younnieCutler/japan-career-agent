@@ -1,0 +1,76 @@
+{
+  "candidate_name": "Synthetic Candidate",
+  "company_name": "Aozora Systems (Synthetic)",
+  "position": "Platform Engineer",
+  "eligibility": [
+    {
+      "requirement": "work authorization",
+      "candidate_evidence": null,
+      "job_evidence": "Sponsorship policy is not stated",
+      "meets": null,
+      "source": "synthetic fixture",
+      "source_type": "job_posting",
+      "confidence": "medium"
+    },
+    {
+      "requirement": "work location",
+      "candidate_evidence": "Remote work is a must-have",
+      "job_evidence": "Full on-site work is required",
+      "meets": false,
+      "source": "synthetic fixture",
+      "source_type": "job_posting",
+      "confidence": "high"
+    }
+  ],
+  "skills": {
+    "required": [
+      {
+        "name": "Python",
+        "status": "matched",
+        "evidence": "Three years of Python platform maintenance",
+        "source_type": "user",
+        "confidence": "high"
+      },
+      {
+        "name": "Kubernetes",
+        "status": "missing",
+        "evidence": "No confirmed Kubernetes experience in the fixture",
+        "source_type": "user",
+        "confidence": "medium"
+      },
+      {
+        "name": "Japanese business communication",
+        "status": "unknown",
+        "evidence": null,
+        "source_type": "job_posting",
+        "confidence": "low"
+      }
+    ],
+    "preferred": [
+      {
+        "name": "Terraform",
+        "status": "unknown",
+        "evidence": null,
+        "source_type": "job_posting",
+        "confidence": "low"
+      }
+    ],
+    "experience": []
+  },
+  "career_values": [
+    {
+      "value": "remote work",
+      "kind": "must_have",
+      "satisfied": false,
+      "company_evidence": "Full on-site work is required",
+      "source_type": "job_posting",
+      "confidence": "high"
+    }
+  ],
+  "portable_skill": null,
+  "candidate_interest": {
+    "interest_level": 4,
+    "interest_reason": "Synthetic fixture preference",
+    "interest_evidence": []
+  }
+}

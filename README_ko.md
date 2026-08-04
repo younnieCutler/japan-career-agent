@@ -5,7 +5,7 @@
 증거를 바탕으로 무엇이 확인되었고, 무엇이 충돌하며, 무엇이 `Unknown`인지와 다음에 확인할
 질문을 정리합니다.
 
-현재 릴리스: `1.6.3`.
+현재 릴리스: `1.6.4`.
 
 ## 핵심 원칙
 
@@ -51,6 +51,24 @@ $env:CAREER_WORKSPACE='C:\path\to\job-search-workspace'
 python skills/career-agent/career_agent.py context --vault $env:CAREER_VAULT
 python skills/career-agent/career_agent.py approve --vault $env:CAREER_VAULT --workspace $env:CAREER_WORKSPACE <proposal-id>
 ```
+
+## 5분 Quickstart
+
+복제한 저장소의 루트에서 실행하세요. `proposals`가 출력한 ID를 `PROPOSAL_ID`에 넣은 뒤
+`approve`를 실행합니다.
+
+```powershell
+python skills/career-agent/career_agent.py setup --vault .career-agent-vault --track chuto --target-role "Platform Engineer"
+python skills/career-agent/career_agent.py run --vault .career-agent-vault --mode chat --message "転職の面接を準備したい"
+python skills/career-agent/career_agent.py proposals --vault .career-agent-vault
+python skills/career-agent/career_agent.py approve --vault .career-agent-vault --workspace . PROPOSAL_ID --evidence "転職の面接を準備したい" --company "Aozora Systems (Synthetic)"
+python skills/career-agent/career_agent.py status --vault .career-agent-vault
+python -c "from pathlib import Path; print(Path('data/pipeline.yml').read_text(encoding='utf-8'))"
+```
+
+흐름은 setup → chat proposal → proposal 조회 → evidence 승인 → confirmed status와 workspace
+projection 확인입니다. 승인은 사용자 제어 단계로 유지되며 지원서 제출이나 메시지 발송은 하지
+않습니다.
 
 `restore-state`는 rollback/undo가 아니라 state recovery입니다. append-only ledger, proposal,
 pipeline projection은 되감지 않습니다. Vault note 본문은 자동으로 읽지 않고 metadata만 사용합니다.

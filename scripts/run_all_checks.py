@@ -37,6 +37,7 @@ CHECKS = (
     ("pipeline store durability", (PYTHON, "_shared/test_pipeline_store.py")),
     ("policy regression", (PYTHON, "scripts/test_policy.py")),
     ("canonical self-analysis", (PYTHON, "_shared/test_self_analysis_profile.py")),
+    ("synthetic demo workspace", (PYTHON, "examples/test_demo_workspace.py")),
     ("Jiko source contract", (PYTHON, "skills/jiko-bunseki/tests/test_checklist_contract.py")),
     ("Jiko executable export", ("node", "skills/jiko-bunseki/tests/test_checklist_runtime.js")),
 )

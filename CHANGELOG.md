@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.4] — 2026-08-04
+
+- Made incomplete Career Agent setup explicit and actionable when track (or the shinsotsu
+  graduation year) is missing, with a structured next command and exit 2.
+- Added a read-only `proposals` metadata command and actionable evidence retry guidance for
+  approval failures.
+- Added a five-minute Quickstart and a fully synthetic demo workspace for the evidence-based v3
+  diagnosis.
+
 ## [1.6.3] — 2026-08-04
 
 - Locked four Career Vault writers (`add_proposal`, discover-postings dedupe-then-append, the
