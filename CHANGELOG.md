@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0] - 2026-08-04
+
+- Added an informational HTTPS endpoint-health canary with an approved repository-variable target
+  and explicit `HOST_UNAVAILABLE` classification; it does not claim agent or model execution.
+- Completed the production-hardening release line with deterministic behavior replay, dependency
+  locks, SBOM, source identity, checksums, and verified release bundle workflow.
+
 ## [1.6.21] - 2026-08-04
 
 - Added clean-tree, source-commit, archive-path, local-path, secret-pattern, manifest, checksum,

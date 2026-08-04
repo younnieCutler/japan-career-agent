@@ -1,0 +1,33 @@
+name: endpoint-canary
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  endpoint-health:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: install locked verification dependencies
+        run: python -m pip install --quiet --require-hashes -r requirements-dev.lock
+      - name: check approved endpoint health
+        continue-on-error: true
+        env:
+          CANARY_URL: ${{ vars.ENDPOINT_CANARY_URL }}
+        run: python scripts/run_live_canary.py --url "$CANARY_URL" --output canary-result.json
+      - name: upload canary result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: endpoint-canary-${{ github.run_id }}
+          path: canary-result.json
+          if-no-files-found: error
