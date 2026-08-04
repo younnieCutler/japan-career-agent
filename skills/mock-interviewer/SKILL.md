@@ -2,7 +2,8 @@
 name: mock-interviewer
 description: >
   Simulates realistic Japanese interviewers (1st round tech lead, 2nd round HR, final round executive)
-  to stress-test candidate's resume, 退職理由, 志望動機, and STAR stories via 3-level deep-dive (深掘り) questioning.
+  to stress-test candidate's resume, 退職理由, 志望動機, and STAR stories via adaptive deep-dive
+  questioning across three probe families (深掘り).
   Identifies undefendable claims, fake metrics, and emotional disconnects before actual interviews.
 
   Use when:
@@ -14,7 +15,7 @@ description: >
 
 ## Overview
 
-This skill acts as a realistic, critical Japanese interviewer. It tests whether a candidate can defend their resume, 退職理由, 志望動機, and achievements when subjected to standard Japanese **深掘り (deep-dive 3-level questioning)**.
+This skill acts as a realistic, critical Japanese interviewer. It tests whether a candidate can defend their resume, 退職理由, 志望動機, and achievements through standard Japanese **深掘り (adaptive deep-dive questioning)**.
 
 The goal is not to encourage, but to find weak points, undefendable metrics, and "AI-generated Tatemae" before a real interviewer catches them.
 
@@ -122,18 +123,40 @@ Use 3–5 questions as the default session budget. Continue only when one additi
 change the defense assessment; stop when further questions would only polish wording. The user may
 end the session at any time.
 
-Before marking the practice ready, check whether:
+Apply readiness states in this order; an `Unknown` or unverified material axis is not a pass:
 
-- the candidate's ownership and scope are clear, or explicitly marked `Unknown`;
-- the key metric is grounded, explicitly unmeasurable, or clearly marked unverified;
-- at least one relevant decision/trade-off and one failure/learning point were tested;
-- any contradiction with confirmed career context was surfaced for user confirmation.
+### Not assessable
 
-Report readiness as `Ready`, `Needs targeted follow-up`, or `Not assessable`. This label gates the
-assessment, not the user's ability to stop. At the end, state a short **Defensible Core** describing
-what the candidate can currently defend and what remains uncertain. Ask the user to confirm or correct
-that summary. Treat the result as session feedback only; do not make it a canonical resume or career
-context correction automatically.
+Use `Not assessable` when the answers or evidence are too sparse to judge the core claim at all. Do
+not turn a missing interview answer into a weak pass or a generic profile.
+
+### Needs targeted follow-up
+
+Use `Needs targeted follow-up` when any material axis remains `Unknown`,
+`user-stated-unverified`, or `conflict-needs-confirmation`. Material axes normally include ownership,
+the outcome/evidence claim, the relevant decision or trade-off, learning, and motivation/fit when the
+persona or question makes it relevant.
+
+### Ready
+
+Use `Ready` only when all material conditions below are satisfied:
+
+- ownership and scope are grounded, not merely stated in a document or left `Unknown`;
+- the outcome is defensible: a quantitative claim has grounded evidence, while a qualitative outcome
+  may be Ready without a number if it is clearly scoped and no unsupported number is implied;
+- a relevant decision/trade-off and a failure/learning point were tested;
+- any relevant motivation/fit claim is grounded or explicitly absent from scope; and
+- no contradiction with confirmed career context remains unresolved.
+
+Saying that a result could not be measured is not itself a failure. It can support `Ready` only when
+the candidate limits the claim to a clearly bounded qualitative outcome and does not continue to
+assert an unsupported metric. An unverified quantitative claim keeps readiness at `Needs targeted
+follow-up`.
+
+This label gates the assessment, not the user's ability to stop. At the end, state a short
+**Defensible Core** describing what the candidate can currently defend and what remains uncertain.
+Ask the user to confirm or correct that summary. Treat the result as session feedback only; do not
+make it a canonical resume or career context correction automatically.
 
 ---
 

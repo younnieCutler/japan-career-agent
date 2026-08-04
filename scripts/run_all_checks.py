@@ -42,6 +42,7 @@ CHECKS = (
     ("policy regression", (PYTHON, "scripts/test_policy.py")),
     ("canonical self-analysis", (PYTHON, "_shared/test_self_analysis_profile.py")),
     ("synthetic demo workspace", (PYTHON, "examples/test_demo_workspace.py")),
+    ("mock-interviewer contract", (PYTHON, "skills/mock-interviewer/tests/test_contract.py")),
     ("Jiko source contract", (PYTHON, "skills/jiko-bunseki/tests/test_checklist_contract.py")),
     ("Jiko executable export", ("node", "skills/jiko-bunseki/tests/test_checklist_runtime.js")),
 )

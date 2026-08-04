@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.11] — 2026-08-04
+
+- Tightened mock-interviewer readiness precedence: material `Unknown`, unverified quantitative
+  claims, and unresolved contradictions require targeted follow-up; bounded qualitative outcomes
+  may be Ready without numeric measurement.
+- Updated adaptive deep-dive frontmatter and added an executable contract guard to keep readiness
+  rules and adaptive terminology aligned with the eval scenarios.
+
 ## [1.6.10] — 2026-08-04
 
 - Made mock-interviewer deep-dive selection adaptive with a session-local coverage ledger,

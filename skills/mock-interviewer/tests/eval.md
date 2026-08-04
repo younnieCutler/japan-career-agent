@@ -55,3 +55,14 @@
   - The interviewer asks what "led" and "improved" mean in that incident.
   - A high-value probe checks role boundary, baseline, comparison, or an alternative cause.
   - The interviewer treats the probe as a verification question, not as proof that the claim is false.
+
+## Test Case 8: Qualitative outcome can be Ready, unsupported metric cannot
+**Objective**: Readiness distinguishes absent measurement from an unsupported quantitative claim.
+- **Input A**: Ownership, a bounded qualitative outcome, decision/trade-off, and learning are grounded;
+  the candidate explicitly says no numeric measurement was available.
+- **Input B**: The same answer includes "30% faster" but the metric source remains unverified.
+- **Criteria**:
+  - Input A may receive `Ready` when no other material axis is unresolved.
+  - Input B receives `Needs targeted follow-up`, not `Ready`.
+  - `Unknown`, `user-stated-unverified`, and `conflict-needs-confirmation` are not readiness passes
+    for material axes.
