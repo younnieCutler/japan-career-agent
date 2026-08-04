@@ -1,0 +1,18 @@
+{
+  "skill": "matching-simulator",
+  "case": "required_gap_review",
+  "payload": {
+    "company_name": "Skill Gap Co",
+    "position": "Platform Engineer",
+    "eligibility": [],
+    "skills": {
+      "required": [
+        {"name": "Kubernetes", "status": "missing", "source_type": "job_posting"}
+      ],
+      "preferred": [],
+      "experience": []
+    },
+    "career_values": [],
+    "candidate_interest": {"interest_level": 5}
+  }
+}

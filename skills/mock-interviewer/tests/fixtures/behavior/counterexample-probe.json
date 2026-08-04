@@ -1,0 +1,19 @@
+{
+  "skill": "mock-interviewer",
+  "case": "operational_and_counterexample_probe",
+  "high_impact_claim": true,
+  "ambiguous_terms": ["led", "improved"],
+  "claim": {
+    "text": "I led the migration and improved performance by 30%.",
+    "source": "from-user",
+    "uncertainty_markers": []
+  },
+  "axes": {
+    "Ownership": "user-stated-unverified",
+    "Evidence": "user-stated-unverified"
+  },
+  "outcome": {
+    "quantitative_claim": true,
+    "evidence_status": "unverified"
+  }
+}

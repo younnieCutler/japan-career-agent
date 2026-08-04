@@ -1,0 +1,15 @@
+{
+  "skill": "mock-interviewer",
+  "case": "adaptive_breadth",
+  "coverage": {
+    "Ownership": "grounded",
+    "Evidence": "user-stated-unverified",
+    "Decision Logic": "grounded",
+    "Learning": "unprobed"
+  },
+  "claim": {
+    "text": "I owned the migration, but the result was around 30% faster.",
+    "source": "from-user",
+    "uncertainty_markers": ["around"]
+  }
+}

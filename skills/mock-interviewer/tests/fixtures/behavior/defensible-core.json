@@ -1,0 +1,21 @@
+{
+  "skill": "mock-interviewer",
+  "case": "defensible_core_confirmation",
+  "defensible_core_confirmed": false,
+  "claim": {
+    "text": "I proposed the migration plan and implemented the agreed changes.",
+    "source": "from-user",
+    "uncertainty_markers": []
+  },
+  "axes": {
+    "Ownership": "grounded",
+    "Evidence": "grounded",
+    "Decision Logic": "grounded",
+    "Learning": "grounded"
+  },
+  "outcome": {
+    "quantitative_claim": false,
+    "evidence_status": "grounded",
+    "qualitative_bounded": true
+  }
+}

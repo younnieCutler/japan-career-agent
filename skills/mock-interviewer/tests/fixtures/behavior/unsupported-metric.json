@@ -1,0 +1,21 @@
+{
+  "skill": "mock-interviewer",
+  "case": "unsupported_metric_readiness",
+  "axes": {
+    "Ownership": "grounded",
+    "Evidence": "user-stated-unverified",
+    "Decision Logic": "grounded",
+    "Learning": "grounded",
+    "Motivation & Fit": "grounded"
+  },
+  "outcome": {
+    "quantitative_claim": true,
+    "evidence_status": "unverified",
+    "qualitative_bounded": false,
+    "measurement_unavailable": false
+  },
+  "claim": {
+    "text": "I improved performance by 30%.",
+    "source": "from-user"
+  }
+}
