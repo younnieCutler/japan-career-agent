@@ -1,0 +1,21 @@
+{
+  "skill": "mock-interviewer",
+  "case": "bounded_qualitative_ready",
+  "axes": {
+    "Ownership": "grounded",
+    "Evidence": "grounded",
+    "Decision Logic": "grounded",
+    "Learning": "grounded",
+    "Motivation & Fit": "grounded"
+  },
+  "outcome": {
+    "quantitative_claim": false,
+    "evidence_status": "grounded",
+    "qualitative_bounded": true,
+    "measurement_unavailable": true
+  },
+  "claim": {
+    "text": "The handoff became more predictable for the support team.",
+    "source": "from-user"
+  }
+}

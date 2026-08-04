@@ -1,0 +1,18 @@
+{
+  "skill": "matching-simulator",
+  "case": "unknown_preservation",
+  "payload": {
+    "company_name": "Unknown Co",
+    "position": "Platform Engineer",
+    "eligibility": [],
+    "skills": {
+      "required": [
+        {"name": "SQL", "status": "unknown", "source_type": "job_posting"}
+      ],
+      "preferred": [],
+      "experience": []
+    },
+    "career_values": [],
+    "candidate_interest": {"interest_level": 5}
+  }
+}

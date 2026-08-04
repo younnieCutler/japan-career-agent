@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.19] - 2026-08-04
+
+- Added 17 critical behavior-replay scenarios for mock-interviewer, matching-simulator, and Career
+  Agent, covering Unknown preservation, provenance, interest independence, readiness, user exit,
+  approval, concurrency, and projection boundaries.
+- Named instruction-only interview evaluation a deterministic contract replay and classified all 17
+  replays separately from runtime E2E; no skill or live model execution is implied.
+
 ## [1.6.18] - 2026-08-04
 
 - Added a machine-readable behavior-evaluation schema and a deterministic runner with a closed

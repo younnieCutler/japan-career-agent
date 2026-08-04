@@ -1,0 +1,26 @@
+{
+  "skill": "matching-simulator",
+  "case": "confirmed_hard_conflict",
+  "payload": {
+    "company_name": "Conflict Co",
+    "position": "Platform Engineer",
+    "eligibility": [
+      {
+        "requirement": "Work location",
+        "candidate_evidence": "Osaka only",
+        "job_evidence": "Tokyo office required",
+        "meets": false,
+        "source_type": "job_posting"
+      }
+    ],
+    "skills": {
+      "required": [
+        {"name": "Python", "status": "matched", "source_type": "user"}
+      ],
+      "preferred": [],
+      "experience": []
+    },
+    "career_values": [],
+    "candidate_interest": {"interest_level": 5}
+  }
+}

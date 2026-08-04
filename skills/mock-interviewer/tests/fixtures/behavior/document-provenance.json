@@ -1,0 +1,17 @@
+{
+  "skill": "mock-interviewer",
+  "case": "document_claim_provenance",
+  "claim": {
+    "text": "I led the migration and improved speed by about 30%.",
+    "source": "document-stated",
+    "uncertainty_markers": ["about"]
+  },
+  "axes": {
+    "Ownership": "user-stated-unverified",
+    "Evidence": "user-stated-unverified"
+  },
+  "outcome": {
+    "quantitative_claim": true,
+    "evidence_status": "unverified"
+  }
+}

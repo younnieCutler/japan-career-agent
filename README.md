@@ -9,7 +9,7 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
-Current release: `1.6.18`.
+Current release: `1.6.19`.
 
 ## What it does
 
@@ -203,6 +203,17 @@ Release history is kept in [`CHANGELOG.md`](CHANGELOG.md).
 ```bash
 python scripts/run_all_checks.py
 ```
+
+The behavior-evaluation matrix is deterministic and separate from static skill contract checks:
+
+```bash
+python scripts/run_behavior_evals.py --schema _shared/behavior_eval_schema.yml
+```
+
+The matrix contains 3 contract audits and 17 behavior replays. The instruction-only interviewer is
+a deterministic contract replay (policy oracle), not an execution of the skill or a live model
+certification. Each result records its execution mode, classification, input/output hashes, runtime
+identity, and the absence of a model identity when no model was used.
 
 This runner is the canonical repository verification path and includes the release/document
 checks, policy checks, CI test matrix, and Jiko export contracts.

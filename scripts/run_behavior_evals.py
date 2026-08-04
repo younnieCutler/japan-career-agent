@@ -25,6 +25,12 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from _shared import behavior_replay  # noqa: E402
+
+
 SCHEMA_VERSION = 1
 RUNNER_VERSION = "1"
 ID_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9._-]+$")
@@ -299,10 +305,37 @@ def _career_agent_boundary_contract(_: AdapterContext) -> Execution:
     return _run_registered_script("scripts/test_career_agent_boundaries.py")
 
 
+def _run_replay(kind: str, context: AdapterContext) -> Execution:
+    started = time.perf_counter()
+    try:
+        result = behavior_replay.run(kind, context.scenario.inputs)
+        stdout = json.dumps(result, ensure_ascii=False, sort_keys=True)
+    except behavior_replay.ReplayError as exc:
+        return Execution("FAIL", 1, "", f"replay error: {exc}", _duration_ms(started), "replay_contract")
+    except (OSError, TypeError, ValueError) as exc:
+        return Execution("FAIL", 1, "", f"replay error: {exc}", _duration_ms(started), "replay_adapter")
+    return Execution("PASS", 0, stdout, "", _duration_ms(started))
+
+
+def _mock_interviewer_contract_replay(context: AdapterContext) -> Execution:
+    return _run_replay("mock_interviewer_contract", context)
+
+
+def _matching_v3_replay(context: AdapterContext) -> Execution:
+    return _run_replay("matching_v3", context)
+
+
+def _career_agent_replay(context: AdapterContext) -> Execution:
+    return _run_replay("career_agent", context)
+
+
 ADAPTERS: dict[str, Adapter] = {
     "mock_interviewer_contract": _mock_interviewer_contract,
     "matching_v3_contract": _matching_v3_contract,
     "career_agent_boundary_contract": _career_agent_boundary_contract,
+    "mock_interviewer_contract_replay": _mock_interviewer_contract_replay,
+    "matching_v3_replay": _matching_v3_replay,
+    "career_agent_replay": _career_agent_replay,
 }
 
 
