@@ -35,13 +35,10 @@ def write_release_files(root: Path, version: str) -> None:
     (root / "README_ja.md").write_text(f"現在のリリース: `{version}`。\n", encoding="utf-8")
 
 
-def release_version_changed(root: Path) -> bool:
-    """Mirror the workflow's HEAD-vs-HEAD^ release version gate for fixture tests."""
+def release_version_changed(root: Path, previous_ref: str) -> bool:
+    """Mirror the workflow's previous-main-ref release version gate for fixture tests."""
     current = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
-    try:
-        previous = json.loads(git(root, "show", "HEAD^:.claude-plugin/plugin.json"))["version"]
-    except AssertionError:
-        return True
+    previous = json.loads(git(root, "show", f"{previous_ref}:.claude-plugin/plugin.json"))["version"]
     return current != previous
 
 
@@ -55,15 +52,37 @@ class ReleaseTagTests(unittest.TestCase):
             write_release_files(root, "1.6.5")
             git(root, "add", ".")
             git(root, "commit", "-m", "release")
+            previous_sha = git(root, "rev-parse", "HEAD")
             (root / "README.md").write_text("Current release: `1.6.5`. Typo fixed.\n", encoding="utf-8")
             git(root, "add", "README.md")
             git(root, "commit", "-m", "docs: fix typo")
-            self.assertFalse(release_version_changed(root))
+            self.assertFalse(release_version_changed(root, previous_sha))
 
             write_release_files(root, "1.6.6")
             git(root, "add", ".")
             git(root, "commit", "-m", "release: bump")
-            self.assertTrue(release_version_changed(root))
+            self.assertTrue(release_version_changed(root, previous_sha))
+
+    def test_push_compares_event_before_when_head_parent_has_same_version(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git(root, "init", "-b", "main")
+            git(root, "config", "user.email", "test@example.invalid")
+            git(root, "config", "user.name", "Release Test")
+            write_release_files(root, "1.6.4")
+            git(root, "add", ".")
+            git(root, "commit", "-m", "release")
+            previous_main_sha = git(root, "rev-parse", "HEAD")
+
+            (root / "README.md").write_text("Current release: `1.6.4`. Docs update.\n", encoding="utf-8")
+            git(root, "add", "README.md")
+            git(root, "commit", "-m", "docs: update")
+            write_release_files(root, "1.6.5")
+            git(root, "add", ".")
+            git(root, "commit", "-m", "release: bump")
+
+            self.assertTrue(release_version_changed(root, previous_main_sha))
+            self.assertNotEqual(git(root, "rev-parse", "HEAD^"), previous_main_sha)
 
     def test_annotated_tag_matches_release_identity_and_sha(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -105,7 +124,10 @@ class ReleaseTagTests(unittest.TestCase):
             "contents: write",
             "python scripts/run_all_checks.py",
             "scripts/check_release_tag.py",
-            "git show HEAD^:.claude-plugin/plugin.json",
+            "github.event.before",
+            "github.event_name",
+            "git fetch origin main --force",
+            "origin/main",
             "changed=false",
             "if: steps.release.outputs.changed == 'true'",
             "github-actions[bot]",

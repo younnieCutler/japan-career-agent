@@ -38,17 +38,25 @@ jobs:
         run: |
           set -euo pipefail
           current_version="$(python -c 'import json; print(json.load(open(".claude-plugin/plugin.json", encoding="utf-8"))["version"])')"
-          previous_version="$(git show HEAD^:.claude-plugin/plugin.json 2>/dev/null | python -c 'import json, sys; print(json.load(sys.stdin)["version"])' || true)"
+          event_name="${{ github.event_name }}"
+          if [[ "$event_name" == "push" ]]; then
+            previous_ref="${{ github.event.before }}"
+          else
+            git fetch origin main --force
+            previous_ref="origin/main"
+          fi
+          previous_version="$(git show "$previous_ref:.claude-plugin/plugin.json" 2>/dev/null | python -c 'import json, sys; print(json.load(sys.stdin)["version"])' || true)"
           dry_run="${{ inputs.dry_run || 'false' }}"
           echo "version=$current_version" >> "$GITHUB_OUTPUT"
           echo "tag=v$current_version" >> "$GITHUB_OUTPUT"
+          echo "previous_ref=$previous_ref" >> "$GITHUB_OUTPUT"
           echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
           if [[ "$current_version" == "$previous_version" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No release version change ($current_version); skipping checks, tag, and GitHub Release."
+            echo "No release version change against $previous_ref ($current_version); skipping checks, tag, and GitHub Release."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Release version changed: ${previous_version:-<none>} -> $current_version"
+            echo "Release version changed against $previous_ref: ${previous_version:-<none>} -> $current_version"
           fi
       - name: verify before creating a tag
         if: steps.release.outputs.changed == 'true'
