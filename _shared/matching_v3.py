@@ -234,7 +234,7 @@ def portable_skill_result(payload: dict[str, Any] | None, reference: dict[str, A
         "method": mapping.get("method"),
         "confidence": mapping.get("confidence") or "unknown",
         "evidence": mapping.get("evidence"),
-        "official_values": mapping.get("method") != "heuristic_mapping",
+        "official_values": mapping.get("method") in ("manual", "rule_based"),
     }
     if mapping.get("method") == "heuristic_mapping":
         base["mapping"]["warning"] = (

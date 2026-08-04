@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.1] — 2026-08-04
+
+- Career Agent event validation now rejects deadlines with a syntactically valid
+  `YYYY-MM-DD` shape but no real calendar date (e.g. `2026-99-99`).
+- Numeric-claim confirmation now compares parsed claim tokens against parsed evidence
+  tokens instead of raw substring containment, closing a false-match window (e.g. a
+  `"20%"` claim matching inside `"120%"` evidence).
+- `matching_v3` MHLW mapping `official_values` now uses a positive allowlist
+  (`manual`/`rule_based`) instead of excluding only `heuristic_mapping`, so an
+  unrecognized `method` value can no longer be misclassified as official.
+- Pinned `actions/checkout` and `actions/setup-python` to commit SHA in CI and release
+  workflows.
+
 ## [1.7.0] - 2026-08-04
 
 - Added an informational HTTPS endpoint-health canary with an approved repository-variable target
