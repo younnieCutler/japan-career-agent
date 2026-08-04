@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.12] — 2026-08-04
+
+- Extracted Career Agent vocabulary, typed DTO contracts, and pure event/context validation from
+  `runtime.py` without changing the on-disk or CLI contract.
+- Added the staged architecture boundary guard and focused tests; remaining runtime facade imports
+  are reported explicitly until the later extraction PRs remove them.
+
 ## [1.6.11] — 2026-08-04
 
 - Tightened mock-interviewer readiness precedence: material `Unknown`, unverified quantitative
