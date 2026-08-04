@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.6] — 2026-08-04
+
+- Split the CLI into a thin `career_agent.py` entry point with explicit runtime boundaries for
+  models, routing, persistence, Vault/indexing, proposals, projection, and lifecycle APIs.
+- Added golden CLI projections covering setup, status, chat proposal, proposals, approve, context,
+  and doctor while excluding UUID/timestamp fields.
+
 ## [1.6.5] — 2026-08-04
 
 - Added a main-merge release workflow that runs the full repository verification before creating
