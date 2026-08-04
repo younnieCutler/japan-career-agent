@@ -24,6 +24,11 @@ class CareerAgentBoundaryTests(unittest.TestCase):
     def test_owner_contract_covers_extracted_symbols(self) -> None:
         self.assertEqual(boundaries.OWNED_SYMBOLS["CareerError"], "models")
         self.assertEqual(boundaries.OWNED_SYMBOLS["validate_event"], "validation")
+        self.assertEqual(boundaries.OWNED_SYMBOLS["atomic_write_text"], "persistence")
+        self.assertEqual(boundaries.OWNED_SYMBOLS["language_for"], "routing")
+        self.assertEqual(boundaries.OWNED_SYMBOLS["approve"], "lifecycle")
+        self.assertEqual(boundaries.OWNED_SYMBOLS["upsert_pipeline_entry"], "projection")
+        self.assertTrue(boundaries._is_thin_facade(boundaries._module_tree("runtime"), "approve"))
 
 
 if __name__ == "__main__":
