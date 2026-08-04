@@ -131,6 +131,52 @@ redacted argv, timestamps, exit code, stdout/stderr, and UTF-8 validity flags to
 `commands.jsonl`. Invalid target output is replacement-decoded so capture still preserves the exit
 code and diagnostic evidence. It is an audit artifact, not a second runtime ledger.
 
+Before distributing an E2E ZIP, prepare a clean detached worktree (or use a fresh clone) at the
+expected commit, run the E2E there, then package it:
+
+```bash
+SHA=$(git rev-parse HEAD)
+python scripts/e2e_artifact.py prepare-worktree --repo . --commit "$SHA" \
+  --worktree /tmp/japan-recruit-e2e-worktree
+# Run the E2E command with /tmp/japan-recruit-e2e-worktree as its repository.
+python scripts/e2e_artifact.py check --repo /tmp/japan-recruit-e2e-worktree --expected-commit "$SHA"
+python scripts/e2e_artifact.py package --repo /tmp/japan-recruit-e2e-worktree \
+  --expected-commit "$SHA" --artifact-root /path/to/e2e-output \
+  --output /path/to/e2e-output.zip \
+  --skill-status-json /path/to/e2e-output/skill-status.json \
+  --fixture-status-json /path/to/e2e-output/fixture-status.json
+```
+
+The package gate records the commit, branch, clean-tree state, dirty diff hash, OS, Python, and Node
+versions. It redacts and scans every text artifact before creating the ZIP; a remaining local
+user/temp/repository absolute path aborts packaging. Skill results must be classified as
+`runtime_e2e_pass`, `contract_audit_pass`, or `not_executable`; a generic `PASS` is rejected. If an
+initial fixture run failed and the fixture was corrected before a passing rerun, the manifest uses
+`PASS_AFTER_FIXTURE_CORRECTION` rather than hiding the failed attempt.
+
+The sidecar inputs are explicit JSON, for example:
+
+```json
+{
+  "matching-simulator": {
+    "status": "runtime_e2e_pass",
+    "runtime_commands": ["matching_v3.py case.json"]
+  },
+  "job-seeker-agent": {
+    "status": "contract_audit_pass",
+    "contract_checks": ["raw reflection stays separate from candidate evidence"]
+  },
+  "mock-interviewer": {
+    "status": "not_executable",
+    "reason": "instruction-only skill; no local CLI runtime"
+  }
+}
+```
+
+If the first command log contains a fixture-contract failure, the fixture sidecar must declare
+`correction_kind: "fixture"`, the failed command names, a correction reason, and
+`final_passed: true`; the packager derives the non-generic `PASS_AFTER_FIXTURE_CORRECTION` status.
+
 The runtime uses the request language for response metadata (`ko`, `ja`, or `en`), keeps Japanese
 career terms in the source text, and pauses when track intent is not explicit rather than inventing
 facts. External search, login, CAPTCHA, application submission, email, and messaging are outside

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.8] — 2026-08-04
+
+- Added reproducible E2E artifact packaging with clean-tree/expected-commit gates, repository and
+  runtime identity metadata, full text redaction scanning, explicit runtime-versus-contract skill
+  classifications, fixture-correction status, and ZIP integrity verification.
+- Added focused regression coverage and documented the safe packaging workflow for Career Agent
+  E2E audits.
+
 ## [1.6.7] — 2026-08-04
 
 - Hardened Career Agent E2E persistence: pipeline history now keeps only short projection metadata

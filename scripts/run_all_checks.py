@@ -37,6 +37,7 @@ CHECKS = (
     ("action checks", (PYTHON, "scripts/test_check_action.py")),
     ("pipeline integration", (PYTHON, "scripts/test_pipeline_integration.py")),
     ("pipeline CLI", (PYTHON, "scripts/test_pipeline_cli.py")),
+    ("E2E artifact packaging", (PYTHON, "scripts/test_e2e_artifact.py")),
     ("pipeline store durability", (PYTHON, "_shared/test_pipeline_store.py")),
     ("policy regression", (PYTHON, "scripts/test_policy.py")),
     ("canonical self-analysis", (PYTHON, "_shared/test_self_analysis_profile.py")),

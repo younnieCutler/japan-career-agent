@@ -9,7 +9,7 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
-Current release: `1.6.7`.
+Current release: `1.6.8`.
 
 ## What it does
 
