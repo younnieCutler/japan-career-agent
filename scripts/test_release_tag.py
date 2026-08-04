@@ -25,8 +25,8 @@ def git(root: Path, *args: str) -> str:
 
 
 def write_release_files(root: Path, version: str) -> None:
-    (root / ".claude-plugin").mkdir()
-    (root / ".codex-plugin").mkdir()
+    (root / ".claude-plugin").mkdir(exist_ok=True)
+    (root / ".codex-plugin").mkdir(exist_ok=True)
     for relative in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         (root / relative).write_text(json.dumps({"version": version}) + "\n", encoding="utf-8")
     (root / "CHANGELOG.md").write_text(f"# Changelog\n\n## [{version}] — 2026-08-04\n", encoding="utf-8")
@@ -35,7 +35,36 @@ def write_release_files(root: Path, version: str) -> None:
     (root / "README_ja.md").write_text(f"現在のリリース: `{version}`。\n", encoding="utf-8")
 
 
+def release_version_changed(root: Path) -> bool:
+    """Mirror the workflow's HEAD-vs-HEAD^ release version gate for fixture tests."""
+    current = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
+    try:
+        previous = json.loads(git(root, "show", "HEAD^:.claude-plugin/plugin.json"))["version"]
+    except AssertionError:
+        return True
+    return current != previous
+
+
 class ReleaseTagTests(unittest.TestCase):
+    def test_version_unchanged_main_commit_is_not_a_release_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git(root, "init", "-b", "main")
+            git(root, "config", "user.email", "test@example.invalid")
+            git(root, "config", "user.name", "Release Test")
+            write_release_files(root, "1.6.5")
+            git(root, "add", ".")
+            git(root, "commit", "-m", "release")
+            (root / "README.md").write_text("Current release: `1.6.5`. Typo fixed.\n", encoding="utf-8")
+            git(root, "add", "README.md")
+            git(root, "commit", "-m", "docs: fix typo")
+            self.assertFalse(release_version_changed(root))
+
+            write_release_files(root, "1.6.6")
+            git(root, "add", ".")
+            git(root, "commit", "-m", "release: bump")
+            self.assertTrue(release_version_changed(root))
+
     def test_annotated_tag_matches_release_identity_and_sha(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -71,14 +100,22 @@ class ReleaseTagTests(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         for marker in (
             "branches: [main]",
+            "workflow_dispatch:",
+            "dry_run:",
             "contents: write",
             "python scripts/run_all_checks.py",
             "scripts/check_release_tag.py",
+            "git show HEAD^:.claude-plugin/plugin.json",
+            "changed=false",
+            "if: steps.release.outputs.changed == 'true'",
+            "github-actions[bot]",
+            "41898282+github-actions[bot]@users.noreply.github.com",
             "git tag --annotate",
             "git push origin",
             "gh release create",
         ):
             self.assertIn(marker, workflow)
+        self.assertLess(workflow.index("python scripts/run_all_checks.py"), workflow.index("git tag --annotate"))
 
 
 if __name__ == "__main__":
