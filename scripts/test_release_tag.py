@@ -118,16 +118,12 @@ class ReleaseTagTests(unittest.TestCase):
     def test_workflow_runs_checks_before_immutable_tag_and_release(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         for marker in (
-            "branches: [main]",
             "workflow_dispatch:",
+            "publish:",
             "dry_run:",
             "contents: write",
             "python scripts/run_all_checks.py",
             "scripts/check_release_tag.py",
-            "github.event.before",
-            "github.event_name",
-            "git fetch origin main --force",
-            "origin/main",
             "changed=false",
             "if: steps.release.outputs.changed == 'true'",
             "github-actions[bot]",
@@ -137,6 +133,8 @@ class ReleaseTagTests(unittest.TestCase):
             "gh release create",
         ):
             self.assertIn(marker, workflow)
+        self.assertNotIn("branches: [main]", workflow)
+        self.assertNotIn("github.event.before", workflow)
         self.assertLess(workflow.index("python scripts/run_all_checks.py"), workflow.index("git tag --annotate"))
 
 
