@@ -58,6 +58,21 @@ from models import (  # noqa: E402
     normalized_state,
 )
 from validation import DATE_VALUE, NUMERIC_CLAIM, validate_career_context, validate_event  # noqa: E402
+from routing import (  # noqa: E402
+    FLOW_REFERENCE,
+    ROUTING,
+    ROUTING_REFERENCE,
+    _WORD_BOUNDARY_TERMS,
+    flow_phase_for,
+    flow_phase_ids,
+    infer_track,
+    language_for,
+    load_flow_reference,
+    load_routing,
+    skill_context,
+    stage_for,
+    term_present,
+)
 from persistence import (  # noqa: E402
     append_jsonl,
     atomic_write_text,
@@ -85,6 +100,16 @@ from vault import (  # noqa: E402
     select_context,
     today,
     utc_now,
+)
+
+_ROUTING_COMPATIBILITY_EXPORTS = (
+    FLOW_REFERENCE,
+    ROUTING,
+    ROUTING_REFERENCE,
+    _WORD_BOUNDARY_TERMS,
+    flow_phase_ids,
+    load_routing,
+    term_present,
 )
 
 _PERSISTENCE_COMPATIBILITY_EXPORTS = (
@@ -135,36 +160,14 @@ _MODEL_COMPATIBILITY_EXPORTS = (
 
 
 ## Core vocabulary is owned by models.py; imported above for compatibility.
-FLOW_REFERENCE = Path(__file__).resolve().parent / "references" / "japan-career-flow.toml"
-ROUTING_REFERENCE = Path(__file__).resolve().parent / "references" / "routing.yml"
+## Routing references are owned by routing.py and imported above for compatibility.
 
-
-def load_routing() -> dict[str, Any]:
-    """KO/JA/EN keyword lexicon shared by infer_track(), stage_for() and flow_phase_for()."""
-    import yaml
-
-    data = yaml.safe_load(ROUTING_REFERENCE.read_text(encoding="utf-8")) or {}
-    if not data.get("track") or not data.get("stage_alias") or not data.get("flow_phase"):
-        raise CareerError(f"invalid routing reference: {ROUTING_REFERENCE}")
-    return data
-
-
-ROUTING = load_routing()
 
 # Short ASCII tokens where a plain substring match false-positives inside unrelated English words
 # (e.g. "es" — meant to catch the ES/entry-sheet abbreviation — also matches inside "research",
 # "yes", "best"). Everything else, including intentional stems like "graduat", still matches as a
 # substring.
-_WORD_BOUNDARY_TERMS = {"es"}
-
-
-def term_present(term: str, lowered: str) -> bool:
-    if term in _WORD_BOUNDARY_TERMS:
-        return re.search(rf"\b{re.escape(term)}\b", lowered) is not None
-    return term in lowered
-
-
-def language_for(message: str) -> str:
+def _legacy_language_for(message: str) -> str:
     first_chunk = re.split(r"\n\s*\n|\n|(?<=[.!?。！？])\s+", message.strip(), maxsplit=1)[0]
     korean = len(re.findall(r"[가-힣]", first_chunk))
     japanese = len(re.findall(r"[ぁ-ゖァ-ヺ一-龯々]", first_chunk))
@@ -173,7 +176,7 @@ def language_for(message: str) -> str:
     return "en"
 
 
-def infer_track(message: str, requested: str | None = None) -> str | None:
+def _legacy_infer_track(message: str, requested: str | None = None) -> str | None:
     if requested in TRACKS:
         return requested
     lowered = message.lower()
@@ -184,7 +187,7 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
     return None
 
 
-def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
+def _legacy_stage_for(message: str, track: str, current_stage: str | None = None) -> str:
     lowered = message.lower()
     for group in ROUTING["stage_alias"]:
         alias = group["alias"]
@@ -209,7 +212,7 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
     return candidates[0]
 
 
-def skill_context(skills_root: Path, stage: str) -> dict[str, Any]:
+def _legacy_skill_context(skills_root: Path, stage: str) -> dict[str, Any]:
     skill_name = SKILL_BY_STAGE.get(stage)
     if not skill_name:
         return {}
@@ -234,19 +237,19 @@ def skill_context(skills_root: Path, stage: str) -> dict[str, Any]:
     }
 
 
-def load_flow_reference() -> dict[str, Any]:
+def _legacy_load_flow_reference() -> dict[str, Any]:
     reference = read_toml(FLOW_REFERENCE)
     if not reference.get("metadata") or not reference.get("shinsotsu") or not reference.get("chuto"):
         raise CareerError(f"invalid career flow reference: {FLOW_REFERENCE}")
     return reference
 
 
-def flow_phase_ids(reference: dict[str, Any], track: str) -> set[str]:
+def _legacy_flow_phase_ids(reference: dict[str, Any], track: str) -> set[str]:
     phases = reference.get(track, {}).get("phases", [])
     return {str(phase.get("id")) for phase in phases if isinstance(phase, dict) and phase.get("id")}
 
 
-def flow_phase_for(message: str, track: str, state: dict[str, Any], profile: dict[str, Any], reference: dict[str, Any]) -> str:
+def _legacy_flow_phase_for(message: str, track: str, state: dict[str, Any], profile: dict[str, Any], reference: dict[str, Any]) -> str:
     # Message signal comes first: once a confirmed event sets state.flow_phase, that value stays
     # `in allowed` forever, so checking it before the message would freeze flow_phase at whatever
     # the first confirmed event happened to be — later messages with a clear new signal (e.g. a

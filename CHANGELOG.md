@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.14] - 2026-08-04
+
+- Moved multilingual track, stage, skill-context, and flow-phase routing into `routing.py`.
+- Removed routing from the staged runtime-facade importer allowlist while preserving public imports.
+
 ## [1.6.13] - 2026-08-04
 
 - Moved canonical JSON/TOML/JSONL writers and Vault metadata/state ownership out of `runtime.py`.

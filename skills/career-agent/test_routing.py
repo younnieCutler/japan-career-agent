@@ -9,6 +9,9 @@ import career_agent  # noqa: E402
 
 
 class EnglishRoutingTests(unittest.TestCase):
+    def test_extended_katakana_is_detected_as_japanese(self) -> None:
+        self.assertEqual(career_agent.language_for("ヴ"), "ja")
+
     def test_stage_aliases_cover_common_english_requests(self) -> None:
         cases = (
             ("I need self-analysis", "自己分析・転職軸"),
