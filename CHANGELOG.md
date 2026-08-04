@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.5] — 2026-08-04
+
+- Added a main-merge release workflow that runs the full repository verification before creating
+  an immutable annotated tag and GitHub Release.
+- Added `scripts/check_release_tag.py` and focused tests to keep the tag SHA, both manifests,
+  CHANGELOG, and all three README release markers aligned.
+
 ## [1.6.4] — 2026-08-04
 
 - Made incomplete Career Agent setup explicit and actionable when track (or the shinsotsu

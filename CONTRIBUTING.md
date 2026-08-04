@@ -31,6 +31,22 @@ Windows path handling and retry/idempotency behavior when applicable. Context-bu
 the reason and baseline evidence to be recorded; token reduction without semantic regression tests
 is not acceptable.
 
+## Release lifecycle
+
+Pushes to `main` run `.github/workflows/release.yml`. The workflow installs the verification
+dependencies, runs `python scripts/run_all_checks.py`, then reads the current release identity and
+creates an annotated `vX.Y.Z` tag only when that tag is absent. An existing tag must resolve to the
+same verified `main` commit; reusing a release version for another commit fails. The workflow then
+creates the GitHub Release when it does not already exist. The local consistency check is:
+
+```bash
+python scripts/check_release_tag.py --tag vX.Y.Z --sha <verified-commit>
+```
+
+The first release predates this workflow: after merging the release-bearing PR, create its
+annotated tag and GitHub Release once at the verified merge SHA. Later `main` pushes with the same
+manifest version are successful no-op releases; only a new manifest version may create a tag.
+
 ## Version and release docs
 
 Any behavior change or bug fix under `skills/`, `_shared/`, `scripts/`, or `hooks/` (a fix counts —

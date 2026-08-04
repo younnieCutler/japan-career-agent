@@ -1,0 +1,97 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run checks and tag validation without pushing a tag or creating a Release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: install verification dependencies
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          python -m pip install --quiet "ruff>=0.8,<1"
+      - name: read release identity and detect version change
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_version="$(python -c 'import json; print(json.load(open(".claude-plugin/plugin.json", encoding="utf-8"))["version"])')"
+          event_name="${{ github.event_name }}"
+          if [[ "$event_name" == "push" ]]; then
+            previous_ref="${{ github.event.before }}"
+          else
+            git fetch origin main --force
+            previous_ref="origin/main"
+          fi
+          previous_version="$(git show "$previous_ref:.claude-plugin/plugin.json" 2>/dev/null | python -c 'import json, sys; print(json.load(sys.stdin)["version"])' || true)"
+          dry_run="${{ inputs.dry_run || 'false' }}"
+          echo "version=$current_version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$current_version" >> "$GITHUB_OUTPUT"
+          echo "previous_ref=$previous_ref" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+          if [[ "$current_version" == "$previous_version" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No release version change against $previous_ref ($current_version); skipping checks, tag, and GitHub Release."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Release version changed against $previous_ref: ${previous_version:-<none>} -> $current_version"
+          fi
+      - name: verify before creating a tag
+        if: steps.release.outputs.changed == 'true'
+        run: python scripts/run_all_checks.py
+      - name: create or verify immutable tag
+        if: steps.release.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          GITHUB_SHA: ${{ github.sha }}
+          DRY_RUN: ${{ steps.release.outputs.dry_run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          if git show-ref --tags --verify --quiet "refs/tags/$TAG"; then
+            python scripts/check_release_tag.py --tag "$TAG" --sha "$GITHUB_SHA"
+          elif [[ "$DRY_RUN" == "true" ]]; then
+            echo "Dry run: tag $TAG is absent and would be created at $GITHUB_SHA"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag --annotate "$TAG" "$GITHUB_SHA" --message "Release $TAG"
+            git push origin "$TAG"
+            python scripts/check_release_tag.py --tag "$TAG" --sha "$GITHUB_SHA"
+          fi
+      - name: create GitHub Release
+        if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists"
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
