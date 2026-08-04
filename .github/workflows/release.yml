@@ -45,6 +45,17 @@ jobs:
           echo "version=$current_version" >> "$GITHUB_OUTPUT"
           echo "tag=v$current_version" >> "$GITHUB_OUTPUT"
           echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+          if [[ "$publish" == "true" ]]; then
+            if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+              echo "Publishing is allowed only from main."
+              exit 1
+            fi
+            git fetch origin main --force
+            if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+              echo "HEAD must equal origin/main before publishing."
+              exit 1
+            fi
+          fi
           if [[ "$publish" != "true" && "$dry_run" != "true" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Release gate is closed. Select publish or dry_run when dispatching the workflow."
