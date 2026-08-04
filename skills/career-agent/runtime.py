@@ -73,6 +73,22 @@ from routing import (  # noqa: E402
     stage_for,
     term_present,
 )
+from proposals import (  # noqa: E402
+    approval_action_for,
+    list_proposals,
+    make_event,
+    proposal_summary,
+    propose_career_context,
+    run_chat,
+)
+from lifecycle import (  # noqa: E402
+    approve as _lifecycle_approve,
+    count_consecutive_safe_stops,
+    record_failed_attempt,
+    restore_state,
+    state_version_is_persisted,
+    vault_lock,
+)
 from persistence import (  # noqa: E402
     append_jsonl,
     atomic_write_text,
@@ -100,6 +116,21 @@ from vault import (  # noqa: E402
     select_context,
     today,
     utc_now,
+)
+
+_PROPOSAL_COMPATIBILITY_EXPORTS = (
+    approval_action_for,
+    list_proposals,
+    make_event,
+    proposal_summary,
+    propose_career_context,
+    run_chat,
+)
+
+_LIFECYCLE_COMPATIBILITY_EXPORTS = (
+    count_consecutive_safe_stops,
+    record_failed_attempt,
+    state_version_is_persisted,
 )
 
 _ROUTING_COMPATIBILITY_EXPORTS = (
@@ -269,7 +300,7 @@ def _legacy_flow_phase_for(message: str, track: str, state: dict[str, Any], prof
     return "preparation"
 
 
-def approval_action_for(message: str) -> str:
+def _legacy_approval_action_for(message: str) -> str:
     return {
         "ko": "근거를 확인한 뒤 이벤트 확정",
         "ja": "根拠を確認してからイベントを確定する",
@@ -277,7 +308,7 @@ def approval_action_for(message: str) -> str:
     }[language_for(message)]
 
 
-def make_event(message: str, track: str, stage: str, flow_phase: str, *, status: str = "draft") -> dict[str, Any]:
+def _legacy_make_event(message: str, track: str, stage: str, flow_phase: str, *, status: str = "draft") -> dict[str, Any]:
     event_id = f"evt-{uuid.uuid4().hex[:12]}"
     language = language_for(message)
     title = {
@@ -697,7 +728,7 @@ def choose_actions(home: CareerVault) -> list[dict[str, Any]]:
     return actions[:3]
 
 
-def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track: str | None) -> dict[str, Any]:
+def _legacy_run_chat(home: CareerVault, skills_root: Path, message: str, requested_track: str | None) -> dict[str, Any]:
     state = home.load_state()
     profile = home.load_profile()
     recent_events = read_jsonl(home.events)[-5:]
@@ -895,7 +926,7 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
     }
 
 
-def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
+def _legacy_propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
     """Create an approval-gated proposal from a CWD-relative SELF_ANALYSIS_PROFILE."""
     source_path = Path(source).expanduser().resolve()
     if not source_path.exists():
@@ -977,7 +1008,7 @@ def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
 
 
 @contextmanager
-def vault_lock(home: CareerVault):
+def _legacy_vault_lock(home: CareerVault):
     """Serialize read-modify-write sections against other processes on the same Vault.
 
     A single local machine can still run two CLI invocations at once (two terminals, or a
@@ -1001,7 +1032,7 @@ def vault_lock(home: CareerVault):
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 
-def count_consecutive_safe_stops(home: CareerVault, goal: str) -> int:
+def _legacy_count_consecutive_safe_stops(home: CareerVault, goal: str) -> int:
     count = 0
     for trajectory in reversed(read_jsonl(home.trajectories)):
         if trajectory.get("mode") == "chat" and trajectory.get("plan", {}).get("goal") == goal:
@@ -1011,7 +1042,7 @@ def count_consecutive_safe_stops(home: CareerVault, goal: str) -> int:
     return count
 
 
-def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any], error: Exception, *, retry_count: int = 0) -> None:
+def _legacy_record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any], error: Exception, *, retry_count: int = 0) -> None:
     home.append_trajectory({
         "id": f"traj-{uuid.uuid4().hex[:12]}",
         "created_at": utc_now(),
@@ -1025,7 +1056,7 @@ def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any],
     })
 
 
-def state_version_is_persisted(home: CareerVault, state: dict[str, Any]) -> bool:
+def _legacy_state_version_is_persisted(home: CareerVault, state: dict[str, Any]) -> bool:
     version = state.get("version")
     if not isinstance(version, str) or not version:
         return False
@@ -1038,7 +1069,7 @@ def state_version_is_persisted(home: CareerVault, state: dict[str, Any]) -> bool
     )
 
 
-def approve(
+def _legacy_approve(
     home: CareerVault,
     proposal_id: str,
     evidence: list[str] | None = None,
@@ -1127,7 +1158,34 @@ def approve(
         return {"approved": True, "proposal": updated, "applied": False, "message": "Only event proposals change the local ledger; skill changes remain offline proposals."}
 
 
-def restore_state(home: CareerVault, version: str) -> dict[str, Any]:
+def approve(
+    home: CareerVault,
+    proposal_id: str,
+    evidence: list[str] | None = None,
+    deadline: str | None = None,
+    company: str | None = None,
+    compensation: float | None = None,
+    currency: str | None = None,
+    workspace: str | Path | None = None,
+    next_action: str | None = None,
+) -> dict[str, Any]:
+    """Compatibility facade injecting the runtime-owned projection callbacks."""
+    return _lifecycle_approve(
+        home,
+        proposal_id,
+        evidence=evidence,
+        deadline=deadline,
+        company=company,
+        compensation=compensation,
+        currency=currency,
+        workspace=workspace,
+        next_action=next_action,
+        pipeline_writer=lambda event: upsert_pipeline_entry(event, workspace=workspace),
+        state_projector=apply_event_to_state,
+    )
+
+
+def _legacy_restore_state(home: CareerVault, version: str) -> dict[str, Any]:
     """Replace the current state with a saved snapshot. This is NOT a rollback.
 
     The event ledger is append-only by design, so nothing here rewinds it: `events.jsonl`,
@@ -1162,7 +1220,7 @@ def status(home: CareerVault) -> dict[str, Any]:
     return {"vault": str(home.path), "profile": {"track": profile.get("track"), "career_status": profile.get("career_status", "active"), "target_role": profile.get("target_role")}, "state": state, "event_count": len(read_jsonl(home.events)), "pending_proposals": sum(1 for row in read_jsonl(home.proposals) if row.get("status") == "pending"), "posting_count": len(read_jsonl(home.postings))}
 
 
-def proposal_summary(proposal: dict[str, Any]) -> dict[str, Any]:
+def _legacy_proposal_summary(proposal: dict[str, Any]) -> dict[str, Any]:
     """Expose proposal metadata without leaking event/report bodies."""
     event = proposal.get("event") if isinstance(proposal.get("event"), dict) else {}
     report = proposal.get("report") if isinstance(proposal.get("report"), dict) else {}
@@ -1177,7 +1235,7 @@ def proposal_summary(proposal: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def list_proposals(home: CareerVault, *, include_all: bool = False, limit: int | None = None) -> dict[str, Any]:
+def _legacy_list_proposals(home: CareerVault, *, include_all: bool = False, limit: int | None = None) -> dict[str, Any]:
     rows = read_jsonl(home.proposals)
     if not include_all:
         rows = [row for row in rows if row.get("status") == "pending"]

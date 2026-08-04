@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.15] - 2026-08-04
+
+- Moved proposal creation, context proposals, metadata-only listing, and event construction into
+  `proposals.py`.
+- Moved Vault locking, approval, retry-safe state commits, failed-attempt recording, and restore
+  semantics into `lifecycle.py` without changing the CLI or append-only contract.
+
 ## [1.6.14] - 2026-08-04
 
 - Moved multilingual track, stage, skill-context, and flow-phase routing into `routing.py`.
