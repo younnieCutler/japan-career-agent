@@ -1,0 +1,77 @@
+schema_version: 1
+description: >-
+  Machine-readable behavior-evaluation contract. Scenario definitions select only registered
+  deterministic adapters; they cannot provide arbitrary shell commands or model prompts.
+
+contract:
+  execution_modes:
+    - contract_audit
+    - behavior_replay
+    - runtime_e2e
+    - live_canary
+  classifications:
+    - contract_audit_pass
+    - contract_audit_fail
+    - behavior_replay_pass
+    - behavior_replay_fail
+    - runtime_e2e_pass
+    - runtime_e2e_fail
+    - not_executable
+  risk_classes:
+    - critical
+    - high
+    - medium
+    - low
+  assertion_types:
+    - exit_code
+    - stdout_contains
+    - stdout_not_contains
+    - stderr_contains
+    - stderr_not_contains
+    - stdout_json_path_equals
+
+scenarios:
+  - id: CONTRACT-MOCK-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract
+    execution_mode: contract_audit
+    classification: contract_audit_pass
+    risk_class: critical
+    inputs: []
+    assertions:
+      - id: process-exits-cleanly
+        type: exit_code
+        expected: 0
+      - id: contract-tests-pass
+        type: stdout_contains
+        value: "OK: 3 mock-interviewer contract tests passed"
+
+  - id: CONTRACT-MATCHING-001
+    skill: matching-simulator
+    adapter: matching_v3_contract
+    execution_mode: contract_audit
+    classification: contract_audit_pass
+    risk_class: critical
+    inputs: []
+    assertions:
+      - id: process-exits-cleanly
+        type: exit_code
+        expected: 0
+      - id: unittest-suite-passes
+        type: stderr_contains
+        value: "OK"
+
+  - id: CONTRACT-CAREER-001
+    skill: career-agent
+    adapter: career_agent_boundary_contract
+    execution_mode: contract_audit
+    classification: contract_audit_pass
+    risk_class: critical
+    inputs: []
+    assertions:
+      - id: process-exits-cleanly
+        type: exit_code
+        expected: 0
+      - id: boundary-contract-passes
+        type: stderr_contains
+        value: "OK"
