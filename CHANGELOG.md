@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.16] - 2026-08-04
+
+- Moved company slug normalization, workspace resolution, pipeline writes, event-to-state
+  projection, and legacy pipeline migration into `projection.py`.
+- Kept evidence and provenance in the canonical Vault ledger; `data/pipeline.yml` remains a short
+  workspace projection backed by the shared atomic store.
+
 ## [1.6.15] - 2026-08-04
 
 - Moved proposal creation, context proposals, metadata-only listing, and event construction into
