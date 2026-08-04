@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
@@ -90,6 +91,11 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
         raise CareerError("event.deadline must be an ISO date or null")
     if event["deadline"] and not DATE_VALUE.match(event["deadline"]):
         raise CareerError("event.deadline must use YYYY-MM-DD")
+    if event["deadline"]:
+        try:
+            dt.date.fromisoformat(event["deadline"][:10])
+        except ValueError:
+            raise CareerError("event.deadline must be a real calendar date")
     if "company" in event and event["company"] is not None:
         if not isinstance(event["company"], str) or not event["company"].strip():
             raise CareerError("event.company must be a non-empty string")
@@ -106,5 +112,6 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
             raise CareerError("confirmed events require evidence; unsupported claims stay drafts")
         claims = NUMERIC_CLAIM.findall(event["summary"] + " " + event["title"])
         evidence_text = as_text(event["evidence"])
-        if claims and not all(claim in evidence_text for claim in claims):
+        evidence_claims = set(NUMERIC_CLAIM.findall(evidence_text))
+        if claims and not all(claim in evidence_claims for claim in claims):
             raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
