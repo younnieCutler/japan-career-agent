@@ -9,7 +9,7 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
-Current release: `1.6.13`.
+Current release: `1.7.1`.
 
 ## What it does
 
@@ -202,6 +202,26 @@ Release history is kept in [`CHANGELOG.md`](CHANGELOG.md).
 
 ```bash
 python scripts/run_all_checks.py
+```
+
+The behavior-evaluation matrix is deterministic and separate from static skill contract checks:
+
+```bash
+python scripts/run_behavior_evals.py --schema _shared/behavior_eval_schema.yml
+```
+
+The matrix contains 3 contract audits and 17 behavior replays. The instruction-only interviewer is
+a deterministic contract replay (policy oracle), not an execution of the skill or a live model
+certification. Each result records its execution mode, classification, input/output hashes, runtime
+identity, and the absence of a model identity when no model was used.
+
+The optional endpoint canary is an HTTPS health check, not an agent or model canary. CI reads the
+approved endpoint only from the `ENDPOINT_CANARY_URL` repository variable; dispatch callers cannot
+supply an arbitrary URL. Missing configuration, endpoint errors, rate limits, and network failures
+are recorded as `HOST_UNAVAILABLE`, never as `PASS` and never as a merge gate:
+
+```bash
+python scripts/run_live_canary.py --output canary-result.json
 ```
 
 This runner is the canonical repository verification path and includes the release/document

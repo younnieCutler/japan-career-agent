@@ -25,14 +25,7 @@ DOMAIN_MODULES = (
 # The first extraction PRs intentionally leave the not-yet-moved compatibility files in place.
 # This allowlist is reduced in the following PRs and must be empty before the architecture phase
 # is declared complete. It is explicit so a new runtime dependency cannot hide in the transition.
-TRANSITIONAL_RUNTIME_IMPORTERS = {
-    "persistence",
-    "vault",
-    "routing",
-    "proposals",
-    "lifecycle",
-    "projection",
-}
+TRANSITIONAL_RUNTIME_IMPORTERS = set()
 
 PURE_MODULES = {"models", "validation"}
 FORBIDDEN_MODULE_IMPORTS = {
@@ -51,6 +44,19 @@ OWNED_SYMBOLS = {
     "validate_career_context": "validation",
     "validate_event": "validation",
     "string_list_from": "validation",
+    "atomic_write_text": "persistence",
+    "CareerVault": "vault",
+    "load_routing": "routing",
+    "infer_track": "routing",
+    "language_for": "routing",
+    "stage_for": "routing",
+    "flow_phase_for": "routing",
+    "run_chat": "proposals",
+    "propose_career_context": "proposals",
+    "approve": "lifecycle",
+    "restore_state": "lifecycle",
+    "upsert_pipeline_entry": "projection",
+    "apply_event_to_state": "projection",
 }
 
 
@@ -90,6 +96,17 @@ def _defined_names(tree: ast.Module) -> set[str]:
         for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
         if isinstance(target, ast.Name)
     }
+
+
+def _is_thin_facade(tree: ast.Module, symbol: str) -> bool:
+    function = next(
+        (node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == symbol),
+        None,
+    )
+    if function is None:
+        return False
+    body = function.body[1:] if ast.get_docstring(function, clean=False) else function.body
+    return len(body) == 1 and isinstance(body[0], ast.Return) and isinstance(body[0].value, ast.Call)
 
 
 def _module_level_calls(tree: ast.Module) -> set[str]:
@@ -145,7 +162,9 @@ def validate() -> list[str]:
 
     for symbol, owner in OWNED_SYMBOLS.items():
         for module, tree in trees.items():
-            if module != owner and symbol in _defined_names(tree):
+            if module != owner and symbol in _defined_names(tree) and not (
+                module == "runtime" and _is_thin_facade(tree, symbol)
+            ):
                 errors.append(f"{symbol} is defined in {module}.py; owner is {owner}.py")
 
     graph = {

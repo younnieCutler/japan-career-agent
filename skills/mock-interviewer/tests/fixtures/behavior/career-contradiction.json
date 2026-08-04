@@ -1,0 +1,17 @@
+{
+  "skill": "mock-interviewer",
+  "case": "career_value_contradiction",
+  "confirmed_context": {
+    "autonomy": "essential"
+  },
+  "answer_context": {
+    "autonomy": "avoid"
+  },
+  "claim": {
+    "text": "I prefer strict instructions and no independent decisions.",
+    "source": "from-user"
+  },
+  "axes": {
+    "Career Consistency": "conflict-needs-confirmation"
+  }
+}

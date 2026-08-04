@@ -1,0 +1,19 @@
+{
+  "skill": "mock-interviewer",
+  "case": "user_exit_keeps_assessment",
+  "user_stopped": true,
+  "axes": {
+    "Ownership": "grounded",
+    "Evidence": "user-stated-unverified",
+    "Learning": "unprobed"
+  },
+  "outcome": {
+    "quantitative_claim": true,
+    "evidence_status": "unverified"
+  },
+  "claim": {
+    "text": "I think I mostly handled the rollout.",
+    "source": "from-user",
+    "uncertainty_markers": ["I think", "mostly"]
+  }
+}

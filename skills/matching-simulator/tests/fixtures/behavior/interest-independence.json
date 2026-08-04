@@ -1,0 +1,34 @@
+{
+  "skill": "matching-simulator",
+  "case": "interest_independence",
+  "variants": [
+    {
+      "company_name": "Interest Co",
+      "position": "Platform Engineer",
+      "eligibility": [],
+      "skills": {
+        "required": [
+          {"name": "Python", "status": "matched", "source_type": "user", "provenance": "user"}
+        ],
+        "preferred": [],
+        "experience": []
+      },
+      "career_values": [],
+      "candidate_interest": {"interest_level": 1, "interest_reason": "low"}
+    },
+    {
+      "company_name": "Interest Co",
+      "position": "Platform Engineer",
+      "eligibility": [],
+      "skills": {
+        "required": [
+          {"name": "Python", "status": "matched", "source_type": "user", "provenance": "user"}
+        ],
+        "preferred": [],
+        "experience": []
+      },
+      "career_values": [],
+      "candidate_interest": {"interest_level": 5, "interest_reason": "high"}
+    }
+  ]
+}

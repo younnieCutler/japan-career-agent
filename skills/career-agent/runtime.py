@@ -13,22 +13,9 @@ import datetime as dt
 import hashlib
 import json
 import os
-import re
 import sys
-import tempfile
-import tomllib
-import unicodedata
 import uuid
 
-try:
-    import fcntl
-except ImportError:  # Windows
-    fcntl = None
-try:
-    import msvcrt
-except ImportError:  # POSIX
-    msvcrt = None
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -36,7 +23,6 @@ _SHARED_ROOT = Path(__file__).resolve().parent.parent.parent / "_shared"
 if str(_SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(_SHARED_ROOT))
 import pipeline_store  # noqa: E402
-import self_analysis_profile  # noqa: E402
 
 from models import (  # noqa: E402
     CAREER_CONTEXT_FIELDS,
@@ -60,6 +46,134 @@ from models import (  # noqa: E402
     normalized_state,
 )
 from validation import DATE_VALUE, NUMERIC_CLAIM, validate_career_context, validate_event  # noqa: E402
+from routing import (  # noqa: E402
+    FLOW_REFERENCE,
+    ROUTING,
+    ROUTING_REFERENCE,
+    _WORD_BOUNDARY_TERMS,
+    flow_phase_for,
+    flow_phase_ids,
+    infer_track,
+    language_for,
+    load_flow_reference,
+    load_routing,
+    skill_context,
+    stage_for,
+    term_present,
+)
+from proposals import (  # noqa: E402
+    approval_action_for,
+    list_proposals,
+    make_event,
+    proposal_summary,
+    propose_career_context,
+    run_chat,
+)
+from lifecycle import (  # noqa: E402
+    approve as _lifecycle_approve,
+    count_consecutive_safe_stops,
+    record_failed_attempt,
+    restore_state,
+    state_version_is_persisted,
+    vault_lock,
+)
+from projection import (  # noqa: E402
+    _legacy_company_slug,
+    apply_event_to_state,
+    company_slug,
+    migrate_pipeline_file,
+    pipeline_file,
+    upsert_pipeline_entry,
+    workspace_path,
+)
+from persistence import (  # noqa: E402
+    append_jsonl,
+    atomic_write_text,
+    read_json,
+    read_jsonl,
+    read_toml,
+    toml_value,
+    write_json,
+    write_jsonl,
+    write_toml,
+)
+from vault import (  # noqa: E402
+    HEADING,
+    IGNORED_VAULT_DIRS,
+    WIKILINK,
+    CareerVault,
+    context_eligible,
+    index_vault_notes,
+    initialize_vault,
+    metadata_values,
+    note_kind,
+    parse_frontmatter,
+    policy_template,
+    profile_template,
+    select_context,
+    today,
+    utc_now,
+)
+
+_PROPOSAL_COMPATIBILITY_EXPORTS = (
+    approval_action_for,
+    list_proposals,
+    make_event,
+    proposal_summary,
+    propose_career_context,
+    run_chat,
+)
+
+_LIFECYCLE_COMPATIBILITY_EXPORTS = (
+    count_consecutive_safe_stops,
+    record_failed_attempt,
+    state_version_is_persisted,
+)
+
+_PROJECTION_COMPATIBILITY_EXPORTS = (
+    _legacy_company_slug,
+    apply_event_to_state,
+    company_slug,
+    migrate_pipeline_file,
+    pipeline_file,
+    upsert_pipeline_entry,
+    workspace_path,
+)
+
+_ROUTING_COMPATIBILITY_EXPORTS = (
+    FLOW_REFERENCE,
+    ROUTING,
+    ROUTING_REFERENCE,
+    _WORD_BOUNDARY_TERMS,
+    flow_phase_for,
+    flow_phase_ids,
+    infer_track,
+    language_for,
+    load_routing,
+    skill_context,
+    stage_for,
+    term_present,
+)
+
+_PERSISTENCE_COMPATIBILITY_EXPORTS = (
+    atomic_write_text,
+    read_json,
+    read_toml,
+    toml_value,
+    write_json,
+)
+
+_VAULT_COMPATIBILITY_EXPORTS = (
+    HEADING,
+    IGNORED_VAULT_DIRS,
+    WIKILINK,
+    context_eligible,
+    metadata_values,
+    note_kind,
+    parse_frontmatter,
+    policy_template,
+    profile_template,
+)
 
 # Keep the historical ``runtime`` import surface while the owner modules are extracted in later
 # PRs. The tuple is intentionally unused at runtime; it makes the compatibility contract explicit.
@@ -91,689 +205,13 @@ _MODEL_COMPATIBILITY_EXPORTS = (
 
 
 ## Core vocabulary is owned by models.py; imported above for compatibility.
-HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.M)
-WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]")
-IGNORED_VAULT_DIRS = {".git", ".obsidian", ".career-agent", "career-home", "__pycache__"}
-FLOW_REFERENCE = Path(__file__).resolve().parent / "references" / "japan-career-flow.toml"
-ROUTING_REFERENCE = Path(__file__).resolve().parent / "references" / "routing.yml"
+## Routing references are owned by routing.py and imported above for compatibility.
 
-
-def load_routing() -> dict[str, Any]:
-    """KO/JA/EN keyword lexicon shared by infer_track(), stage_for() and flow_phase_for()."""
-    import yaml
-
-    data = yaml.safe_load(ROUTING_REFERENCE.read_text(encoding="utf-8")) or {}
-    if not data.get("track") or not data.get("stage_alias") or not data.get("flow_phase"):
-        raise CareerError(f"invalid routing reference: {ROUTING_REFERENCE}")
-    return data
-
-
-ROUTING = load_routing()
 
 # Short ASCII tokens where a plain substring match false-positives inside unrelated English words
 # (e.g. "es" — meant to catch the ES/entry-sheet abbreviation — also matches inside "research",
 # "yes", "best"). Everything else, including intentional stems like "graduat", still matches as a
 # substring.
-_WORD_BOUNDARY_TERMS = {"es"}
-
-
-def term_present(term: str, lowered: str) -> bool:
-    if term in _WORD_BOUNDARY_TERMS:
-        return re.search(rf"\b{re.escape(term)}\b", lowered) is not None
-    return term in lowered
-
-
-def utc_now() -> str:
-    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def today() -> dt.date:
-    return dt.date.today()
-
-
-def read_json(path: Path, default: Any) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return default
-    except json.JSONDecodeError as exc:
-        raise CareerError(f"invalid JSON: {path}: {exc}") from exc
-
-
-def atomic_write_text(path: Path, payload: str) -> None:
-    """Write a complete sibling temp file, then replace the destination atomically."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
-
-
-def write_json(path: Path, value: Any) -> None:
-    atomic_write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
-
-
-def append_jsonl(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8", newline="\n") as stream:
-        stream.write(json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n")
-
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    # ponytail: linear JSONL scan; move to SQLite FTS5 when event volume makes it slow.
-    if not path.exists():
-        return []
-    rows: list[dict[str, Any]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise CareerError(f"invalid JSONL at {path}:{line_number}: {exc}") from exc
-        if isinstance(row, dict):
-            rows.append(row)
-    return rows
-
-
-def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
-    payload = "".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n" for row in rows)
-    atomic_write_text(path, payload)
-
-
-def read_toml(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
-    try:
-        with path.open("rb") as stream:
-            value = tomllib.load(stream)
-    except FileNotFoundError:
-        return {} if default is None else default
-    except tomllib.TOMLDecodeError as exc:
-        raise CareerError(f"invalid TOML: {path}: {exc}") from exc
-    if not isinstance(value, dict):
-        raise CareerError(f"TOML root must be a table: {path}")
-    return value
-
-
-def toml_value(value: Any) -> str:
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False)
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, float):
-        return repr(value)
-    if isinstance(value, list) and all(not isinstance(item, dict) for item in value):
-        return "[" + ", ".join(toml_value(item) for item in value) + "]"
-    raise CareerError(f"unsupported TOML value: {type(value).__name__}")
-
-
-def write_toml(path: Path, values: dict[str, Any]) -> None:
-    """Write the small, flat TOML subset used by the vault contract."""
-    lines: list[str] = []
-    tables: list[tuple[str, dict[str, Any]]] = []
-    table_arrays: list[tuple[str, list[dict[str, Any]]]] = []
-    for key, value in values.items():
-        if value is None:
-            continue
-        if isinstance(value, dict):
-            tables.append((key, value))
-        elif isinstance(value, list) and all(isinstance(item, dict) for item in value):
-            if value:
-                table_arrays.append((key, value))
-            else:
-                lines.append(f"{key} = []")
-        else:
-            lines.append(f"{key} = {toml_value(value)}")
-    for key, table in tables:
-        lines.extend(("", f"[{key}]"))
-        lines.extend(f"{name} = {toml_value(item)}" for name, item in table.items() if item is not None)
-    for key, rows in table_arrays:
-        for row in rows:
-            lines.extend(("", f"[[{key}]]"))
-            lines.extend(f"{name} = {toml_value(item)}" for name, item in row.items() if item is not None)
-    atomic_write_text(path, "\n".join(lines) + "\n")
-
-
-def parse_frontmatter(text: str) -> dict[str, Any]:
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    metadata: dict[str, Any] = {}
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        key, separator, raw_value = line.partition(":")
-        if not separator or not key.strip():
-            continue
-        value = raw_value.strip()
-        if value.startswith("[") and value.endswith("]"):
-            items = value[1:-1].split(",") if value[1:-1].strip() else []
-            metadata[key.strip()] = [item.strip().strip("'\"") for item in items]
-        elif value.lower() in {"true", "false"}:
-            metadata[key.strip()] = value.lower() == "true"
-        else:
-            metadata[key.strip()] = value.strip("'\"")
-    return metadata
-
-
-def note_kind(relative_path: Path) -> str:
-    if not relative_path.parts:
-        return "active"
-    root = relative_path.parts[0]
-    if root in {"07-archive", "06-archives"}:
-        return "archive"
-    if root in {"01-capture", "01-inbox"}:
-        return "capture"
-    if root in {"06-reference", "05-resources"}:
-        return "reference"
-    if root == "05-playbooks":
-        return "playbook"
-    if root == "04-evidence":
-        return "evidence"
-    if root == "03-active":
-        return "active"
-    if relative_path.parts[:3] == ("04-areas", "Career", "career-agent"):
-        return "agent"
-    return "active"
-
-
-def index_vault_notes(vault: Path, *, include_archives: bool = False) -> list[dict[str, Any]]:
-    notes: list[dict[str, Any]] = []
-    for path in sorted(vault.rglob("*.md")):
-        relative_path = path.relative_to(vault)
-        if path.name == "AGENTS.md":
-            continue
-        if any(part in IGNORED_VAULT_DIRS or part.startswith(".") for part in relative_path.parts[:-1]):
-            continue
-        if not relative_path.parts or relative_path.parts[0] not in VAULT_DIRECTORIES:
-            continue
-        if relative_path.parts and relative_path.parts[0] in {"00-control", "02-state"}:
-            continue
-        kind = note_kind(relative_path)
-        if kind == "capture" or (not include_archives and kind == "archive"):
-            continue
-        text = path.read_text(encoding="utf-8")
-        metadata = parse_frontmatter(text)
-        notes.append(
-            {
-                "path": relative_path.as_posix(),
-                "kind": kind,
-                "title": metadata.get("title") or path.stem,
-                "date": metadata.get("date"),
-                "tags": metadata.get("tags", []),
-                "description": metadata.get("description"),
-                "source": metadata.get("source"),
-                "agent_read": metadata.get("agent_read", False),
-                "agent_scope": metadata.get("agent_scope"),
-                "agent_stage": metadata.get("agent_stage"),
-                "status": metadata.get("status"),
-                "source_type": metadata.get("source_type"),
-                "reviewed_on": metadata.get("reviewed_on"),
-                "expires_on": metadata.get("expires_on"),
-                "headings": sorted(set(HEADING.findall(text))),
-                "wikilinks": sorted(set(link.strip() for link in WIKILINK.findall(text))),
-                "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
-            }
-        )
-    return notes
-
-
-def language_for(message: str) -> str:
-    first_chunk = re.split(r"\n\s*\n|\n|(?<=[.!?。！？])\s+", message.strip(), maxsplit=1)[0]
-    korean = len(re.findall(r"[가-힣]", first_chunk))
-    japanese = len(re.findall(r"[ぁ-ゖァ-ヺ一-龯々]", first_chunk))
-    if korean or japanese:
-        return "ko" if korean >= japanese else "ja"
-    return "en"
-
-
-def infer_track(message: str, requested: str | None = None) -> str | None:
-    if requested in TRACKS:
-        return requested
-    lowered = message.lower()
-    if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["shinsotsu"]):
-        return "shinsotsu"
-    if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["chuto"]):
-        return "chuto"
-    return None
-
-
-def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
-    lowered = message.lower()
-    for group in ROUTING["stage_alias"]:
-        alias = group["alias"]
-        if not any(term_present(term.lower(), lowered) for term in group["terms"]):
-            continue
-        if alias == "chuto":
-            track = "chuto"
-        if alias == "shinsotsu":
-            track = "shinsotsu"
-        candidates = CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES
-        return {
-            "self": candidates[0],
-            "documents": candidates[1],
-            "research": candidates[2],
-            "interview": candidates[4 if track == "chuto" else 5],
-            "offer": candidates[5 if track == "chuto" else 6],
-            "exit": candidates[6],
-        }.get(alias, candidates[0])
-    candidates = CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES
-    if current_stage in candidates:
-        return current_stage
-    return candidates[0]
-
-
-def skill_context(skills_root: Path, stage: str) -> dict[str, Any]:
-    skill_name = SKILL_BY_STAGE.get(stage)
-    if not skill_name:
-        return {}
-    skill_path = skills_root / skill_name / "SKILL.md"
-    if not skill_path.exists():
-        return {"skill": skill_name, "available": False}
-    text = skill_path.read_text(encoding="utf-8")
-    description = ""
-    match = re.search(r"^description:\s*>\s*\n(.*?)(?=^---\s*$)", text, re.M | re.S)
-    if match:
-        description = " ".join(line.strip() for line in match.group(1).splitlines()).strip()
-    references = [
-        name for name in REFERENCE_BY_STAGE.get(stage, ())
-        if (skill_path.parent / name).exists()
-    ]
-    return {
-        "skill": skill_name,
-        "available": True,
-        "path": str(skill_path),
-        "description": description,
-        "references": references,
-    }
-
-
-def load_flow_reference() -> dict[str, Any]:
-    reference = read_toml(FLOW_REFERENCE)
-    if not reference.get("metadata") or not reference.get("shinsotsu") or not reference.get("chuto"):
-        raise CareerError(f"invalid career flow reference: {FLOW_REFERENCE}")
-    return reference
-
-
-def flow_phase_ids(reference: dict[str, Any], track: str) -> set[str]:
-    phases = reference.get(track, {}).get("phases", [])
-    return {str(phase.get("id")) for phase in phases if isinstance(phase, dict) and phase.get("id")}
-
-
-def flow_phase_for(message: str, track: str, state: dict[str, Any], profile: dict[str, Any], reference: dict[str, Any]) -> str:
-    # Message signal comes first: once a confirmed event sets state.flow_phase, that value stays
-    # `in allowed` forever, so checking it before the message would freeze flow_phase at whatever
-    # the first confirmed event happened to be — later messages with a clear new signal (e.g. a
-    # resignation message arriving after an offer was confirmed) would never move it again. A
-    # message with no signal (a generic "what's next?" follow-up) still falls through to the
-    # state/profile value below, which is what keeps continuity for non-signaling messages.
-    allowed = flow_phase_ids(reference, track)
-    lowered = message.lower()
-    for signal in ROUTING["flow_phase"][track]:
-        if any(term_present(term.lower(), lowered) for term in signal["terms"]) and signal["id"] in allowed:
-            return signal["id"]
-    for value in (profile.get("flow_phase"), state.get("flow_phase")):
-        if value in allowed:
-            return str(value)
-    if track == "shinsotsu" and state.get("stage") == SHINSOTSU_STAGES[-1] and "offer_onboarding" in allowed:
-        return "offer_onboarding"
-    return "preparation"
-
-
-def metadata_values(value: Any) -> set[str]:
-    if isinstance(value, list):
-        return {str(item).strip() for item in value if str(item).strip()}
-    if isinstance(value, str) and value.strip():
-        return {value.strip()}
-    return set()
-
-
-def context_eligible(note: dict[str, Any], track: str, stage: str) -> bool:
-    if note.get("kind") not in CONTEXT_KINDS or note.get("agent_read") is not True:
-        return False
-    if note.get("status") != "verified" or note.get("source_type") not in TRUSTED_SOURCE_TYPES:
-        return False
-    expires = str(note.get("expires_on") or "")
-    try:
-        if expires and dt.date.fromisoformat(expires) < today():
-            return False
-    except ValueError:
-        pass
-    if track not in metadata_values(note.get("agent_scope")) | {"both"}:
-        return False
-    stages = metadata_values(note.get("agent_stage"))
-    return not stages or stage in stages or "all" in stages
-
-
-def select_context(vault: Path, track: str, stage: str) -> list[dict[str, Any]]:
-    """Return metadata only; note bodies are deliberately never persisted or returned."""
-    eligible = [note for note in index_vault_notes(vault) if context_eligible(note, track, stage)]
-    eligible.sort(key=lambda note: note["date"] or "", reverse=True)
-    selected = [
-        {
-            "path": note["path"],
-            "kind": note["kind"],
-            "title": note["title"],
-            "description": note["description"],
-            "headings": note["headings"],
-            "source_type": note["source_type"],
-            "selected_for": {"track": track, "stage": stage},
-            "data_trust": UNTRUSTED_DATA_MARKER,
-            "instruction_authority": "none",
-        }
-        for note in eligible
-    ]
-    return selected[:5]
-
-
-def approval_action_for(message: str) -> str:
-    return {
-        "ko": "근거를 확인한 뒤 이벤트 확정",
-        "ja": "根拠を確認してからイベントを確定する",
-        "en": "Confirm evidence before saving",
-    }[language_for(message)]
-
-
-def make_event(message: str, track: str, stage: str, flow_phase: str, *, status: str = "draft") -> dict[str, Any]:
-    event_id = f"evt-{uuid.uuid4().hex[:12]}"
-    language = language_for(message)
-    title = {
-        "ko": "사용자 입력 기반 경력 이벤트",
-        "ja": "ユーザー入力に基づくキャリアイベント",
-        "en": "User-reported career event",
-    }[language]
-    event = {
-        "id": event_id,
-        "track": track,
-        "stage": stage,
-        "flow_phase": flow_phase,
-        "type": "user_report",
-        "occurred_at": utc_now(),
-        "title": title,
-        "summary": message.strip(),
-        "evidence": [],
-        "source": "user_message",
-        "next_action": None,
-        "deadline": None,
-        "status": status,
-    }
-    validate_event(event)
-    return event
-
-
-def profile_template() -> str:
-    return """# Fill the values before running chat. Do not put raw resumes or transcripts here.\n# track = \"shinsotsu\"  # shinsotsu or chuto\n# graduation_year = 2027  # required for shinsotsu (university or graduate school)\n# target_role = \"LLMOps Engineer\"\ncareer_status = \"active\"  # active, confirmed, or onboarding\nlanguage = \"ko\"\n"""
-
-
-def policy_template() -> str:
-    return """# Career Agent Policy\n\n- The agent reads `00-control` and `02-state` as operating state.\n- It selects at most five verified notes from `03-active`, `04-evidence`, `05-playbooks`, and `06-reference`.\n- `01-capture` and `07-archive` are never automatic context.\n- User approval and evidence are required before an event becomes confirmed.\n- The agent never applies, logs in, sends messages, bypasses CAPTCHA, or edits installed skills.\n"""
-
-
-class CareerVault:
-    def __init__(self, path: Path):
-        self.path = path.expanduser().resolve()
-        self.control = self.path / "00-control"
-        self.state_dir = self.path / "02-state"
-        self.runtime = self.path / ".career-agent"
-        self.profile = self.control / "career-profile.toml"
-        self.policy = self.control / "agent-policy.md"
-        self.state_toml = self.state_dir / "career-state.toml"
-        self.events = self.state_dir / "events.jsonl"
-        self.checkpoints = self.state_dir / "checkpoints.jsonl"
-        self.trajectories = self.state_dir / "trajectories.jsonl"
-        self.proposals = self.state_dir / "proposals.jsonl"
-        self.postings = self.state_dir / "postings.jsonl"
-        self.state = self.runtime / "state.json"
-        self.vault_index = self.runtime / "vault-index.jsonl"
-        self.versions = self.runtime / "versions"
-
-    def initialized(self) -> bool:
-        return self.profile.exists() and self.policy.exists() and self.state_toml.exists()
-
-    def require_initialized(self) -> None:
-        if not self.initialized():
-            raise CareerError(f"career vault is not initialized: {self.path}; run init --vault {self.path}")
-
-    def ensure_runtime(self) -> None:
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        self.runtime.mkdir(parents=True, exist_ok=True)
-
-    def load_profile(self) -> dict[str, Any]:
-        return read_toml(self.profile)
-
-    def load_state(self) -> dict[str, Any]:
-        # TOML is the human-editable source of truth; JSON is only a cache and snapshot format.
-        state = read_toml(self.state_toml)
-        if state:
-            return normalized_state(state)
-        return normalized_state(read_json(self.state, {}))
-
-    def write_state(self, state: dict[str, Any]) -> None:
-        self.ensure_runtime()
-        normalized = normalized_state(state)
-        # TOML is the human-editable source of truth; JSON is a replaceable cache/snapshot.
-        write_toml(self.state_toml, normalized)
-        write_json(self.state, normalized)
-
-    def save_state(self, state: dict[str, Any]) -> str:
-        version = f"v-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:6]}"
-        state = normalized_state(state)
-        state["version"] = version
-        state["updated_at"] = utc_now()
-        self.write_state(state)
-        self.versions.mkdir(parents=True, exist_ok=True)
-        write_json(self.versions / f"{version}.json", state)
-        append_jsonl(self.checkpoints, {"version": version, "created_at": utc_now(), "state": state})
-        return version
-
-    def append_trajectory(self, trajectory: dict[str, Any]) -> None:
-        self.ensure_runtime()
-        append_jsonl(self.trajectories, trajectory)
-
-    def add_proposal(self, proposal: dict[str, Any]) -> None:
-        self.ensure_runtime()
-        append_jsonl(self.proposals, proposal)
-
-    def replace_proposal(self, proposal_id: str, **changes: Any) -> dict[str, Any]:
-        rows = read_jsonl(self.proposals)
-        for row in rows:
-            if row.get("id") == proposal_id:
-                row.update(changes)
-                row["updated_at"] = utc_now()
-                write_jsonl(self.proposals, rows)
-                return row
-        raise CareerError(f"proposal not found: {proposal_id}")
-
-
-def initialize_vault(path: Path) -> dict[str, Any]:
-    vault = CareerVault(path)
-    created: list[str] = []
-    for directory in VAULT_DIRECTORIES:
-        target = vault.path / directory
-        if not target.exists():
-            target.mkdir(parents=True)
-            created.append(str(target.relative_to(vault.path)))
-    vault.runtime.mkdir(parents=True, exist_ok=True)
-    templates = {
-        vault.profile: profile_template(),
-        vault.policy: policy_template(),
-    }
-    for target, content in templates.items():
-        if not target.exists():
-            atomic_write_text(target, content)  # PERSIST-001: canonical writer, no bare write_text
-            created.append(str(target.relative_to(vault.path)))
-    if not vault.state_toml.exists():
-        write_toml(vault.state_toml, default_state())
-        created.append(str(vault.state_toml.relative_to(vault.path)))
-    return {"initialized": True, "vault": str(vault.path), "created": created, "next": "Fill 00-control/career-profile.toml, then run doctor --vault <path>."}
-
-
-_LEGAL_ENTITY_MARKERS = (
-    "株式会社", "有限会社", "合同会社", "(株)",
-)
-
-
-def _canonical_company_name(name: str) -> str:
-    value = unicodedata.normalize("NFKC", name).strip()
-    marker_pattern = "|".join(re.escape(marker) for marker in _LEGAL_ENTITY_MARKERS)
-    value = re.sub(rf"^(?:{marker_pattern})\s*", "", value, flags=re.IGNORECASE)
-    value = re.sub(rf"\s*(?:{marker_pattern})$", "", value, flags=re.IGNORECASE)
-    return value.casefold().strip()
-
-
-def _legacy_company_slug(name: str) -> str:
-    return re.sub(r"[^\w]+", "-", name.strip().lower(), flags=re.UNICODE).strip("-")
-
-
-def company_slug(name: str) -> str:
-    """Canonical join key for pipeline and company-profile projections.
-
-    Existing legacy slugs are preserved by the pipeline writer when an alias already exists;
-    this function only defines the key for new entries.
-    """
-    canonical = _canonical_company_name(name)
-    slug = re.sub(r"[^\w]+", "-", canonical, flags=re.UNICODE).strip("-")
-    return slug or hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
-
-
-def workspace_path(workspace: str | Path | None = None) -> Path:
-    """Resolve the job-search workspace explicitly when projecting Vault events.
-
-    The Vault is canonical personal state. The workspace is the CWD-relative projection used by
-    domain skills. `CAREER_WORKSPACE`/`--workspace` prevents approving from an unrelated terminal
-    directory; the legacy CWD fallback remains for API callers and old scripts.
-
-    Delegates to `pipeline_store.resolve_workspace` (WORK-002) so every entry point in the
-    repository shares one precedence implementation instead of re-deriving it.
-    """
-    return pipeline_store.resolve_workspace(workspace)
-
-
-def pipeline_file(workspace: str | Path | None = None) -> Path:
-    return pipeline_store.resolve_pipeline_path(workspace)
-
-
-def upsert_pipeline_entry(
-    event: dict[str, Any], path: Path | None = None, workspace: str | Path | None = None,
-) -> Path | None:
-    """Project a confirmed company event onto data/pipeline.yml, the per-company state hub.
-
-    The vault owns the agent flow (track / stage / deadlines / event ledger); pipeline.yml owns
-    per-company progress and is what status_bar, calibrate and onboarding read. Only fields this
-    runtime actually observes are written — match_score, channel, kyujin_legitimacy and the
-    outcome record stay with the domain skills that produce them, and are never overwritten here.
-    """
-    path = path or pipeline_file(workspace)
-
-    stage = PIPELINE_STAGE.get(event["stage"])
-    day = str(event["occurred_at"])[:10]
-    fields = {"name": event["company"]}
-    if stage is not None:
-        fields["stage"] = stage
-    if event.get("next_action"):
-        fields["next_action"] = event["next_action"]
-    if event.get("deadline"):
-        fields["deadline"] = event["deadline"]
-
-    # pipeline.yml is a projection, not a second evidence ledger. The canonical event title is
-    # intentionally short and evidence/source URLs remain only in events.jsonl.
-    hist_entry = {"date": day, "event": event["title"]}
-    if event.get("id"):
-        hist_entry["event_id"] = event["id"]
-
-    try:
-        pipeline_store.upsert_company(
-            path,
-            company_slug(event["company"]),
-            fields,
-            history=hist_entry,
-            slug_aliases=(_legacy_company_slug(event["company"]),),
-        )
-    except ImportError:  # pyyaml is in requirements.txt; degrade instead of breaking approve
-        return None
-    return path
-
-
-def apply_event_to_state(state: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
-    next_state = dict(state)
-    if event.get("type") == "career_context":
-        # Canonical career values are a confirmed context projection, not a market-stage transition.
-        next_state["last_event_id"] = event["id"]
-        return next_state
-    next_state["track"] = event["track"]
-    next_state["stage"] = event["stage"]
-    next_state["flow_phase"] = event["flow_phase"]
-    next_state["last_event_id"] = event["id"]
-    actions = [item for item in next_state.get("open_actions", []) if item.get("event_id") != event["id"]]
-    if event.get("next_action"):
-        actions.append({"text": event["next_action"], "event_id": event["id"], "stage": event["stage"]})
-    next_state["open_actions"] = actions[-10:]
-    if event.get("deadline"):
-        deadlines = [item for item in next_state.get("deadlines", []) if item.get("event_id") != event["id"]]
-        deadlines.append({"date": event["deadline"], "event_id": event["id"], "title": event["title"], "status": "open"})
-        next_state["deadlines"] = sorted(deadlines, key=lambda item: item["date"])
-    # Per-company progress deliberately does NOT live here — it belongs to data/pipeline.yml,
-    # which the domain skills write and status_bar / calibrate read. See upsert_pipeline_entry.
-    return next_state
-
-
-def _merge_pipeline_companies(nested: list[dict[str, Any]], top_level: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {}
-    order: list[str] = []
-    for company in [*nested, *top_level]:
-        if not isinstance(company, dict) or not str(company.get("slug") or "").strip():
-            raise CareerError("legacy pipeline companies must be objects with a slug")
-        slug = str(company["slug"])
-        if slug not in merged:
-            merged[slug] = dict(company)
-            order.append(slug)
-            continue
-        history = merged[slug].get("history")
-        merged[slug].update(company)
-        if isinstance(history, list) and isinstance(company.get("history"), list):
-            merged[slug]["history"] = history + company["history"]
-    return [merged[slug] for slug in order]
-
-
-def migrate_pipeline_file(path: Path) -> bool:
-    """Flatten the pre-1.2.0 nested pipeline shape without dropping either company list."""
-    data = pipeline_store.load(path)
-    nested = data.get("pipeline")
-    if nested is None:
-        return False
-    if not isinstance(nested, dict):
-        raise CareerError(f"{path}: legacy pipeline key must contain an object")
-
-    def apply(current: dict[str, Any]) -> dict[str, Any]:
-        legacy = current.pop("pipeline", {})
-        nested_companies = legacy.get("companies") or []
-        top_companies = current.get("companies") or []
-        if not isinstance(nested_companies, list) or not isinstance(top_companies, list):
-            raise CareerError(f"{path}: legacy pipeline companies must be lists")
-        current["companies"] = _merge_pipeline_companies(nested_companies, top_companies)
-        nested_updated = legacy.get("updated")
-        top_updated = current.get("updated")
-        if nested_updated or top_updated:
-            current["updated"] = max(str(nested_updated or ""), str(top_updated or ""))
-        for key, value in legacy.items():
-            if key not in {"companies", "updated"} and key not in current:
-                current[key] = value
-        return current
-
-    pipeline_store.mutate(path, apply)
-    return True
-
-
 def doctor(
     vault: CareerVault, fix: bool = False, workspace: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -1011,88 +449,6 @@ def choose_actions(home: CareerVault) -> list[dict[str, Any]]:
     return actions[:3]
 
 
-def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track: str | None) -> dict[str, Any]:
-    state = home.load_state()
-    profile = home.load_profile()
-    recent_events = read_jsonl(home.events)[-5:]
-    track = infer_track(message, requested_track) or state.get("track") or profile.get("track")
-    if not track:
-        goal = "resolve track before routing"
-        retry_count = count_consecutive_safe_stops(home, goal)
-        trajectory = {
-            "id": f"traj-{uuid.uuid4().hex[:12]}",
-            "created_at": utc_now(),
-            "mode": "chat",
-            "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
-            "plan": {"goal": goal},
-            "act": {"proposal": None},
-            "verify": {"track": "ambiguous", "external_side_effect": False},
-            "correct": {"retry_count": retry_count, "needs_user_confirmation": True},
-            "persist": {"trajectory_only": True},
-        }
-        home.append_trajectory(trajectory)
-        question = "track must be explicit: shinsotsu or chuto"
-        if retry_count >= 2:
-            question += " (asked before — reply with your track, or set it directly in career-profile.toml)"
-        return {"mode": "chat", "language": language_for(message), "needs_confirmation": True, "question": question, "saved": str(home.trajectories)}
-    if track == "shinsotsu" and not isinstance(profile.get("graduation_year"), int):
-        goal = "collect required shinsotsu graduation year before proposing an event"
-        retry_count = count_consecutive_safe_stops(home, goal)
-        home.append_trajectory(
-            {
-                "id": f"traj-{uuid.uuid4().hex[:12]}",
-                "created_at": utc_now(),
-                "mode": "chat",
-                "observe": {"track": track, "profile_has_graduation_year": False, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
-                "plan": {"goal": goal},
-                "act": {"proposal": None},
-                "verify": {"safe_stop": True, "external_side_effect": False},
-                "correct": {"retry_count": retry_count, "needs_user_confirmation": True},
-                "persist": {"trajectory_only": True},
-            }
-        )
-        question = "profile.graduation_year is required for shinsotsu before an event proposal can be created"
-        if retry_count >= 2:
-            question += " (asked before — set profile.graduation_year directly in career-profile.toml)"
-        return {
-            "mode": "chat",
-            "language": language_for(message),
-            "track": track,
-            "needs_confirmation": True,
-            "question": question,
-            "saved": str(home.trajectories),
-        }
-    stage = stage_for(message, track, state.get("stage"))
-    reference = load_flow_reference()
-    flow_phase = flow_phase_for(message, track, state, profile, reference)
-    context = select_context(home.path, track, stage)
-    event = make_event(message, track, stage, flow_phase)
-    approval_action = approval_action_for(message)
-    proposal = {
-        "id": f"proposal-{uuid.uuid4().hex[:12]}",
-        "kind": "event",
-        "status": "pending",
-        "created_at": utc_now(),
-        "next_action": approval_action,
-        "event": event,
-    }
-    trajectory = {
-        "id": f"traj-{uuid.uuid4().hex[:12]}",
-        "created_at": utc_now(),
-        "mode": "chat",
-        "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
-        "plan": {"track": track, "stage": stage, "flow_phase": flow_phase, "goal": "route and propose a grounded event", "next_action": approval_action},
-        "act": {"proposal_id": proposal["id"], "skill": skill_context(skills_root, stage), "context_count": len(context)},
-        "verify": {"event_schema": "valid", "context_is_metadata_only": True, "external_side_effect": False},
-        "correct": {"retry_count": 0, "needs_user_confirmation": True},
-        "persist": {"proposal_id": proposal["id"]},
-    }
-    with vault_lock(home):  # PERSIST-005: proposals.jsonl append is a shared write, not append-only-safe alone
-        home.add_proposal(proposal)
-        home.append_trajectory(trajectory)
-    return {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
-
-
 def run_heartbeat(home: CareerVault) -> dict[str, Any]:
     state = home.load_state()
     actions = choose_actions(home)
@@ -1209,149 +565,6 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
     }
 
 
-def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
-    """Create an approval-gated proposal from a CWD-relative SELF_ANALYSIS_PROFILE."""
-    source_path = Path(source).expanduser().resolve()
-    if not source_path.exists():
-        raise CareerError(f"career context source not found: {source_path}")
-    try:
-        import yaml
-        raw = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
-    except ImportError as exc:
-        raise CareerError("PyYAML is required to propose career context") from exc
-    except (OSError, yaml.YAMLError) as exc:
-        raise CareerError(f"invalid career context YAML: {source_path}: {exc}") from exc
-    if not isinstance(raw, dict):
-        raise CareerError("career context source root must be an object")
-    raw_only = sorted(self_analysis_profile.RAW_ONLY_FIELDS.intersection(raw))
-    if raw_only:
-        raise CareerError(
-            "raw checklist submission cannot become canonical career context: "
-            + ", ".join(raw_only)
-        )
-    if "self_analysis_version" in raw:
-        try:
-            self_analysis_profile.validate_self_analysis_profile(raw)
-        except self_analysis_profile.ProfileValidationError as exc:
-            raise CareerError(str(exc)) from exc
-    payload = validate_career_context(raw)
-    digest = hashlib.sha256(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    with vault_lock(home):
-        proposals = read_jsonl(home.proposals)
-        for row in proposals:
-            if row.get("kind") != "career_context" or row.get("profile_digest") != digest:
-                continue
-            if row.get("status") in {"pending", "approved"}:
-                return {
-                    "mode": "propose-context",
-                    "deduplicated": True,
-                    "proposal": row,
-                    "source": str(source_path),
-                }
-        for row in proposals:
-            if row.get("kind") == "career_context" and row.get("status") == "pending":
-                row["status"] = "superseded"
-                row["updated_at"] = utc_now()
-        track = home.load_state().get("track") or home.load_profile().get("track")
-        if track not in TRACKS:
-            raise CareerError("career context proposal requires profile.track or state.track")
-        state = home.load_state()
-        stage = state.get("stage") or ("自己分析・就活軸" if track == "shinsotsu" else "自己分析・転職軸")
-        flow_phase = state.get("flow_phase") or "self_analysis"
-        event = {
-            "id": f"evt-{uuid.uuid4().hex[:12]}",
-            "track": track,
-            "stage": stage,
-            "flow_phase": flow_phase,
-            "type": "career_context",
-            "occurred_at": utc_now(),
-            "title": "User-confirmed career context",
-            "summary": "User-confirmed canonical career values",
-            "evidence": [f"SELF_ANALYSIS_PROFILE sha256:{digest}"],
-            "source": "jiko-bunseki",
-            "next_action": "",
-            "deadline": None,
-            "status": "draft",
-            "career_context": payload,
-            "profile_digest": digest,
-        }
-        validate_event(event)
-        proposal = {
-            "id": f"proposal-{uuid.uuid4().hex[:12]}",
-            "kind": "career_context",
-            "status": "pending",
-            "created_at": utc_now(),
-            "profile_digest": digest,
-            "event": event,
-        }
-        write_jsonl(home.proposals, [*proposals, proposal])
-    return {"mode": "propose-context", "deduplicated": False, "proposal": proposal, "source": str(source_path)}
-
-
-@contextmanager
-def vault_lock(home: CareerVault):
-    """Serialize read-modify-write sections against other processes on the same Vault.
-
-    A single local machine can still run two CLI invocations at once (two terminals, or a
-    human and Claude both acting). Without this, two concurrent `approve` calls on the same
-    proposal could both pass the "is it still pending" check before either writes, producing
-    a duplicate confirmed event.
-    """
-    home.ensure_runtime()
-    lock_path = home.runtime / "lock"
-    with open(lock_path, "a+") as handle:
-        if fcntl is not None:
-            fcntl.flock(handle, fcntl.LOCK_EX)
-        elif msvcrt is not None:
-            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
-        try:
-            yield
-        finally:
-            if fcntl is not None:
-                fcntl.flock(handle, fcntl.LOCK_UN)
-            elif msvcrt is not None:
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-
-
-def count_consecutive_safe_stops(home: CareerVault, goal: str) -> int:
-    count = 0
-    for trajectory in reversed(read_jsonl(home.trajectories)):
-        if trajectory.get("mode") == "chat" and trajectory.get("plan", {}).get("goal") == goal:
-            count += 1
-        else:
-            break
-    return count
-
-
-def record_failed_attempt(home: CareerVault, mode: str, observe: dict[str, Any], error: Exception, *, retry_count: int = 0) -> None:
-    home.append_trajectory({
-        "id": f"traj-{uuid.uuid4().hex[:12]}",
-        "created_at": utc_now(),
-        "mode": mode,
-        "observe": observe,
-        "plan": {"goal": "attempt failed"},
-        "act": {"attempted": True},
-        "verify": {"passed": False, "error": str(error)},
-        "correct": {"action": "safe_stop", "escalated_to_user": True, "retry_count": retry_count},
-        "persist": {"trajectory_only": True},
-    })
-
-
-def state_version_is_persisted(home: CareerVault, state: dict[str, Any]) -> bool:
-    version = state.get("version")
-    if not isinstance(version, str) or not version:
-        return False
-    if not (home.versions / f"{version}.json").is_file():
-        return False
-    return any(
-        row.get("version") == version
-        for row in read_jsonl(home.checkpoints)
-        if isinstance(row, dict)
-    )
-
-
 def approve(
     home: CareerVault,
     proposal_id: str,
@@ -1363,142 +576,26 @@ def approve(
     workspace: str | Path | None = None,
     next_action: str | None = None,
 ) -> dict[str, Any]:
-    with vault_lock(home):
-        proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
-        if not proposal:
-            raise CareerError(f"proposal not found: {proposal_id}")
-        if proposal.get("status") != "pending":
-            raise CareerError(f"proposal is not pending: {proposal_id}")
-        if proposal.get("kind") in {"event", "career_context"}:
-            event = dict(proposal["event"])
-            if evidence is not None:
-                event["evidence"] = evidence
-            if deadline is not None:
-                event["deadline"] = deadline
-            if company is not None:
-                event["company"] = company
-            if compensation is not None:
-                event["compensation"] = compensation
-            if currency is not None:
-                event["currency"] = currency
-            # The proposal's next_action is an approval instruction, not a confirmed career
-            # action. Only an explicit post-approval action survives into the ledger/state.
-            event["next_action"] = next_action.strip() if next_action and next_action.strip() else None
-            try:
-                validate_event(event, for_confirmation=True)
-            except CareerError as exc:
-                record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
-                if str(exc).startswith("confirmed events require evidence"):
-                    raise CareerError(
-                        "confirmed events require evidence.\n"
-                        f"Retry with: approve {proposal_id} --evidence \"<source or confirmation>\"\n"
-                        "Unsupported claims remain drafts."
-                    ) from exc
-                if str(exc).startswith("numeric claim is not present in evidence"):
-                    raise CareerError(
-                        "numeric claim is not present in evidence.\n"
-                        f'Retry with: approve {proposal_id} --evidence "<source or confirmation containing the exact numeric claim>"'
-                    ) from exc
-                raise
-            event["status"] = "confirmed"
-            # External write (data/pipeline.yml) first; if this fails, vault state & ledger remain clean
-            pipeline = upsert_pipeline_entry(event, workspace=workspace) if event.get("company") else None
-
-            # Vault event ledger append (idempotent guard)
-            existing_events = read_jsonl(home.events)
-            if not any(e.get("id") == event.get("id") for e in existing_events):
-                append_jsonl(home.events, event)
-
-            state = home.load_state()
-            projected_state = apply_event_to_state(state, event)
-            if projected_state == state and state_version_is_persisted(home, state):
-                # A previous attempt reached the state/checkpoint commit but failed while
-                # marking the proposal approved. Reuse that commit on retry instead of
-                # manufacturing a second version for the same event.
-                version = state["version"]
-            else:
-                version = home.save_state(projected_state)
-            resolved_at = utc_now()
-            resolution = {
-                "status": "approved",
-                "resolved_at": resolved_at,
-                "approved_event_id": event["id"],
-                "state_version": version,
-            }
-            updated = home.replace_proposal(
-                proposal_id,
-                status="approved",
-                approved_at=resolved_at,
-                version=version,
-                approved_event_id=event["id"],
-                resolution=resolution,
-            )
-            result = {"approved": True, "event": event, "version": version, "proposal": updated}
-            if pipeline:
-                result["pipeline"] = str(pipeline)
-            return result
-        updated = home.replace_proposal(proposal_id, status="approved", approved_at=utc_now())
-        return {"approved": True, "proposal": updated, "applied": False, "message": "Only event proposals change the local ledger; skill changes remain offline proposals."}
-
-
-def restore_state(home: CareerVault, version: str) -> dict[str, Any]:
-    """Replace the current state with a saved snapshot. This is NOT a rollback.
-
-    The event ledger is append-only by design, so nothing here rewinds it: `events.jsonl`,
-    `proposals.jsonl` and `data/pipeline.yml` all keep everything recorded after the snapshot.
-    Consequences to expect, which is why the command is not called `rollback`:
-
-    - `choose_actions()` reads the ledger, not the state, so an event recorded after the
-      snapshot still surfaces in heartbeat as the latest confirmed event.
-    - `run_chat()` keeps those events in its recent-event window.
-    - The proposals behind them stay `approved` and cannot be approved a second time.
-    - A company's `stage` in `data/pipeline.yml` stays where the later event put it.
-
-    Use this to recover a state file that got into a bad shape, not to undo an approval.
-    """
-    snapshot = home.versions / f"{version}.json"
-    if not snapshot.exists():
-        raise CareerError(f"version not found: {version}")
-    state = read_json(snapshot, {})
-    if not isinstance(state, dict):
-        raise CareerError(f"invalid version snapshot: {version}")
-    with vault_lock(home):  # PERSIST-005: must not race a concurrent approve()'s save_state
-        home.write_state(state)
-        append_jsonl(home.checkpoints, {"version": version, "restored_at": utc_now(), "state": state})
-    return {"restored": True, "version": version, "state": state,
-            "ledger_retained": True,
-            "note": "State only. events.jsonl, proposals.jsonl and data/pipeline.yml are unchanged."}
+    """Compatibility facade injecting the runtime-owned projection callbacks."""
+    return _lifecycle_approve(
+        home,
+        proposal_id,
+        evidence=evidence,
+        deadline=deadline,
+        company=company,
+        compensation=compensation,
+        currency=currency,
+        workspace=workspace,
+        next_action=next_action,
+        pipeline_writer=lambda event: upsert_pipeline_entry(event, path=pipeline_file(workspace), workspace=workspace),
+        state_projector=apply_event_to_state,
+    )
 
 
 def status(home: CareerVault) -> dict[str, Any]:
     state = home.load_state()
     profile = home.load_profile()
     return {"vault": str(home.path), "profile": {"track": profile.get("track"), "career_status": profile.get("career_status", "active"), "target_role": profile.get("target_role")}, "state": state, "event_count": len(read_jsonl(home.events)), "pending_proposals": sum(1 for row in read_jsonl(home.proposals) if row.get("status") == "pending"), "posting_count": len(read_jsonl(home.postings))}
-
-
-def proposal_summary(proposal: dict[str, Any]) -> dict[str, Any]:
-    """Expose proposal metadata without leaking event/report bodies."""
-    event = proposal.get("event") if isinstance(proposal.get("event"), dict) else {}
-    report = proposal.get("report") if isinstance(proposal.get("report"), dict) else {}
-    return {
-        "id": proposal.get("id"),
-        "kind": proposal.get("kind"),
-        "status": proposal.get("status"),
-        "created_at": proposal.get("created_at"),
-        "title": event.get("title") or report.get("title") or proposal.get("title"),
-        "stage": event.get("stage") or report.get("stage") or proposal.get("stage"),
-        "company": event.get("company") or proposal.get("company"),
-    }
-
-
-def list_proposals(home: CareerVault, *, include_all: bool = False, limit: int | None = None) -> dict[str, Any]:
-    rows = read_jsonl(home.proposals)
-    if not include_all:
-        rows = [row for row in rows if row.get("status") == "pending"]
-    rows = [row for _, row in sorted(enumerate(rows), key=lambda item: (str(item[1].get("created_at") or ""), item[0]), reverse=True)]
-    if limit is not None:
-        rows = rows[:limit]
-    return {"mode": "proposals", "count": len(rows), "proposals": [proposal_summary(row) for row in rows]}
 
 
 def build_parser() -> argparse.ArgumentParser:

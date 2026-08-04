@@ -1,0 +1,25 @@
+{
+  "skill": "matching-simulator",
+  "case": "provenance_is_retained",
+  "payload": {
+    "company_name": "Provenance Co",
+    "position": "Platform Engineer",
+    "eligibility": [],
+    "skills": {
+      "required": [
+        {
+          "name": "Python",
+          "status": "matched",
+          "source_type": "user",
+          "provenance": "user",
+          "source_ref": "user://career-profile/python",
+          "confidence": "high"
+        }
+      ],
+      "preferred": [],
+      "experience": []
+    },
+    "career_values": [],
+    "candidate_interest": {"interest_level": null}
+  }
+}

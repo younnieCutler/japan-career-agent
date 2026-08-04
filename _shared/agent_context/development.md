@@ -5,9 +5,20 @@ decision philosophy; `_shared/decision_philosophy.md` and `_shared/schemas.yml` 
 
 ## Ownership map
 
-- `skills/career-agent/career_agent.py`: `load_routing`, `infer_track`, `stage_for`,
-  `flow_phase_for`, event validation, approval, checkpoints, recovery, Vault metadata context,
-  atomic JSON/TOML/rewritten-JSONL state writes, and workspace projection.
+- `skills/career-agent/runtime.py` and `career_agent.py`: thin CLI compatibility facade and
+  high-level orchestration; they do not own persistence, routing, proposal, lifecycle, or
+  projection algorithms.
+- `skills/career-agent/models.py` / `validation.py`: pure contracts and event/context validation.
+- `skills/career-agent/routing.py`: KO/JA/EN language, track, stage, skill-context, and flow-phase
+  routing.
+- `skills/career-agent/persistence.py`: canonical JSON/TOML/JSONL readers and atomic writers.
+- `skills/career-agent/vault.py`: Vault paths, metadata indexing, trusted-context selection, and
+  canonical Vault state facade.
+- `skills/career-agent/proposals.py`: approval-gated event/context proposal creation and listing.
+- `skills/career-agent/lifecycle.py`: Vault locking, approval, retry-safe checkpoints, recovery,
+  and safe-stop trajectories.
+- `skills/career-agent/projection.py`: company slugs, workspace resolution, pipeline projection,
+  event-to-state projection, and legacy pipeline migration.
 - `_shared/pipeline_store.py`: the lock + atomic writer for `data/pipeline.yml`; legacy fields are
   readable but new legacy writes are rejected.
 - `_shared/matching_v3.py`: independent-axis `evidence_based_v3`; no composite score, probability,

@@ -1,0 +1,367 @@
+schema_version: 1
+description: >-
+  Machine-readable behavior-evaluation contract. Scenario definitions select only registered
+  deterministic adapters; they cannot provide arbitrary shell commands or model prompts.
+
+contract:
+  execution_modes:
+    - contract_audit
+    - behavior_replay
+    - runtime_e2e
+    - live_canary
+  classifications:
+    - contract_audit_pass
+    - contract_audit_fail
+    - behavior_replay_pass
+    - behavior_replay_fail
+    - runtime_e2e_pass
+    - runtime_e2e_fail
+    - not_executable
+  risk_classes:
+    - critical
+    - high
+    - medium
+    - low
+  assertion_types:
+    - exit_code
+    - stdout_contains
+    - stdout_not_contains
+    - stderr_contains
+    - stderr_not_contains
+    - stdout_json_path_equals
+
+scenarios:
+  - id: CONTRACT-MOCK-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract
+    execution_mode: contract_audit
+    classification: contract_audit_pass
+    risk_class: critical
+    inputs: []
+    assertions:
+      - id: process-exits-cleanly
+        type: exit_code
+        expected: 0
+      - id: contract-tests-pass
+        type: stdout_contains
+        value: "OK: 3 mock-interviewer contract tests passed"
+
+  - id: CONTRACT-MATCHING-001
+    skill: matching-simulator
+    adapter: matching_v3_contract
+    execution_mode: contract_audit
+    classification: contract_audit_pass
+    risk_class: critical
+    inputs: []
+    assertions:
+      - id: process-exits-cleanly
+        type: exit_code
+        expected: 0
+      - id: unittest-suite-passes
+        type: stderr_contains
+        value: "OK"
+
+  - id: CONTRACT-CAREER-001
+    skill: career-agent
+    adapter: career_agent_boundary_contract
+    execution_mode: contract_audit
+    classification: contract_audit_pass
+    risk_class: critical
+    inputs: []
+    assertions:
+      - id: process-exits-cleanly
+        type: exit_code
+        expected: 0
+      - id: boundary-contract-passes
+        type: stderr_contains
+        value: "OK"
+
+  - id: MOCK-BREADTH-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/adaptive-breadth.json
+    assertions:
+      - id: unresolved-evidence-wins-next-probe
+        type: stdout_json_path_equals
+        path: coverage.next_probe_axis
+        expected: Evidence
+      - id: uncertain-language-is-preserved
+        type: stdout_json_path_equals
+        path: claim.uncertainty_preserved
+        expected: true
+
+  - id: MOCK-METRIC-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/unsupported-metric.json
+    assertions:
+      - id: unsupported-metric-does-not-pass
+        type: stdout_json_path_equals
+        path: readiness.state
+        expected: Needs targeted follow-up
+
+  - id: MOCK-QUALITATIVE-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: high
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/qualitative-ready.json
+    assertions:
+      - id: bounded-qualitative-outcome-can-pass
+        type: stdout_json_path_equals
+        path: readiness.state
+        expected: Ready
+
+  - id: MOCK-PROVENANCE-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/document-provenance.json
+    assertions:
+      - id: document-claim-stays-unconfirmed
+        type: stdout_json_path_equals
+        path: claim.provenance
+        expected: document-stated
+      - id: document-uncertainty-stays-visible
+        type: stdout_json_path_equals
+        path: claim.uncertainty_preserved
+        expected: true
+
+  - id: MOCK-EXIT-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/user-exit.json
+    assertions:
+      - id: user-can-stop-with-assessment
+        type: stdout_json_path_equals
+        path: session.assessment_emitted
+        expected: true
+      - id: exit-does-not-create-readiness-pass
+        type: stdout_json_path_equals
+        path: readiness.state
+        expected: Needs targeted follow-up
+
+  - id: MOCK-CONTRADICTION-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: high
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/career-contradiction.json
+    assertions:
+      - id: contradiction-is-labeled
+        type: stdout_json_path_equals
+        path: contradiction.label
+        expected: Career Value Contradiction
+      - id: contradiction-needs-user-confirmation
+        type: stdout_json_path_equals
+        path: contradiction.requires_user_confirmation
+        expected: true
+
+  - id: MOCK-CORE-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/defensible-core.json
+    assertions:
+      - id: core-requires-confirmation
+        type: stdout_json_path_equals
+        path: defensible_core.confirmation_required
+        expected: true
+      - id: core-does-not-write-canonical-state
+        type: stdout_json_path_equals
+        path: defensible_core.canonical_write
+        expected: false
+
+  - id: MOCK-COUNTEREXAMPLE-001
+    skill: mock-interviewer
+    adapter: mock_interviewer_contract_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: high
+    inputs:
+      - skills/mock-interviewer/tests/fixtures/behavior/counterexample-probe.json
+    assertions:
+      - id: ambiguous-terms-get-operational-probe
+        type: stdout_json_path_equals
+        path: probe.operational_definition
+        expected: true
+      - id: causal-claim-gets-alternative-explanation-probe
+        type: stdout_json_path_equals
+        path: probe.counterexample
+        expected: true
+
+  - id: MATCH-UNKNOWN-001
+    skill: matching-simulator
+    adapter: matching_v3_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/matching-simulator/tests/fixtures/behavior/unknown-preservation.json
+    assertions:
+      - id: unknown-does-not-proceed
+        type: stdout_json_path_equals
+        path: result.decision_status
+        expected: review
+
+  - id: MATCH-GAP-001
+    skill: matching-simulator
+    adapter: matching_v3_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/matching-simulator/tests/fixtures/behavior/required-gap.json
+    assertions:
+      - id: required-gap-is-review
+        type: stdout_json_path_equals
+        path: result.decision_status
+        expected: review
+
+  - id: MATCH-CONFLICT-001
+    skill: matching-simulator
+    adapter: matching_v3_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/matching-simulator/tests/fixtures/behavior/hard-conflict.json
+    assertions:
+      - id: confirmed-conflict-is-not-offset
+        type: stdout_json_path_equals
+        path: result.decision_status
+        expected: conflict
+
+  - id: MATCH-INTEREST-001
+    skill: matching-simulator
+    adapter: matching_v3_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/matching-simulator/tests/fixtures/behavior/interest-independence.json
+    assertions:
+      - id: objective-axes-are-interest-independent
+        type: stdout_json_path_equals
+        path: objective_equal
+        expected: true
+      - id: interest-values-remain-separate
+        type: stdout_json_path_equals
+        path: interest_levels.1
+        expected: 5
+
+  - id: MATCH-PROVENANCE-001
+    skill: matching-simulator
+    adapter: matching_v3_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: high
+    inputs:
+      - skills/matching-simulator/tests/fixtures/behavior/provenance.json
+    assertions:
+      - id: user-provenance-is-retained
+        type: stdout_json_path_equals
+        path: result.skills.required_skills.matched.0.provenance
+        expected: user
+
+  - id: CAREER-APPROVAL-GATE-001
+    skill: career-agent
+    adapter: career_agent_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/career-agent/tests/fixtures/behavior/approval-gate.json
+    assertions:
+      - id: approval-without-evidence-is-blocked
+        type: stdout_json_path_equals
+        path: approval_blocked_without_evidence
+        expected: true
+      - id: blocked-approval-writes-no-event
+        type: stdout_json_path_equals
+        path: confirmed_event_count
+        expected: 0
+
+  - id: CAREER-LIFECYCLE-001
+    skill: career-agent
+    adapter: career_agent_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/career-agent/tests/fixtures/behavior/approval-lifecycle.json
+    assertions:
+      - id: proposal-keeps-draft-event
+        type: stdout_json_path_equals
+        path: proposal_event_status_is_draft
+        expected: true
+      - id: approval-creates-confirmed-event
+        type: stdout_json_path_equals
+        path: confirmed_event_status
+        expected: confirmed
+      - id: resolution-points-to-confirmed-event
+        type: stdout_json_path_equals
+        path: resolution_links_confirmed_event
+        expected: true
+      - id: projection-does-not-copy-evidence
+        type: stdout_json_path_equals
+        path: pipeline_copies_evidence
+        expected: false
+
+  - id: CAREER-CONCURRENT-001
+    skill: career-agent
+    adapter: career_agent_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/career-agent/tests/fixtures/behavior/concurrent-approval.json
+    assertions:
+      - id: one-approval-wins-and-one-retries
+        type: stdout_json_path_equals
+        path: return_codes.0
+        expected: 0
+      - id: concurrent-approval-does-not-duplicate-event
+        type: stdout_json_path_equals
+        path: confirmed_event_count
+        expected: 1
+
+  - id: CAREER-CONTEXT-001
+    skill: career-agent
+    adapter: career_agent_replay
+    execution_mode: behavior_replay
+    classification: behavior_replay_pass
+    risk_class: critical
+    inputs:
+      - skills/career-agent/tests/fixtures/behavior/context-approval.json
+    assertions:
+      - id: context-is-not-confirmed-before-approval
+        type: stdout_json_path_equals
+        path: proposal_is_not_confirmed_before_approval
+        expected: true
+      - id: context-approval-promotes-confirmed-state
+        type: stdout_json_path_equals
+        path: confirmed_after_approval
+        expected: true

@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.6.13] — 2026-08-04
+## [1.7.1] — 2026-08-04
 
 - Career Agent event validation now rejects deadlines with a syntactically valid
   `YYYY-MM-DD` shape but no real calendar date (e.g. `2026-99-99`).
@@ -12,6 +12,71 @@
   unrecognized `method` value can no longer be misclassified as official.
 - Pinned `actions/checkout` and `actions/setup-python` to commit SHA in CI and release
   workflows.
+
+## [1.7.0] - 2026-08-04
+
+- Added an informational HTTPS endpoint-health canary with an approved repository-variable target
+  and explicit `HOST_UNAVAILABLE` classification; it does not claim agent or model execution.
+- Completed the production-hardening release line with deterministic behavior replay, dependency
+  locks, SBOM, source identity, checksums, and verified release bundle workflow.
+
+## [1.6.21] - 2026-08-04
+
+- Added clean-tree, source-commit, archive-path, local-path, secret-pattern, manifest, checksum,
+  and SBOM release integrity verification.
+- Added a deterministic release bundle workflow that verifies and uploads the archive, manifest,
+  checksums, and SBOM before publishing release assets.
+
+## [1.6.20] - 2026-08-04
+
+- Added hash-pinned runtime and verification dependency locks with a lock-drift check.
+- Added deterministic CycloneDX 1.5 SBOM generation and verification, and switched CI/release
+  dependency installation to the locked files.
+
+## [1.6.19] - 2026-08-04
+
+- Added 17 critical behavior-replay scenarios for mock-interviewer, matching-simulator, and Career
+  Agent, covering Unknown preservation, provenance, interest independence, readiness, user exit,
+  approval, concurrency, and projection boundaries.
+- Named instruction-only interview evaluation a deterministic contract replay and classified all 17
+  replays separately from runtime E2E; no skill or live model execution is implied.
+
+## [1.6.18] - 2026-08-04
+
+- Added a machine-readable behavior-evaluation schema and a deterministic runner with a closed
+  adapter registry, explicit contract-audit classifications, input/output hashes, and runtime
+  identity metadata.
+
+## [1.6.17] - 2026-08-04
+
+- Completed the Career Agent architecture boundary: `runtime.py` is now orchestration/CLI plus
+  compatibility exports, while extracted owner modules contain the domain algorithms.
+- Reduced the boundary guard to a final `PASS` state and documented the ownership map.
+
+## [1.6.16] - 2026-08-04
+
+- Moved company slug normalization, workspace resolution, pipeline writes, event-to-state
+  projection, and legacy pipeline migration into `projection.py`.
+- Kept evidence and provenance in the canonical Vault ledger; `data/pipeline.yml` remains a short
+  workspace projection backed by the shared atomic store.
+
+## [1.6.15] - 2026-08-04
+
+- Moved proposal creation, context proposals, metadata-only listing, and event construction into
+  `proposals.py`.
+- Moved Vault locking, approval, retry-safe state commits, failed-attempt recording, and restore
+  semantics into `lifecycle.py` without changing the CLI or append-only contract.
+
+## [1.6.14] - 2026-08-04
+
+- Moved multilingual track, stage, skill-context, and flow-phase routing into `routing.py`.
+- Removed routing from the staged runtime-facade importer allowlist while preserving public imports.
+
+## [1.6.13] - 2026-08-04
+
+- Moved canonical JSON/TOML/JSONL writers and Vault metadata/state ownership out of `runtime.py`.
+- Preserved the public runtime compatibility surface while making the persistence and Vault modules
+  independent of the runtime facade.
 
 ## [1.6.12] — 2026-08-04
 
