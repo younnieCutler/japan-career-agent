@@ -25,6 +25,7 @@ CHECKS = (
     ("hook lifecycle", (PYTHON, "scripts/test_hook_contract.py")),
     ("career-agent", (PYTHON, "skills/career-agent/test_career_agent.py")),
     ("career-agent golden CLI", (PYTHON, "skills/career-agent/test_golden_cli.py")),
+    ("career-agent boundary imports", (PYTHON, "skills/career-agent/test_boundary_imports.py")),
     ("career-agent durability", (PYTHON, "skills/career-agent/test_state_durability.py")),
     ("career-agent routing", (PYTHON, "skills/career-agent/test_routing.py")),
     ("matching v3", (PYTHON, "_shared/test_matching_v3.py")),
