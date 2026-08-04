@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.21] - 2026-08-04
+
+- Added clean-tree, source-commit, archive-path, local-path, secret-pattern, manifest, checksum,
+  and SBOM release integrity verification.
+- Added a deterministic release bundle workflow that verifies and uploads the archive, manifest,
+  checksums, and SBOM before publishing release assets.
+
 ## [1.6.20] - 2026-08-04
 
 - Added hash-pinned runtime and verification dependency locks with a lock-drift check.

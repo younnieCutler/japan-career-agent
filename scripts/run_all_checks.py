@@ -24,6 +24,7 @@ CHECKS = (
     ("dependency lock tests", (PYTHON, "scripts/test_dependency_lock.py")),
     ("SBOM", (PYTHON, "scripts/build_sbom.py", "--check")),
     ("SBOM tests", (PYTHON, "scripts/test_sbom.py")),
+    ("release integrity", (PYTHON, "scripts/test_release_integrity.py")),
     ("release tag checker", (PYTHON, "scripts/test_release_tag.py")),
     ("version bump gate", (PYTHON, "scripts/check_version_bump.py")),
     ("hook lifecycle", (PYTHON, "scripts/test_hook_contract.py")),

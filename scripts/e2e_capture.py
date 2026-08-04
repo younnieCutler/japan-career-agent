@@ -18,6 +18,8 @@ import tempfile
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from e2e_artifact import _path_variants
+
 
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -26,12 +28,12 @@ def utc_now() -> str:
 def _redaction_pairs(roots: Iterable[Path]) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = []
     temp_root = Path(tempfile.gettempdir()).resolve()
-    resolved_roots = {path.expanduser().resolve() for path in roots if str(path)}
-    for path in sorted(resolved_roots, key=lambda item: len(str(item)), reverse=True):
-        root = str(path)
-        token = "<TEMP>" if path == temp_root or temp_root in path.parents else "<HOME>"
-        variants = {root, root.replace("\\", "/"), root.replace("/", "\\")}
-        pairs.extend((variant, token) for variant in sorted(variants, key=len, reverse=True))
+    source_roots = {path.expanduser() for path in roots if str(path)}
+    for path in source_roots:
+        resolved = path.resolve()
+        token = "<TEMP>" if resolved == temp_root or temp_root in resolved.parents else "<HOME>"
+        pairs.extend((variant, token) for variant in _path_variants(path))
+    pairs.sort(key=lambda pair: len(pair[0]), reverse=True)
     return pairs
 
 

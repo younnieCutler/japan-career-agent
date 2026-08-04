@@ -77,6 +77,7 @@ class GoldenCliTests(unittest.TestCase):
             self.assertEqual(row["stderr"], "err�")
             self.assertFalse(row["stdout_utf8_valid"])
             self.assertFalse(row["stderr_utf8_valid"])
+            self.assertNotIn(str(root), json.dumps(row, ensure_ascii=False))
 
     def test_public_cli_projections_remain_stable_after_entrypoint_split(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
