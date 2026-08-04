@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.10] — 2026-08-04
+
+- Made mock-interviewer deep-dive selection adaptive with a session-local coverage ledger,
+  explicit document/user/context provenance, bounded readiness assessment, and user-confirmed
+  Defensible Core summaries.
+- Added regression scenarios for breadth preservation, unverified document claims, user-controlled
+  exit, and approval-safe interview summaries.
+
 ## [1.6.9] — 2026-08-04
 
 - Hardened E2E artifact redaction across Windows raw/resolved path forms and POSIX/Windows
