@@ -90,6 +90,71 @@ class CareerAgentTests(unittest.TestCase):
         self.assertIn("--track <shinsotsu|chuto>", payload["next"])
         self.assertTrue((fresh_vault / "00-control" / "career-profile.toml").exists())
 
+    def test_setup_shinsotsu_without_graduation_year_is_actionable(self) -> None:
+        fresh_vault = self.vault.parent / "missing-graduation-year-vault"
+        result = run(fresh_vault, "setup", "--track", "shinsotsu")
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["needs_input"], ["graduation_year"])
+        self.assertIn("--track shinsotsu --graduation-year <YYYY>", payload["next"])
+
+    def test_fresh_onboarding_quickstart_e2e(self) -> None:
+        """The README setup → proposal → approval → projection path works in one fresh workspace."""
+        fresh_vault = self.vault.parent / "quickstart-vault"
+        fresh_workspace = self.vault.parent / "quickstart-workspace"
+        fresh_workspace.mkdir()
+
+        setup = run(fresh_vault, "setup", "--track", "chuto", "--target-role", "Platform Engineer")
+        self.assertEqual(setup.returncode, 0, setup.stderr)
+        setup_payload = json.loads(setup.stdout)
+        self.assertTrue(setup_payload["ok"])
+        self.assertEqual(setup_payload["next"], "run --mode chat")
+
+        message = "転職の面接を準備したい"
+        proposed = run(fresh_vault, "run", "--mode", "chat", "--message", message)
+        self.assertEqual(proposed.returncode, 0, proposed.stderr)
+        proposed_payload = json.loads(proposed.stdout)
+        proposal_id = proposed_payload["proposal"]["id"]
+
+        listed = run(fresh_vault, "proposals")
+        self.assertEqual(listed.returncode, 0, listed.stderr)
+        listing = json.loads(listed.stdout)
+        self.assertEqual(listing["count"], 1)
+        self.assertEqual(listing["proposals"][0]["id"], proposal_id)
+
+        company = "Aozora Systems (Synthetic)"
+        approved = run(
+            fresh_vault,
+            "approve",
+            proposal_id,
+            "--evidence",
+            message,
+            "--company",
+            company,
+            "--workspace",
+            str(fresh_workspace),
+            cwd=fresh_workspace,
+        )
+        self.assertEqual(approved.returncode, 0, approved.stderr)
+        approved_payload = json.loads(approved.stdout)
+        self.assertEqual(approved_payload["event"]["status"], "confirmed")
+        self.assertEqual(approved_payload["event"]["company"], company)
+
+        status = run(fresh_vault, "status")
+        self.assertEqual(status.returncode, 0, status.stderr)
+        status_payload = json.loads(status.stdout)
+        self.assertEqual(status_payload["event_count"], 1)
+        self.assertEqual(status_payload["pending_proposals"], 0)
+
+        import yaml
+
+        pipeline_path = fresh_workspace / "data" / "pipeline.yml"
+        self.assertTrue(pipeline_path.is_file())
+        pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8")) or {}
+        self.assertEqual(pipeline["companies"][0]["name"], company)
+        self.assertEqual(pipeline["companies"][0]["stage"], 4)  # 面接 → market stage 4
+
     def test_proposals_lists_metadata_only_and_filters_status(self) -> None:
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
         first = output(run(self.vault, "run", "--mode", "chat", "--message", "転職の面接を準備したい"))
@@ -166,7 +231,11 @@ class CareerAgentTests(unittest.TestCase):
         failed = run(self.vault, "approve", proposed["proposal"]["id"])
         self.assertEqual(failed.returncode, 2)
         self.assertIn("numeric claim", failed.stderr)
-        self.assertIn(f"Retry with: approve {proposed['proposal']['id']} --evidence", failed.stderr)
+        error = json.loads(failed.stderr)["error"]
+        self.assertIn(
+            f'Retry with: approve {proposed["proposal"]["id"]} --evidence "<source or confirmation containing the exact numeric claim>"',
+            error,
+        )
 
     def test_numeric_claim_with_unrelated_evidence_is_still_rejected(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
@@ -174,7 +243,8 @@ class CareerAgentTests(unittest.TestCase):
         failed = run(self.vault, "approve", proposed["proposal"]["id"], "--evidence", "面接の準備をした")
         self.assertEqual(failed.returncode, 2)
         self.assertIn("numeric claim", failed.stderr)
-        self.assertIn("exact supported numeric claim", failed.stderr)
+        error = json.loads(failed.stderr)["error"]
+        self.assertIn("--evidence \"<source or confirmation containing the exact numeric claim>\"", error)
 
     def test_every_agent_stage_maps_to_a_market_stage(self) -> None:
         sys.path.insert(0, str(SCRIPT.parent))

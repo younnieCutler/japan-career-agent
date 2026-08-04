@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.5] — 2026-08-04
+
+- Corrected the shinsotsu setup recovery command to request `--graduation-year` instead of
+  reopening track selection.
+- Added a fresh-vault Quickstart E2E regression covering setup, chat proposal, metadata lookup,
+  evidence-backed approval, status, and workspace projection.
+- Aligned the synthetic pipeline fixture with its confirmed conflict diagnosis and made forbidden
+  outcome-field checks recursive.
+- Made numeric evidence retry guidance executable as a quoted CLI-shaped command.
+
 ## [1.6.4] — 2026-08-04
 
 - Made incomplete Career Agent setup explicit and actionable when track (or the shinsotsu

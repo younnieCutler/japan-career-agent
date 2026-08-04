@@ -4,8 +4,11 @@ companies:
     name: "Aozora Systems (Synthetic)"
     stage: 2
     closed: false
-    decision_status: review
+    decision_status: conflict
     match_model_version: evidence_based_v3
+    match_conflicts:
+      - "eligibility: work location"
+      - "career value: remote work"
     match_required_gaps:
       - "required skill: Kubernetes"
     match_unknowns:

@@ -1023,10 +1023,16 @@ def setup(
         needs_input.append("graduation_year")
     if needs_input:
         quoted_vault = '"' + str(home.path).replace('"', '\\"') + '"'
-        next_command = (
-            "python skills/career-agent/career_agent.py setup "
-            f"--vault {quoted_vault} --track <shinsotsu|chuto>"
-        )
+        if needs_input == ["graduation_year"]:
+            next_command = (
+                "python skills/career-agent/career_agent.py setup "
+                f"--vault {quoted_vault} --track shinsotsu --graduation-year <YYYY>"
+            )
+        else:
+            next_command = (
+                "python skills/career-agent/career_agent.py setup "
+                f"--vault {quoted_vault} --track <shinsotsu|chuto>"
+            )
     elif not diagnosis["ok"]:
         next_command = "fill the remaining profile fields doctor flagged, then run setup again"
     else:
@@ -1498,7 +1504,7 @@ def approve(
                 if str(exc).startswith("numeric claim is not present in evidence"):
                     raise CareerError(
                         "numeric claim is not present in evidence.\n"
-                        f"Retry with: approve {proposal_id} --evidence containing the exact supported numeric claim."
+                        f'Retry with: approve {proposal_id} --evidence "<source or confirmation containing the exact numeric claim>"'
                     ) from exc
                 raise
             event["status"] = "confirmed"
