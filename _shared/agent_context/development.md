@@ -42,3 +42,36 @@ Do not preload unrelated `_shared/agent_context` families or full Tier 2 evidenc
 bar may omit non-actionable repeated detail, but never omits a gate, blocker company/count, nearest
 actionable deadline, required Unknown, provenance boundary, or approval requirement. A budget is a
 guardrail, not permission to change decision semantics.
+
+## Command tooling (RTK)
+
+Use RTK as the command prefix when it has a suitable wrapper. It reduces routine command output;
+use `rtk proxy` when the unfiltered output is needed.
+
+### Common workflows
+
+```bash
+rtk pytest                 # Python tests
+rtk test <cmd>             # generic test wrapper
+rtk ruff check .           # linting when available through the wrapper
+rtk git status             # compact Git status
+rtk git diff               # compact diff
+rtk git add                # compact staging output
+rtk git commit             # compact commit output
+rtk git push               # compact push output
+rtk gh pr view <num>       # compact pull-request view
+rtk gh pr checks <num>     # compact pull-request checks
+rtk gh run list            # compact workflow list
+rtk ls <path>              # compact file listing
+rtk read <file>            # compact file reading
+rtk grep <pattern>         # compact search
+rtk find <pattern>         # compact file search
+rtk err <cmd>              # errors only
+rtk summary <cmd>          # summarized command output
+rtk gain                   # token-savings summary
+rtk gain --history         # token-savings history
+```
+
+Git passthrough supports subcommands not listed above. Keep repository `CLAUDE.md` within the
+context budget; do not run `rtk init` against it. Use `rtk init --global` only when global RTK
+instructions are intentionally being updated.

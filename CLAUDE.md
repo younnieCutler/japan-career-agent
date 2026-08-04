@@ -1,8 +1,9 @@
-# Japan Recruit AI Agent — session entry
+# Japan Recruit AI Agent - entry
 
-Read [`AGENTS.md`](./AGENTS.md) as the contract. At session start load
-[`_shared/agent_context/onboarding.md`](./_shared/agent_context/onboarding.md); load routing,
-development, persistence, market-flow, or skill references only when the task needs them.
+Read [`AGENTS.md`](./AGENTS.md). At session start load
+[`_shared/agent_context/onboarding.md`](./_shared/agent_context/onboarding.md); load other lazy
+references only when needed. Implementation and command tooling:
+[`_shared/agent_context/development.md`](./_shared/agent_context/development.md).
 
-Do not maintain a second routing or decision table here. Keep `Unknown`, approval gates, execution
-blockers, trust boundaries, independent matching axes, and legacy read-only compatibility intact.
+Keep `Unknown`, confirmed hard conflicts, approval gates, trust boundaries, independent axes, and
+legacy read-only compatibility intact.
