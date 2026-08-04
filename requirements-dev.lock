@@ -1,0 +1,6 @@
+# Verification dependencies for the supported Python 3.11 Ubuntu/Windows matrix.
+-r requirements.lock
+ruff==0.15.10 \
+    --hash=sha256:51cb8cc943e891ba99989dd92d61e29b1d231e14811db9be6440ecf25d5c1609 \
+    --hash=sha256:28cb32d53203242d403d819fd6983152489b12e4a3ae44993543d6fe62ab42ed \
+    --hash=sha256:d1f86e67ebfdef88e00faefa1552b5e510e1d35f3be7d423dc7e84e63788c94e

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.20] - 2026-08-04
+
+- Added hash-pinned runtime and verification dependency locks with a lock-drift check.
+- Added deterministic CycloneDX 1.5 SBOM generation and verification, and switched CI/release
+  dependency installation to the locked files.
+
 ## [1.6.19] - 2026-08-04
 
 - Added 17 critical behavior-replay scenarios for mock-interviewer, matching-simulator, and Career

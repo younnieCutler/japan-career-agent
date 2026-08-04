@@ -1,0 +1,8 @@
+# Generated for the supported Python 3.11 Ubuntu/Windows matrix and CPython 3.13 Windows.
+# Keep this file hash-pinned. Update it together with requirements.txt and the SBOM.
+--require-hashes
+PyYAML==6.0.3 \
+    --hash=sha256:b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d \
+    --hash=sha256:9f3bfb4965eb874431221a3ff3fdcddc7e74e3b07799e0e84ca4a0f867d449bf \
+    --hash=sha256:79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c \
+    --hash=sha256:d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f
