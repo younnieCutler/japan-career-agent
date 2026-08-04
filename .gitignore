@@ -12,6 +12,9 @@
 !/CLAUDE.md
 !/AGENTS.md
 !/requirements.txt
+!/requirements.lock
+!/requirements-dev.lock
+!/sbom.cdx.json
 !/CONTRIBUTING.md
 !/CHANGELOG.md
 !/examples/

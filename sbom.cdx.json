@@ -1,0 +1,83 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/pyyaml@6.0.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "9f3bfb4965eb874431221a3ff3fdcddc7e74e3b07799e0e84ca4a0f867d449bf"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "pyyaml",
+      "purl": "pkg:pypi/pyyaml@6.0.3",
+      "scope": "required",
+      "type": "library",
+      "version": "6.0.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/ruff@0.15.10",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "28cb32d53203242d403d819fd6983152489b12e4a3ae44993543d6fe62ab42ed"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "51cb8cc943e891ba99989dd92d61e29b1d231e14811db9be6440ecf25d5c1609"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "d1f86e67ebfdef88e00faefa1552b5e510e1d35f3be7d423dc7e84e63788c94e"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "ruff",
+      "purl": "pkg:pypi/ruff@0.15.10",
+      "scope": "optional",
+      "type": "library",
+      "version": "0.15.10"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "name": "japan-recruit-ai-agent",
+      "type": "application",
+      "version": "1.6.20"
+    },
+    "properties": [
+      {
+        "name": "lock.sha256",
+        "value": "276cf62880edbb85868ae009351f8a8e8ef48ec6beed6bf8e81607f4e3f6e31f"
+      }
+    ]
+  },
+  "serialNumber": "urn:uuid:276cf628-80ed-bb85-868a-e009351f8a8e",
+  "specVersion": "1.5",
+  "version": 1
+}
