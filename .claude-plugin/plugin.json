@@ -1,6 +1,6 @@
 {
   "name": "japan-recruit-ai-agent",
-  "version": "1.6.7",
+  "version": "1.6.9",
   "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
   "author": { "name": "younnieCutler" },
   "homepage": "https://github.com/younnieCutler/japan-recruit-ai-agent",
