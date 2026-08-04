@@ -42,6 +42,14 @@ def redact(value: str, roots: Iterable[Path]) -> str:
     return result
 
 
+def decode_output(payload: bytes) -> tuple[str, bool]:
+    """Decode a subprocess stream without allowing broken output to break capture."""
+    try:
+        return payload.decode("utf-8"), True
+    except UnicodeDecodeError:
+        return payload.decode("utf-8", errors="replace"), False
+
+
 def capture(
     argv: Sequence[str | Path],
     *,
@@ -69,14 +77,18 @@ def capture(
         check=False,
     )
     finished_at = utc_now()
+    stdout, stdout_utf8_valid = decode_output(result.stdout)
+    stderr, stderr_utf8_valid = decode_output(result.stderr)
     row = {
         "started_at": started_at,
         "finished_at": finished_at,
         "argv": [redact(item, roots) for item in command],
         "cwd": redact(str(cwd), roots),
         "exit_code": result.returncode,
-        "stdout": redact(result.stdout.decode("utf-8", errors="strict"), roots),
-        "stderr": redact(result.stderr.decode("utf-8", errors="strict"), roots),
+        "stdout": redact(stdout, roots),
+        "stderr": redact(stderr, roots),
+        "stdout_utf8_valid": stdout_utf8_valid,
+        "stderr_utf8_valid": stderr_utf8_valid,
     }
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8", newline="\n") as stream:

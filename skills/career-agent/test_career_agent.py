@@ -381,7 +381,6 @@ class CareerAgentTests(unittest.TestCase):
         payload = json.dumps({
             "company": "株式会社E2E (Synthetic)",
             "role": "バックエンド開発者",
-            "url": "https://example.invalid/e2e",
             "provenance": "synthetic",
             "source_ref": "synthetic://e2e/stdin",
         }, ensure_ascii=False).encode("utf-8")
@@ -395,6 +394,8 @@ class CareerAgentTests(unittest.TestCase):
         discovered = json.loads(result.stdout.decode("utf-8"))
         self.assertEqual(discovered["postings"][0]["company"], "株式会社E2E (Synthetic)")
         self.assertEqual(discovered["postings"][0]["provenance"], "synthetic")
+        self.assertIsNone(discovered["postings"][0]["original_url"])
+        self.assertEqual(discovered["postings"][0]["source_ref"], "synthetic://e2e/stdin")
 
         invalid = subprocess.run(
             [sys.executable, str(SCRIPT), "run", "--vault", str(self.vault), "--mode", "discover"],
@@ -404,6 +405,31 @@ class CareerAgentTests(unittest.TestCase):
         )
         self.assertEqual(invalid.returncode, 2)
         self.assertIn("valid UTF-8", invalid.stderr.decode("utf-8"))
+
+        invalid_synthetic = subprocess.run(
+            [sys.executable, str(SCRIPT), "run", "--vault", str(self.vault), "--mode", "discover"],
+            input=json.dumps([
+                {
+                    "company": "valid synthetic",
+                    "role": "Backend",
+                    "provenance": "synthetic",
+                    "source_ref": "synthetic://e2e/valid-second",
+                },
+                {
+                    "company": "bad synthetic",
+                    "role": "Backend",
+                    "url": "https://example.invalid/fixture",
+                    "provenance": "synthetic",
+                    "source_ref": "synthetic://e2e/invalid-url",
+                },
+            ], ensure_ascii=False).encode("utf-8"),
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(invalid_synthetic.returncode, 0)
+        invalid_result = json.loads(invalid_synthetic.stdout.decode("utf-8"))
+        self.assertEqual(invalid_result["added"], 1)
+        self.assertEqual(invalid_result["dropped"], 1)
 
     def test_windows_powershell_utf8_source_path_round_trip(self) -> None:
         if os.name != "nt":
@@ -420,7 +446,6 @@ class CareerAgentTests(unittest.TestCase):
             json.dump({
                 "company": "株式会社PowerShell (Synthetic)",
                 "role": "データエンジニア",
-                "url": "https://example.invalid/powershell",
                 "provenance": "synthetic",
                 "source_ref": "synthetic://e2e/powershell",
             }, stream, ensure_ascii=False)

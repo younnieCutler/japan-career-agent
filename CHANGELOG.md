@@ -7,8 +7,9 @@
 - Separated proposal approval instructions from confirmed next actions and linked immutable draft
   proposal snapshots to confirmed events through a resolution record.
 - Added strict UTF-8 ingestion, normalized company slugs with legacy alias preservation, explicit
-  synthetic provenance/source references, LF-only canonical writers, and redacted `commands.jsonl`
-  E2E capture with fresh-vault lifecycle coverage.
+  synthetic provenance/source references (synthetic postings use `synthetic://` without a fake URL),
+  LF-only canonical writers, and redacted `commands.jsonl` E2E capture with fresh-vault lifecycle
+  coverage. Capture now preserves invalid UTF-8 output with validity flags.
 
 ## [1.6.6] — 2026-08-04
 

@@ -1111,29 +1111,33 @@ def load_posting_records(source: str | None) -> list[dict[str, Any]]:
 
 def posting_key(posting: dict[str, Any]) -> str:
     url = str(posting.get("url") or posting.get("source_url") or "").strip()
+    source_ref = str(posting.get("source_ref") or "").strip()
     company = str(posting.get("company") or posting.get("company_name") or "").strip().lower()
     role = str(posting.get("role") or posting.get("job_title") or "").strip().lower()
-    raw = url or f"{company}|{role}"
+    raw = url or source_ref or f"{company}|{role}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def normalize_posting(posting: dict[str, Any]) -> dict[str, Any]:
     url = str(posting.get("url") or posting.get("source_url") or "").strip()
-    if not url.startswith(("https://", "http://")):
-        raise CareerError("discover postings require an original http(s) URL")
     provenance = posting.get("provenance") or "observed"
-    source_ref = str(posting.get("source_ref") or url).strip()
-    if provenance == "synthetic" and not source_ref.startswith("synthetic://"):
-        raise CareerError("synthetic postings require a synthetic:// source_ref")
     if provenance not in {"observed", "job_posting", "synthetic", "unknown"}:
         raise CareerError("posting provenance must be observed, job_posting, synthetic, or unknown")
+    source_ref = str(posting.get("source_ref") or url).strip()
+    if provenance == "synthetic":
+        if url:
+            raise CareerError("synthetic postings must omit url; use source_ref synthetic://...")
+        if not source_ref.startswith("synthetic://"):
+            raise CareerError("synthetic postings require a synthetic:// source_ref")
+    elif not url.startswith(("https://", "http://")):
+        raise CareerError("public postings require an original http(s) URL")
     return {
         "company": str(posting.get("company") or posting.get("company_name") or "不明").strip(),
         "role": str(posting.get("role") or posting.get("job_title") or "不明").strip(),
         "graduation_year": posting.get("graduation_year"),
         "target": posting.get("target") or posting.get("audience"),
         "deadline": posting.get("deadline"),
-        "original_url": url,
+        "original_url": url or None,
         "checked_at": posting.get("checked_at") or utc_now(),
         "dedupe_key": posting_key(posting),
         "status": "candidate",
@@ -1287,7 +1291,7 @@ def run_discover(home: CareerVault, source: str | None) -> dict[str, Any]:
             invalid.append(str(exc))
     if incoming_raw and not incoming:
         # every item in the batch was corrupted - nothing to self-correct, escalate as before.
-        raise CareerError("discover postings require an original http(s) URL")
+        raise CareerError("discover postings require an original http(s) URL or a synthetic:// source_ref")
     with vault_lock(home):  # PERSIST-005: dedupe-then-append must not race a concurrent discover
         existing = read_jsonl(home.postings)
         known = {item.get("dedupe_key") for item in existing}

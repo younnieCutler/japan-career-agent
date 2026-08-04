@@ -117,17 +117,19 @@ relative paths, and source kind in `.career-agent/vault-index.jsonl`; it never i
 Confirmed events must include evidence. Pass one or more `--evidence` values when approving; numeric
 claims without matching evidence are rejected.
 Heartbeat emits at most three actions, each with its source event, stage, flow phase, deadline, and
-confirmation flag. `discover` accepts a local UTF-8 JSON export of public postings via `--source`;
-every posting requires an original http(s) URL (there is no company+role fallback — a posting
-without one is dropped, not silently kept), and postings are deduplicated by that URL. Stdin is
-decoded as strict UTF-8; configure PowerShell UTF-8 explicitly, and prefer `--source postings.json`
-because upstream PowerShell 5 can irreversibly replace non-ASCII bytes. Synthetic fixtures must use
-`provenance: synthetic`, a `synthetic://` source reference, and a clearly fictional company name.
-It records candidates only; it never applies.
+confirmation flag. `discover` accepts a local UTF-8 JSON export of public postings via `--source`.
+Observed/public postings require an original http(s) URL and are deduplicated by that URL; a posting
+without one is dropped, not silently kept. Synthetic fixtures are a separate contract: they must
+omit `url`, use `provenance: synthetic` with a `synthetic://` source reference as their canonical
+locator, and use a clearly fictional company name. A synthetic locator is never treated as public
+posting evidence. Stdin is decoded as strict UTF-8; configure PowerShell UTF-8 explicitly, and
+prefer `--source postings.json` because upstream PowerShell 5 can irreversibly replace non-ASCII
+bytes. It records candidates only; it never applies.
 
 For a fresh-vault E2E audit, `scripts/e2e_capture.py` wraps the same CLI subprocesses and appends
-redacted argv, timestamps, exit code, stdout, and stderr to a caller-owned `commands.jsonl`. It is
-an audit artifact, not a second runtime ledger.
+redacted argv, timestamps, exit code, stdout/stderr, and UTF-8 validity flags to a caller-owned
+`commands.jsonl`. Invalid target output is replacement-decoded so capture still preserves the exit
+code and diagnostic evidence. It is an audit artifact, not a second runtime ledger.
 
 The runtime uses the request language for response metadata (`ko`, `ja`, or `en`), keeps Japanese
 career terms in the source text, and pauses when track intent is not explicit rather than inventing

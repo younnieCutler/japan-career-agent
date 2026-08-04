@@ -55,6 +55,29 @@ def captured_json(argv: list[str], *, cwd: Path, log_path: Path) -> dict:
 
 
 class GoldenCliTests(unittest.TestCase):
+    def test_capture_preserves_invalid_utf8_output_and_exit_code(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            commands_log = root / "e2e" / "commands.jsonl"
+            child = (
+                "import sys; "
+                "sys.stdout.buffer.write(b'bad\\xff'); "
+                "sys.stderr.buffer.write(b'err\\xfe'); "
+                "raise SystemExit(7)"
+            )
+            result = capture(
+                [sys.executable, "-c", child],
+                cwd=root,
+                log_path=commands_log,
+            )
+            self.assertEqual(result.returncode, 7)
+            row = json.loads(commands_log.read_text(encoding="utf-8").strip())
+            self.assertEqual(row["exit_code"], 7)
+            self.assertEqual(row["stdout"], "bad�")
+            self.assertEqual(row["stderr"], "err�")
+            self.assertFalse(row["stdout_utf8_valid"])
+            self.assertFalse(row["stderr_utf8_valid"])
+
     def test_public_cli_projections_remain_stable_after_entrypoint_split(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -219,9 +242,9 @@ class GoldenCliTests(unittest.TestCase):
             self.assertTrue(setup["ok"])
 
             postings = [
-                {"company": "Proceed Systems (Synthetic)", "role": "Backend Engineer", "url": "https://example.invalid/proceed", "provenance": "synthetic", "source_ref": "synthetic://e2e/postings/proceed"},
-                {"company": "Review Systems (Synthetic)", "role": "Backend Engineer", "url": "https://example.invalid/review", "provenance": "synthetic", "source_ref": "synthetic://e2e/postings/review"},
-                {"company": "Conflict Systems (Synthetic)", "role": "Backend Engineer", "url": "https://example.invalid/conflict", "provenance": "synthetic", "source_ref": "synthetic://e2e/postings/conflict"},
+                {"company": "Proceed Systems (Synthetic)", "role": "Backend Engineer", "provenance": "synthetic", "source_ref": "synthetic://e2e/postings/proceed"},
+                {"company": "Review Systems (Synthetic)", "role": "Backend Engineer", "provenance": "synthetic", "source_ref": "synthetic://e2e/postings/review"},
+                {"company": "Conflict Systems (Synthetic)", "role": "Backend Engineer", "provenance": "synthetic", "source_ref": "synthetic://e2e/postings/conflict"},
             ]
             postings_path = root / "postings.json"
             write_json_lf(postings_path, postings)
