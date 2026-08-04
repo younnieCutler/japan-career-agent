@@ -28,7 +28,6 @@ DOMAIN_MODULES = (
 TRANSITIONAL_RUNTIME_IMPORTERS = {
     "persistence",
     "vault",
-    "routing",
     "proposals",
     "lifecycle",
     "projection",
