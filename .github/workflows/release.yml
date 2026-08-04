@@ -55,6 +55,29 @@ jobs:
       - name: verify before creating a tag
         if: steps.release.outputs.changed == 'true'
         run: python scripts/run_all_checks.py
+      - name: build release bundle
+        if: steps.release.outputs.changed == 'true'
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: python scripts/build_release.py --output-dir release --expected-commit "$EXPECTED_COMMIT"
+      - name: verify release bundle
+        if: steps.release.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="$(python -c 'import json; print(json.load(open("release/release-manifest.json", encoding="utf-8"))["artifact"]["name"])')"
+          python scripts/verify_release.py \
+            --manifest release/release-manifest.json \
+            --checksums release/SHA256SUMS \
+            --artifact "release/$artifact" \
+            --sbom release/sbom.cdx.json
+      - name: upload verified release bundle
+        if: steps.release.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: japan-recruit-ai-agent-${{ steps.release.outputs.version }}
+          path: release/
+          if-no-files-found: error
       - name: create or verify immutable tag
         if: steps.release.outputs.changed == 'true'
         env:
@@ -89,3 +112,4 @@ jobs:
           else
             gh release create "$TAG" --title "$TAG" --generate-notes
           fi
+          gh release upload "$TAG" release/* --clobber

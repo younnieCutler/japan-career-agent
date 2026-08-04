@@ -68,7 +68,7 @@
     "component": {
       "name": "japan-recruit-ai-agent",
       "type": "application",
-      "version": "1.6.20"
+      "version": "1.6.21"
     },
     "properties": [
       {
