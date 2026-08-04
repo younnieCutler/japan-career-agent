@@ -9,7 +9,7 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
-Current release: `1.6.3`.
+Current release: `1.6.4`.
 
 ## What it does
 
@@ -117,6 +117,24 @@ Local fallback:
 ```bash
 git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
 ```
+
+## Five-minute Quickstart
+
+Run these commands from the cloned repository root. Copy the proposal ID printed by `proposals`
+into `PROPOSAL_ID` before running `approve`.
+
+```bash
+python skills/career-agent/career_agent.py setup --vault .career-agent-vault --track chuto --target-role "Platform Engineer"
+python skills/career-agent/career_agent.py run --vault .career-agent-vault --mode chat --message "転職の面接を準備したい"
+python skills/career-agent/career_agent.py proposals --vault .career-agent-vault
+python skills/career-agent/career_agent.py approve --vault .career-agent-vault --workspace . PROPOSAL_ID --evidence "転職の面接を準備したい" --company "Aozora Systems (Synthetic)"
+python skills/career-agent/career_agent.py status --vault .career-agent-vault
+python -c "from pathlib import Path; print(Path('data/pipeline.yml').read_text(encoding='utf-8'))"
+```
+
+The flow is setup → chat proposal → proposal lookup → evidence-backed approval → confirmed status
+and workspace projection. Approval remains user-controlled; the command never submits an
+application or sends a message.
 
 ## Career Agent and workspace
 

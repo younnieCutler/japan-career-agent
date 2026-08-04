@@ -1,0 +1,21 @@
+# SYNTHETIC EXAMPLE ONLY — no real person or personal data.
+candidate_name: "Synthetic Candidate"
+target_role: "Platform Engineer"
+track: chuto
+evidence:
+  - fact: "Python platform maintenance"
+    source_type: synthetic_fixture
+    source: examples/demo-workspace/candidate-profile.example.yml
+    observed_at: "2026-08-04"
+    confidence: high
+    provenance: synthetic_fixture
+skills:
+  - name: Python
+    status: matched
+  - name: Kubernetes
+    status: unknown
+career_values:
+  must_have:
+    - remote work option
+  avoid:
+    - unbounded on-call

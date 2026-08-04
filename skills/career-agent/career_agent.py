@@ -1016,6 +1016,27 @@ def setup(
         profile["language"] = "ko"
     write_toml(home.profile, profile)
     diagnosis = doctor(home)
+    needs_input: list[str] = []
+    if profile.get("track") not in TRACKS:
+        needs_input.append("track")
+    elif profile.get("track") == "shinsotsu" and not isinstance(profile.get("graduation_year"), int):
+        needs_input.append("graduation_year")
+    if needs_input:
+        quoted_vault = '"' + str(home.path).replace('"', '\\"') + '"'
+        if needs_input == ["graduation_year"]:
+            next_command = (
+                "python skills/career-agent/career_agent.py setup "
+                f"--vault {quoted_vault} --track shinsotsu --graduation-year <YYYY>"
+            )
+        else:
+            next_command = (
+                "python skills/career-agent/career_agent.py setup "
+                f"--vault {quoted_vault} --track <shinsotsu|chuto>"
+            )
+    elif not diagnosis["ok"]:
+        next_command = "fill the remaining profile fields doctor flagged, then run setup again"
+    else:
+        next_command = "run --mode chat"
     return {
         "mode": "setup",
         "vault": str(home.path),
@@ -1023,7 +1044,9 @@ def setup(
         "init": init_result,
         "profile": profile,
         "doctor": diagnosis,
-        "next": "run --mode chat" if diagnosis["ok"] else "fill the remaining profile fields doctor flagged, then run setup again",
+        "ok": not needs_input and diagnosis["ok"],
+        "needs_input": needs_input,
+        "next": next_command,
     }
 
 
@@ -1472,6 +1495,17 @@ def approve(
                 validate_event(event, for_confirmation=True)
             except CareerError as exc:
                 record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
+                if str(exc).startswith("confirmed events require evidence"):
+                    raise CareerError(
+                        "confirmed events require evidence.\n"
+                        f"Retry with: approve {proposal_id} --evidence \"<source or confirmation>\"\n"
+                        "Unsupported claims remain drafts."
+                    ) from exc
+                if str(exc).startswith("numeric claim is not present in evidence"):
+                    raise CareerError(
+                        "numeric claim is not present in evidence.\n"
+                        f'Retry with: approve {proposal_id} --evidence "<source or confirmation containing the exact numeric claim>"'
+                    ) from exc
                 raise
             event["status"] = "confirmed"
             # External write (data/pipeline.yml) first; if this fails, vault state & ledger remain clean
@@ -1535,6 +1569,31 @@ def status(home: CareerVault) -> dict[str, Any]:
     return {"vault": str(home.path), "profile": {"track": profile.get("track"), "career_status": profile.get("career_status", "active"), "target_role": profile.get("target_role")}, "state": state, "event_count": len(read_jsonl(home.events)), "pending_proposals": sum(1 for row in read_jsonl(home.proposals) if row.get("status") == "pending"), "posting_count": len(read_jsonl(home.postings))}
 
 
+def proposal_summary(proposal: dict[str, Any]) -> dict[str, Any]:
+    """Expose proposal metadata without leaking event/report bodies."""
+    event = proposal.get("event") if isinstance(proposal.get("event"), dict) else {}
+    report = proposal.get("report") if isinstance(proposal.get("report"), dict) else {}
+    return {
+        "id": proposal.get("id"),
+        "kind": proposal.get("kind"),
+        "status": proposal.get("status"),
+        "created_at": proposal.get("created_at"),
+        "title": event.get("title") or report.get("title") or proposal.get("title"),
+        "stage": event.get("stage") or report.get("stage") or proposal.get("stage"),
+        "company": event.get("company") or proposal.get("company"),
+    }
+
+
+def list_proposals(home: CareerVault, *, include_all: bool = False, limit: int | None = None) -> dict[str, Any]:
+    rows = read_jsonl(home.proposals)
+    if not include_all:
+        rows = [row for row in rows if row.get("status") == "pending"]
+    rows = [row for _, row in sorted(enumerate(rows), key=lambda item: (str(item[1].get("created_at") or ""), item[0]), reverse=True)]
+    if limit is not None:
+        rows = rows[:limit]
+    return {"mode": "proposals", "count": len(rows), "proposals": [proposal_summary(row) for row in rows]}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local-first Japan career agent runtime")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1571,6 +1630,13 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--source", help="JSON file for discover; stdin is used when omitted")
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)
+    proposals_parser = subparsers.add_parser(
+        "proposals",
+        help="list proposal metadata without exposing proposal bodies",
+    )
+    add_vault_argument(proposals_parser)
+    proposals_parser.add_argument("--all", dest="include_all", action="store_true", help="include approved and superseded proposals")
+    proposals_parser.add_argument("--limit", type=int, help="return at most N proposals (N must be positive)")
     approve_parser = subparsers.add_parser("approve")
     add_vault_argument(approve_parser)
     add_workspace_argument(approve_parser)
@@ -1614,7 +1680,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
             result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
             print(json.dumps(result, ensure_ascii=False, indent=2))
-            return 0
+            return 0 if result.get("ok", True) else 2
         if not args.vault:
             raise CareerError("--vault or CAREER_VAULT is required; the runtime never defaults to the current directory")
         home = CareerVault(Path(args.vault))
@@ -1626,6 +1692,10 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = doctor(home, fix=args.fix, workspace=args.workspace)
             elif args.command == "status":
                 result = status(home)
+            elif args.command == "proposals":
+                if args.limit is not None and args.limit < 1:
+                    raise CareerError("--limit must be a positive integer")
+                result = list_proposals(home, include_all=args.include_all, limit=args.limit)
             elif args.command == "approve":
                 result = approve(home, args.proposal_id, args.evidence, args.deadline, args.company, args.compensation, args.currency, args.workspace)
             elif args.command == "restore-state":
