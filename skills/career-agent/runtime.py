@@ -38,108 +38,59 @@ if str(_SHARED_ROOT) not in sys.path:
 import pipeline_store  # noqa: E402
 import self_analysis_profile  # noqa: E402
 
+from models import (  # noqa: E402
+    CAREER_CONTEXT_FIELDS,
+    CAREER_STATUSES,
+    CHUTO_STAGES,
+    CONTEXT_KINDS,
+    EVENT_STATUSES,
+    PIPELINE_STAGE,
+    REFERENCE_BY_STAGE,
+    REQUIRED_CONTEXT_METADATA,
+    REQUIRED_EVENT_FIELDS,
+    SHINSOTSU_STAGES,
+    SKILL_BY_STAGE,
+    TRACKS,
+    TRUSTED_SOURCE_TYPES,
+    UNTRUSTED_DATA_MARKER,
+    VAULT_DIRECTORIES,
+    CareerError,
+    as_text,
+    default_state,
+    normalized_state,
+)
+from validation import DATE_VALUE, NUMERIC_CLAIM, validate_career_context, validate_event  # noqa: E402
 
-TRACKS = {"shinsotsu", "chuto"}
-EVENT_STATUSES = {"draft", "confirmed", "superseded"}
-CAREER_STATUSES = {"active", "confirmed", "onboarding"}
-VAULT_DIRECTORIES = (
-    "00-control",
-    "01-capture",
-    "02-state",
-    "03-active",
-    "04-evidence",
-    "05-playbooks",
-    "06-reference",
-    "07-archive",
+# Keep the historical ``runtime`` import surface while the owner modules are extracted in later
+# PRs. The tuple is intentionally unused at runtime; it makes the compatibility contract explicit.
+_MODEL_COMPATIBILITY_EXPORTS = (
+    CAREER_CONTEXT_FIELDS,
+    CAREER_STATUSES,
+    CHUTO_STAGES,
+    CONTEXT_KINDS,
+    EVENT_STATUSES,
+    PIPELINE_STAGE,
+    REFERENCE_BY_STAGE,
+    REQUIRED_CONTEXT_METADATA,
+    REQUIRED_EVENT_FIELDS,
+    SHINSOTSU_STAGES,
+    SKILL_BY_STAGE,
+    TRACKS,
+    TRUSTED_SOURCE_TYPES,
+    UNTRUSTED_DATA_MARKER,
+    VAULT_DIRECTORIES,
+    CareerError,
+    as_text,
+    default_state,
+    normalized_state,
+    validate_career_context,
+    validate_event,
+    DATE_VALUE,
+    NUMERIC_CLAIM,
 )
-CONTEXT_KINDS = {"active", "evidence", "playbook", "reference"}
-TRUSTED_SOURCE_TYPES = {"official", "personal_evidence", "curated_practice"}
-REQUIRED_CONTEXT_METADATA = {"agent_read", "agent_scope", "status", "source_type", "reviewed_on"}
-UNTRUSTED_DATA_MARKER = "untrusted_career_data"
-CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")
-SHINSOTSU_STAGES = (
-    "自己分析・就活軸",
-    "学チカ・自己PR素材",
-    "業界研究・企業研究",
-    "ES・履歴書",
-    "適性検査（SPI3）",
-    "書類選考・面接",
-    "内々定・内定・入社準備",
-)
-CHUTO_STAGES = (
-    "自己分析・転職軸",
-    "職務経歴書・自己PR",
-    "業界研究・企業研究",
-    "応募・書類選考",
-    "面接",
-    "内定・条件交渉",
-    "退職・入社準備",
-)
-# Agent stage → the 0–7 Japan market stage map (AGENTS.md § Market Stage Map), which is what
-# data/pipeline.yml stores per company. The chuto tuple maps 1:1; the shinsotsu tuple is a
-# 就活 flow, so ES・履歴書 is document prep (1) and 適性検査 is part of the screening gate (3).
-PIPELINE_STAGE = {
-    "自己分析・就活軸": 0,
-    "自己分析・転職軸": 0,
-    "学チカ・自己PR素材": 1,
-    "職務経歴書・自己PR": 1,
-    "ES・履歴書": 1,
-    "業界研究・企業研究": 2,
-    "応募・書類選考": 3,
-    "適性検査（SPI3）": 3,
-    "面接": 4,
-    "書類選考・面接": 4,
-    "内定・条件交渉": 5,
-    "内々定・内定・入社準備": 5,
-    "退職・入社準備": 6,
-}
-SKILL_BY_STAGE = {
-    "自己分析・就活軸": "jiko-bunseki",
-    "自己分析・転職軸": "jiko-bunseki",
-    "学チカ・自己PR素材": "job-seeker-agent",
-    "職務経歴書・自己PR": "job-seeker-agent",
-    "業界研究・企業研究": "kigyou-bunseki",
-    "ES・履歴書": "job-seeker-agent",
-    "適性検査（SPI3）": "job-seeker-agent",
-    "書類選考・面接": "job-seeker-agent",
-    "応募・書類選考": "matching-simulator",
-    "面接": "job-seeker-agent",
-    "内々定・内定・入社準備": "job-seeker-agent",
-    "内定・条件交渉": "tenshoku-strategy",
-    "退職・入社準備": "tenshoku-strategy",
-}
-REFERENCE_BY_STAGE = {
-    "自己分析・就活軸": ("references/questions.md",),
-    "自己分析・転職軸": ("references/questions.md",),
-    "学チカ・自己PR素材": ("references/shinsotsu.md",),
-    "職務経歴書・自己PR": ("references/shokumukeireki-saigensei.md",),
-    "業界研究・企業研究": ("references/frameworks.md",),
-    "ES・履歴書": ("references/shinsotsu.md",),
-    "適性検査（SPI3）": ("references/frameworks.md",),
-    "書類選考・面接": ("references/mensetsu-rounds.md",),
-    "応募・書類選考": ("references/senko-tracking.md",),
-    "面接": ("references/mensetsu-rounds.md",),
-    "内々定・内定・入社準備": ("references/naitei-taiou.md",),
-    "内定・条件交渉": ("references/naitei-taiou.md",),
-    "退職・入社準備": ("references/nyusha-teichaku.md",),
-}
-REQUIRED_EVENT_FIELDS = (
-    "id",
-    "track",
-    "stage",
-    "flow_phase",
-    "type",
-    "occurred_at",
-    "title",
-    "summary",
-    "evidence",
-    "source",
-    "next_action",
-    "deadline",
-    "status",
-)
-NUMERIC_CLAIM = re.compile(r"(?<![A-Za-z])[+-]?\d+(?:[.,]\d+)?\s*(?:%|％|명|人|건|件|배|倍|만|万円|원|円)")
-DATE_VALUE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:T[^Z]+Z)?$")
+
+
+## Core vocabulary is owned by models.py; imported above for compatibility.
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.M)
 WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]")
 IGNORED_VAULT_DIRS = {".git", ".obsidian", ".career-agent", "career-home", "__pycache__"}
@@ -172,20 +123,12 @@ def term_present(term: str, lowered: str) -> bool:
     return term in lowered
 
 
-class CareerError(ValueError):
-    pass
-
-
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def today() -> dt.date:
     return dt.date.today()
-
-
-def as_text(value: Any) -> str:
-    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
 def read_json(path: Path, default: Any) -> Any:
@@ -240,57 +183,6 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
         if isinstance(row, dict):
             rows.append(row)
     return rows
-
-
-def validate_career_context(value: Any) -> dict[str, Any]:
-    """Validate the small, user-confirmed context payload shared across skills."""
-    if not isinstance(value, dict):
-        raise CareerError("career context must be an object")
-
-    anchors = value.get("career_anchors")
-    if anchors is not None:
-        if not isinstance(anchors, dict):
-            raise CareerError("career context career_anchors must be an object or null")
-        if not isinstance(anchors.get("primary"), str) or not anchors["primary"].strip():
-            raise CareerError("career context career_anchors.primary must be a non-empty string")
-        secondary = anchors.get("secondary")
-        if not isinstance(secondary, list) or not all(isinstance(entry, str) and entry.strip() for entry in secondary):
-            raise CareerError("career context career_anchors.secondary must be a list of non-empty strings")
-        if not isinstance(anchors.get("will_not_give_up"), str) or not anchors["will_not_give_up"].strip():
-            raise CareerError("career context career_anchors.will_not_give_up must be a non-empty string")
-
-    theme = value.get("career_theme")
-    if theme is not None and (not isinstance(theme, str) or not theme.strip()):
-        raise CareerError("career context career_theme must be a non-empty string or null")
-
-    energy_map = value.get("energy_map")
-    if energy_map is not None:
-        if not isinstance(energy_map, dict):
-            raise CareerError("career context energy_map must be an object or null")
-        for field in ("energizes", "drains"):
-            item = energy_map.get(field)
-            if not isinstance(item, list) or not all(isinstance(entry, str) and entry.strip() for entry in item):
-                raise CareerError(f"career context energy_map.{field} must be a list of non-empty strings")
-        if energy_map.get("misfit_flag") is not None and not isinstance(energy_map["misfit_flag"], str):
-            raise CareerError("career context energy_map.misfit_flag must be a string or null")
-
-    values = value.get("career_values")
-    if values is not None:
-        if not isinstance(values, dict):
-            raise CareerError("career context career_values must be an object or null")
-        if string_list_from(values, "must_have") is None or string_list_from(values, "avoid") is None:
-            raise CareerError("career context career_values requires must_have and avoid lists")
-
-    if not any(value.get(field) is not None for field in CAREER_CONTEXT_FIELDS):
-        raise CareerError("career context must contain at least one non-null field")
-    return {field: value.get(field) for field in CAREER_CONTEXT_FIELDS}
-
-
-def string_list_from(value: dict[str, Any], field: str) -> list[str] | None:
-    item = value.get(field)
-    if not isinstance(item, list) or not all(isinstance(entry, str) and entry.strip() for entry in item):
-        return None
-    return item
 
 
 def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
@@ -584,43 +476,6 @@ def select_context(vault: Path, track: str, stage: str) -> list[dict[str, Any]]:
     return selected[:5]
 
 
-def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> None:
-    missing = [field for field in REQUIRED_EVENT_FIELDS if field not in event]
-    if missing:
-        raise CareerError(f"event missing fields: {', '.join(missing)}")
-    if event["track"] not in TRACKS:
-        raise CareerError("event.track must be shinsotsu or chuto")
-    if event["status"] not in EVENT_STATUSES:
-        raise CareerError("event.status must be draft, confirmed, or superseded")
-    for field in ("id", "stage", "flow_phase", "type", "title", "summary", "source"):
-        if not isinstance(event[field], str) or not event[field].strip():
-            raise CareerError(f"event.{field} must be a non-empty string")
-    if not isinstance(event["evidence"], list):
-        raise CareerError("event.evidence must be a list")
-    if event["deadline"] is not None and not isinstance(event["deadline"], str):
-        raise CareerError("event.deadline must be an ISO date or null")
-    if event["deadline"] and not DATE_VALUE.match(event["deadline"]):
-        raise CareerError("event.deadline must use YYYY-MM-DD")
-    if "company" in event and event["company"] is not None:
-        if not isinstance(event["company"], str) or not event["company"].strip():
-            raise CareerError("event.company must be a non-empty string")
-    if "compensation" in event and event["compensation"] is not None:
-        if isinstance(event["compensation"], bool) or not isinstance(event["compensation"], (int, float)) or event["compensation"] < 0:
-            raise CareerError("event.compensation must be a number >= 0")
-    if "currency" in event and event["currency"] is not None:
-        if not isinstance(event["currency"], str) or not event["currency"].strip():
-            raise CareerError("event.currency must be a non-empty string")
-    if for_confirmation or event["status"] == "confirmed":
-        if not event["evidence"]:
-            if NUMERIC_CLAIM.search(event["summary"] + " " + event["title"]):
-                raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
-            raise CareerError("confirmed events require evidence; unsupported claims stay drafts")
-        claims = NUMERIC_CLAIM.findall(event["summary"] + " " + event["title"])
-        evidence_text = as_text(event["evidence"])
-        if claims and not all(claim in evidence_text for claim in claims):
-            raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
-
-
 def approval_action_for(message: str) -> str:
     return {
         "ko": "근거를 확인한 뒤 이벤트 확정",
@@ -654,29 +509,6 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
     }
     validate_event(event)
     return event
-
-
-def default_state() -> dict[str, Any]:
-    return {
-        "track": None,
-        "stage": None,
-        "flow_phase": None,
-        "career_status": "active",
-        "open_actions": [],
-        "deadlines": [],
-        "last_event_id": None,
-        "updated_at": None,
-        "version": None,
-    }
-
-
-def normalized_state(value: dict[str, Any]) -> dict[str, Any]:
-    state = default_state()
-    state.update({key: item for key, item in value.items() if key in state})
-    for key in ("track", "stage", "flow_phase", "last_event_id", "updated_at", "version"):
-        if state.get(key) == "":
-            state[key] = None
-    return state
 
 
 def profile_template() -> str:
