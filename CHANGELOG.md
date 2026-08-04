@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.18] - 2026-08-04
+
+- Added a machine-readable behavior-evaluation schema and a deterministic runner with a closed
+  adapter registry, explicit contract-audit classifications, input/output hashes, and runtime
+  identity metadata.
+
 ## [1.6.17] - 2026-08-04
 
 - Completed the Career Agent architecture boundary: `runtime.py` is now orchestration/CLI plus
