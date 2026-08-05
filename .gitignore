@@ -44,6 +44,9 @@
 /skills/jiko-bunseki/data/
 /skills/jiko-bunseki/career-docs/
 
+# judge pilot run outputs — advisory, non-reproducible scores; keep them out of git
+/skills/job-seeker-agent/tests/runs/
+
 # data/ is gitignored — contains personal resume/profile data
 # Only the README files inside data/ are tracked
 !/data/
