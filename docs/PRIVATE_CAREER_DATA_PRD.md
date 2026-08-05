@@ -1524,6 +1524,11 @@ disagree with the links. Ordinary career events keep the status.
 
 **Supersession is a single chain inside one logical fact key**, and this is enforced, not assumed:
 
+- both ends of the link must be `confirmed`. Checking only the successor lets an unapproved draft
+  reach the projection through the back door: a confirmed successor with an Unknown
+  `effective_from` marks itself as conflicting against its predecessor, so a draft predecessor
+  makes the whole field report a `Conflict` caused entirely by a record that is not supposed to be
+  visible yet;
 - a successor must carry the predecessor's `category` and `key` — otherwise a JLPT record can close
   a compensation record's interval and blank the salary;
 - a predecessor may have at most one confirmed successor. A fork is not a value ambiguity to report

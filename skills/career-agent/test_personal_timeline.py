@@ -324,16 +324,41 @@ class SupersessionTest(unittest.TestCase):
         self.assertEqual(history["a"]["effective_to"], "2024-12-31")
         self.assertEqual(history["b"]["effective_to"], "2025-12-31")
 
-    def test_a_draft_cycle_member_does_not_make_a_cycle(self) -> None:
-        proposed = event("a", "language", "jlpt", "N2", effective_from="2025-01-01",
+    def test_a_confirmed_fact_cannot_supersede_a_draft(self) -> None:
+        """Supersession needs confirmed facts on both ends, not just the successor."""
+        draft = event("a", "language", "jlpt", "N2", effective_from="2024-01-01")
+        draft["status"] = "draft"
+        events = [
+            draft,
+            event("b", "language", "jlpt", "N1", effective_from="2026-01-01", supersedes="a"),
+        ]
+        with self.assertRaises(CareerError) as caught:
+            personal_timeline.project(events, "2026-08-05")
+        self.assertIn("must be confirmed", str(caught.exception))
+
+    def test_a_draft_predecessor_cannot_manufacture_a_conflict(self) -> None:
+        """The dangerous shape: an unapproved draft poisoning a confirmed field's projection."""
+        draft = event("a", "language", "jlpt", "N2", effective_from="2024-01-01")
+        draft["status"] = "draft"
+        events = [draft, event("b", "language", "jlpt", "N1", supersedes="a")]
+        with self.assertRaises(CareerError):
+            personal_timeline.project(events, "2026-08-05")
+
+    def test_a_draft_successor_edge_is_not_part_of_the_graph(self) -> None:
+        """A draft's own `supersedes` link is skipped, so it cannot close or loop a chain."""
+        proposed = event("c", "language", "jlpt", "N0", effective_from="2027-01-01",
                          supersedes="b")
         proposed["status"] = "draft"
         events = [
+            event("a", "language", "jlpt", "N3", effective_from="2024-01-01"),
+            event("b", "language", "jlpt", "N2", effective_from="2025-01-01", supersedes="a"),
             proposed,
-            event("b", "language", "jlpt", "N1", effective_from="2026-01-01", supersedes="a"),
         ]
         field = personal_timeline.project(events, "2026-08-05")["language"]["jlpt"]
-        self.assertEqual(field["value"], "N1")
+        self.assertEqual(field["value"], "N2")
+        history = {row["fact_id"]: row for row in
+                   personal_timeline.timeline(events, "language", "jlpt")}
+        self.assertIsNone(history["b"]["effective_to"], "a draft must not close an interval")
 
     def test_a_draft_fork_member_does_not_make_a_fork(self) -> None:
         """Only confirmed successors claim a predecessor, so a proposal is not a broken chain."""
@@ -476,6 +501,23 @@ class DocumentCurrencyTest(unittest.TestCase):
         records = [self.record("doc_a", "2026-07-15"), self.record("doc_b", "2026-07-15")]
         states = personal_timeline.document_states(records, "2026-08-05")
         self.assertEqual({row["status"] for row in states}, {"conflict"})
+        for row in states:
+            self.assertIsNone(
+                row["effective_to"],
+                "same-date documents are not each other's successor, so neither interval closes",
+            )
+
+    def test_a_same_date_pair_still_closes_against_a_later_document(self) -> None:
+        records = [
+            self.record("doc_a", "2024-05-01"),
+            self.record("doc_b", "2024-05-01"),
+            self.record("doc_c", "2026-07-15"),
+        ]
+        states = {row["document_id"]: row for row in
+                  personal_timeline.document_states(records, "2026-08-05")}
+        self.assertEqual(states["doc_a"]["effective_to"], "2026-07-14")
+        self.assertEqual(states["doc_b"]["effective_to"], "2026-07-14")
+        self.assertEqual(states["doc_c"]["status"], "current")
 
     def test_logical_keys_are_independent(self) -> None:
         records = [

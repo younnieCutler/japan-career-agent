@@ -157,6 +157,16 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
             raise CareerError(f"{successor['fact_id']} supersedes an unknown fact: {target}")
         if predecessor is successor:
             raise CareerError(f"{successor['fact_id']} cannot supersede itself")
+        if predecessor["status"] != "confirmed":
+            # Only confirmed facts take part in supersession -- on BOTH ends of the link. Checking
+            # the successor alone let an unapproved draft reach the projection through the back
+            # door: a confirmed successor with an Unknown `effective_from` would mark itself
+            # `conflicts_from` against a draft predecessor, and the field it belongs to would report
+            # a conflict caused entirely by a record that is not supposed to be visible yet.
+            raise CareerError(
+                f"{successor['fact_id']} cannot supersede {target}: a superseded fact must be "
+                f"confirmed, not {predecessor['status']}"
+            )
         if _key_of(predecessor) != _key_of(successor):
             # A version chain is scoped to one logical fact key. Without this, a JLPT record could
             # close a compensation record's interval and silently blank the salary.
@@ -334,7 +344,10 @@ def document_states(records: list[dict[str, Any]], as_of: str) -> list[dict[str,
         contested = latest is not None and sum(1 for date, _ in dated if date == latest) > 1
 
         for index, (date, record) in enumerate(dated):
-            successor = dated[index + 1][0] if index + 1 < len(dated) else None
+            # The next STRICTLY LATER date, not simply the next row. Documents sharing an effective
+            # date cannot be ordered against each other, so treating one as the other's successor
+            # would derive an `effective_to` a day before its own `effective_from`.
+            successor = next((later for later, _ in dated[index + 1:] if later > date), None)
             if date > day:
                 status = "not_yet_effective"
             elif date != latest:

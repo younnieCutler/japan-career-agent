@@ -25,7 +25,9 @@
   `not_yet_effective` / `unknown_effective_date` state and its `effective_to` from `effective_from`,
   using the same rule the fact timeline uses. Phase 2 stores documents as `observed` only, so this
   is where document currency is decided; import order never decides it. Two documents sharing the
-  newest effective date are reported as a conflict rather than ordered arbitrarily.
+  newest effective date are reported as a conflict rather than ordered arbitrarily, and documents
+  sharing any effective date are not treated as each other's successor — doing so would derive an
+  `effective_to` one day before the record's own `effective_from`.
 - The fact projection revalidates every fact-bearing row it reads and fails closed. The ledger is a
   hand-editable file, and a row no writer would have accepted — a confirmed fact with no evidence,
   an impossible `occurred_at` — must not reach a projection whose output crosses into agent context.
@@ -40,11 +42,13 @@
   relevance and a selection cap on personal context and both are phase 4; until then, wiring the
   whole profile into the model-facing payload would be exactly the unbounded personal context that
   section warns about. Use `personal-profile` explicitly.
-- Supersession is validated as a single acyclic chain inside one logical fact key. A successor must
-  share the predecessor's `category` and `key`, so a JLPT record cannot close a compensation
-  record's interval; a predecessor may have at most one confirmed successor, since a fork would let
-  each successor derive a different `effective_to` and make the projection depend on ledger order;
-  and the chain may not loop. A mutual supersession passes every per-node check while deriving
+- Supersession is validated as a single acyclic chain of confirmed facts inside one logical fact
+  key. Both ends of a link must be confirmed, so an unapproved draft cannot become a predecessor and
+  make a confirmed field report a conflict it did not cause; a successor must share the
+  predecessor's `category` and `key`, so a JLPT record cannot close a compensation record's
+  interval; a predecessor may have at most one confirmed successor, since a fork would let each
+  successor derive a different `effective_to` and make the projection depend on ledger order; and
+  the chain may not loop. A mutual supersession passes every per-node check while deriving
   `effective_to` values that precede their own `effective_from`, and the projection would then
   report an ordinary `Unknown` for what is actually corrupt history.
 - Added `validation.iso_date` as the single calendar-date parser and fixed a real divergence it
