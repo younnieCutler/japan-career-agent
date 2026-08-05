@@ -7,7 +7,7 @@ user_language: ja
 track: chuto
 profile: ../../../mock/chuto-park-minjun.md
 pressures:
-  - SKILL.md:57-60
+  - SKILL.md:57-59
 gates_expected_clear:
   - conflict_offset
   - decision_taken

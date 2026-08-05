@@ -54,9 +54,9 @@ with any other field.
 - Never fabricate a metric, STAR story, responsibility, salary, date, skill level, or company fact.
 - Use `Confirmed`, `Unknown`, `Contradictory`, `Stale`, and `Low Confidence` for evidence. Use
   `Matched`, `Missing`, and `Unknown` for requirements.
-- A confirmed hard requirement, work-authorization, must-have, or avoid conflict stays a
-  `Conflict` at `Decision Status`; other strengths do not offset it. The requirement row itself
-  stays `Missing` — `Conflict` is not a requirement state.
+- A confirmed conflict involving a hard requirement, work authorization, must-have, or avoid
+  condition stays `Conflict` at `Decision Status`; other strengths do not offset it. The
+  requirement row itself stays `Missing` — `Conflict` is not a requirement state.
 - Candidate interest is recorded separately and never changes the evidence result or a next-action
   ordering. The user decides whether to continue after a conflict; do not say `do not apply`.
 
