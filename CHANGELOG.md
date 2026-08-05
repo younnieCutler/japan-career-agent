@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.12.1] - 2026-08-06
+
+- `job-seeker-agent`'s requirement table said two different things about `Conflict`, and both were
+  reachable. The table header allowed `Matched / Missing / Unknown`; the sentence directly under it
+  told the reader to mark a `Conflict` on an evidenced hard-requirement disagreement. Nothing in the
+  file said which one governed a requirement row.
+- The cost was not cosmetic. The same input, run three times against the unmodified skill, used the
+  `Conflict` label 9, 3, and 0 times. Every one of those runs followed the file — it says both
+  things, so following it does not narrow the output.
+- `Conflict` is a `Decision Status` value in `_shared/decision_philosophy.md`, and Requirement has
+  only `Matched | Missing | Unknown` there. The skill now says so directly: a hard requirement both
+  sides evidence and disagree on is `Missing` in the table, and that `Missing` is what makes the
+  `Decision Status` a `Conflict`. One finding, recorded at the level each belongs to.
+- **The three states stay distinct rather than collapsing into one.** `Missing` is a confirmed
+  requirement the confirmed candidate evidence does not demonstrate. `Unknown` is what a requirement
+  stays at when either side is absent, `Contradictory`, or `Stale`. A contradiction in the evidence
+  itself is labelled on the evidence axis, which already has `Contradictory` for it.
+- The no-offset invariant is unchanged and now names its level: a confirmed hard-requirement,
+  work-authorization, must-have, or avoid conflict stays a `Conflict` at `Decision Status`, and
+  other strengths do not offset it. Interest is still recorded separately and still reorders
+  nothing, and the skill still does not decide whether to apply.
+- `references/evaluation_rules.md` already described `Conflict` as decision-level. It was the
+  `SKILL.md` summary that had drifted, so the reference is unchanged.
+
 ## [1.12.0] - 2026-08-05
 
 - `propose-fact` closes the last gap in the flow this feature describes: an imported document can
