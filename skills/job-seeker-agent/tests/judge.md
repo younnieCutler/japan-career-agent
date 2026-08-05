@@ -13,12 +13,15 @@ auto-invoke in a user session, and it is not part of the product surface.
 > `skills/job-seeker-agent/tests/runs/<case>.output.md`
 > against `skills/job-seeker-agent/tests/fixtures/judge/<case>.example.md`.
 
-## Inputs — three required
+## Inputs — two required, one expected
 
 1. **The fixture** — `tests/fixtures/judge/<case>.example.md`. Its frontmatter declares the case;
    its body is the literal user turn and the literal pasted document.
 2. **The captured output** — the subject's reply, saved verbatim to `tests/runs/<case>.output.md`.
 3. **The capture metadata** — `tests/runs/<case>.capture.json`, written in the subject session.
+   *Expected, not required:* a run without it is still scorable, but its provenance fields are
+   recorded as `null`. Scoring an output the judge cannot attribute is worth more than not
+   scoring it; silently attributing it to the wrong session is worth less than either.
 
 Produce the captured output in a **separate, fresh session**: paste the fixture body's user turn to
 a session with the plugin loaded, save the reply verbatim, then start the judge in another session.
