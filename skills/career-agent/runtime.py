@@ -104,7 +104,14 @@ from persistence import (  # noqa: E402
     write_jsonl,
     write_toml,
 )
-from personal_timeline import document_states, project, timeline  # noqa: E402
+from personal_timeline import (  # noqa: E402
+    candidate_profile_values,
+    document_states,
+    historical_comparison,
+    project,
+    select_personal_context,
+    timeline,
+)
 from private_store import (  # noqa: E402
     DOCUMENT_TYPES,
     PRIVATE_ENV,
@@ -560,6 +567,22 @@ def latest_career_context(home: CareerVault) -> tuple[dict[str, Any] | None, dic
     return latest["career_context"], latest
 
 
+def private_records(vault: Path) -> tuple[list[dict[str, Any]], str | None]:
+    """Document records for a Vault, or an explained absence.
+
+    A private store is optional (section 25), so its absence or misconfiguration is a state to
+    report, not a corruption to stop on. It must not vanish quietly either, hence the reason
+    travelling in the payload rather than being swallowed.
+    """
+    try:
+        store = PrivateHome(resolve_private_home(None, vault))
+    except CareerError as exc:
+        return [], str(exc).splitlines()[0]
+    if not store.initialized():
+        return [], None
+    return private_documents(store), None
+
+
 def run_context(
     home: CareerVault, requested_track: str | None, requested_stage: str | None, as_of: str,
 ) -> dict[str, Any]:
@@ -585,11 +608,15 @@ def run_context(
         "career_context": career_context,
         "career_context_confirmed": career_context is not None,
         "career_context_event_id": career_event.get("id") if career_event else None,
-        # The personal projection is deliberately NOT injected here yet. Section 12.1 requires
-        # track/stage relevance and a selection cap on personal context, and neither exists until
-        # phase 4; `project()` returns every category and key. Wiring the whole profile into the
-        # model-facing payload in the meantime is precisely the unbounded personal context that
-        # section warns about. Use `personal-profile` explicitly until the selector lands.
+        # Section 12.1. Current, stage-relevant, capped, and confirmed-only -- never the whole
+        # `project()` output, which returns every category and key. Documents are not here at all:
+        # neither the relevance map nor the cap applies to them, so `private-list` and
+        # `personal-context --historical` are the explicit paths.
+        # A corrupt fact row raises rather than degrading this block, matching what
+        # `latest_career_context` above already does for a corrupt career_context row: corrupt
+        # canonical data stops the command. That is a different case from a private root that is
+        # merely absent or misconfigured, which `private_records` reports and continues past.
+        "personal_context": select_personal_context(read_jsonl(home.events), stage, as_of),
         "read_only": True,
         "note_bodies_included": False,
     }
@@ -718,6 +745,37 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(timeline_parser)
     timeline_parser.add_argument("--category", required=True, choices=sorted(FACT_CATEGORIES))
     timeline_parser.add_argument("--key", required=True, help="the logical fact key, e.g. jlpt")
+    personal_context_parser = subparsers.add_parser(
+        "personal-context",
+        help="stage-relevant personal context; --historical is the opt-in labelled comparison",
+    )
+    add_vault_argument(personal_context_parser)
+    add_as_of_argument(personal_context_parser)
+    personal_context_parser.add_argument("--stage", help="select facts relevant to this exact stage")
+    personal_mode = personal_context_parser.add_mutually_exclusive_group()
+    personal_mode.add_argument(
+        "--historical", action="store_true",
+        help="section 12.2: retrieve the requested superseded documents, every role labelled",
+    )
+    personal_mode.add_argument(
+        "--candidate-profile", action="store_true",
+        help="emit confirmed facts in CANDIDATE_PROFILE terms for the job-seeker skill to quote",
+    )
+    personal_context_parser.add_argument(
+        "--type", dest="document_type", choices=sorted(DOCUMENT_TYPES),
+        help="with --historical: restrict the comparison to this document type",
+    )
+    personal_context_parser.add_argument(
+        "--company", help="with --historical: restrict the comparison to this company",
+    )
+    personal_context_parser.add_argument(
+        "--document-id", action="append", dest="document_ids", metavar="ID",
+        help="with --historical: compare these exact versions (repeatable; see private-list)",
+    )
+    personal_context_parser.add_argument(
+        "--all-documents", action="store_true",
+        help="with --historical: sweep every document instead of naming what is being compared",
+    )
     context_proposal_parser = subparsers.add_parser(
         "propose-context",
         help="create an approval-gated proposal from a SELF_ANALYSIS_PROFILE YAML",
@@ -839,6 +897,37 @@ def main(argv: Iterable[str] | None = None) -> int:
                     "key": args.key,
                     "history": timeline(read_jsonl(home.events), args.category, args.key),
                 }
+            elif args.command == "personal-context":
+                document_arguments = (
+                    args.document_type, args.company, args.document_ids, args.all_documents,
+                )
+                if not args.historical and any(document_arguments):
+                    # Accepting an argument and then ignoring it teaches the caller that a filter
+                    # was applied when none was. Say so instead.
+                    raise CareerError(
+                        "--type, --company, --document-id and --all-documents apply to --historical"
+                    )
+                if args.stage and (args.historical or args.candidate_profile):
+                    raise CareerError(
+                        "--stage selects facts for the default mode and does not apply here"
+                    )
+                events = read_jsonl(home.events)
+                if args.candidate_profile:
+                    result = candidate_profile_values(events, args.as_of)
+                elif args.historical:
+                    records, unavailable = private_records(home.path)
+                    result = historical_comparison(
+                        records, args.as_of,
+                        document_type=args.document_type, company=args.company,
+                        document_ids=tuple(args.document_ids or ()),
+                        all_documents=args.all_documents,
+                    )
+                    if unavailable:
+                        result["documents_unavailable"] = unavailable
+                else:
+                    # Stage validation lives in the selector, not here: it is a public boundary
+                    # symbol and a caller that skips argparse must fail closed too.
+                    result = select_personal_context(events, args.stage, args.as_of)
             elif args.command == "propose-context":
                 result = propose_career_context(home, args.source)
             elif args.mode == "chat":

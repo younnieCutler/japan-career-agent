@@ -1,6 +1,7 @@
 """Personal fact timeline and the current personal-profile projection.
 
-Implements docs/PRIVATE_CAREER_DATA_PRD.md phase 3 (sections 8, 8.1, 9, 10, 11, 11.1, 12.3, 12.4).
+Implements docs/PRIVATE_CAREER_DATA_PRD.md phases 3 and 4 (sections 8, 8.1, 9, 10, 11, 11.1, 12.1,
+12.2, 12.3, 12.4).
 
 **Facts live in the existing career event ledger.** Section 24 resolves this explicitly: rather than
 adding a second canonical state store, an event may carry a `fact` object, and the ledger's already
@@ -25,11 +26,11 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from models import CareerError
+from models import UNTRUSTED_DATA_MARKER, CareerError
 from validation import iso_date, validate_event
 
-# Section 12.1: the personal path is capped the same way Vault context already is. An uncapped
-# "current facts only" projection is how a privacy boundary quietly grows into the whole profile.
+# How many conflicting records a `conflict` field lists. Not the context cap -- that is
+# `MAX_CONTEXT_FACTS`, further down, and the two answer different questions.
 MAX_CANDIDATES = 5
 
 UNKNOWN_NO_FACT = "no confirmed fact effective at as_of"
@@ -160,7 +161,11 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     successors = sorted(
         (fact for fact in derived if fact.get("supersedes")), key=lambda fact: fact["fact_id"]
     )
+    # Topology is settled before any date is read. A cycle contains a backwards edge by
+    # construction, so deriving first would report the strictly-later violation and never name the
+    # loop that caused it -- the less useful of two true statements.
     claimed: dict[str, list[str]] = {}
+    edges: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for successor in successors:
         if successor["status"] != "confirmed":
             # An unapproved draft must not retire a confirmed fact. Letting it close the interval
@@ -192,14 +197,7 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 f"category and key"
             )
         claimed.setdefault(target, []).append(successor["fact_id"])
-        predecessor["superseded_by"] = successor["fact_id"]
-        if successor["effective_from"] is not None:
-            predecessor["effective_to"] = successor["effective_from"] - dt.timedelta(days=1)
-        else:
-            # Unresolvable ordering: report it, do not pick a winner.
-            marker = predecessor["effective_from"]
-            predecessor["conflicts_from"] = marker
-            successor["conflicts_from"] = marker
+        edges.append((successor, predecessor))
 
     _assert_acyclic({fact["fact_id"]: str(fact["supersedes"]) for fact in successors
                      if fact["status"] == "confirmed"})
@@ -215,6 +213,31 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 f"{target} is superseded by more than one confirmed fact: {', '.join(sorted(ids))}; "
                 f"a fact key has a single version chain"
             )
+
+    for successor, predecessor in edges:
+        predecessor["superseded_by"] = successor["fact_id"]
+        if successor["effective_from"] is None:
+            # Unresolvable ordering: report it, do not pick a winner.
+            marker = predecessor["effective_from"]
+            predecessor["conflicts_from"] = marker
+            successor["conflicts_from"] = marker
+            continue
+        if (
+            predecessor["effective_from"] is not None
+            and successor["effective_from"] <= predecessor["effective_from"]
+        ):
+            # A successor must begin strictly after what it replaces. Otherwise the rule below
+            # derives an `effective_to` at or before the predecessor's own `effective_from` -- an
+            # interval that ends before it starts, which no reader can render. Backdating a
+            # correction is a real need, but it is a different operation with a different meaning
+            # (replace the interval, not close it), so it gets its own semantics rather than
+            # arriving disguised as an ordinary supersession.
+            raise CareerError(
+                f"{successor['fact_id']} cannot supersede {predecessor['fact_id']}: a successor "
+                f"must be effective after its predecessor "
+                f"({successor['effective_from']} <= {predecessor['effective_from']})"
+            )
+        predecessor["effective_to"] = successor["effective_from"] - dt.timedelta(days=1)
     return derived
 
 
@@ -392,6 +415,243 @@ def _document_state(
         "status": status,
         "sha256": record["sha256"],
         "verified_by_user": record.get("verified_by_user", False),
+    }
+
+
+# Section 12.1 rule 4: relevance must be a mechanical match, because "relevant" as an undefined word
+# is the one condition in that list a reader can quietly skip. It is deliberately *not* the recording
+# event's track: a fact describes the person, not the search, so a JLPT result recorded during a
+# shinsotsu search is still true during a chuto one, and filtering by the recording track would drop
+# facts that are currently true -- the mirror image of the stale-context bug this whole feature
+# exists to prevent. The question that is both mechanical and meaningful is which categories the
+# stage actually needs. An empty set is a real answer, not a gap: company research and an aptitude
+# test need nothing about the person, and sending it anyway spends privacy for nothing.
+STAGE_CATEGORIES: dict[str, frozenset[str]] = {
+    "自己分析・就活軸": frozenset({"education", "skill", "portfolio"}),
+    "学チカ・自己PR素材": frozenset({"education", "skill", "portfolio"}),
+    "業界研究・企業研究": frozenset(),
+    "ES・履歴書": frozenset({"education", "certification", "language", "skill", "portfolio"}),
+    "適性検査（SPI3）": frozenset(),
+    "書類選考・面接": frozenset(
+        {"education", "certification", "language", "skill", "portfolio", "role", "employment"}
+    ),
+    "内々定・内定・入社準備": frozenset({"compensation", "employment"}),
+    "自己分析・転職軸": frozenset({"employment", "role", "skill"}),
+    "職務経歴書・自己PR": frozenset(
+        {"employment", "role", "skill", "portfolio", "certification", "language", "education"}
+    ),
+    "応募・書類選考": frozenset(
+        {"employment", "role", "skill", "portfolio", "certification", "language", "education"}
+    ),
+    "面接": frozenset(
+        {"employment", "role", "skill", "portfolio", "certification", "language", "education"}
+    ),
+    "内定・条件交渉": frozenset({"compensation", "employment"}),
+    "退職・入社準備": frozenset({"employment", "compensation"}),
+}
+
+# Section 12.1: the personal path is capped exactly as the Vault path is. An uncapped "current facts
+# only" selection is how a privacy boundary quietly becomes the whole profile.
+MAX_CONTEXT_FACTS = 5
+
+
+def select_personal_context(
+    events: list[dict[str, Any]],
+    stage: str | None,
+    as_of: str,
+) -> dict[str, Any]:
+    """Section 12.1: current, stage-relevant, capped, trust-marked personal context.
+
+    Only `confirmed` fields are carried (rule 1), so a conflict or an Unknown never travels as a
+    value. They are *counted* rather than dropped in silence: a model told nothing about salary
+    would conclude there is no salary, when the truth may be that two records disagree.
+
+    **No documents.** Default context carries selected facts and nothing else. Document metadata --
+    type, company, purpose, effective dates, digest -- is personal data that neither the stage
+    relevance map nor the cap applies to, so including it would let a stage that needs nothing
+    about the person still receive the shape of every document they own. `private-list` and
+    `personal-context --historical` are the explicit paths.
+    """
+    if stage is not None and stage not in STAGE_CATEGORIES:
+        # Fail closed here, not only at the CLI. A missing map entry would otherwise mean "no
+        # category filter", so an unrecognized stage widens the selection to the whole profile --
+        # and this function is a public boundary symbol, reachable without going through argparse.
+        raise CareerError(f"personal context stage is not recognized: {stage!r}")
+    projection = project(events, as_of)
+    allowed = STAGE_CATEGORIES[stage] if stage else frozenset()
+    facts: list[dict[str, Any]] = []
+    withheld = {"conflict": 0, "unknown": 0}
+    for category, keys in projection.items():
+        if category == "as_of" or category not in allowed:
+            continue
+        for key, field in sorted(keys.items()):
+            if field["state"] != "confirmed":
+                withheld[field["state"]] = withheld.get(field["state"], 0) + 1
+                continue
+            facts.append({"category": category, "key": key, **field})
+
+    # Ordered before capping, newest effective date first, ties broken by name. A cap over unordered
+    # input makes the visible subset depend on ledger order even when the selection does not.
+    facts.sort(key=lambda fact: (fact["category"], fact["key"]))
+    facts.sort(key=lambda fact: fact["effective_from"] or "", reverse=True)
+    return {
+        "as_of": projection["as_of"],
+        "selected_for": {"stage": stage},
+        "facts": facts[:MAX_CONTEXT_FACTS],
+        "withheld": withheld,
+        "capped_at": MAX_CONTEXT_FACTS,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "documents_included": False,
+    }
+
+
+def _matches(
+    document: dict[str, Any],
+    document_type: str | None,
+    company: str | None,
+    document_ids: tuple[str, ...],
+) -> bool:
+    key = document["logical_key"]
+    if document_type is not None and key.get("type") != document_type:
+        return False
+    if company is not None and key.get("company") != company:
+        return False
+    return not document_ids or document["document_id"] in document_ids
+
+
+def historical_comparison(
+    records: list[dict[str, Any]],
+    as_of: str,
+    *,
+    document_type: str | None = None,
+    company: str | None = None,
+    document_ids: tuple[str, ...] = (),
+    all_documents: bool = False,
+) -> dict[str, Any]:
+    """Section 12.2 / AC-09: the opt-in mode, for the requested versions, every role labelled.
+
+    Superseded documents are reachable *only* here, and each side says which it is. An unlabelled
+    historical value is the failure this mode exists to avoid: it looks exactly like a current one.
+
+    **A request must name what it is asking for.** "Compare my 2024 resume with my current resume"
+    is a question about resumes; returning every certificate and every company's ES beside them
+    discloses personal data nobody asked for. An unfiltered sweep is still available, but only
+    through `all_documents`, so it is a decision rather than the default. `document_ids` narrows to
+    exact versions when the two being compared are already known -- `private-list` produces them.
+
+    Metadata only, in this mode too. Extracting document text is a v1 non-goal (section 4), so
+    there is no body to select -- the user opens the file themselves from the private store.
+    """
+    if not all_documents and document_type is None and company is None and not document_ids:
+        raise CareerError(
+            "a historical comparison must name what it is asking for: pass a document type, a "
+            "company, or document ids. Use all_documents to sweep the whole store deliberately."
+        )
+    documents = [
+        document for document in document_states(records, as_of)
+        if _matches(document, document_type, company, document_ids)
+    ]
+    return {
+        "context_mode": "historical-comparison",
+        "as_of": as_of,
+        "requested": {
+            "type": document_type,
+            "company": company,
+            "document_ids": list(document_ids),
+            "all_documents": all_documents,
+        },
+        "current": [document for document in documents if document["status"] == "current"],
+        "historical": [document for document in documents if document["status"] == "superseded"],
+        # Everything else -- contested dates, not yet effective, no effective date at all. Dropping
+        # these would make a document the user explicitly asked about vanish with no explanation,
+        # which in an explicit historical query is worse than showing an awkward state.
+        "unresolved": [
+            document for document in documents
+            if document["status"] not in ("current", "superseded")
+        ],
+        "note": "Historical values are not treated as current facts.",
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "document_bodies_included": False,
+    }
+
+
+# The minimal downstream read path (section 24, phase 4). Maps confirmed personal facts onto the
+# CANDIDATE_PROFILE field names in _shared/schemas.yml so the job-seeker skill has something exact
+# to quote. It returns values, never writes: `data/candidate_profile.yml` is written by a skill
+# following Markdown instructions, with the user confirming, and that stays true.
+#   field: (category, key, permitted values or None for any non-empty string)
+# The domains are the ones _shared/schemas.yml states for CANDIDATE_PROFILE. A fact's `value` is
+# otherwise unconstrained -- `validate_fact` checks that the key exists, not what belongs in it --
+# and the job-seeker skill is told to quote these values exactly, so an unchecked `N9` would become
+# a schema violation two skills downstream.
+CANDIDATE_PROFILE_FIELDS: dict[str, tuple[str, str, frozenset[str] | None]] = {
+    "jlpt_level": ("language", "jlpt", frozenset({"native", "N1", "N2", "N3", "N4", "None"})),
+    "target_role": ("role", "target", None),
+    "segment": (
+        "employment", "segment",
+        frozenset({"dai2_shinsotsu", "standard", "senior_ic", "management"}),
+    ),
+    "visa_status": (
+        "employment", "visa_status", frozenset({"PR", "Engineer/Specialist", "Student"}),
+    ),
+}
+INVALID_FOR_SCHEMA = "the confirmed value is not permitted by the CANDIDATE_PROFILE schema"
+
+
+def _withheld_field(state: str, reason: str, entry: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Report a field that must not be quoted -- without shipping the value anyway.
+
+    `value: null` alone is not enough here. A conflict projection carries its `candidates`, each
+    with the value that caused the conflict, so passing the entry through would hand the consumer
+    exactly the personal values the state says it may not use. Default context already withholds
+    the value and sends only a count (section 12.1); this boundary must not be the exception.
+    """
+    field = {"state": state, "value": None, "reason": reason}
+    if entry is not None and entry.get("candidates"):
+        field["candidate_count"] = len(entry["candidates"])
+    if entry is not None and entry.get("history_available"):
+        field["history_available"] = True
+    return field
+
+
+def _schema_checked(field: str, entry: dict[str, Any], domain: frozenset[str] | None) -> dict[str, Any]:
+    """Refuse to hand a downstream schema a value it does not accept."""
+    value = entry["value"]
+    if domain is None:
+        valid = isinstance(value, str) and bool(value.strip())
+    else:
+        valid = value in domain
+    if valid:
+        return entry
+    # The offending value stays out of the message. Naming the field is enough to find the record;
+    # echoing the value would smuggle the personal data back into the payload through the reason.
+    return _withheld_field("invalid", f"{INVALID_FOR_SCHEMA}: {field}")
+
+
+def candidate_profile_values(events: list[dict[str, Any]], as_of: str) -> dict[str, Any]:
+    """Confirmed personal facts in CANDIDATE_PROFILE terms, with Unknown said out loud."""
+    projection = project(events, as_of)
+    values: dict[str, Any] = {}
+    for field, (category, key, domain) in sorted(CANDIDATE_PROFILE_FIELDS.items()):
+        entry = projection.get(category, {}).get(key)
+        if entry is None:
+            values[field] = _withheld_field("unknown", UNKNOWN_NO_FACT)
+        elif entry["state"] != "confirmed":
+            # A conflict or an Unknown is reported as such. Quoting either as a value is exactly the
+            # silent-stale-fallback section 12.3 forbids, one layer further downstream -- and the
+            # values behind it do not travel either.
+            values[field] = _withheld_field(entry["state"], entry["reason"], entry)
+        else:
+            values[field] = _schema_checked(field, entry, domain)
+    return {
+        "as_of": projection["as_of"],
+        "schema": "CANDIDATE_PROFILE",
+        "fields": values,
+        "written_by_this_tool": False,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
     }
 
 

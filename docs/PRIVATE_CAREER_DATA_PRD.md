@@ -553,10 +553,17 @@ Personal context may include only facts that are:
 1. confirmed;
 2. effective at the requested `as_of` date;
 3. not superseded for that date;
-4. relevant to the request, where relevance is the **same mechanical track/stage match the Vault
-   context selector already applies** — not a judgement call. "Relevant" as an undefined word is the
-   only untestable condition in this list, and an untestable condition in a privacy boundary is a
-   condition that will be quietly skipped;
+4. relevant to the request, where relevance is a **mechanical match** — not a judgement call.
+   "Relevant" as an undefined word is the only untestable condition in this list, and an untestable
+   condition in a privacy boundary is a condition that will be quietly skipped. Concretely this is a
+   hardcoded **stage → fact-category** map (`STAGE_CATEGORIES`), deliberately *not* the recording
+   event's track: a fact describes the person, not the search, so a JLPT result recorded during a
+   shinsotsu search is still true during a chuto one, and filtering by the recording track would drop
+   currently-true facts — the mirror image of the stale-context bug this feature exists to prevent.
+   An empty entry is a real answer, not a gap: company research and an aptitude test need nothing
+   about the person, and sending it anyway spends privacy for nothing. An unrecognized stage is
+   **rejected**, because a missing entry means "no category filter" and a typo must not widen the
+   selection to the whole profile;
 5. provenance-backed;
 6. permitted by context/privacy policy;
 7. within the selection cap.
@@ -565,6 +572,24 @@ Personal context may include only facts that are:
 maximum, deterministic ordering, newest effective date first). The Vault path caps its selection and
 the personal path must not be the unbounded exception — an uncapped personal projection is how a
 "current facts only" context quietly grows into the whole profile.
+
+**Withheld is not the same as absent.** A field that projects as `conflict` or `unknown` fails rule 1
+and does not travel as a value, but its *count* does. A model told nothing at all about salary
+concludes there is no salary; the truth may be that two records disagree, and that is exactly the
+case a human needs to resolve.
+
+**Default context carries facts and nothing else — no documents.** Rules 4 and 7 are written for
+facts: the relevance map is keyed by fact category and the cap counts facts. Document metadata
+(type, company, purpose, effective dates, digest) is personal data that neither rule constrains, so
+including it would let a stage that legitimately needs *nothing* about the person still receive the
+shape of every document they own, uncapped. Documents are reachable only through the explicit
+document commands, which the user asks for.
+
+**The selection function itself rejects an unrecognized stage.** Not the CLI in front of it. A
+missing entry in the relevance map means "no category filter", so an unrecognized stage that is
+merely passed through widens the selection to the whole profile — and the selector is a public
+boundary symbol other code can call without going through argparse. A guard that only exists at the
+outermost layer is a guard the next caller skips.
 
 ### 12.2 Historical documents are opt-in
 
@@ -589,6 +614,28 @@ HISTORICAL
 
 Historical values are not treated as current facts.
 ```
+
+**A request must name what it is asking for.** "Compare my 2024 resume with my current resume" is a
+question about resumes; returning every certificate and every company's ES beside them answers a
+question nobody asked, using personal data. The mode therefore **requires** at least one of: a
+document type, a company, or explicit document ids. An unfiltered sweep of the whole store stays
+available but only through an explicit `all_documents`, so disclosing everything is a decision
+rather than what happens when the user types the short form.
+
+Document ids exist because a type filter is not always specific enough: with resumes from 2023,
+2024, 2025 and 2026, `type = resume` still returns three historical versions when the question named
+two. `private-list` produces the ids.
+
+**Nothing requested disappears.** Documents that are neither current nor superseded — a contested
+effective date, a date in the future, no effective date at all — are reported in their own bucket
+rather than dropped. In an explicit historical query, silently losing a document the user asked
+about is worse than showing an awkward state.
+
+**Metadata only, in this mode too.** Document *text* extraction is a v1 non-goal (§4), so there is
+no body to select and the phrase "historical document bodies" above describes what must never reach
+default context rather than something this mode delivers. The comparison returns the records and
+their labels; the user opens the files themselves from the private root. Restoring a body-bearing
+comparison requires the text-extraction work that §4 defers, and this criterion moves with it.
 
 ### 12.3 No stale fallback
 
@@ -1294,7 +1341,10 @@ Given a superseded 2024 resume and confirmed current 2026 resume, ordinary curre
 Given historical compensation only, current compensation is `Unknown`.
 
 ### AC-09: Historical query
-Explicit historical comparison can retrieve requested historical/current versions with correct labels.
+Explicit historical comparison can retrieve the requested historical/current versions with correct
+labels. The request must name a document type, a company, or exact document ids; sweeping the whole
+store requires saying so explicitly. Documents in no comparable state are reported, not dropped.
+Records and labels only; document text extraction is a v1 non-goal (§4).
 
 ### AC-10: Certificate expiration
 Expired certificates remain in history but are not shown as currently valid.
@@ -1559,12 +1609,14 @@ id, before the §12.1 cap is applied. Capping unordered input makes the *visible
 ledger order even when the conflict itself does not — a determinism hole that a test asserting only
 the happy path will not find.
 
-**Open contract, to be settled before phase 4: backdated corrections.** A successor whose
-`effective_from` precedes its predecessor's still derives an `effective_to` earlier than the
-predecessor's own `effective_from` — an inverted interval. Two defensible answers exist: require a
-successor to be strictly later and reject the rest, or support backdated correction as its own
-semantics (the successor replaces the predecessor's interval rather than closing it). Phase 3 does
-neither, because guessing here would bake a product decision into a derivation rule.
+**Settled: backdated corrections are rejected, not reinterpreted.** A successor must be effective
+**strictly after** its predecessor. An equal or earlier date derives an `effective_to` at or before
+the predecessor's own `effective_from` — an interval that ends before it starts, which no reader can
+render. Backdating a correction is a real need, but it means *replacing* an interval rather than
+*closing* one; giving it its own operation later is always possible, while un-accepting data that
+has already entered the ledger is not. Topology is checked before any date is read, because a cycle
+contains a backwards edge by construction and reporting the date violation would never name the loop
+that caused it.
 
 ### Phase 4: Context integration and the downstream read path
 Current-only default context; explicit labelled historical mode; stale-context regressions; **and the
@@ -1578,6 +1630,47 @@ store that nothing reads, and "define the relationship later" is not a requireme
 to decide later whether the feature has a consumer at all. Note that `candidate_profile.yml` is
 written by a skill following Markdown instructions rather than by Python, so "must not silently
 overwrite" is satisfied by construction; "is actually usable" is the part that needs specifying.
+
+**The consumer contract is part of this phase, not a follow-up.** Adding a `personal_context` block
+that no documented consumer is told to read is the same failure as building a store nothing reads,
+one layer up. `references/shared-vault-context.md` states what the block contains and how to treat
+it, and the chat path uses the *same selector function* as the shared context command — two
+selectors would eventually disagree about what "current" means, which is the whole class of bug this
+document exists to close.
+
+**The downstream schema is validated at the boundary.** A fact's `value` is otherwise unconstrained:
+`validate_fact` checks that the key exists, not what belongs in it. Since the consuming skill is
+instructed to quote these values *exactly*, an unchecked `jlpt_level: N9` becomes a schema violation
+two skills downstream, where nobody can trace it back. The read path therefore checks each field
+against the domain `_shared/schemas.yml` states and reports a violating value as `invalid` with a
+null value — fail-closed per field, so one bad record does not take the other fields down with it.
+`invalid` is deliberately not folded into `unknown`: "we do not know" and "what we have is unusable"
+call for different repairs.
+
+**A withheld field withholds the value, not just the `value` key.** `value: null` is not enough on
+its own. A `conflict` projection carries its `candidates`, each with the value that caused the
+conflict, so passing the projected entry straight through would hand the consumer exactly the
+personal values the state says it may not use — and an `invalid` reason that quotes the offending
+value smuggles it back the same way. Non-confirmed fields therefore travel as state, a reason built
+from constants, and counts. This is the same rule §12.1 applies with `withheld`, and this boundary
+must not be the exception to it.
+
+### Phase 5: Document → fact promotion
+Phases 1–4 give a canonical store, a temporal core, and a read path — but **nothing writes facts**.
+A user who imports a resume still has to hand-edit `events.jsonl` for any of it to reach a
+projection, which means the end-to-end flow this document describes is not yet closed:
+
+```text
+private-import → document record → fact proposals → user confirmation → canonical facts → context
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                   phase 5
+```
+
+Scope: proposing facts from an imported document behind the existing approval gate (never
+auto-confirming — §5.3), and linking `fact.evidence` to phase 2 `document_id`s so a fact and the
+document backing it stop being separate universes. Until this lands, the feature is complete for a
+user who maintains facts by hand and incomplete for everyone else, and it should be described that
+way rather than as "4 of 4".
 
 ## 25. Backward compatibility
 

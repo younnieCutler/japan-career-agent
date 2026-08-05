@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.11.0] - 2026-08-05
+
+- Personal facts now reach agent context, under section 12.1's whole list rather than a subset of it:
+  confirmed only, effective at `as_of`, not superseded, stage-relevant, capped at five, ordered
+  newest effective date first before the cap, and marked `untrusted_career_data` /
+  `instruction_authority: none`. `context` carries the selection; the unbounded `project()` output
+  still requires an explicit `personal-profile` call.
+- Relevance is a hardcoded stage → fact-category map, not the recording event's track. A fact
+  describes the person, not the search, so a JLPT result recorded during a shinsotsu search is still
+  true during a chuto one; filtering by the recording track would drop currently-true facts, which is
+  the mirror image of the stale-context bug this feature exists to prevent. An empty entry is a real
+  answer — company research and an aptitude test need nothing about the person. An unrecognized
+  `--stage` is rejected rather than treated as "no filter", so a typo cannot widen the selection to
+  the whole profile.
+- A conflicting or Unknown field is withheld from context but counted in `withheld`. A model told
+  nothing about salary concludes there is no salary, when the truth may be that two records disagree.
+- New `personal-context` command. `--historical` is the only path to superseded documents and labels
+  both sides explicitly (section 12.2); `--candidate-profile` emits confirmed facts under the
+  `CANDIDATE_PROFILE` field names so the job-seeker skill can quote exact values instead of asking
+  again. That command writes nothing: `data/candidate_profile.yml` is still written by a skill with
+  the user confirming, and a field returned as `unknown` or `conflict` stays Unknown in the profile.
+- Document bodies are not included in any context path, current or historical, and never have been.
+- A successor must be effective **strictly after** its predecessor. Equal or earlier dates derive an
+  `effective_to` at or before the predecessor's own `effective_from` — an interval that ends before
+  it starts. Backdating a correction is a real need, but it means replacing an interval rather than
+  closing one, so it is a separate operation rather than an ordinary supersession in disguise.
+- Supersession topology is now settled before any date is read. A cycle contains a backwards edge by
+  construction, so deriving first reported the date violation and never named the loop that caused
+  it — the less useful of two true statements.
+- A missing private store never breaks the historical comparison. The reason travels in the payload
+  as `documents_unavailable` rather than being swallowed.
+- Default personal context carries facts and **no documents**. The relevance map is keyed by fact
+  category and the cap counts facts, so document metadata — type, company, purpose, effective dates,
+  digest — was constrained by neither: a stage that legitimately needs nothing about the person would
+  still have received the shape of every document they own, uncapped. Documents are reachable only
+  through the explicit commands.
+- `select_personal_context` rejects an unrecognized stage itself rather than relying on the CLI in
+  front of it. A missing map entry means "no category filter", and the selector is a public boundary
+  symbol other code can call without going through argparse; a guard only at the outermost layer is
+  a guard the next caller skips.
+- The historical comparison **requires** a request to name what it is asking for: `--type`,
+  `--company`, or `--document-id`. Comparing two resumes should not also disclose every certificate
+  and every company's ES, and leaving the filters optional meant the short form still did. Sweeping
+  the whole store needs an explicit `--all-documents`, so full disclosure is a decision rather than
+  a default. `--document-id` is repeatable, because a type filter still returns three historical
+  resumes when the question named two. It stays metadata-only in this mode too, since document text
+  extraction is a v1 non-goal — the user opens the files themselves.
+- The historical comparison reports documents that are neither current nor superseded — a contested
+  date, a future date, no date at all — in an `unresolved` bucket instead of dropping them. In an
+  explicit query, losing a document the user asked about is worse than showing an awkward state.
+- `--candidate-profile` validates each value against the domain `_shared/schemas.yml` states and
+  reports a violation as `invalid` with a null value. A fact's `value` is otherwise unconstrained and
+  the consuming skill is told to quote it exactly, so an unchecked `jlpt_level: N9` became a schema
+  violation two skills downstream. Checked per field, so one bad record does not take the others down.
+- A withheld field withholds the **value**, not just the `value` key. A `conflict` projection carries
+  its `candidates`, each with the value that caused the conflict, so passing the entry through handed
+  the consumer exactly the values the state said it may not use; an `invalid` reason that quoted the
+  offending value smuggled it back the same way. Non-confirmed fields now travel as state, a reason
+  built from constants, and counts — the rule default context already followed.
+- `personal-context` rejects an argument that does not apply to the chosen mode instead of accepting
+  and ignoring it. An ignored `--type` claims a filter that was never applied.
+- `run --mode chat` carries the same `personal_context` block, built by the same selector as the
+  shared `context` command. Two selectors would eventually disagree about what "current" means.
+  `references/shared-vault-context.md` now states what consumers may do with it.
+
 ## [1.10.0] - 2026-08-05
 
 - Added the personal fact timeline and the current personal-profile projection
