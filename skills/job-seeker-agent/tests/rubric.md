@@ -143,7 +143,22 @@ the `model_identity` slot that is fixed at `None` there.
 }
 ```
 
-Field notes:
+Where each field comes from:
+
+| Field | Source |
+|---|---|
+| `fixture_sha256`, `output_sha256` | computed by the judge from the files on disk ([`judge.md`](judge.md) step 1) |
+| `model_identity.subject_model`, `captured_at` | `runs/<case>.capture.json`, written in the subject session |
+| `runtime_identity.repository_commit`, `git_status_clean` | same capture file — the tree as it was when the subject ran, not when the judge ran |
+| `model_identity.judge_model` | the judge session |
+
+The judge runs later, from a different session and possibly a different commit, so it cannot
+observe any of the subject-side values. **If the capture file is missing, those fields are `null`
+with a stated reason.** They are never filled from the judge's own session — a plausible wrong
+provenance is worse than a recorded Unknown, which is the same rule the product applies to a
+candidate's facts.
+
+Other notes:
 
 - `self_reported: true` — a session-declared model id is not a verified fact. This repository
   labels provenance everywhere else; it does not stop doing so inside its own harness.
