@@ -339,11 +339,28 @@ class DirectoryScanTest(unittest.TestCase):
         self.assertFalse(truncated)
         self.assertEqual([item.confidence for item in findings], ["high"])
 
-    def test_ignored_directories_are_skipped(self) -> None:
+    def test_cache_directories_are_skipped_everywhere(self) -> None:
         write(self.root, "node_modules/pkg/resume.pdf", "x")
-        write(self.root, "data/resume.pdf", "x")
+        write(self.root, "a/b/__pycache__/resume.pdf", "x")
         findings, _ = check_private_data.scan_directory(self.root)
         self.assertEqual(findings, [])
+
+    def test_repository_skips_do_not_apply_to_an_arbitrary_scan_root(self) -> None:
+        """`data/` is this repository's ignored state; in ~/Documents it is just a folder."""
+        write(self.root, "data/resume.pdf", "x")
+        write(self.root, "career-home/resume.pdf", "x")
+        findings, _ = check_private_data.scan_directory(self.root)
+        self.assertEqual(len(findings), 2, [item.path for item in findings])
+
+    def test_repository_skips_apply_at_the_top_of_a_worktree(self) -> None:
+        (self.root / ".git").mkdir()
+        write(self.root, "data/resume.pdf", "x")
+        write(self.root, "docs/resume.pdf", "x")
+        write(self.root, "docs/data/resume.pdf", "x")
+        findings, _ = check_private_data.scan_directory(self.root)
+        paths = sorted(item.path for item in findings)
+        self.assertEqual(len(paths), 2, paths)
+        self.assertTrue(all("docs" in path for path in paths), paths)
 
     def test_excluded_subtree_is_skipped(self) -> None:
         write(self.root, "private/blobs/resume.pdf", "x")

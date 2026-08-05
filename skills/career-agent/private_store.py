@@ -361,13 +361,22 @@ def stray_documents(home: PrivateHome, roots: list[str | Path]) -> dict[str, Any
             {"path": item.path, "classification": item.classification, "confidence": item.confidence}
             for item in found
         )
-    return {
-        "ok": not any(item["confidence"] == "high" for item in findings),
+    result: dict[str, Any] = {
+        # A truncated scan is an incomplete answer, not a clean one. Reporting green after stopping
+        # at the file cap would tell the user "no strays found" when the truthful statement is "I
+        # stopped looking" -- and this check exists precisely to be trusted about absence.
+        "ok": not truncated and not any(item["confidence"] == "high" for item in findings),
         "scanned_roots": scanned,
         "truncated": truncated,
         # Paths and classifications only; never a line of document content (section 16).
         "findings": findings,
     }
+    if truncated:
+        result["detail"] = (
+            f"scan stopped after {check_private_data.MAX_SCAN_FILES} files per root; the result is "
+            f"incomplete. Narrow --scan-root to the directories that actually hold documents."
+        )
+    return result
 
 
 def private_doctor(

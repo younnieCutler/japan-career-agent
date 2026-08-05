@@ -641,9 +641,22 @@ Within the repository root, the directories that actually matter are the ones `.
 `skills/resume.pdf` matches no ignore rule at all. `docs/` in particular is easy to overlook because
 it reads like a documentation-only area.
 
-Directories that are already ignored (`data/`, `career-home/`, `node_modules/`, `__pycache__/`,
-`dist/`, `build/`) are not Git-exposure risks and are skipped by default; scanning them is wasted
-I/O, not extra safety.
+Skipping is split by what the name is allowed to mean where it is found:
+
+- **Universally skipped:** tool caches and dependency trees — `.git/`, `node_modules/`,
+  `__pycache__/`, `.venv/`, `.mypy_cache/`, `.ruff_cache/`, `.pytest_cache/`. Nobody keeps a 履歴書
+  in `node_modules`, so walking them is wasted I/O rather than extra safety.
+- **Skipped only at the top level of a scan root that is itself a Git worktree:** `data/`,
+  `career-home/`, `dist/`, `build/`. These are *this repository's* ignored runtime state and build
+  outputs, and they are not Git-exposure risks here. Applying the same list to an arbitrary
+  configured scan root would silently blind the scan to `~/Documents/data/履歴書.pdf`. A scan root a
+  user names explicitly gets no repository-shaped assumptions, and a detector with unexplained blind
+  spots is exactly the failure this gate was rewritten to remove.
+
+**A capped scan is incomplete, never clean.** The read/traversal limits below exist so a doctor run
+cannot walk an entire home directory, but hitting the cap must make the stray check **fail**, with
+the count and the advice to narrow the scan root. Reporting green after stopping early would render
+"I stopped looking" as "nothing found", and this check exists precisely to be trusted about absence.
 
 ### 13.2 Detection classes
 
@@ -969,7 +982,8 @@ worse than one that omits it:
 
 `--scan-root` is repeatable and defaults to the current working directory. The default is applied at
 the CLI boundary, never inside the store, so a caller always knows exactly which trees were walked.
-The private root is always excluded: documents there are where they belong.
+The private root is always excluded: documents there are where they belong. If the walk hits its file
+cap the stray check fails rather than passing with an empty finding list (§13.1).
 
 **`private-doctor` must not require an initialized Career Vault.** The current runtime rejects every
 subcommand except `setup` when neither `--vault` nor `CAREER_VAULT` is present, and calls

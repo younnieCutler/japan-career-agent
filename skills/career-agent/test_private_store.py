@@ -302,6 +302,30 @@ class DoctorTest(PrivateStoreTest):
             f"the private root must be excluded from the stray scan: {paths}",
         )
 
+    def test_truncated_scan_is_not_reported_as_clean(self) -> None:
+        """"I stopped looking" must never be rendered as "nothing found"."""
+        sys.path.insert(0, str(SCRIPT_DIR.parents[1] / "scripts"))
+        import check_private_data
+
+        workspace = self.base / "workspace"
+        workspace.mkdir()
+        for index in range(3):
+            (workspace / f"harmless{index}.txt").write_text("nothing here", encoding="utf-8")
+
+        original = check_private_data.MAX_SCAN_FILES
+        check_private_data.MAX_SCAN_FILES = 1
+        try:
+            report = private_store.private_doctor(self.home.path, scan_roots=[workspace])
+        finally:
+            check_private_data.MAX_SCAN_FILES = original
+
+        strays = report["checks"]["stray_documents"]
+        self.assertTrue(strays["truncated"])
+        self.assertEqual(strays["findings"], [], "no finding, yet still not clean")
+        self.assertFalse(strays["ok"])
+        self.assertFalse(report["ok"])
+        self.assertIn("incomplete", strays["detail"])
+
     def test_stray_scan_uses_the_commit_gate_detector(self) -> None:
         """One detector: private-doctor and the pre-commit hook cannot disagree."""
         sys.path.insert(0, str(SCRIPT_DIR.parents[1] / "scripts"))

@@ -27,9 +27,15 @@
   by `private-doctor` and reused by the next import of the same bytes rather than silently deleted.
 - `private-doctor` reports stray personal documents under `--scan-root` directories (repeatable,
   defaulting to the working directory) by reusing the commit gate's detector rather than growing a
-  second one that could disagree with it. The private root itself is always excluded, ignored build
-  and dependency directories are skipped, and the walk is capped. Reports carry paths and
-  classifications only, never document content.
+  second one that could disagree with it. The private root itself is always excluded, and reports
+  carry paths and classifications only, never document content.
+- Only tool caches and dependency trees (`.git/`, `node_modules/`, `__pycache__/`, virtualenvs) are
+  skipped everywhere. This repository's own ignored directories — `data/`, `career-home/`, `dist/`,
+  `build/` — are skipped only at the top level of a scan root that is itself a Git worktree, so an
+  explicitly configured root such as `~/Documents` is not silently blind to `data/履歴書.pdf`.
+- Hitting the per-root file cap makes the stray check fail with the count and remediation advice,
+  never pass with an empty finding list. A capped walk is an incomplete answer, and rendering "I
+  stopped looking" as "nothing found" is the one way this check could actively mislead.
 - The private commands resolve their own root and never require an initialized Career Vault.
 - `private-list` returns metadata only; document bodies are never printed.
 - Added `persistence.atomic_write_bytes` for binary blobs, and registered the new module in the

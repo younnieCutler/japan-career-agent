@@ -87,14 +87,24 @@ STRUCTURED_FIELD_PATTERNS = {
 OFFICE_ZIP_MEMBERS = ("word/document.xml", "xl/workbook.xml", "ppt/presentation.xml")
 ZIP_MAGIC = b"PK\x03\x04"
 
-# Directories skipped by the filesystem stray scan (§13.1). These are already Git-ignored, so they
-# are not exposure risks; walking them is wasted I/O, not extra safety.
+# Directories skipped by the filesystem stray scan (§13.1) wherever they appear. These are tool
+# caches and dependency trees: no one keeps their 履歴書 in `node_modules`, so walking them is
+# wasted I/O rather than extra safety.
 SKIP_DIRECTORIES = frozenset({
-    ".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build",
-    ".mypy_cache", ".ruff_cache", ".pytest_cache", "data", "career-home",
+    ".git", ".venv", "venv", "node_modules", "__pycache__",
+    ".mypy_cache", ".ruff_cache", ".pytest_cache",
 })
+
+# Skipped ONLY at the top level of a scan root that is itself a Git worktree, because that is the
+# only place these names mean what this repository means by them. `data/` and `career-home/` are
+# this repository's ignored runtime state; `dist/`/`build/` are its build outputs. Applying them to
+# an arbitrary `--scan-root` would silently blind the scan to `~/Documents/data/履歴書.pdf`, and a
+# detector with unexplained blind spots is the failure mode this gate was rewritten to avoid.
+REPOSITORY_SKIP_DIRECTORIES = frozenset({"data", "career-home", "dist", "build"})
+
 # ponytail: flat cap instead of a time budget. A doctor run must not walk an entire home directory;
-# raise it or add per-root budgets if a legitimate workspace ever exceeds this.
+# raise it or add per-root budgets if a legitimate workspace ever exceeds this. Hitting it makes the
+# scan result incomplete, never clean -- see `scan_directory`.
 MAX_SCAN_FILES = 5000
 
 
@@ -246,17 +256,23 @@ def scan(staged: bool) -> list[Finding]:
 def scan_directory(root: Path, exclude: tuple[Path, ...] = ()) -> tuple[list[Finding], bool]:
     """Classify untracked files under ``root``. Returns (findings, hit_the_file_cap).
 
+    `REPOSITORY_SKIP_DIRECTORIES` applies only when ``root`` is itself a Git worktree, and only to
+    its immediate children — an arbitrary scan root gets no repository-shaped assumptions.
+
     Findings carry absolute paths and a classification only, never file content (PRD §16).
     """
     findings: list[Finding] = []
+    root = root.resolve()
     excluded = tuple(item.resolve() for item in exclude)
+    top_level_skips = REPOSITORY_SKIP_DIRECTORIES if (root / ".git").exists() else frozenset()
     seen = 0
     for current, directories, names in os.walk(root, followlinks=False):
         here = Path(current)
         if any(here == item or item in here.parents for item in excluded):
             directories[:] = []
             continue
-        directories[:] = sorted(name for name in directories if name not in SKIP_DIRECTORIES)
+        skip = SKIP_DIRECTORIES | (top_level_skips if here == root else frozenset())
+        directories[:] = sorted(name for name in directories if name not in skip)
         for name in sorted(names):
             if seen >= MAX_SCAN_FILES:
                 return findings, True
