@@ -1543,10 +1543,24 @@ disagree with the links. Ordinary career events keep the status.
   answer wearing the shape of a correct one. This layer is the canonical temporal source, so it
   fails closed.
 
+**A fact id identifies exactly one record.** Per-row validation only checks that an id is present
+and non-empty, so a hand-edited ledger can repeat one. Every link above resolves a `supersedes`
+target by id, so a repeated id means the link points at whichever copy happened to appear last —
+the same history in a different order supersedes a different record. Duplicate ids are therefore
+rejected on read, with all of them collected and sorted into one message so the failure itself is
+order-independent too.
+
 **Anything capped must be ordered first.** Candidate lists are sorted by effective date, then fact
 id, before the §12.1 cap is applied. Capping unordered input makes the *visible* subset depend on
 ledger order even when the conflict itself does not — a determinism hole that a test asserting only
 the happy path will not find.
+
+**Open contract, to be settled before phase 4: backdated corrections.** A successor whose
+`effective_from` precedes its predecessor's still derives an `effective_to` earlier than the
+predecessor's own `effective_from` — an inverted interval. Two defensible answers exist: require a
+successor to be strictly later and reject the rest, or support backdated correction as its own
+semantics (the successor replaces the predecessor's interval rather than closing it). Phase 3 does
+neither, because guessing here would bake a product decision into a derivation rule.
 
 ### Phase 4: Context integration and the downstream read path
 Current-only default context; explicit labelled historical mode; stale-context regressions; **and the

@@ -134,7 +134,23 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Superseding never deletes: A keeps its record, its evidence, and its own `effective_from`.
     """
     derived = [dict(fact) for fact in facts]
-    by_id = {fact["fact_id"]: fact for fact in derived}
+    # A fact id must identify exactly one record. `validate_event` only checks that each row has a
+    # non-empty id, so a hand-edited ledger can repeat one; `supersedes` would then resolve to
+    # whichever copy happened to come last, making the projection depend on ledger order.
+    by_id: dict[str, dict[str, Any]] = {}
+    duplicates: set[str] = set()
+    for fact in derived:
+        fact_id = str(fact["fact_id"])
+        if fact_id in by_id:
+            duplicates.add(fact_id)
+        by_id[fact_id] = fact
+    if duplicates:
+        # Sorted so the message does not depend on ledger order either.
+        raise CareerError(
+            "duplicate fact ids: "
+            + ", ".join(sorted(duplicates))
+            + "; a fact id must identify exactly one record"
+        )
     for fact in derived:
         fact.setdefault("effective_to", None)
         fact.setdefault("superseded_by", None)

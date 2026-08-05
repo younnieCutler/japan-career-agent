@@ -360,6 +360,31 @@ class SupersessionTest(unittest.TestCase):
                    personal_timeline.timeline(events, "language", "jlpt")}
         self.assertIsNone(history["b"]["effective_to"], "a draft must not close an interval")
 
+    def test_a_duplicate_fact_id_is_rejected_in_both_ledger_orders(self) -> None:
+        """Two rows sharing an id make `supersedes` resolve to whichever came last."""
+        first = event("a", "language", "jlpt", "N2", effective_from="2024-01-01")
+        second = event("a", "language", "jlpt", "N1", effective_from="2025-01-01")
+        successor = event("b", "language", "jlpt", "N0", effective_from="2026-01-01",
+                          supersedes="a")
+        messages = []
+        for ordering in ([first, second, successor], [second, first, successor]):
+            with self.assertRaises(CareerError) as caught:
+                personal_timeline.project(ordering, "2026-08-05")
+            messages.append(str(caught.exception))
+        self.assertEqual(messages[0], messages[1], "the error must not depend on ledger order")
+        self.assertIn("duplicate fact ids: a", messages[0])
+
+    def test_duplicate_ids_are_reported_together_and_sorted(self) -> None:
+        events = [
+            event("c", "language", "jlpt", "N2", effective_from="2024-01-01"),
+            event("a", "certification", "aws", "SAA", effective_from="2024-02-01"),
+            event("c", "language", "jlpt", "N1", effective_from="2025-01-01"),
+            event("a", "certification", "aws", "SAP", effective_from="2025-02-01"),
+        ]
+        with self.assertRaises(CareerError) as caught:
+            personal_timeline.project(events, "2026-08-05")
+        self.assertIn("duplicate fact ids: a, c", str(caught.exception))
+
     def test_a_draft_fork_member_does_not_make_a_fork(self) -> None:
         """Only confirmed successors claim a predecessor, so a proposal is not a broken chain."""
         proposed = event("c", "language", "jlpt", "N1", effective_from="2026-01-01",

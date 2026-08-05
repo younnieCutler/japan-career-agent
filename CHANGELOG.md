@@ -68,6 +68,10 @@
 - Conflict candidates are ordered by effective date, then fact id, before the selection cap is
   applied. Capping unordered input made the visible subset depend on ledger order even though the
   conflict itself did not.
+- A duplicate fact id is rejected on read. Per-row validation only checks that an id is present, so
+  a hand-edited ledger could repeat one, and every `supersedes` link resolves its target by id — the
+  same history in a different order would then supersede a different record. All duplicate ids are
+  collected and sorted into one message so the failure is order-independent too.
 
 ## [1.9.0] - 2026-08-05
 
