@@ -690,6 +690,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="diagnose the private career-document store; never requires an initialized Vault",
     )
     add_private_arguments(private_doctor_parser)
+    private_doctor_parser.add_argument(
+        "--scan-root", action="append", default=None, metavar="DIR",
+        help="directory to scan for stray personal documents; repeatable, defaults to the "
+             "current working directory",
+    )
     private_import_parser = subparsers.add_parser(
         "private-import",
         help="copy a document into the private store; the original file is preserved",
@@ -711,7 +716,9 @@ def build_parser() -> argparse.ArgumentParser:
 def run_private_command(args: argparse.Namespace) -> dict[str, Any]:
     """Private-store commands resolve their own root and never touch the Vault contract."""
     if args.command == "private-doctor":
-        return private_doctor(args.private_home, args.vault)
+        # The CLI boundary supplies the default scan root (section 13.1); the store itself never
+        # invents one, so a caller always knows exactly what was walked.
+        return private_doctor(args.private_home, args.vault, args.scan_root or [Path.cwd()])
     home = PrivateHome(resolve_private_home(args.private_home, args.vault))
     if args.command == "private-list":
         initialize_private_home(home)

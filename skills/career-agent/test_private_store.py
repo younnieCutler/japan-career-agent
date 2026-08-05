@@ -130,8 +130,7 @@ class ImportTest(PrivateStoreTest):
         second = self._import()
         self.assertEqual(first["document_id"], second["document_id"])
         self.assertTrue(second["duplicate"])
-        current = [row for row in private_store.documents(self.home) if row["status"] == "current"]
-        self.assertEqual(len(current), 1)
+        self.assertEqual(len(private_store.documents(self.home)), 1)
 
     def test_same_bytes_under_two_logical_keys_share_one_blob(self) -> None:
         """AC-25: one stored blob, two independent records."""
@@ -143,10 +142,52 @@ class ImportTest(PrivateStoreTest):
         self.assertNotEqual(general["document_id"], company["document_id"])
         self.assertEqual(general["sha256"], company["sha256"])
         self.assertFalse(company["duplicate"])
-        blobs = sorted(path.name for path in self.home.documents.rglob("*") if path.is_file())
-        self.assertEqual(len(blobs), 2, "content-addressed per type, one file per stored blob")
+        self.assertEqual(general["storage_path"], company["storage_path"])
+        blobs = [path for path in self.home.blobs.rglob("*") if path.is_file()]
+        self.assertEqual(len(blobs), 1, "identical bytes must be stored exactly once")
+        self.assertEqual(len(private_store.documents(self.home)), 2)
 
-    def test_es_for_one_company_does_not_supersede_another(self) -> None:
+    def test_extension_does_not_fork_blob_storage(self) -> None:
+        """The original name is metadata, so a renamed copy of the same bytes stores once."""
+        renamed = self.base / "work" / "copy.docx"
+        renamed.write_bytes(RESUME_BYTES)
+        self._import()
+        private_store.import_document(self.home, renamed, "other", effective_from="2026-07-15")
+        blobs = [path for path in self.home.blobs.rglob("*") if path.is_file()]
+        self.assertEqual(len(blobs), 1)
+        names = {row["original_name"] for row in private_store.documents(self.home)}
+        self.assertEqual(names, {"resume.pdf", "copy.docx"})
+
+    def test_import_records_no_temporal_judgment(self) -> None:
+        """Blocker fix: import order must not decide which version is current.
+
+        Phase 2 records observation only. A 2024 resume imported after a 2026 one previously
+        superseded it purely because it arrived second, which is the stale-context contamination
+        this feature exists to prevent. Currency is derived by the phase 3 projection.
+        """
+        older = self.base / "work" / "resume-2024.pdf"
+        older.write_bytes(b"%PDF-1.4 older synthetic resume\n")
+        self._import(effective_from="2026-07-15")
+        private_store.import_document(self.home, older, "resume", effective_from="2024-01-01")
+
+        records = private_store.documents(self.home)
+        self.assertEqual([row["status"] for row in records], ["observed", "observed"])
+        for row in records:
+            self.assertNotIn("supersedes", row)
+            self.assertNotIn("superseded_by", row)
+            self.assertNotIn("effective_to", row)
+
+    def test_one_import_appends_exactly_one_registry_line(self) -> None:
+        """Crash consistency: a state change that needs two appends can half-apply."""
+        self._import()
+        before = self.home.registry.read_text(encoding="utf-8").count("\n")
+        newer = self.base / "work" / "resume-2027.pdf"
+        newer.write_bytes(b"%PDF-1.4 newer synthetic resume\n")
+        private_store.import_document(self.home, newer, "resume", effective_from="2027-01-10")
+        after = self.home.registry.read_text(encoding="utf-8").count("\n")
+        self.assertEqual(after - before, 1)
+
+    def test_es_for_one_company_stays_independent_of_another(self) -> None:
         """Section 7.2: version chains are scoped by logical identity."""
         first = private_store.import_document(
             self.home, self.source, "es", company="Alpha (Synthetic)", purpose="application",
@@ -156,23 +197,9 @@ class ImportTest(PrivateStoreTest):
         second = private_store.import_document(
             self.home, other, "es", company="Beta (Synthetic)", purpose="application",
         )
-        self.assertIsNone(first["supersedes"])
-        self.assertIsNone(second["supersedes"])
-        statuses = {row["document_id"]: row["status"] for row in private_store.documents(self.home)}
-        self.assertEqual(statuses[first["document_id"]], "current")
-        self.assertEqual(statuses[second["document_id"]], "current")
-
-    def test_newer_document_supersedes_the_previous_one_for_the_same_key(self) -> None:
-        first = self._import()
-        newer = self.base / "work" / "resume-2027.pdf"
-        newer.write_bytes(b"%PDF-1.4 newer synthetic resume\n")
-        second = private_store.import_document(
-            self.home, newer, "resume", effective_from="2027-01-10",
-        )
-        self.assertEqual(second["supersedes"], first["document_id"])
-        statuses = {row["document_id"]: row["status"] for row in private_store.documents(self.home)}
-        self.assertEqual(statuses[first["document_id"]], "superseded")
-        self.assertEqual(statuses[second["document_id"]], "current")
+        keys = {row["document_id"]: row["logical_key"]["company"] for row in private_store.documents(self.home)}
+        self.assertEqual(keys[first["document_id"]], "Alpha (Synthetic)")
+        self.assertEqual(keys[second["document_id"]], "Beta (Synthetic)")
 
     def test_impossible_effective_date_is_rejected(self) -> None:
         """Section 19.2: a real calendar date, not just the right shape."""
@@ -185,6 +212,38 @@ class ImportTest(PrivateStoreTest):
             private_store.import_document(self.home, self.base / "absent.pdf", "resume")
         self.assertEqual(private_store.documents(self.home), [])
 
+    def test_registry_append_failure_preserves_source_and_registry(self) -> None:
+        """AC-12 at the dangerous point: the blob is published, then the append fails.
+
+        The easy failure (missing source) aborts before anything is written. This one injects the
+        failure after publication, where a partially applied import would be possible.
+        """
+        self._import()
+        registry_before = self.home.registry.read_bytes()
+        newer = self.base / "work" / "resume-2027.pdf"
+        newer.write_bytes(b"%PDF-1.4 newer synthetic resume\n")
+
+        original = private_store.append_jsonl
+        private_store.append_jsonl = lambda *_, **__: (_ for _ in ()).throw(OSError("disk full"))
+        try:
+            with self.assertRaises(OSError):
+                private_store.import_document(self.home, newer, "resume", effective_from="2027-01-10")
+        finally:
+            private_store.append_jsonl = original
+
+        self.assertTrue(newer.exists(), "the source must survive a failed import")
+        self.assertEqual(self.home.registry.read_bytes(), registry_before)
+        self.assertEqual(len(private_store.documents(self.home)), 1)
+        # Orphan blob policy: content-addressed, unreferenced, reported rather than auto-deleted.
+        report = private_store.private_doctor(self.home.path)
+        self.assertEqual(report["documents"]["orphan_blobs"], 1)
+        self.assertEqual(report["documents"]["missing_blobs"], 0)
+
+        # And retrying reuses the orphan instead of leaving it behind forever.
+        private_store.import_document(self.home, newer, "resume", effective_from="2027-01-10")
+        retried = private_store.private_doctor(self.home.path)
+        self.assertEqual(retried["documents"]["orphan_blobs"], 0)
+
     def test_unknown_document_type_is_rejected(self) -> None:
         with self.assertRaises(CareerError):
             private_store.import_document(self.home, self.source, "not-a-type")
@@ -193,7 +252,7 @@ class ImportTest(PrivateStoreTest):
         """Section 19.3: keep the document, leave applicability Unknown."""
         result = private_store.import_document(self.home, self.source, "resume")
         self.assertIsNone(private_store.documents(self.home)[0]["effective_from"])
-        self.assertEqual(result["status"], "current")
+        self.assertEqual(result["status"], "observed")
 
 
 class DoctorTest(PrivateStoreTest):
@@ -210,14 +269,50 @@ class DoctorTest(PrivateStoreTest):
         self.assertFalse(report["ok"])
         self.assertFalse(report["checks"]["private_root"]["ok"])
 
-    def test_doctor_counts_current_and_superseded(self) -> None:
+    def test_doctor_counts_records_and_blobs(self) -> None:
         self._import()
         newer = self.base / "work" / "resume-2027.pdf"
         newer.write_bytes(b"%PDF-1.4 newer synthetic resume\n")
         private_store.import_document(self.home, newer, "resume", effective_from="2027-01-10")
         report = private_store.private_doctor(self.home.path)
-        self.assertEqual(report["documents"]["current"], 1)
-        self.assertEqual(report["documents"]["historical"], 1)
+        self.assertEqual(report["documents"]["records"], 2)
+        self.assertEqual(report["documents"]["stored_blobs"], 2)
+        self.assertEqual(report["documents"]["orphan_blobs"], 0)
+
+    def test_doctor_reports_a_stray_document(self) -> None:
+        """AC-03 / AC-23: a stray resume in a scan root is detected and reported."""
+        stray = self.base / "workspace" / "職務経歴書.pdf"
+        stray.parent.mkdir()
+        stray.write_bytes(RESUME_BYTES)
+        report = private_store.private_doctor(self.home.path, scan_roots=[stray.parent])
+        strays = report["checks"]["stray_documents"]
+        self.assertFalse(report["ok"])
+        self.assertFalse(strays["ok"])
+        self.assertIn(str(stray), [item["path"] for item in strays["findings"]])
+        # Privacy-safe reporting (section 16): classifications and paths, never content.
+        self.assertNotIn("%PDF", repr(strays))
+
+    def test_doctor_does_not_report_the_private_store_itself_as_stray(self) -> None:
+        """Documents inside the private root are where they belong, by definition."""
+        self._import()
+        report = private_store.private_doctor(self.home.path, scan_roots=[self.base])
+        paths = [item["path"] for item in report["checks"]["stray_documents"]["findings"]]
+        self.assertFalse(
+            any(str(self.home.path) in path for path in paths),
+            f"the private root must be excluded from the stray scan: {paths}",
+        )
+
+    def test_stray_scan_uses_the_commit_gate_detector(self) -> None:
+        """One detector: private-doctor and the pre-commit hook cannot disagree."""
+        sys.path.insert(0, str(SCRIPT_DIR.parents[1] / "scripts"))
+        import check_private_data
+
+        declared = self.base / "workspace" / "resume.example.pdf"
+        declared.parent.mkdir()
+        declared.write_bytes(RESUME_BYTES)
+        self.assertIsNone(check_private_data.classify_bytes(str(declared), declared.name, RESUME_BYTES))
+        report = private_store.private_doctor(self.home.path, scan_roots=[declared.parent])
+        self.assertEqual(report["checks"]["stray_documents"]["findings"], [])
 
     def test_doctor_flags_a_missing_blob(self) -> None:
         result = self._import()
@@ -247,9 +342,12 @@ class CliTest(PrivateStoreTest):
 
     def test_private_doctor_cli_needs_no_vault(self) -> None:
         """AC-23 through the actual CLI entry point."""
-        result = self._run("private-doctor")
+        clean = self.base / "clean"
+        clean.mkdir()
+        result = self._run("private-doctor", "--scan-root", str(clean))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("git_boundary", result.stdout)
+        self.assertIn("stray_documents", result.stdout)
 
     def test_private_import_and_list_cli(self) -> None:
         imported = self._run("private-import", str(self.source), "--type", "resume",

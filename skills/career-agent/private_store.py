@@ -12,6 +12,13 @@ Two invariants drive the whole module:
 - Import copies and verifies; it never moves or deletes the user's original (section 14). "Import
   succeeded" and "your file is gone" are different promises, and only the second is unrecoverable
   when the classification was wrong.
+
+Phase 2 deliberately records **no** temporal judgment. Every record is `observed`; which version is
+current for a given date is derived by the phase 3 projection from `effective_from` and an explicit
+`as_of` (section 12.4). Letting import order decide would mean a 2024 resume imported after a 2026
+one becomes "current" — reintroducing exactly the stale-context contamination this feature exists to
+prevent. One import writes exactly one registry line, so there is no window in which two records can
+both claim to be current.
 """
 
 from __future__ import annotations
@@ -47,15 +54,8 @@ DOCUMENT_TYPES = (
     "assessments",
     "other",
 )
-PRIVATE_DIRECTORIES = (
-    "inbox",
-    *(f"documents/{name}" for name in DOCUMENT_TYPES),
-    "timeline",
-    "current",
-    "quarantine",
-)
+PRIVATE_DIRECTORIES = ("inbox", "blobs", "timeline", "current", "quarantine")
 
-DOCUMENT_STATUSES = {"current", "superseded"}
 READ_CHUNK = 1024 * 1024
 
 
@@ -122,7 +122,10 @@ class PrivateHome:
     def __init__(self, path: Path):
         self.path = Path(path)
         self.inbox = self.path / "inbox"
-        self.documents = self.path / "documents"
+        # One flat content-addressed blob store, NOT one per document type (AC-25). Keying storage
+        # by type as well as hash stores the same bytes twice when a single PDF is used both as a
+        # general resume and as a company ES, which is the case section 7.3 exists to describe.
+        self.blobs = self.path / "blobs"
         self.timeline = self.path / "timeline"
         self.current = self.path / "current"
         self.quarantine = self.path / "quarantine"
@@ -131,7 +134,7 @@ class PrivateHome:
         self.profile = self.current / "personal-profile.json"
 
     def initialized(self) -> bool:
-        return self.registry.exists() or self.documents.is_dir()
+        return self.registry.exists() or self.blobs.is_dir()
 
     def records(self) -> list[dict[str, Any]]:
         return read_jsonl(self.registry)
@@ -235,10 +238,10 @@ def import_document(
     key = logical_key(document_type, company, purpose, language)
     checksum = sha256_file(resolved_source)
     size_bytes = resolved_source.stat().st_size
-    suffix = resolved_source.suffix.lower()
-    # Content-addressed storage: identical bytes are stored once even when several logical keys
-    # reference them (section 7.3).
-    destination = home.documents / document_type / f"{checksum}{suffix}"
+    # Content-addressed storage: identical bytes are stored exactly once, however many logical keys
+    # reference them (section 7.3). The original extension is metadata on the record, not part of
+    # the blob name, so it cannot fork storage.
+    destination = home.blobs / checksum
 
     with private_lock(home):
         records = home.records()
@@ -261,7 +264,7 @@ def import_document(
                 "sha256": checksum,
                 "storage_path": duplicate["storage_path"],
                 "document_type": document_type,
-                "status": duplicate.get("status", "current"),
+                "status": "observed",
                 "duplicate": True,
                 "source_preserved": resolved_source.exists(),
                 "facts_requiring_confirmation": [],
@@ -269,7 +272,6 @@ def import_document(
 
         _publish_blob(resolved_source, destination, checksum)
 
-        superseded = _current_for_key(records, key)
         record: dict[str, Any] = {
             "document_id": f"doc_{uuid.uuid4().hex[:12]}",
             "document_type": document_type,
@@ -280,35 +282,24 @@ def import_document(
             "size_bytes": size_bytes,
             "observed_at": observed_at or utc_now(),
             "effective_from": effective_from,
-            "effective_to": None,
-            "status": "current",
-            "supersedes": superseded["document_id"] if superseded else None,
-            "superseded_by": None,
+            # Phase 2 asserts only that the artifact was seen. `effective_to`, supersession and
+            # currency are derived by the phase 3 projection for an explicit `as_of`.
+            "status": "observed",
             "source_type": "personal_evidence",
             # Importing proves the artifact exists; it never promotes a claim to canonical truth
             # (section 5.4). Fact confirmation is phase 3.
             "verified_by_user": False,
             "reviewed_on": None,
         }
+        # Exactly one canonical line per import: a crash cannot leave a half-applied state change.
         append_jsonl(home.registry, record)
-        if superseded is not None:
-            append_jsonl(
-                home.registry,
-                {
-                    "document_id": superseded["document_id"],
-                    "event": "superseded",
-                    "superseded_by": record["document_id"],
-                    "observed_at": record["observed_at"],
-                },
-            )
 
     return {
         "document_id": record["document_id"],
         "sha256": checksum,
         "storage_path": record["storage_path"],
         "document_type": document_type,
-        "status": "current",
-        "supersedes": record["supersedes"],
+        "status": "observed",
         "duplicate": False,
         "source_preserved": resolved_source.exists(),
         # Phase 3 promotes claims to canonical facts; phase 2 only records the artifact.
@@ -317,7 +308,12 @@ def import_document(
 
 
 def _publish_blob(source: Path, destination: Path, checksum: str) -> None:
-    """Steps 5-8 of section 14: copy to temp, fsync, verify the hash, then publish atomically."""
+    """Steps 5-8 of section 14: copy to temp, fsync, verify the hash, then publish atomically.
+
+    A blob published while the registry append then fails is left in place, not rolled back. It is
+    content-addressed and therefore inert: nothing references it, and the next import of the same
+    bytes reuses it. `private_doctor` reports orphans so the state is visible rather than silent.
+    """
     if destination.exists() and sha256_file(destination) == checksum:
         return  # already stored; retry is idempotent
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -331,36 +327,53 @@ def _publish_blob(source: Path, destination: Path, checksum: str) -> None:
         raise CareerError(f"destination verification failed for {source}; nothing was imported")
 
 
-def _current_for_key(records: list[dict[str, Any]], key: dict[str, Any]) -> dict[str, Any] | None:
-    superseded = {row.get("document_id") for row in records if row.get("event") == "superseded"}
-    for row in reversed(records):
-        if row.get("event"):
-            continue
-        if row.get("document_id") in superseded:
-            continue
-        if _same_key(row.get("logical_key", {}), key) and row.get("status") == "current":
-            return row
-    return None
-
-
 def documents(home: PrivateHome) -> list[dict[str, Any]]:
-    """Registry records with supersession events folded in."""
-    records = home.records()
-    superseded = {row["document_id"]: row for row in records if row.get("event") == "superseded"}
-    result = []
-    for row in records:
-        if row.get("event"):
+    """Canonical document records, newest observation last. Re-observation events are not records."""
+    return [row for row in home.records() if not row.get("event")]
+
+
+def stray_documents(home: PrivateHome, roots: list[str | Path]) -> dict[str, Any]:
+    """Report probable personal documents outside the private root (section 13.1, AC-03).
+
+    Reuses the commit gate's detector rather than growing a second one: if `private-doctor` and the
+    pre-commit hook disagreed about the same file, neither answer would be worth anything.
+    """
+    detector_root = Path(__file__).resolve().parents[2] / "scripts"
+    if str(detector_root) not in sys.path:
+        sys.path.insert(0, str(detector_root))
+    try:
+        import check_private_data
+    except ImportError:  # detector not shipped alongside this skill
+        return {"ok": False, "detail": "detector unavailable; run scripts/check_private_data.py"}
+
+    findings: list[dict[str, str]] = []
+    truncated = False
+    scanned: list[str] = []
+    for item in roots:
+        root = Path(item).expanduser().resolve()
+        if not root.is_dir():
             continue
-        item = dict(row)
-        if item["document_id"] in superseded:
-            item["status"] = "superseded"
-            item["superseded_by"] = superseded[item["document_id"]].get("superseded_by")
-        result.append(item)
-    return result
+        scanned.append(str(root))
+        # The private root is where documents are supposed to be; finding them there is not a stray.
+        found, capped = check_private_data.scan_directory(root, exclude=(home.path,))
+        truncated = truncated or capped
+        findings.extend(
+            {"path": item.path, "classification": item.classification, "confidence": item.confidence}
+            for item in found
+        )
+    return {
+        "ok": not any(item["confidence"] == "high" for item in findings),
+        "scanned_roots": scanned,
+        "truncated": truncated,
+        # Paths and classifications only; never a line of document content (section 16).
+        "findings": findings,
+    }
 
 
 def private_doctor(
-    explicit: str | Path | None = None, vault: str | Path | None = None,
+    explicit: str | Path | None = None,
+    vault: str | Path | None = None,
+    scan_roots: list[str | Path] | None = None,
 ) -> dict[str, Any]:
     """Read-only diagnosis. Never requires an initialized Career Vault (section 17.1)."""
     report: dict[str, Any] = {"ok": True, "checks": {}}
@@ -380,15 +393,21 @@ def private_doctor(
     report["checks"]["permissions"] = permission_state(home)
 
     records = documents(home)
-    current = [row for row in records if row.get("status") == "current"]
-    hashes = [row.get("sha256") for row in records]
-    blobs_present = sum(1 for row in records if (home.path / row["storage_path"]).is_file())
+    referenced = {row["storage_path"] for row in records}
+    stored = {
+        path.relative_to(home.path).as_posix() for path in home.blobs.glob("*") if path.is_file()
+    } if home.blobs.is_dir() else set()
     report["documents"] = {
-        "current": len(current),
-        "historical": len(records) - len(current),
-        "duplicates": len(hashes) - len(set(hashes)),
-        "missing_blobs": len(records) - blobs_present,
+        "records": len(records),
+        "stored_blobs": len(stored),
+        "missing_blobs": len(referenced - stored),
+        # Inert leftovers from an import that failed after publishing; reported, never auto-deleted.
+        "orphan_blobs": len(stored - referenced),
     }
     if report["documents"]["missing_blobs"]:
+        report["ok"] = False
+
+    report["checks"]["stray_documents"] = stray_documents(home, list(scan_roots or []))
+    if not report["checks"]["stray_documents"]["ok"]:
         report["ok"] = False
     return report

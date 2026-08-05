@@ -50,6 +50,7 @@ OWNED_SYMBOLS = {
     "resolve_private_home": "private_store",
     "import_document": "private_store",
     "private_doctor": "private_store",
+    "stray_documents": "private_store",
     "CareerVault": "vault",
     "load_routing": "routing",
     "infer_track": "routing",
