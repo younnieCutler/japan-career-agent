@@ -553,10 +553,17 @@ Personal context may include only facts that are:
 1. confirmed;
 2. effective at the requested `as_of` date;
 3. not superseded for that date;
-4. relevant to the request, where relevance is the **same mechanical track/stage match the Vault
-   context selector already applies** — not a judgement call. "Relevant" as an undefined word is the
-   only untestable condition in this list, and an untestable condition in a privacy boundary is a
-   condition that will be quietly skipped;
+4. relevant to the request, where relevance is a **mechanical match** — not a judgement call.
+   "Relevant" as an undefined word is the only untestable condition in this list, and an untestable
+   condition in a privacy boundary is a condition that will be quietly skipped. Concretely this is a
+   hardcoded **stage → fact-category** map (`STAGE_CATEGORIES`), deliberately *not* the recording
+   event's track: a fact describes the person, not the search, so a JLPT result recorded during a
+   shinsotsu search is still true during a chuto one, and filtering by the recording track would drop
+   currently-true facts — the mirror image of the stale-context bug this feature exists to prevent.
+   An empty entry is a real answer, not a gap: company research and an aptitude test need nothing
+   about the person, and sending it anyway spends privacy for nothing. An unrecognized stage is
+   **rejected**, because a missing entry means "no category filter" and a typo must not widen the
+   selection to the whole profile;
 5. provenance-backed;
 6. permitted by context/privacy policy;
 7. within the selection cap.
@@ -565,6 +572,11 @@ Personal context may include only facts that are:
 maximum, deterministic ordering, newest effective date first). The Vault path caps its selection and
 the personal path must not be the unbounded exception — an uncapped personal projection is how a
 "current facts only" context quietly grows into the whole profile.
+
+**Withheld is not the same as absent.** A field that projects as `conflict` or `unknown` fails rule 1
+and does not travel as a value, but its *count* does. A model told nothing at all about salary
+concludes there is no salary; the truth may be that two records disagree, and that is exactly the
+case a human needs to resolve.
 
 ### 12.2 Historical documents are opt-in
 
@@ -1559,12 +1571,14 @@ id, before the §12.1 cap is applied. Capping unordered input makes the *visible
 ledger order even when the conflict itself does not — a determinism hole that a test asserting only
 the happy path will not find.
 
-**Open contract, to be settled before phase 4: backdated corrections.** A successor whose
-`effective_from` precedes its predecessor's still derives an `effective_to` earlier than the
-predecessor's own `effective_from` — an inverted interval. Two defensible answers exist: require a
-successor to be strictly later and reject the rest, or support backdated correction as its own
-semantics (the successor replaces the predecessor's interval rather than closing it). Phase 3 does
-neither, because guessing here would bake a product decision into a derivation rule.
+**Settled: backdated corrections are rejected, not reinterpreted.** A successor must be effective
+**strictly after** its predecessor. An equal or earlier date derives an `effective_to` at or before
+the predecessor's own `effective_from` — an interval that ends before it starts, which no reader can
+render. Backdating a correction is a real need, but it means *replacing* an interval rather than
+*closing* one; giving it its own operation later is always possible, while un-accepting data that
+has already entered the ledger is not. Topology is checked before any date is read, because a cycle
+contains a backwards edge by construction and reporting the date violation would never name the loop
+that caused it.
 
 ### Phase 4: Context integration and the downstream read path
 Current-only default context; explicit labelled historical mode; stale-context regressions; **and the

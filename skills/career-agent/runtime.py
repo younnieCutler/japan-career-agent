@@ -104,7 +104,14 @@ from persistence import (  # noqa: E402
     write_jsonl,
     write_toml,
 )
-from personal_timeline import document_states, project, timeline  # noqa: E402
+from personal_timeline import (  # noqa: E402
+    candidate_profile_values,
+    document_states,
+    historical_comparison,
+    project,
+    select_personal_context,
+    timeline,
+)
 from private_store import (  # noqa: E402
     DOCUMENT_TYPES,
     PRIVATE_ENV,
@@ -560,6 +567,22 @@ def latest_career_context(home: CareerVault) -> tuple[dict[str, Any] | None, dic
     return latest["career_context"], latest
 
 
+def private_records(vault: Path) -> tuple[list[dict[str, Any]], str | None]:
+    """Document records for a Vault, or an explained absence.
+
+    A private store is optional (section 25), and a misconfigured private root must not take down
+    the shared context contract every other skill reads. It must not vanish quietly either, so the
+    reason travels in the payload rather than being swallowed.
+    """
+    try:
+        store = PrivateHome(resolve_private_home(None, vault))
+    except CareerError as exc:
+        return [], str(exc).splitlines()[0]
+    if not store.initialized():
+        return [], None
+    return private_documents(store), None
+
+
 def run_context(
     home: CareerVault, requested_track: str | None, requested_stage: str | None, as_of: str,
 ) -> dict[str, Any]:
@@ -573,6 +596,10 @@ def run_context(
     if stage is not None and stage not in SHINSOTSU_STAGES + CHUTO_STAGES:
         raise CareerError("shared context stage is not recognized")
     career_context, career_event = latest_career_context(home)
+    records, unavailable = private_records(home.path)
+    personal = select_personal_context(read_jsonl(home.events), records, stage, as_of)
+    if unavailable:
+        personal["documents_unavailable"] = unavailable
     profile_keys = ("track", "career_status", "target_role", "start_date", "graduation_year", "language", "flow_phase")
     return {
         "mode": "context",
@@ -585,11 +612,10 @@ def run_context(
         "career_context": career_context,
         "career_context_confirmed": career_context is not None,
         "career_context_event_id": career_event.get("id") if career_event else None,
-        # The personal projection is deliberately NOT injected here yet. Section 12.1 requires
-        # track/stage relevance and a selection cap on personal context, and neither exists until
-        # phase 4; `project()` returns every category and key. Wiring the whole profile into the
-        # model-facing payload in the meantime is precisely the unbounded personal context that
-        # section warns about. Use `personal-profile` explicitly until the selector lands.
+        # Section 12.1. Current, stage-relevant, capped, and confirmed-only -- never the whole
+        # `project()` output, which returns every category and key. Historical document bodies are
+        # not reachable from here at all; `personal-context --historical` is the opt-in path.
+        "personal_context": personal,
         "read_only": True,
         "note_bodies_included": False,
     }
@@ -718,6 +744,21 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(timeline_parser)
     timeline_parser.add_argument("--category", required=True, choices=sorted(FACT_CATEGORIES))
     timeline_parser.add_argument("--key", required=True, help="the logical fact key, e.g. jlpt")
+    personal_context_parser = subparsers.add_parser(
+        "personal-context",
+        help="stage-relevant personal context; --historical is the opt-in labelled comparison",
+    )
+    add_vault_argument(personal_context_parser)
+    add_as_of_argument(personal_context_parser)
+    personal_context_parser.add_argument("--stage", help="select facts relevant to this exact stage")
+    personal_context_parser.add_argument(
+        "--historical", action="store_true",
+        help="section 12.2: retrieve superseded documents, every temporal role labelled",
+    )
+    personal_context_parser.add_argument(
+        "--candidate-profile", action="store_true",
+        help="emit confirmed facts in CANDIDATE_PROFILE terms for the job-seeker skill to quote",
+    )
     context_proposal_parser = subparsers.add_parser(
         "propose-context",
         help="create an approval-gated proposal from a SELF_ANALYSIS_PROFILE YAML",
@@ -839,6 +880,22 @@ def main(argv: Iterable[str] | None = None) -> int:
                     "key": args.key,
                     "history": timeline(read_jsonl(home.events), args.category, args.key),
                 }
+            elif args.command == "personal-context":
+                if args.stage is not None and args.stage not in SHINSOTSU_STAGES + CHUTO_STAGES:
+                    # A typo must not widen the selection. An unrecognized stage matches no entry
+                    # in STAGE_CATEGORIES, and a missing entry means "no category filter" -- so
+                    # silently accepting one would turn a misspelling into the whole profile.
+                    raise CareerError("personal context stage is not recognized")
+                events = read_jsonl(home.events)
+                records, unavailable = private_records(home.path)
+                if args.candidate_profile:
+                    result = candidate_profile_values(events, args.as_of)
+                elif args.historical:
+                    result = historical_comparison(events, records, args.as_of)
+                else:
+                    result = select_personal_context(events, records, args.stage, args.as_of)
+                if unavailable:
+                    result["documents_unavailable"] = unavailable
             elif args.command == "propose-context":
                 result = propose_career_context(home, args.source)
             elif args.mode == "chat":

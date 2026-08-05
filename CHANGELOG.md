@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.11.0] - 2026-08-05
+
+- Personal facts now reach agent context, under section 12.1's whole list rather than a subset of it:
+  confirmed only, effective at `as_of`, not superseded, stage-relevant, capped at five, ordered
+  newest effective date first before the cap, and marked `untrusted_career_data` /
+  `instruction_authority: none`. `context` carries the selection; the unbounded `project()` output
+  still requires an explicit `personal-profile` call.
+- Relevance is a hardcoded stage → fact-category map, not the recording event's track. A fact
+  describes the person, not the search, so a JLPT result recorded during a shinsotsu search is still
+  true during a chuto one; filtering by the recording track would drop currently-true facts, which is
+  the mirror image of the stale-context bug this feature exists to prevent. An empty entry is a real
+  answer — company research and an aptitude test need nothing about the person. An unrecognized
+  `--stage` is rejected rather than treated as "no filter", so a typo cannot widen the selection to
+  the whole profile.
+- A conflicting or Unknown field is withheld from context but counted in `withheld`. A model told
+  nothing about salary concludes there is no salary, when the truth may be that two records disagree.
+- New `personal-context` command. `--historical` is the only path to superseded documents and labels
+  both sides explicitly (section 12.2); `--candidate-profile` emits confirmed facts under the
+  `CANDIDATE_PROFILE` field names so the job-seeker skill can quote exact values instead of asking
+  again. That command writes nothing: `data/candidate_profile.yml` is still written by a skill with
+  the user confirming, and a field returned as `unknown` or `conflict` stays Unknown in the profile.
+- Document bodies are not included in any context path, current or historical, and never have been.
+- A successor must be effective **strictly after** its predecessor. Equal or earlier dates derive an
+  `effective_to` at or before the predecessor's own `effective_from` — an interval that ends before
+  it starts. Backdating a correction is a real need, but it means replacing an interval rather than
+  closing one, so it is a separate operation rather than an ordinary supersession in disguise.
+- Supersession topology is now settled before any date is read. A cycle contains a backwards edge by
+  construction, so deriving first reported the date violation and never named the loop that caused
+  it — the less useful of two true statements.
+- A missing private store never breaks `context`. The reason travels in the payload as
+  `documents_unavailable` rather than being swallowed.
+
 ## [1.10.0] - 2026-08-05
 
 - Added the personal fact timeline and the current personal-profile projection

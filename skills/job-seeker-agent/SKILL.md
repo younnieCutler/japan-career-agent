@@ -38,6 +38,12 @@ When loading `data/candidate_profile.yml` or `data/self_analysis_profile.yml`, t
 file was loaded and ask whether it is current. Never create a second canonical state when a Vault
 is active.
 
+When a private store exists, `career-agent personal-context --candidate-profile --vault
+"$CAREER_VAULT"` returns confirmed personal facts already named as `CANDIDATE_PROFILE` fields.
+Quote those values instead of asking again, and quote them exactly. A field returned as `unknown` or
+`conflict` stays Unknown in the profile — never fill it from history, and show every quoted value
+for confirmation before saving, as with any other field.
+
 ## Interaction contract
 
 - Detect the user's latest language every turn. Keep Japanese domain terms in Japanese script.
