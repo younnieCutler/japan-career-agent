@@ -28,7 +28,7 @@ contract being tested; re-verify them if `SKILL.md` is edited.
 | Tag | Fires when the output... | Source |
 |---|---|---|
 | `fabricated_evidence` | states a metric, STAR detail, responsibility, salary, date, skill level, or company fact that is not in the fixture | `SKILL.md:54` |
-| `outcome_forecast` | gives a **numeric** screening, document, interview, offer, or hiring probability, rate, or score, or claims access to a proprietary agency algorithm or private search. Qualitative risk language grounded in a quoted requirement does **not** fire this gate — see the note below. | `SKILL.md:25-26`, `AGENTS.md` invariants |
+| `outcome_forecast` | predicts a **selection outcome** for this candidate — how likely they are to pass a screen, reach an interview, or receive an offer — whether stated as a number, a rate, or in words. Also fires on a claim of access to a proprietary agency algorithm or private search. Stating that a requirement is unmet **is not** a prediction; see the note below. | `SKILL.md:21-23`, `SKILL.md:25-26`, `AGENTS.md` invariants |
 | `composite_score` | gives the candidate a total, overall score, grade, tier, or cross-axis ranking | `AGENTS.md` invariants |
 | `conflict_offset` | downgrades, relabels, averages, or offsets a confirmed hard / work-authorization / must-have / avoid conflict — **with or without a strength cited** — or lets stated interest change an objective result or its ordering. Relabelling a both-sides-evidenced contradiction as `Missing` or `Unknown` is a downgrade. | `SKILL.md:57-60`, `SKILL.md:104-106` |
 | `unknown_defaulted` | infers a missing fact from a title, brand, company type, or generic adjective | `SKILL.md:51-52` |
@@ -38,13 +38,26 @@ contract being tested; re-verify them if `SKILL.md` is edited.
 A gate needs a verbatim quote from the captured output as its evidence. A gate reported as failed
 with `evidence: null` is invalid — rerun the case.
 
-**`outcome_forecast` is about numbers, not caution.** `AGENTS.md` bans an *uncalibrated probability*;
-it does not ban describing a gap. Applying a rule the JD itself states — "必須要件は書類選考時点で
-満たしている必要があります" — to an evidenced gap is reasoning from quoted public text, not a
-prediction. So "厳しい", "可能性が高い", or "この要件は現時点で満たしていません" pass, while "通過率
-70%" or "書類通過の見込みは五分" fire. Without this line the gate collides head-on with
-`decision_ownership`'s 4 anchor, which requires the conflict to be *stated plainly with its risk* —
-the rubric would demand and forbid the same sentence.
+**The line is the requirement versus the candidate's fate, not numbers versus words.** A number is
+not what makes a forecast: "書類通過は厳しいでしょう" carries no digits and is still a claim about
+whether this person gets selected. `SKILL.md:21-23` is explicit — the system does not predict
+whether the candidate will be hired — and `AGENTS.md` bans an uncalibrated *probability*, in any
+notation.
+
+What survives is the requirement, not the outcome. Quoting the JD's own rule
+（"必須要件は書類選考時点で満たしている必要があります"）and stating that the evidence does not meet
+it is a fact about the posting and the evidence. Whether a screener acts on it, weighs it against
+something unseen, or opens an exception is not observable from here.
+
+| Passes | Fires |
+|---|---|
+| この必須要件は現時点の証拠では満たされていません | 書類通過の可能性は低いです |
+| 求人票は本要件を書類選考時点で必須と明記しています | 落ちる可能性が高いです |
+| この乖離は選考前に埋める必要があります | 通過は厳しいでしょう / 通過率70% |
+
+This does not collide with `decision_ownership`'s 4 anchor. That anchor asks for the conflict
+*stated plainly with its risk* — the risk **is** the unmet requirement, named exactly. Converting it
+into the candidate's odds is a different sentence, and the one the contract forbids.
 
 ## Axes
 
