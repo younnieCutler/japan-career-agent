@@ -615,10 +615,21 @@ HISTORICAL
 Historical values are not treated as current facts.
 ```
 
-**The request is narrowed to what was asked for.** "Compare my 2024 resume with my current resume"
-is a question about resumes; returning every certificate and every company's ES beside them answers
-a question nobody asked, using personal data. The mode therefore takes a document type and/or a
-company and filters on the logical key.
+**A request must name what it is asking for.** "Compare my 2024 resume with my current resume" is a
+question about resumes; returning every certificate and every company's ES beside them answers a
+question nobody asked, using personal data. The mode therefore **requires** at least one of: a
+document type, a company, or explicit document ids. An unfiltered sweep of the whole store stays
+available but only through an explicit `all_documents`, so disclosing everything is a decision
+rather than what happens when the user types the short form.
+
+Document ids exist because a type filter is not always specific enough: with resumes from 2023,
+2024, 2025 and 2026, `type = resume` still returns three historical versions when the question named
+two. `private-list` produces the ids.
+
+**Nothing requested disappears.** Documents that are neither current nor superseded — a contested
+effective date, a date in the future, no effective date at all — are reported in their own bucket
+rather than dropped. In an explicit historical query, silently losing a document the user asked
+about is worse than showing an awkward state.
 
 **Metadata only, in this mode too.** Document *text* extraction is a v1 non-goal (§4), so there is
 no body to select and the phrase "historical document bodies" above describes what must never reach
@@ -1330,9 +1341,10 @@ Given a superseded 2024 resume and confirmed current 2026 resume, ordinary curre
 Given historical compensation only, current compensation is `Unknown`.
 
 ### AC-09: Historical query
-Explicit historical comparison can retrieve the requested historical/current versions — narrowed by
-document type and/or company, not the whole store — with correct labels. Records and labels only;
-document text extraction is a v1 non-goal (§4).
+Explicit historical comparison can retrieve the requested historical/current versions with correct
+labels. The request must name a document type, a company, or exact document ids; sweeping the whole
+store requires saying so explicitly. Documents in no comparable state are reported, not dropped.
+Records and labels only; document text extraction is a v1 non-goal (§4).
 
 ### AC-10: Certificate expiration
 Expired certificates remain in history but are not shown as currently valid.
@@ -1634,6 +1646,14 @@ against the domain `_shared/schemas.yml` states and reports a violating value as
 null value — fail-closed per field, so one bad record does not take the other fields down with it.
 `invalid` is deliberately not folded into `unknown`: "we do not know" and "what we have is unusable"
 call for different repairs.
+
+**A withheld field withholds the value, not just the `value` key.** `value: null` is not enough on
+its own. A `conflict` projection carries its `candidates`, each with the value that caused the
+conflict, so passing the projected entry straight through would hand the consumer exactly the
+personal values the state says it may not use — and an `invalid` reason that quotes the offending
+value smuggles it back the same way. Non-confirmed fields therefore travel as state, a reason built
+from constants, and counts. This is the same rule §12.1 applies with `withheld`, and this boundary
+must not be the exception to it.
 
 ### Phase 5: Document → fact promotion
 Phases 1–4 give a canonical store, a temporal core, and a read path — but **nothing writes facts**.

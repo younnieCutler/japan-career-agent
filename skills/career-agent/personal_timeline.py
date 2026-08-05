@@ -29,8 +29,8 @@ from typing import Any
 from models import UNTRUSTED_DATA_MARKER, CareerError
 from validation import iso_date, validate_event
 
-# Section 12.1: the personal path is capped the same way Vault context already is. An uncapped
-# "current facts only" projection is how a privacy boundary quietly grows into the whole profile.
+# How many conflicting records a `conflict` field lists. Not the context cap -- that is
+# `MAX_CONTEXT_FACTS`, further down, and the two answer different questions.
 MAX_CANDIDATES = 5
 
 UNKNOWN_NO_FACT = "no confirmed fact effective at as_of"
@@ -469,8 +469,8 @@ def select_personal_context(
     **No documents.** Default context carries selected facts and nothing else. Document metadata --
     type, company, purpose, effective dates, digest -- is personal data that neither the stage
     relevance map nor the cap applies to, so including it would let a stage that needs nothing
-    about the person still receive the shape of every document they own. `personal-documents` is
-    the explicit path.
+    about the person still receive the shape of every document they own. `private-list` and
+    `personal-context --historical` are the explicit paths.
     """
     if stage is not None and stage not in STAGE_CATEGORIES:
         # Fail closed here, not only at the CLI. A missing map entry would otherwise mean "no
@@ -486,7 +486,7 @@ def select_personal_context(
             continue
         for key, field in sorted(keys.items()):
             if field["state"] != "confirmed":
-                withheld[field["state"]] += 1
+                withheld[field["state"]] = withheld.get(field["state"], 0) + 1
                 continue
             facts.append({"category": category, "key": key, **field})
 
@@ -506,11 +506,18 @@ def select_personal_context(
     }
 
 
-def _matches(document: dict[str, Any], document_type: str | None, company: str | None) -> bool:
+def _matches(
+    document: dict[str, Any],
+    document_type: str | None,
+    company: str | None,
+    document_ids: tuple[str, ...],
+) -> bool:
     key = document["logical_key"]
     if document_type is not None and key.get("type") != document_type:
         return False
-    return company is None or key.get("company") == company
+    if company is not None and key.get("company") != company:
+        return False
+    return not document_ids or document["document_id"] in document_ids
 
 
 def historical_comparison(
@@ -519,29 +526,50 @@ def historical_comparison(
     *,
     document_type: str | None = None,
     company: str | None = None,
+    document_ids: tuple[str, ...] = (),
+    all_documents: bool = False,
 ) -> dict[str, Any]:
     """Section 12.2 / AC-09: the opt-in mode, for the requested versions, every role labelled.
 
     Superseded documents are reachable *only* here, and each side says which it is. An unlabelled
     historical value is the failure this mode exists to avoid: it looks exactly like a current one.
 
-    `document_type` and `company` narrow the request. "Compare my 2024 resume with my current
-    resume" is a question about resumes; returning every certificate and every company's ES
-    alongside them answers a question nobody asked, with personal data.
+    **A request must name what it is asking for.** "Compare my 2024 resume with my current resume"
+    is a question about resumes; returning every certificate and every company's ES beside them
+    discloses personal data nobody asked for. An unfiltered sweep is still available, but only
+    through `all_documents`, so it is a decision rather than the default. `document_ids` narrows to
+    exact versions when the two being compared are already known -- `private-list` produces them.
 
     Metadata only, in this mode too. Extracting document text is a v1 non-goal (section 4), so
     there is no body to select -- the user opens the file themselves from the private store.
     """
+    if not all_documents and document_type is None and company is None and not document_ids:
+        raise CareerError(
+            "a historical comparison must name what it is asking for: pass a document type, a "
+            "company, or document ids. Use all_documents to sweep the whole store deliberately."
+        )
     documents = [
         document for document in document_states(records, as_of)
-        if _matches(document, document_type, company)
+        if _matches(document, document_type, company, document_ids)
     ]
     return {
         "context_mode": "historical-comparison",
         "as_of": as_of,
-        "requested": {"type": document_type, "company": company},
+        "requested": {
+            "type": document_type,
+            "company": company,
+            "document_ids": list(document_ids),
+            "all_documents": all_documents,
+        },
         "current": [document for document in documents if document["status"] == "current"],
         "historical": [document for document in documents if document["status"] == "superseded"],
+        # Everything else -- contested dates, not yet effective, no effective date at all. Dropping
+        # these would make a document the user explicitly asked about vanish with no explanation,
+        # which in an explicit historical query is worse than showing an awkward state.
+        "unresolved": [
+            document for document in documents
+            if document["status"] not in ("current", "superseded")
+        ],
         "note": "Historical values are not treated as current facts.",
         "data_trust": UNTRUSTED_DATA_MARKER,
         "instruction_authority": "none",
@@ -572,6 +600,22 @@ CANDIDATE_PROFILE_FIELDS: dict[str, tuple[str, str, frozenset[str] | None]] = {
 INVALID_FOR_SCHEMA = "the confirmed value is not permitted by the CANDIDATE_PROFILE schema"
 
 
+def _withheld_field(state: str, reason: str, entry: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Report a field that must not be quoted -- without shipping the value anyway.
+
+    `value: null` alone is not enough here. A conflict projection carries its `candidates`, each
+    with the value that caused the conflict, so passing the entry through would hand the consumer
+    exactly the personal values the state says it may not use. Default context already withholds
+    the value and sends only a count (section 12.1); this boundary must not be the exception.
+    """
+    field = {"state": state, "value": None, "reason": reason}
+    if entry is not None and entry.get("candidates"):
+        field["candidate_count"] = len(entry["candidates"])
+    if entry is not None and entry.get("history_available"):
+        field["history_available"] = True
+    return field
+
+
 def _schema_checked(field: str, entry: dict[str, Any], domain: frozenset[str] | None) -> dict[str, Any]:
     """Refuse to hand a downstream schema a value it does not accept."""
     value = entry["value"]
@@ -581,12 +625,9 @@ def _schema_checked(field: str, entry: dict[str, Any], domain: frozenset[str] | 
         valid = value in domain
     if valid:
         return entry
-    return {
-        "state": "invalid",
-        "value": None,
-        "reason": f"{INVALID_FOR_SCHEMA}: {field}={value!r}",
-        "evidence": entry.get("evidence", []),
-    }
+    # The offending value stays out of the message. Naming the field is enough to find the record;
+    # echoing the value would smuggle the personal data back into the payload through the reason.
+    return _withheld_field("invalid", f"{INVALID_FOR_SCHEMA}: {field}")
 
 
 def candidate_profile_values(events: list[dict[str, Any]], as_of: str) -> dict[str, Any]:
@@ -596,11 +637,12 @@ def candidate_profile_values(events: list[dict[str, Any]], as_of: str) -> dict[s
     for field, (category, key, domain) in sorted(CANDIDATE_PROFILE_FIELDS.items()):
         entry = projection.get(category, {}).get(key)
         if entry is None:
-            values[field] = {"state": "unknown", "value": None, "reason": UNKNOWN_NO_FACT}
+            values[field] = _withheld_field("unknown", UNKNOWN_NO_FACT)
         elif entry["state"] != "confirmed":
             # A conflict or an Unknown is reported as such. Quoting either as a value is exactly the
-            # silent-stale-fallback section 12.3 forbids, one layer further downstream.
-            values[field] = entry
+            # silent-stale-fallback section 12.3 forbids, one layer further downstream -- and the
+            # values behind it do not travel either.
+            values[field] = _withheld_field(entry["state"], entry["reason"], entry)
         else:
             values[field] = _schema_checked(field, entry, domain)
     return {

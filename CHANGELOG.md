@@ -40,13 +40,27 @@
   front of it. A missing map entry means "no category filter", and the selector is a public boundary
   symbol other code can call without going through argparse; a guard only at the outermost layer is
   a guard the next caller skips.
-- The historical comparison takes `--type` and `--company`. Comparing two resumes should not also
-  disclose every certificate and every company's ES. It stays metadata-only in this mode too, since
-  document text extraction is a v1 non-goal — the user opens the files themselves.
+- The historical comparison **requires** a request to name what it is asking for: `--type`,
+  `--company`, or `--document-id`. Comparing two resumes should not also disclose every certificate
+  and every company's ES, and leaving the filters optional meant the short form still did. Sweeping
+  the whole store needs an explicit `--all-documents`, so full disclosure is a decision rather than
+  a default. `--document-id` is repeatable, because a type filter still returns three historical
+  resumes when the question named two. It stays metadata-only in this mode too, since document text
+  extraction is a v1 non-goal — the user opens the files themselves.
+- The historical comparison reports documents that are neither current nor superseded — a contested
+  date, a future date, no date at all — in an `unresolved` bucket instead of dropping them. In an
+  explicit query, losing a document the user asked about is worse than showing an awkward state.
 - `--candidate-profile` validates each value against the domain `_shared/schemas.yml` states and
   reports a violation as `invalid` with a null value. A fact's `value` is otherwise unconstrained and
   the consuming skill is told to quote it exactly, so an unchecked `jlpt_level: N9` became a schema
   violation two skills downstream. Checked per field, so one bad record does not take the others down.
+- A withheld field withholds the **value**, not just the `value` key. A `conflict` projection carries
+  its `candidates`, each with the value that caused the conflict, so passing the entry through handed
+  the consumer exactly the values the state said it may not use; an `invalid` reason that quoted the
+  offending value smuggled it back the same way. Non-confirmed fields now travel as state, a reason
+  built from constants, and counts — the rule default context already followed.
+- `personal-context` rejects an argument that does not apply to the chosen mode instead of accepting
+  and ignoring it. An ignored `--type` claims a filter that was never applied.
 - `run --mode chat` carries the same `personal_context` block, built by the same selector as the
   shared `context` command. Two selectors would eventually disagree about what "current" means.
   `references/shared-vault-context.md` now states what consumers may do with it.

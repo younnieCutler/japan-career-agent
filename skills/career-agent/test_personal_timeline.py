@@ -793,12 +793,24 @@ class PersonalContextTest(unittest.TestCase):
         self.assertIn("stage is not recognized", str(caught.exception))
 
     def test_default_context_carries_no_documents_at_all(self) -> None:
-        """AC-07: neither the relevance map nor the cap applies to documents, so none are sent."""
-        selected = personal_timeline.select_personal_context([], "面接", "2026-08-05")
+        """AC-07: a superseded 2024 resume and a current 2026 one both stay out of current context.
+
+        Documents are structurally absent, not filtered: neither the relevance map nor the cap
+        applies to them, so there is no rule that would have held them back.
+        """
+        events = [event("f1", "language", "jlpt", "N1", effective_from="2024-07-01")]
+        # Present in the store, and still absent from the payload.
+        document("d1", "resume", "2024-05-01")
+        document("d2", "resume", "2026-07-15")
+        selected = personal_timeline.select_personal_context(events, "面接", "2026-08-05")
         self.assertNotIn("documents", selected)
         self.assertFalse(selected["documents_included"])
-        for absent in ("document_id", "sha256", "logical_key", "storage_path"):
+        self.assertEqual(len(selected["facts"]), 1, "the fact selection still works")
+        for absent in ("document_id", "sha256", "logical_key", "storage_path", "resume"):
             self.assertNotIn(absent, repr(selected), absent)
+        # The selector takes no record argument at all, so no caller can pass documents in.
+        with self.assertRaises(TypeError):
+            personal_timeline.select_personal_context(events, [], "面接", "2026-08-05")
 
     def test_context_carries_the_untrusted_markers(self) -> None:
         """AC-16: career data reaching the model is labelled as carrying no instruction authority."""
@@ -841,7 +853,8 @@ class HistoricalComparisonTest(unittest.TestCase):
             self._records(), "2026-08-05", document_type="resume"
         )
         self.assertNotIn("d3", repr(result))
-        self.assertEqual(result["requested"], {"type": "resume", "company": None})
+        self.assertEqual(result["requested"]["type"], "resume")
+        self.assertIsNone(result["requested"]["company"])
 
     def test_a_company_filter_narrows_the_comparison(self) -> None:
         records = [
@@ -853,6 +866,46 @@ class HistoricalComparisonTest(unittest.TestCase):
         )
         self.assertEqual([item["document_id"] for item in result["current"]], ["e1"])
         self.assertNotIn("e2", repr(result))
+
+    def test_an_unfiltered_comparison_is_refused(self) -> None:
+        """An unnamed request would disclose the whole store, which is nobody's question."""
+        with self.assertRaises(CareerError) as caught:
+            personal_timeline.historical_comparison(self._records(), "2026-08-05")
+        self.assertIn("must name what it is asking for", str(caught.exception))
+
+    def test_a_whole_store_sweep_requires_saying_so(self) -> None:
+        result = personal_timeline.historical_comparison(
+            self._records(), "2026-08-05", all_documents=True
+        )
+        self.assertTrue(result["requested"]["all_documents"])
+        self.assertIn("d3", repr(result))
+
+    def test_exact_versions_can_be_requested_by_id(self) -> None:
+        """`--type resume` still returns 2023 and 2025; comparing two versions names them."""
+        records = [document(f"r{year}", "resume", f"{year}-05-01") for year in
+                   (2023, 2024, 2025, 2026)]
+        result = personal_timeline.historical_comparison(
+            records, "2026-08-05", document_ids=("r2024", "r2026")
+        )
+        self.assertEqual([item["document_id"] for item in result["current"]], ["r2026"])
+        self.assertEqual([item["document_id"] for item in result["historical"]], ["r2024"])
+        for absent in ("r2023", "r2025"):
+            self.assertNotIn(absent, repr(result), absent)
+
+    def test_an_unorderable_document_is_shown_rather_than_dropped(self) -> None:
+        """In an explicit query, silently losing a requested document is worse than an odd state."""
+        records = [
+            document("d1", "resume", "2026-07-15"),
+            document("d2", "resume", "2026-07-15"),
+            document("d3", "resume", None),
+        ]
+        result = personal_timeline.historical_comparison(
+            records, "2026-08-05", document_type="resume"
+        )
+        self.assertEqual(result["current"], [])
+        self.assertEqual(
+            sorted(item["document_id"] for item in result["unresolved"]), ["d1", "d2", "d3"]
+        )
 
 
 class CandidateProfileReadPathTest(unittest.TestCase):
@@ -875,9 +928,41 @@ class CandidateProfileReadPathTest(unittest.TestCase):
             event("f1", "language", "jlpt", "N1", effective_from="2026-01-20"),
             event("f2", "language", "jlpt", "N2", effective_from="2026-01-20"),
         ]
-        field = personal_timeline.candidate_profile_values(events, "2026-08-05")["fields"]["jlpt_level"]
+        result = personal_timeline.candidate_profile_values(events, "2026-08-05")
+        field = result["fields"]["jlpt_level"]
         self.assertEqual(field["state"], "conflict")
         self.assertIsNone(field["value"])
+
+    def test_conflicting_values_do_not_travel_in_the_payload(self) -> None:
+        """`value: null` is not enough: a conflict projection carries its candidates."""
+        events = [
+            event("f1", "language", "jlpt", "N1", effective_from="2026-01-20"),
+            event("f2", "language", "jlpt", "N2", effective_from="2026-01-20"),
+        ]
+        result = personal_timeline.candidate_profile_values(events, "2026-08-05")
+        self.assertEqual(result["fields"]["jlpt_level"]["candidate_count"], 2)
+        self.assertNotIn("candidates", result["fields"]["jlpt_level"])
+        for absent in ("N1", "N2"):
+            self.assertNotIn(absent, repr(result), absent)
+
+    def test_an_invalid_value_is_not_echoed_back_through_the_reason(self) -> None:
+        secret = "Synthetic Private Detail 12345"
+        events = [event("f1", "employment", "visa_status", secret, effective_from="2026-01-20")]
+        result = personal_timeline.candidate_profile_values(events, "2026-08-05")
+        self.assertEqual(result["fields"]["visa_status"]["state"], "invalid")
+        self.assertNotIn(secret, repr(result))
+        self.assertIn("visa_status", result["fields"]["visa_status"]["reason"])
+
+    def test_an_explicitly_unknown_value_reports_history_without_the_value(self) -> None:
+        events = [
+            event("f1", "language", "jlpt", "N1", effective_from="2024-01-01"),
+            event("f2", "language", "jlpt", None, effective_from="2026-01-20", supersedes="f1"),
+        ]
+        result = personal_timeline.candidate_profile_values(events, "2026-08-05")
+        field = result["fields"]["jlpt_level"]
+        self.assertEqual(field["state"], "unknown")
+        self.assertTrue(field["history_available"])
+        self.assertNotIn("N1", repr(result))
 
     def test_a_value_outside_the_schema_domain_is_never_quoted(self) -> None:
         """`validate_fact` checks that a value exists, not what belongs in a downstream field."""
@@ -885,7 +970,8 @@ class CandidateProfileReadPathTest(unittest.TestCase):
         field = personal_timeline.candidate_profile_values(events, "2026-08-05")["fields"]["jlpt_level"]
         self.assertEqual(field["state"], "invalid")
         self.assertIsNone(field["value"])
-        self.assertIn("N9", field["reason"])
+        self.assertIn("jlpt_level", field["reason"])
+        self.assertNotIn("N9", repr(field), "the offending value must not be echoed back")
 
     def test_every_constrained_field_rejects_a_foreign_value(self) -> None:
         for field, (category, key, domain) in personal_timeline.CANDIDATE_PROFILE_FIELDS.items():
@@ -984,6 +1070,28 @@ class CliTest(unittest.TestCase):
         self.assertIn('"context_mode": "historical-comparison"', result.stdout)
         self.assertIn("not treated as current facts", result.stdout)
         self.assertIn('"type": "resume"', result.stdout)
+
+    def test_personal_context_historical_refuses_an_unnamed_request(self) -> None:
+        result = self._run("personal-context", "--historical", "--as-of", "2026-08-05")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must name what it is asking for", result.stderr + result.stdout)
+
+    def test_document_filters_outside_historical_mode_are_refused(self) -> None:
+        """An argument that is accepted and then ignored claims a filter that was never applied."""
+        result = self._run("personal-context", "--type", "resume", "--as-of", "2026-08-05")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("apply to --historical", result.stderr + result.stdout)
+
+    def test_stage_outside_the_default_mode_is_refused(self) -> None:
+        result = self._run("personal-context", "--candidate-profile", "--stage", "面接",
+                           "--as-of", "2026-08-05")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not apply here", result.stderr + result.stdout)
+
+    def test_the_two_document_modes_are_mutually_exclusive(self) -> None:
+        result = self._run("personal-context", "--historical", "--candidate-profile",
+                           "--as-of", "2026-08-05")
+        self.assertNotEqual(result.returncode, 0)
 
     def test_chat_carries_the_same_personal_selection(self) -> None:
         """One selector: the chat path and the shared API cannot disagree about "current"."""
