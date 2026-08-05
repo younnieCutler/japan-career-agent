@@ -55,7 +55,8 @@ with any other field.
 - Use `Confirmed`, `Unknown`, `Contradictory`, `Stale`, and `Low Confidence` for evidence. Use
   `Matched`, `Missing`, and `Unknown` for requirements.
 - A confirmed hard requirement, work-authorization, must-have, or avoid conflict stays a
-  `Conflict`; other strengths do not offset it.
+  `Conflict` at `Decision Status`; other strengths do not offset it. The requirement row itself
+  stays `Missing` — `Conflict` is not a requirement state.
 - Candidate interest is recorded separately and never changes the evidence result or a next-action
   ordering. The user decides whether to continue after a conflict; do not say `do not apply`.
 
@@ -102,10 +103,12 @@ Extract each requirement into an evidence table:
 |---|---|---|---|---|
 | [exact requirement] | [quote or `Unknown`] | [JD quote or `Unknown`] | Matched / Missing / Unknown | source, date, confidence |
 
-For hard requirements, only mark a `Conflict` when both sides are evidenced and disagree. One-sided
-information remains `Unknown`. A missing core skill is a `Missing` requirement with an implication
-and a verification or retargeting question; it is not an arbitrary multiplier or a proprietary
-platform judgement.
+`Conflict` is not a requirement state and never appears in this table. It is a `Decision Status`
+value. A hard requirement that both sides evidence and disagree on is `Missing` here, and that
+`Missing` is what makes the `Decision Status` a `Conflict` — one finding, recorded at the level each
+belongs to. Evidence that is one-sided, `Contradictory`, or `Stale` leaves the requirement `Unknown`.
+A missing core skill is a `Missing` requirement with an implication and a verification or
+retargeting question; it is not an arbitrary multiplier or a proprietary platform judgement.
 
 ### STEP 1 — Candidate evidence
 
