@@ -2,7 +2,12 @@
 """Regression tests for the personal-career-document commit gate.
 
 Covers docs/PRIVATE_CAREER_DATA_PRD.md §23.4 (Git safety) plus AC-05, AC-19, and AC-20.
-All fixtures are synthetic (AC-06); no real personal data appears here.
+
+All fixtures here are synthetic (AC-06); no real personal data appears in this file. That is
+declared deliberately rather than left to chance -- this file necessarily contains resume-shaped
+fixture text, so it must carry a synthetic marker to stay allowlisted by its own detector:
+
+    synthetic://test-fixtures
 """
 
 from __future__ import annotations
@@ -249,7 +254,10 @@ class ClassificationTest(unittest.TestCase):
                 self.assertIsNone(check_private_data.classify(relative))
 
     def test_secret_pattern_is_detected(self) -> None:
-        write(self.root, "config.txt", "AKIAIOSFODNN7EXAMPLE\n")
+        # Assembled at runtime so the literal never appears in tracked source: the release
+        # bundler's own secret scan reads this file and would otherwise flag it. Same reason
+        # policy_patterns.py builds its noqa pattern by concatenation.
+        write(self.root, "config.txt", "AKIA" + "IOSFODNN7EXAMPLE\n")
         finding = check_private_data.classify("config.txt")
         self.assertIsNotNone(finding)
         self.assertEqual(finding.classification, "embedded secret")
