@@ -12,16 +12,45 @@ legacy read-only compatibility.
 - Keep external claims dated, sourced, confidence-labelled, and freshness-checkable.
 - Do not include personal resumes, Vault files, pipeline data, or secrets.
 
+## Personal data protection
+
+Enable the tracked commit hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It runs `scripts/check_private_data.py --staged` and blocks a commit that stages a probable
+personal career document — including one force-added with `git add -f`, which ignore rules cannot
+stop. Enabling it is a manual step because Git cannot install a hook by being cloned: `.git/hooks`
+is not tracked content.
+
+The same check runs in CI over every tracked file, so a clone without the hook still fails the pull
+request — but only after the document has reached the remote, which is what the hook prevents. Both
+layers are required; neither is sufficient alone.
+
+If the check flags a synthetic fixture, declare it rather than weakening the detector: use a
+`.example.` infix in the filename, or put a synthetic marker in the content (`synthetic://...`,
+`provenance: synthetic`, or a statement that the subject is not a real person).
+
+Putting a file under `examples/`, `tests/`, or `mock/` does **not** exempt it. A directory name is
+a convention, not a statement about the bytes inside, and exempting those paths would make them the
+easiest place to leak real data. See `docs/PRIVATE_CAREER_DATA_PRD.md` section 13.3.
+
 ## Verification
 
 Run the deterministic checks relevant to the change. For a repository-wide change, run the same
 Ubuntu/Windows matrix used by CI:
 
 ```bash
-python -m pip install -r requirements.txt
-python -m pip install "ruff>=0.8,<1"
+python -m pip install --require-hashes -r requirements.lock
+python -m pip install --require-hashes -r requirements-dev.lock
 python scripts/run_all_checks.py
 ```
+
+These are the hash-pinned commands CI actually runs. Installing `requirements.txt` with a loose
+`ruff` range instead resolves a different linter version than CI, so local and CI results can
+disagree for reasons unrelated to the change.
 
 `run_all_checks.py` is the canonical repository verification path and mirrors the Ubuntu/Windows
 CI matrix, including documentation and release-version consistency checks.

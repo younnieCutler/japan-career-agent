@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.8.0] — 2026-08-05
+
+- Added `scripts/check_private_data.py`, a deterministic gate against tracking or committing
+  personal career documents. It runs over every tracked file in the canonical check matrix and,
+  with `--staged`, over the staged set. Detection is standard-library only: filename tokens,
+  document extensions, ZIP container shape (so a renamed `.docx` is still caught), structured
+  personal-field labels, and the release bundler's existing secret patterns.
+- `--staged` reads the staged blob via `git cat-file`, not the working-tree file. The commit
+  contains the staged bytes, so staging a document and then overwriting the worktree copy must not
+  clear the gate.
+- The synthetic allowlist requires an explicit declaration — `.example.` infix, `synthetic://`
+  reference, or declared synthetic provenance. Directory location never suppresses detection:
+  exempting `examples/`, `tests/`, or `mock/` would make them blind spots for real data. The gate
+  is verified clean against the repository's own tracked content, so it cannot be normalized into
+  being bypassed.
+- Content detection matches filled-in personal field labels, never topic words, so the repository's
+  own documentation about resumes is not flagged.
+- Hardened `.gitignore` with personal-document extensions, Japanese and romanized document-name
+  tokens, and `**/private/`. Romanized patterns are scoped so ordinary source names cannot collide.
+- Added a tracked `.githooks/pre-commit` hook, enabled per clone with
+  `git config core.hooksPath .githooks`. It fails closed, and probes candidate interpreters by
+  executing them — resolving the name alone selects the non-functional Microsoft Store `python3`
+  stub on Windows, which would have blocked every commit.
+- Corrected the verification commands in `CONTRIBUTING.md` to the hash-pinned lock files CI uses.
+- Added `docs/PRIVATE_CAREER_DATA_PRD.md`, the reviewed requirements for the private career data
+  store, timeline, and fresh-context contract. Documentation only; phases 2-4 are not implemented.
+
 ## [1.7.1] — 2026-08-04
 
 - Career Agent event validation now rejects deadlines with a syntactically valid

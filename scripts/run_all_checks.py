@@ -13,6 +13,10 @@ PYTHON = sys.executable
 CHECKS = (
     ("ruff", (PYTHON, "-m", "ruff", "check", "--select", "E4,E7,E9,F", ".")),
     ("policy", (PYTHON, "scripts/check_policy.py")),
+    # Runs early on purpose: a tracked personal document is the one finding worth surfacing
+    # before spending the rest of the matrix.
+    ("private data", (PYTHON, "scripts/check_private_data.py")),
+    ("private data tests", (PYTHON, "scripts/test_check_private_data.py")),
     ("claim freshness", (PYTHON, "scripts/check_claim_freshness.py")),
     ("context budget", (PYTHON, "scripts/check_context_budget.py")),
     ("reference paths", (PYTHON, "scripts/check_reference_paths.py")),
