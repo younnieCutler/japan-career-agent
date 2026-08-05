@@ -30,6 +30,7 @@ from models import (  # noqa: E402
     CHUTO_STAGES,
     CONTEXT_KINDS,
     EVENT_STATUSES,
+    FACT_CATEGORIES,
     PIPELINE_STAGE,
     REFERENCE_BY_STAGE,
     REQUIRED_CONTEXT_METADATA,
@@ -45,7 +46,13 @@ from models import (  # noqa: E402
     default_state,
     normalized_state,
 )
-from validation import DATE_VALUE, NUMERIC_CLAIM, validate_career_context, validate_event  # noqa: E402
+from validation import (  # noqa: E402
+    DATE_VALUE,
+    NUMERIC_CLAIM,
+    iso_date,
+    validate_career_context,
+    validate_event,
+)
 from routing import (  # noqa: E402
     FLOW_REFERENCE,
     ROUTING,
@@ -97,6 +104,7 @@ from persistence import (  # noqa: E402
     write_jsonl,
     write_toml,
 )
+from personal_timeline import project, timeline  # noqa: E402
 from private_store import (  # noqa: E402
     DOCUMENT_TYPES,
     PRIVATE_ENV,
@@ -258,12 +266,16 @@ def doctor(
             metadata = note
             if not all(key in metadata and metadata[key] not in (None, "", []) for key in REQUIRED_CONTEXT_METADATA):
                 warnings.append(f"context note missing required metadata: {note['path']}")
-            expires = str(metadata.get("expires_on") or "")
+            # AC-22: the same value must not be an error here and a silent pass in eligibility.
+            # `iso_date` is now the single parser both paths call.
             try:
-                if expires and dt.date.fromisoformat(expires) < today():
-                    warnings.append(f"context note expired: {note['path']}")
-            except ValueError:
-                errors.append(f"context note expires_on must use YYYY-MM-DD: {note['path']}")
+                expires = iso_date(metadata.get("expires_on"), "expires_on")
+            except CareerError:
+                errors.append(f"context note expires_on must be a real calendar date: {note['path']}")
+                warnings.append(f"context note is ineligible until expires_on is fixed: {note['path']}")
+                continue
+            if expires and dt.date.fromisoformat(expires) < today():
+                warnings.append(f"context note expired: {note['path']}")
     pipeline_path = pipeline_file(workspace)
     if pipeline_path.is_file():
         pipeline_data = pipeline_store.load(pipeline_path)
@@ -548,7 +560,9 @@ def latest_career_context(home: CareerVault) -> tuple[dict[str, Any] | None, dic
     return latest["career_context"], latest
 
 
-def run_context(home: CareerVault, requested_track: str | None, requested_stage: str | None) -> dict[str, Any]:
+def run_context(
+    home: CareerVault, requested_track: str | None, requested_stage: str | None, as_of: str,
+) -> dict[str, Any]:
     """Shared, metadata-only context for other career skills and agent frontends."""
     profile = home.load_profile()
     state = home.load_state()
@@ -563,13 +577,18 @@ def run_context(home: CareerVault, requested_track: str | None, requested_stage:
     return {
         "mode": "context",
         "vault": str(home.path),
+        "as_of": as_of,
         "profile": {key: profile[key] for key in profile_keys if key in profile and profile[key] not in (None, "")},
         "state": state,
-        "context": select_context(home.path, track, stage) if stage else [],
+        "context": select_context(home.path, track, stage, as_of) if stage else [],
         "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
         "career_context": career_context,
         "career_context_confirmed": career_context is not None,
         "career_context_event_id": career_event.get("id") if career_event else None,
+        # Section 12.2: current-only by default. Historical values are reachable through
+        # `personal-timeline`, labelled, never folded into this payload.
+        "personal_profile": project(read_jsonl(home.events), as_of),
+        "personal_context_mode": "current-only",
         "read_only": True,
         "note_bodies_included": False,
     }
@@ -621,6 +640,15 @@ def build_parser() -> argparse.ArgumentParser:
             help="job-search workspace containing data/pipeline.yml; defaults to the current directory",
         )
 
+    def add_as_of_argument(command: argparse.ArgumentParser) -> None:
+        # AC-21: the ONLY place a wall clock touches the temporal path. Everything downstream takes
+        # `as_of` as a required parameter, so the same history and the same date always project the
+        # same way, and a test can change the date without changing the system clock.
+        command.add_argument(
+            "--as-of", default=today().isoformat(), metavar="YYYY-MM-DD",
+            help="project as of this date instead of today; the projection never reads the clock",
+        )
+
     init_parser = subparsers.add_parser("init")
     add_vault_argument(init_parser)
     setup_parser = subparsers.add_parser(
@@ -642,6 +670,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--message")
     run.add_argument("--track", choices=sorted(TRACKS))
     run.add_argument("--source", help="JSON file for discover; stdin is used when omitted")
+    add_as_of_argument(run)
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)
     proposals_parser = subparsers.add_parser(
@@ -674,6 +703,20 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(context_parser)
     context_parser.add_argument("--track", choices=sorted(TRACKS), help="override the profile/state track")
     context_parser.add_argument("--stage", help="select verified notes for this exact stage")
+    add_as_of_argument(context_parser)
+    profile_parser = subparsers.add_parser(
+        "personal-profile",
+        help="current personal-profile projection; Unknown and Conflict are explicit states",
+    )
+    add_vault_argument(profile_parser)
+    add_as_of_argument(profile_parser)
+    timeline_parser = subparsers.add_parser(
+        "personal-timeline",
+        help="full labelled history for one fact key, including superseded records",
+    )
+    add_vault_argument(timeline_parser)
+    timeline_parser.add_argument("--category", required=True, choices=sorted(FACT_CATEGORIES))
+    timeline_parser.add_argument("--key", required=True, help="the logical fact key, e.g. jlpt")
     context_proposal_parser = subparsers.add_parser(
         "propose-context",
         help="create an approval-gated proposal from a SELF_ANALYSIS_PROFILE YAML",
@@ -790,14 +833,25 @@ def main(argv: Iterable[str] | None = None) -> int:
             elif args.command == "index":
                 result = run_index(home, include_archives=args.include_archives)
             elif args.command == "context":
-                result = run_context(home, args.track, args.stage)
+                result = run_context(home, args.track, args.stage, args.as_of)
+            elif args.command == "personal-profile":
+                result = project(read_jsonl(home.events), args.as_of)
+            elif args.command == "personal-timeline":
+                result = {
+                    # Section 12.2: historical values are explicitly labelled, never presented as
+                    # current facts. The caller asked for history, so it is told which is which.
+                    "context_mode": "historical",
+                    "category": args.category,
+                    "key": args.key,
+                    "history": timeline(read_jsonl(home.events), args.category, args.key),
+                }
             elif args.command == "propose-context":
                 result = propose_career_context(home, args.source)
             elif args.mode == "chat":
                 message = args.message if args.message is not None else read_stdin_utf8().strip()
                 if not message:
                     raise CareerError("chat requires --message or stdin")
-                result = run_chat(home, skills_root, message, args.track)
+                result = run_chat(home, skills_root, message, args.track, args.as_of)
             elif args.mode == "heartbeat":
                 result = run_heartbeat(home)
             else:

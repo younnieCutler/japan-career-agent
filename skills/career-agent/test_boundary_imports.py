@@ -22,6 +22,7 @@ BOUNDARY_SYMBOLS = {
     "proposals": ("run_chat", "list_proposals"),
     "projection": ("pipeline_file", "upsert_pipeline_entry"),
     "lifecycle": ("approve", "restore_state", "vault_lock"),
+    "personal_timeline": ("project", "timeline", "derive_intervals"),
     "private_store": ("resolve_private_home", "import_document", "private_doctor", "stray_documents"),
 }
 

@@ -33,6 +33,7 @@ from persistence import (
     write_jsonl,
     write_toml,
 )
+from validation import iso_date
 
 
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.M)
@@ -140,26 +141,37 @@ def metadata_values(value: Any) -> set[str]:
     return set()
 
 
-def context_eligible(note: dict[str, Any], track: str, stage: str) -> bool:
+def context_eligible(note: dict[str, Any], track: str, stage: str, as_of: str) -> bool:
+    """Eligibility for one explicit date. Never consults a clock (AC-21).
+
+    `as_of` is a required parameter: the caller injects the day once, at the CLI boundary, so the
+    same vault and the same date always produce the same selection. Reading `today()` here is why
+    this path could not be tested for reproducibility.
+    """
     if note.get("kind") not in CONTEXT_KINDS or note.get("agent_read") is not True:
         return False
     if note.get("status") != "verified" or note.get("source_type") not in TRUSTED_SOURCE_TYPES:
         return False
-    expires = str(note.get("expires_on") or "")
+    day = dt.date.fromisoformat(iso_date(as_of, "as_of") or "")
     try:
-        if expires and dt.date.fromisoformat(expires) < today():
-            return False
-    except ValueError:
-        pass
+        expires = iso_date(note.get("expires_on"), "expires_on")
+    except CareerError:
+        # AC-22: a malformed expiry makes the note INELIGIBLE, never permanently non-expiring.
+        # Swallowing the parse error here meant one typo kept a stale note in context forever,
+        # while `doctor` reported the very same value as a hard error. Two paths, one value, two
+        # answers -- and the lenient one was on the side that feeds the model.
+        return False
+    if expires and dt.date.fromisoformat(expires) < day:
+        return False
     if track not in metadata_values(note.get("agent_scope")) | {"both"}:
         return False
     stages = metadata_values(note.get("agent_stage"))
     return not stages or stage in stages or "all" in stages
 
 
-def select_context(vault: Path, track: str, stage: str) -> list[dict[str, Any]]:
+def select_context(vault: Path, track: str, stage: str, as_of: str) -> list[dict[str, Any]]:
     """Return metadata only; note bodies are deliberately never persisted or returned."""
-    eligible = [note for note in index_vault_notes(vault) if context_eligible(note, track, stage)]
+    eligible = [note for note in index_vault_notes(vault) if context_eligible(note, track, stage, as_of)]
     eligible.sort(key=lambda note: note["date"] or "", reverse=True)
     selected = [
         {

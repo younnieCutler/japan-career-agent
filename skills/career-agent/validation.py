@@ -9,6 +9,7 @@ from typing import Any
 from models import (
     CAREER_CONTEXT_FIELDS,
     EVENT_STATUSES,
+    FACT_CATEGORIES,
     REQUIRED_EVENT_FIELDS,
     TRACKS,
     CareerError,
@@ -20,6 +21,23 @@ NUMERIC_CLAIM = re.compile(
     r"(?<![A-Za-z])[+-]?\d+(?:[.,]\d+)?\s*(?:%|％|명|人|건|件|배|倍|만|万円|원|円)"
 )
 DATE_VALUE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:T[^Z]+Z)?$")
+
+
+def iso_date(value: Any, field: str) -> str | None:
+    """Return a real calendar date as `YYYY-MM-DD`, or None when absent.
+
+    The single date parser for every temporal contract in the agent. It exists because the same
+    value used to be accepted by one code path and rejected by another (AC-22): `2026-13-45` was a
+    hard error in `doctor` and a silently ignored "never expires" in context eligibility. A shared
+    parser makes disagreement impossible rather than merely unlikely.
+    """
+    if value in (None, ""):
+        return None
+    text = str(value)[:10]
+    try:
+        return dt.date.fromisoformat(text).isoformat()
+    except ValueError as exc:
+        raise CareerError(f"{field} must be a real calendar date (YYYY-MM-DD): {value!r}") from exc
 
 
 def string_list_from(value: dict[str, Any], field: str) -> list[str] | None:
@@ -96,6 +114,13 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
             dt.date.fromisoformat(event["deadline"][:10])
         except ValueError:
             raise CareerError("event.deadline must be a real calendar date")
+    # AC-22: `deadline` was calendar-checked while `occurred_at` was not validated at all, so an
+    # impossible date entered the ledger through the field every projection orders by.
+    if not isinstance(event["occurred_at"], str) or not DATE_VALUE.match(event["occurred_at"]):
+        raise CareerError("event.occurred_at must use YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ")
+    iso_date(event["occurred_at"], "event.occurred_at")
+    if "fact" in event and event["fact"] is not None:
+        validate_fact(event["fact"])
     if "company" in event and event["company"] is not None:
         if not isinstance(event["company"], str) or not event["company"].strip():
             raise CareerError("event.company must be a non-empty string")
@@ -115,3 +140,27 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
         evidence_claims = set(NUMERIC_CLAIM.findall(evidence_text))
         if claims and not all(claim in evidence_claims for claim in claims):
             raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
+
+
+def validate_fact(fact: Any) -> None:
+    """Validate the optional personal-fact payload an event may carry (PRD sections 8, 8.1).
+
+    `effective_to` is rejected outright rather than ignored: it is derived from supersession links
+    (section 8.1), and a hand-authored copy is a second source of truth that goes stale silently the
+    moment a link changes.
+    """
+    if not isinstance(fact, dict):
+        raise CareerError("event.fact must be an object or null")
+    if fact.get("category") not in FACT_CATEGORIES:
+        raise CareerError(f"event.fact.category must be one of: {', '.join(sorted(FACT_CATEGORIES))}")
+    if not isinstance(fact.get("key"), str) or not fact["key"].strip():
+        raise CareerError("event.fact.key must be a non-empty string")
+    if "value" not in fact:
+        raise CareerError("event.fact.value is required; use null to record an explicit Unknown")
+    if "effective_to" in fact:
+        raise CareerError("event.fact.effective_to is derived from supersession and must not be set")
+    iso_date(fact.get("effective_from"), "event.fact.effective_from")
+    iso_date(fact.get("expires_on"), "event.fact.expires_on")
+    supersedes = fact.get("supersedes")
+    if supersedes is not None and (not isinstance(supersedes, str) or not supersedes.strip()):
+        raise CareerError("event.fact.supersedes must be an event id or null")

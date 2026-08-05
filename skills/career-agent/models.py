@@ -11,6 +11,19 @@ from typing import Any, TypedDict
 
 TRACKS = {"shinsotsu", "chuto"}
 EVENT_STATUSES = {"draft", "confirmed", "superseded"}
+# Personal fact categories an event may carry (PRD section 8). Facts extend the existing event
+# ledger rather than opening a second canonical store; `superseded` above is the status this
+# finally gives meaning to, derived from the forward `supersedes` link.
+FACT_CATEGORIES = {
+    "compensation",
+    "certification",
+    "language",
+    "employment",
+    "education",
+    "role",
+    "skill",
+    "portfolio",
+}
 CAREER_STATUSES = {"active", "confirmed", "onboarding"}
 VAULT_DIRECTORIES = (
     "00-control",

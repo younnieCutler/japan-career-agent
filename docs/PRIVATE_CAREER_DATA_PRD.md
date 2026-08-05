@@ -1472,10 +1472,10 @@ and current/superseded state for document records are derived here from `effecti
 not read from the registry.
 Exit criteria: AC-08, AC-10, AC-14, AC-15, AC-21, AC-22, AC-26.
 
-**Decision (resolved): option (a).** The personal timeline extends the existing append-only career
-event ledger — implementing the already-declared but never-written `superseded` status plus
-`effective_from`/`effective_to` — rather than introducing a second canonical state store, which the
-agent contract warns against. The shape is:
+**Decision (resolved and implemented): option (a).** The personal timeline extends the existing
+append-only career event ledger — implementing the already-declared but never-written `superseded`
+status plus `effective_from`/`effective_to` — rather than introducing a second canonical state store,
+which the agent contract warns against. The shape is:
 
 ```text
 raw documents
@@ -1489,6 +1489,17 @@ The document registry stays separate because it inventories artifacts, not claim
 get no new ledger. `current/personal-profile.json` is a derived cache that must be reconstructible
 from history alone (AC-14), and `as_of` is a required parameter on every internal function on this
 path (AC-21).
+
+An event carries an optional `fact` object: `category`, `key`, `value`, `effective_from`,
+`expires_on`, and `supersedes`. `effective_to` is **rejected** in that payload — it is derived from
+the supersession links (§8.1), and a hand-authored copy is a second source of truth that goes stale
+silently the moment a link changes. `value` is required and may be explicitly `null`; a missing
+`value` is a contract error, not an implicit Unknown.
+
+**Only confirmed facts participate in supersession.** A `draft` fact never enters the projection and
+never closes a confirmed fact's interval. Allowing it to would route a state change around the
+approval gate: merely proposing a correction would blank the current value before the user accepted
+it.
 
 ### Phase 4: Context integration and the downstream read path
 Current-only default context; explicit labelled historical mode; stale-context regressions; **and the

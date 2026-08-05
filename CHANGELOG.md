@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.10.0] - 2026-08-05
+
+- Added the personal fact timeline and the current personal-profile projection
+  (`skills/career-agent/personal_timeline.py`) with two new commands: `personal-profile` and
+  `personal-timeline`.
+- Facts extend the existing append-only career event ledger rather than opening a second canonical
+  state store. An event may carry a `fact` object, and the ledger's long-declared but never written
+  `superseded` status finally means something — derived from the forward `supersedes` link, not
+  stamped by hand.
+- `effective_to` is derived and cannot be hand-authored: when B supersedes A and `B.effective_from`
+  is known, `A.effective_to` becomes the day before it. When `B.effective_from` is Unknown, both
+  records are reported as a conflict from `A.effective_from` onward instead of resolving
+  newest-wins, because a record with no effective date has no defensible position in the chain.
+- Every projected field carries an explicit `state` of `confirmed`, `unknown`, or `conflict`.
+  `unknown` and `conflict` both set `value` to null, so a consumer that reads `value` and ignores
+  `state` gets nothing rather than a wrong answer. `history_available` reports that history exists
+  without leaking the stale value into `value`. Expired qualifications stay visible in history and
+  are never presented as currently valid.
+- A draft fact never enters the projection and never retires a confirmed one. Letting an unapproved
+  proposal close an interval would route a state change around the approval gate.
+- `as_of` is a required parameter on every function in the timeline, projection, and context
+  path, and none of them reads a clock. The default is injected once, at the CLI boundary, via
+  `--as-of`. `select_context` and `context_eligible` take it too, so the Vault context path is now
+  reproducible for a fixed date instead of changing at midnight.
+- Added `validation.iso_date` as the single calendar-date parser and fixed a real divergence it
+  exposes: a malformed `expires_on` made a context note **ineligible** rather than permanently
+  non-expiring. The lenient path was the one feeding the model, while `doctor` reported the same
+  value as a hard error. `occurred_at` is now calendar-validated as well; previously only
+  `deadline` was, so an impossible date could enter the ledger through the field every projection
+  orders by.
+
 ## [1.9.0] - 2026-08-05
 
 - Added the private career-document store (`skills/career-agent/private_store.py`) with three new
