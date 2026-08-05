@@ -76,10 +76,14 @@ def facts_from_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return facts
 
 
+def _key_of(fact: dict[str, Any]) -> tuple[str, str]:
+    return (str(fact["category"]), str(fact["key"]))
+
+
 def _grouped(facts: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
     groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for fact in facts:
-        groups.setdefault((str(fact["category"]), str(fact["key"])), []).append(fact)
+        groups.setdefault(_key_of(fact), []).append(fact)
     return groups
 
 
@@ -100,20 +104,32 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         fact.setdefault("superseded_by", None)
         fact.setdefault("conflicts_from", None)
 
-    for successor in derived:
-        target = successor.get("supersedes")
-        if not target:
-            continue
+    # Sorted by id so the error raised for a broken chain does not depend on ledger order either.
+    successors = sorted(
+        (fact for fact in derived if fact.get("supersedes")), key=lambda fact: fact["fact_id"]
+    )
+    claimed: dict[str, list[str]] = {}
+    for successor in successors:
         if successor["status"] != "confirmed":
             # An unapproved draft must not retire a confirmed fact. Letting it close the interval
             # would route a state change around the approval gate: proposing a correction would
             # blank the current value before the user ever accepted it.
             continue
+        target = str(successor["supersedes"])
         predecessor = by_id.get(target)
         if predecessor is None:
             raise CareerError(f"{successor['fact_id']} supersedes an unknown fact: {target}")
         if predecessor is successor:
             raise CareerError(f"{successor['fact_id']} cannot supersede itself")
+        if _key_of(predecessor) != _key_of(successor):
+            # A version chain is scoped to one logical fact key. Without this, a JLPT record could
+            # close a compensation record's interval and silently blank the salary.
+            raise CareerError(
+                f"{successor['fact_id']} ({'/'.join(_key_of(successor))}) cannot supersede "
+                f"{target} ({'/'.join(_key_of(predecessor))}): supersession stays within one "
+                f"category and key"
+            )
+        claimed.setdefault(target, []).append(successor["fact_id"])
         predecessor["superseded_by"] = successor["fact_id"]
         if successor["effective_from"] is not None:
             predecessor["effective_to"] = successor["effective_from"] - dt.timedelta(days=1)
@@ -122,6 +138,18 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
             marker = predecessor["effective_from"]
             predecessor["conflicts_from"] = marker
             successor["conflicts_from"] = marker
+
+    for target, ids in sorted(claimed.items()):
+        if len(ids) > 1:
+            # A fork is not a value ambiguity, it is a broken chain: each successor would derive a
+            # different `effective_to` for the same predecessor, so the last one processed would
+            # win and the projection would depend on ledger order (AC-15). Rejected the same way
+            # the other two topology errors above are, rather than being papered over as a
+            # conflict, because the data itself has to be corrected.
+            raise CareerError(
+                f"{target} is superseded by more than one confirmed fact: {', '.join(sorted(ids))}; "
+                f"a fact key has a single version chain"
+            )
     return derived
 
 
@@ -152,6 +180,17 @@ def _serialize(fact: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _candidates(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Order before capping. A cap applied to unordered input makes the *visible* subset depend on
+    ledger order, so the conflict report would differ run to run even though the conflict does not.
+    `fact_id` breaks ties because two candidates can share an effective date -- that is often the
+    reason they conflict."""
+    ordered = sorted(
+        facts, key=lambda fact: (fact["effective_from"] or dt.date.min, fact["fact_id"])
+    )
+    return [_serialize(fact) for fact in ordered[:MAX_CANDIDATES]]
+
+
 def _field(facts: list[dict[str, Any]], as_of: dt.date) -> dict[str, Any]:
     """One projected field in the section 11.1 shape: state first, value only when unambiguous."""
     confirmed = [fact for fact in facts if fact["status"] == "confirmed"]
@@ -164,7 +203,7 @@ def _field(facts: list[dict[str, Any]], as_of: dt.date) -> dict[str, Any]:
             "state": "conflict",
             "value": None,
             "reason": "supersession without an effective date cannot be ordered",
-            "candidates": [_serialize(fact) for fact in conflicting[:MAX_CANDIDATES]],
+            "candidates": _candidates(conflicting),
         }
 
     covering = [fact for fact in confirmed if _covers(fact, as_of)]
@@ -173,7 +212,7 @@ def _field(facts: list[dict[str, Any]], as_of: dt.date) -> dict[str, Any]:
             "state": "conflict",
             "value": None,
             "reason": "more than one confirmed value is effective at as_of",
-            "candidates": [_serialize(fact) for fact in covering[:MAX_CANDIDATES]],
+            "candidates": _candidates(covering),
         }
     if covering:
         # Identical values recorded more than once are one value, not a conflict; evidence merges.
@@ -207,7 +246,11 @@ def timeline(events: list[dict[str, Any]], category: str, key: str) -> list[dict
     """Full history for one logical fact key, oldest first. Superseded records stay visible."""
     facts = derive_intervals(facts_from_events(events))
     group = _grouped(facts).get((category, key), [])
-    group.sort(key=lambda fact: (fact["effective_from"] is None, fact["effective_from"] or dt.date.min))
+    group.sort(
+        key=lambda fact: (
+            fact["effective_from"] is None, fact["effective_from"] or dt.date.min, fact["fact_id"],
+        )
+    )
     return [
         {
             "fact_id": fact["fact_id"],

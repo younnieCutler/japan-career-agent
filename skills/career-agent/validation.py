@@ -23,6 +23,9 @@ NUMERIC_CLAIM = re.compile(
 DATE_VALUE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:T[^Z]+Z)?$")
 
 
+BARE_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
 def iso_date(value: Any, field: str) -> str | None:
     """Return a real calendar date as `YYYY-MM-DD`, or None when absent.
 
@@ -30,14 +33,40 @@ def iso_date(value: Any, field: str) -> str | None:
     value used to be accepted by one code path and rejected by another (AC-22): `2026-13-45` was a
     hard error in `doctor` and a silently ignored "never expires" in context eligibility. A shared
     parser makes disagreement impossible rather than merely unlikely.
+
+    The match is anchored on the whole string. Parsing a truncated prefix would accept
+    `2026-01-20junk` and `2026-01-20T99:99:99Z` by quietly discarding the part that made them wrong
+    -- and `effective_from`, `expires_on`, and `as_of` are bare-date contracts, so a timestamp
+    arriving in one of them is a caller error worth surfacing, not trailing noise worth dropping.
     """
     if value in (None, ""):
         return None
-    text = str(value)[:10]
+    if not isinstance(value, str) or not BARE_DATE.fullmatch(value):
+        raise CareerError(f"{field} must be a bare calendar date (YYYY-MM-DD): {value!r}")
     try:
-        return dt.date.fromisoformat(text).isoformat()
+        return dt.date.fromisoformat(value).isoformat()
     except ValueError as exc:
         raise CareerError(f"{field} must be a real calendar date (YYYY-MM-DD): {value!r}") from exc
+
+
+def iso_timestamp(value: Any, field: str) -> str:
+    """Validate an observation instant: a bare date or a full `YYYY-MM-DDThh:mm:ssZ`.
+
+    `DATE_VALUE`'s `T[^Z]+Z` branch checks only that *something* sits between the `T` and the `Z`,
+    so `2026-01-20T99:99:99Z` matched. This parses the time component instead of pattern-matching
+    around it.
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise CareerError(f"{field} must be a non-empty ISO timestamp string")
+    if BARE_DATE.fullmatch(value):
+        return iso_date(value, field) or value
+    try:
+        dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise CareerError(
+            f"{field} must be YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ: {value!r}"
+        ) from exc
+    return value
 
 
 def string_list_from(value: dict[str, Any], field: str) -> list[str] | None:
@@ -116,11 +145,18 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
             raise CareerError("event.deadline must be a real calendar date")
     # AC-22: `deadline` was calendar-checked while `occurred_at` was not validated at all, so an
     # impossible date entered the ledger through the field every projection orders by.
-    if not isinstance(event["occurred_at"], str) or not DATE_VALUE.match(event["occurred_at"]):
-        raise CareerError("event.occurred_at must use YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ")
-    iso_date(event["occurred_at"], "event.occurred_at")
+    iso_timestamp(event["occurred_at"], "event.occurred_at")
     if "fact" in event and event["fact"] is not None:
         validate_fact(event["fact"])
+        if event["status"] == "superseded":
+            # A fact's superseded state is DERIVED from the forward `supersedes` link, so a stored
+            # copy is a second way to say the same thing -- and the two can disagree. Written by
+            # hand it also removes the fact from the projection with no successor and no record of
+            # why. Ordinary career events keep the status; fact-bearing ones do not.
+            raise CareerError(
+                "a fact-bearing event must be draft or confirmed; superseded is derived from "
+                "another fact's supersedes link"
+            )
     if "company" in event and event["company"] is not None:
         if not isinstance(event["company"], str) or not event["company"].strip():
             raise CareerError("event.company must be a non-empty string")

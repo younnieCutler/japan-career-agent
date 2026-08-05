@@ -24,7 +24,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import personal_timeline  # noqa: E402
 import vault as vault_module  # noqa: E402
 from models import CareerError  # noqa: E402
-from validation import iso_date, validate_event  # noqa: E402
+from validation import iso_date, iso_timestamp, validate_event  # noqa: E402
 
 
 def event(event_id: str, category: str, key: str, value, **fact_fields) -> dict:
@@ -140,6 +140,24 @@ class ProjectionTest(unittest.TestCase):
         field = personal_timeline.project(events, "2026-08-05")["skill"]["synthetic"]
         self.assertEqual(len(field["candidates"]), personal_timeline.MAX_CANDIDATES)
 
+    def test_the_capped_candidate_subset_is_deterministic(self) -> None:
+        """A cap over unordered input makes the *visible* subset depend on ledger order."""
+        events = [
+            event(f"f{index}", "skill", "synthetic", f"value-{index}", effective_from="2026-01-01")
+            for index in range(personal_timeline.MAX_CANDIDATES + 3)
+        ]
+        forward = personal_timeline.project(events, "2026-08-05")["skill"]["synthetic"]
+        backward = personal_timeline.project(list(reversed(events)), "2026-08-05")["skill"]["synthetic"]
+        self.assertEqual(forward, backward)
+
+    def test_conflict_candidates_are_ordered_by_effective_date(self) -> None:
+        events = [
+            event("f2", "skill", "synthetic", "later", effective_from="2026-03-01"),
+            event("f1", "skill", "synthetic", "earlier", effective_from="2026-01-01"),
+        ]
+        field = personal_timeline.project(events, "2026-08-05")["skill"]["synthetic"]
+        self.assertEqual([item["value"] for item in field["candidates"]], ["earlier", "later"])
+
     def test_keys_are_independent(self) -> None:
         events = [
             event("f1", "language", "jlpt", "N1", effective_from="2026-01-20"),
@@ -205,6 +223,53 @@ class SupersessionTest(unittest.TestCase):
         with self.assertRaises(CareerError):
             personal_timeline.project(events, "2026-08-05")
 
+    def test_supersession_cannot_cross_a_fact_key(self) -> None:
+        """A JLPT record must not be able to close a compensation record's interval."""
+        events = [
+            event("f1", "compensation", "base", 6100000, effective_from="2025-04-01"),
+            event("f2", "language", "jlpt", "N1", effective_from="2026-01-20", supersedes="f1"),
+        ]
+        with self.assertRaises(CareerError) as caught:
+            personal_timeline.project(events, "2026-08-05")
+        self.assertIn("category and key", str(caught.exception))
+
+    def test_supersession_cannot_cross_a_key_within_one_category(self) -> None:
+        events = [
+            event("f1", "certification", "cert-a", "Level 1", effective_from="2025-04-01"),
+            event("f2", "certification", "cert-b", "Level 2", effective_from="2026-01-20",
+                  supersedes="f1"),
+        ]
+        with self.assertRaises(CareerError):
+            personal_timeline.project(events, "2026-08-05")
+
+    def test_a_forked_chain_is_rejected_in_both_ledger_orders(self) -> None:
+        """Two successors would each derive a different `effective_to`, so last-write would win."""
+        events = [
+            event("a", "language", "jlpt", "N3", effective_from="2024-01-01"),
+            event("b", "language", "jlpt", "N2", effective_from="2025-01-01", supersedes="a"),
+            event("c", "language", "jlpt", "N1", effective_from="2026-01-01", supersedes="a"),
+        ]
+        messages = []
+        for ordering in (events, list(reversed(events))):
+            with self.assertRaises(CareerError) as caught:
+                personal_timeline.project(ordering, "2026-08-05")
+            messages.append(str(caught.exception))
+        self.assertEqual(messages[0], messages[1], "the error must not depend on ledger order")
+        self.assertIn("b, c", messages[0])
+
+    def test_a_draft_fork_member_does_not_make_a_fork(self) -> None:
+        """Only confirmed successors claim a predecessor, so a proposal is not a broken chain."""
+        proposed = event("c", "language", "jlpt", "N1", effective_from="2026-01-01",
+                         supersedes="a")
+        proposed["status"] = "draft"
+        events = [
+            event("a", "language", "jlpt", "N3", effective_from="2024-01-01"),
+            event("b", "language", "jlpt", "N2", effective_from="2025-01-01", supersedes="a"),
+            proposed,
+        ]
+        field = personal_timeline.project(events, "2026-08-05")["language"]["jlpt"]
+        self.assertEqual(field["value"], "N2")
+
 
 class DeterminismTest(unittest.TestCase):
     def test_same_history_same_as_of_is_identical(self) -> None:
@@ -262,8 +327,33 @@ class CalendarValidationTest(unittest.TestCase):
     def test_iso_date_rejects_an_impossible_date(self) -> None:
         with self.assertRaises(CareerError):
             iso_date("2026-13-45", "expires_on")
+        with self.assertRaises(CareerError):
+            iso_date("2026-02-30", "expires_on")
         self.assertEqual(iso_date("2026-01-20", "expires_on"), "2026-01-20")
         self.assertIsNone(iso_date(None, "expires_on"))
+
+    def test_iso_date_does_not_accept_a_truncated_prefix(self) -> None:
+        """Parsing `value[:10]` accepted anything with a valid first ten characters."""
+        for bad in ("2026-01-20junk", "2026-01-20T10:00:00Z", "2026-01-20 ", "2026-01-2"):
+            with self.assertRaises(CareerError, msg=bad):
+                iso_date(bad, "effective_from")
+
+    def test_iso_timestamp_validates_the_time_component(self) -> None:
+        """`T[^Z]+Z` only checked that something sat between the T and the Z."""
+        self.assertEqual(iso_timestamp("2026-01-20", "occurred_at"), "2026-01-20")
+        self.assertEqual(
+            iso_timestamp("2026-01-20T10:00:00Z", "occurred_at"), "2026-01-20T10:00:00Z"
+        )
+        for bad in ("2026-01-20T99:99:99Z", "2026-01-20Twhatever Z", "2026-13-01T10:00:00Z", ""):
+            with self.assertRaises(CareerError, msg=bad):
+                iso_timestamp(bad, "occurred_at")
+
+    def test_a_timestamp_is_rejected_in_a_bare_date_field(self) -> None:
+        with self.assertRaises(CareerError):
+            validate_event(event("f1", "language", "jlpt", "N1",
+                                 effective_from="2026-01-20T10:00:00Z"))
+        with self.assertRaises(CareerError):
+            personal_timeline.project([], "2026-01-20T10:00:00Z")
 
     def test_malformed_expiry_makes_a_note_ineligible_not_eternal(self) -> None:
         note = {
@@ -304,6 +394,19 @@ class CalendarValidationTest(unittest.TestCase):
         with self.assertRaises(CareerError):
             validate_event(event("f1", "language", "jlpt", "N1",
                                  effective_from="2026-01-20", effective_to="2027-01-01"))
+
+    def test_a_fact_bearing_event_cannot_store_superseded(self) -> None:
+        """The state is derived from another fact's link; a stored copy can disagree with it."""
+        stored = event("f1", "language", "jlpt", "N1", effective_from="2026-01-20")
+        stored["status"] = "superseded"
+        with self.assertRaises(CareerError):
+            validate_event(stored)
+
+    def test_an_ordinary_event_may_still_be_superseded(self) -> None:
+        ordinary = event("f1", "language", "jlpt", "N1", effective_from="2026-01-20")
+        del ordinary["fact"]
+        ordinary["status"] = "superseded"
+        validate_event(ordinary)
 
     def test_unknown_fact_category_is_rejected(self) -> None:
         with self.assertRaises(CareerError):

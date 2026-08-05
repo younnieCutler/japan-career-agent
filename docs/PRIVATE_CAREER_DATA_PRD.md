@@ -1499,7 +1499,24 @@ silently the moment a link changes. `value` is required and may be explicitly `n
 **Only confirmed facts participate in supersession.** A `draft` fact never enters the projection and
 never closes a confirmed fact's interval. Allowing it to would route a state change around the
 approval gate: merely proposing a correction would blank the current value before the user accepted
-it.
+it. A fact-bearing event may therefore only be stored as `draft` or `confirmed`; `superseded` is
+derived from another fact's link, and a stored copy is a second way to say the same thing that can
+disagree with the links. Ordinary career events keep the status.
+
+**Supersession is a single chain inside one logical fact key**, and this is enforced, not assumed:
+
+- a successor must carry the predecessor's `category` and `key` — otherwise a JLPT record can close
+  a compensation record's interval and blank the salary;
+- a predecessor may have at most one confirmed successor. A fork is not a value ambiguity to report
+  as a `Conflict`, it is a broken chain: each successor derives a different `effective_to` for the
+  same predecessor, so the last one processed wins and the projection depends on ledger order,
+  breaking AC-15. It is rejected like the other topology errors (a dangling or self-referential
+  `supersedes`), because the data has to be corrected rather than rendered.
+
+**Anything capped must be ordered first.** Candidate lists are sorted by effective date, then fact
+id, before the §12.1 cap is applied. Capping unordered input makes the *visible* subset depend on
+ledger order even when the conflict itself does not — a determinism hole that a test asserting only
+the happy path will not find.
 
 ### Phase 4: Context integration and the downstream read path
 Current-only default context; explicit labelled historical mode; stale-context regressions; **and the
