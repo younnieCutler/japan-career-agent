@@ -881,7 +881,10 @@ class CliTest(unittest.TestCase):
         environment = dict(os.environ, CAREER_VAULT=str(self.vault))
         return subprocess.run(
             [sys.executable, str(SCRIPT_DIR / "career_agent.py"), *arguments],
-            capture_output=True, text=True, check=False, env=environment,
+            # The CLI reconfigures its streams to UTF-8, so decode them as UTF-8. Without this the
+            # parent falls back to the Windows ANSI codepage and a Japanese stage name in the
+            # output makes the reader thread raise, leaving `stdout` as None.
+            capture_output=True, text=True, encoding="utf-8", check=False, env=environment,
         )
 
     def test_personal_profile_projects_for_an_explicit_date(self) -> None:
