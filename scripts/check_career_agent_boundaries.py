@@ -51,6 +51,7 @@ OWNED_SYMBOLS = {
     "derive_intervals": "personal_timeline",
     "project": "personal_timeline",
     "timeline": "personal_timeline",
+    "document_states": "personal_timeline",
     "atomic_write_text": "persistence",
     "atomic_write_bytes": "persistence",
     "resolve_private_home": "private_store",

@@ -17,13 +17,29 @@
   `unknown` and `conflict` both set `value` to null, so a consumer that reads `value` and ignores
   `state` gets nothing rather than a wrong answer. `history_available` reports that history exists
   without leaking the stale value into `value`. Expired qualifications stay visible in history and
-  are never presented as currently valid.
+  are never presented as currently valid. A confirmed fact whose value is an explicit null projects
+  as `unknown`, not as `confirmed` with a null payload — `Unknown` has one serialized shape, and a
+  second spelling of it is one every consumer would have to learn. A null colliding with a real
+  value is a conflict: the records disagree about whether the value is known.
+- `private-list` takes `--as-of` and derives each document's `current` / `superseded` /
+  `not_yet_effective` / `unknown_effective_date` state and its `effective_to` from `effective_from`,
+  using the same rule the fact timeline uses. Phase 2 stores documents as `observed` only, so this
+  is where document currency is decided; import order never decides it. Two documents sharing the
+  newest effective date are reported as a conflict rather than ordered arbitrarily.
+- The fact projection revalidates every fact-bearing row it reads and fails closed. The ledger is a
+  hand-editable file, and a row no writer would have accepted — a confirmed fact with no evidence,
+  an impossible `occurred_at` — must not reach a projection whose output crosses into agent context.
+  Events without a `fact` object are untouched.
 - A draft fact never enters the projection and never retires a confirmed one. Letting an unapproved
   proposal close an interval would route a state change around the approval gate.
 - `as_of` is a required parameter on every function in the timeline, projection, and context
   path, and none of them reads a clock. The default is injected once, at the CLI boundary, via
   `--as-of`. `select_context` and `context_eligible` take it too, so the Vault context path is now
   reproducible for a fixed date instead of changing at midnight.
+- The personal projection is **not** injected into `context` yet. Section 12.1 requires track/stage
+  relevance and a selection cap on personal context and both are phase 4; until then, wiring the
+  whole profile into the model-facing payload would be exactly the unbounded personal context that
+  section warns about. Use `personal-profile` explicitly.
 - Supersession is validated as a single acyclic chain inside one logical fact key. A successor must
   share the predecessor's `category` and `key`, so a JLPT record cannot close a compensation
   record's interval; a predecessor may have at most one confirmed successor, since a fork would let

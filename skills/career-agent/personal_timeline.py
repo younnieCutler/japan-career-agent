@@ -26,7 +26,7 @@ import datetime as dt
 from typing import Any
 
 from models import CareerError
-from validation import iso_date
+from validation import iso_date, validate_event
 
 # Section 12.1: the personal path is capped the same way Vault context already is. An uncapped
 # "current facts only" projection is how a privacy boundary quietly grows into the whole profile.
@@ -36,6 +36,7 @@ UNKNOWN_NO_FACT = "no confirmed fact effective at as_of"
 UNKNOWN_EXPIRED = "the only confirmed fact expired before as_of"
 UNKNOWN_NOT_YET = "the only confirmed fact becomes effective after as_of"
 UNKNOWN_NO_EFFECTIVE_DATE = "a confirmed fact exists but its effective_from is Unknown"
+UNKNOWN_RECORDED = "the confirmed fact records the value as explicitly Unknown"
 
 
 def _date(value: str | None, field: str) -> dt.date | None:
@@ -54,9 +55,13 @@ def facts_from_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         fact = event.get("fact")
         if not isinstance(fact, dict):
             continue
-        event_id = str(event.get("id") or "")
-        if not event_id:
-            raise CareerError("an event carrying a fact must have an id")
+        # Revalidate on read, fail closed. The ledger is a plain file a user can hand-edit, and
+        # `career_context` already re-validates what it reads for the same reason. Without this a
+        # row that no writer would have accepted -- a confirmed fact with no evidence, say -- still
+        # reaches the projection, and since this output crosses into agent context that is a trust
+        # boundary, not an internal robustness detail.
+        validate_event(event)
+        event_id = str(event["id"])
         facts.append(
             {
                 "fact_id": event_id,
@@ -253,6 +258,19 @@ def _field(facts: list[dict[str, Any]], as_of: dt.date) -> dict[str, Any]:
         newest = max(covering, key=lambda fact: fact["effective_from"])
         field = _serialize(newest)
         field["evidence"] = sorted({item for fact in covering for item in fact["evidence"]})
+        if newest["value"] is None:
+            # A confirmed fact whose value is an explicit null says "we asked and it is not known".
+            # That is `unknown`, not `confirmed` with a null payload: section 11.1 gives `Unknown`
+            # exactly one serialized shape, and a second spelling of it is one every consumer would
+            # have to learn. A null value colliding with a real one is caught by the distinct-value
+            # check above and reported as a conflict.
+            return {
+                "state": "unknown",
+                "value": None,
+                "reason": UNKNOWN_RECORDED,
+                "evidence": field["evidence"],
+                "history_available": True,
+            }
         return {"state": "confirmed", **field}
 
     return {
@@ -274,6 +292,78 @@ def project(events: list[dict[str, Any]], as_of: str) -> dict[str, Any]:
     for (category, key), group in sorted(_grouped(facts).items()):
         projection.setdefault(category, {})[key] = _field(group, day)
     return projection
+
+
+DOCUMENT_KEY_FIELDS = ("type", "company", "purpose", "language")
+
+
+def document_states(records: list[dict[str, Any]], as_of: str) -> list[dict[str, Any]]:
+    """Derive current/superseded state for phase 2's document registry (sections 12.4, 24).
+
+    Phase 2 deliberately stores every document as `observed` and leaves currency undecided, because
+    deciding it at import means arrival order decides it. This is where that decision is made, from
+    `effective_from` and an explicit `as_of` -- the same rule the fact timeline uses, so a document
+    and a fact never disagree about what "current" means.
+
+    A document with no `effective_from` is never current: section 19.3 says an unknown effective
+    date must not be promoted, and here it has no defensible position in the chain either.
+    """
+    day = _date(as_of, "as_of")
+    if day is None:
+        raise CareerError("as_of is required; document currency never consults a wall clock")
+
+    groups: dict[tuple, list[dict[str, Any]]] = {}
+    for record in records:
+        key = tuple(str(record.get("logical_key", {}).get(field) or "") for field in DOCUMENT_KEY_FIELDS)
+        groups.setdefault(key, []).append(record)
+
+    result: list[dict[str, Any]] = []
+    for key in sorted(groups):
+        group = groups[key]
+        dated = sorted(
+            (
+                (_date(record.get("effective_from"), "effective_from"), record)
+                for record in group
+                if record.get("effective_from")
+            ),
+            key=lambda pair: (pair[0], pair[1]["document_id"]),
+        )
+        effective_at_or_before = [pair for pair in dated if pair[0] <= day]
+        latest = effective_at_or_before[-1][0] if effective_at_or_before else None
+        # Two documents sharing the newest effective date cannot be ordered, so neither is current.
+        contested = latest is not None and sum(1 for date, _ in dated if date == latest) > 1
+
+        for index, (date, record) in enumerate(dated):
+            successor = dated[index + 1][0] if index + 1 < len(dated) else None
+            if date > day:
+                status = "not_yet_effective"
+            elif date != latest:
+                status = "superseded"
+            else:
+                status = "conflict" if contested else "current"
+            result.append(_document_state(record, date, successor, status))
+        for record in sorted(
+            (item for item in group if not item.get("effective_from")),
+            key=lambda item: item["document_id"],
+        ):
+            result.append(_document_state(record, None, None, "unknown_effective_date"))
+    return result
+
+
+def _document_state(
+    record: dict[str, Any], date: dt.date | None, successor: dt.date | None, status: str,
+) -> dict[str, Any]:
+    return {
+        "document_id": record["document_id"],
+        "document_type": record["document_type"],
+        "logical_key": record["logical_key"],
+        "effective_from": date.isoformat() if date else None,
+        # Derived exactly as fact intervals are: the day before the next version begins.
+        "effective_to": (successor - dt.timedelta(days=1)).isoformat() if successor else None,
+        "status": status,
+        "sha256": record["sha256"],
+        "verified_by_user": record.get("verified_by_user", False),
+    }
 
 
 def timeline(events: list[dict[str, Any]], category: str, key: str) -> list[dict[str, Any]]:

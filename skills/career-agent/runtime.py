@@ -104,7 +104,7 @@ from persistence import (  # noqa: E402
     write_jsonl,
     write_toml,
 )
-from personal_timeline import project, timeline  # noqa: E402
+from personal_timeline import document_states, project, timeline  # noqa: E402
 from private_store import (  # noqa: E402
     DOCUMENT_TYPES,
     PRIVATE_ENV,
@@ -585,10 +585,11 @@ def run_context(
         "career_context": career_context,
         "career_context_confirmed": career_context is not None,
         "career_context_event_id": career_event.get("id") if career_event else None,
-        # Section 12.2: current-only by default. Historical values are reachable through
-        # `personal-timeline`, labelled, never folded into this payload.
-        "personal_profile": project(read_jsonl(home.events), as_of),
-        "personal_context_mode": "current-only",
+        # The personal projection is deliberately NOT injected here yet. Section 12.1 requires
+        # track/stage relevance and a selection cap on personal context, and neither exists until
+        # phase 4; `project()` returns every category and key. Wiring the whole profile into the
+        # model-facing payload in the meantime is precisely the unbounded personal context that
+        # section warns about. Use `personal-profile` explicitly until the selector lands.
         "read_only": True,
         "note_bodies_included": False,
     }
@@ -753,6 +754,7 @@ def build_parser() -> argparse.ArgumentParser:
         "private-list", help="list document metadata; document bodies are never printed",
     )
     add_private_arguments(private_list_parser)
+    add_as_of_argument(private_list_parser)
     return parser
 
 
@@ -767,19 +769,11 @@ def run_private_command(args: argparse.Namespace) -> dict[str, Any]:
         initialize_private_home(home)
         return {
             "private_home": str(home.path),
+            "as_of": args.as_of,
             # Metadata only: raw document bodies never leave the private store (section 28.1).
-            "documents": [
-                {
-                    "document_id": row["document_id"],
-                    "document_type": row["document_type"],
-                    "logical_key": row["logical_key"],
-                    "effective_from": row["effective_from"],
-                    "status": row["status"],
-                    "sha256": row["sha256"],
-                    "verified_by_user": row["verified_by_user"],
-                }
-                for row in private_documents(home)
-            ],
+            # `status` is derived here for the requested date, never read from the registry, which
+            # records observation alone.
+            "documents": document_states(private_documents(home), args.as_of),
         }
     return import_document(
         home, args.source, args.document_type,

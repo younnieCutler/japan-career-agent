@@ -527,6 +527,11 @@ Rules:
 
 - `state: unknown` sets `value: null`. It must never be omitted, defaulted, averaged, or filled from
   history — `history_available` says history exists without leaking the stale value into `value`.
+- A confirmed fact whose `value` is an explicit `null` — "we asked, and it is not known" — projects
+  as `state: unknown`, **not** as `confirmed` with a null payload. `Unknown` gets exactly one shape
+  here; a second spelling of it is one every consumer has to learn, and the one that reads `state`
+  correctly would still branch wrongly. When an explicit `null` and a real value both cover `as_of`,
+  the result is `conflict`: the records disagree about whether the value is known at all.
 - `state: conflict` sets `value: null` and lists every candidate with its evidence. Newest-file-wins
   is forbidden (§19.1).
 - Conflict and unknown vocabulary follows the repository's existing decision vocabulary rather than
@@ -1472,8 +1477,19 @@ Personal fact timeline; supersession and interval derivation (§8.1); `as_of` as
 with no internal clock reads (§12.4); calendar-date rejection extended to the existing paths (§19.2);
 conflict/`Unknown` output shapes (§11.1). **This phase also owns document currency**: `effective_to`
 and current/superseded state for document records are derived here from `effective_from` and `as_of`,
-not read from the registry.
+not read from the registry — `private-list --as-of` reports it, and the derivation rule is the one
+the fact timeline uses, so a document and a fact never disagree about what "current" means.
 Exit criteria: AC-08, AC-10, AC-14, AC-15, AC-21, AC-22, AC-26.
+
+**Phase 3 does not put personal facts into agent context.** The projection is reachable through
+`personal-profile` and `personal-timeline` only. §12.1 requires track/stage relevance and a
+selection cap before personal facts may enter the shared context payload, and both belong to phase
+4; injecting the whole profile in the meantime is the unbounded personal context §12.1 warns about.
+
+**Everything the projection reads is revalidated.** The event ledger is a plain file a user can edit,
+so a fact-bearing row is put back through `validate_event` on read and the projection fails closed if
+it would not have been accepted by a writer. `career_context` already does this for what it reads;
+the personal path needs it more, because its output crosses into agent context.
 
 **Decision (resolved and implemented): option (a).** The personal timeline extends the existing
 append-only career event ledger — implementing the already-declared but never-written `superseded`

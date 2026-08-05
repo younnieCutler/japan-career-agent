@@ -88,6 +88,36 @@ class ProjectionTest(unittest.TestCase):
         self.assertTrue(field["history_available"])
         self.assertNotIn("4800000", repr(field["value"]))
 
+    def test_an_explicit_null_value_projects_as_unknown(self) -> None:
+        """Section 11.1 gives `Unknown` one shape; `confirmed` with a null payload is a second."""
+        events = [event("f1", "compensation", "base", None, effective_from="2026-01-01")]
+        field = personal_timeline.project(events, "2026-08-05")["compensation"]["base"]
+        self.assertEqual(field["state"], "unknown")
+        self.assertIsNone(field["value"])
+        self.assertEqual(field["reason"], personal_timeline.UNKNOWN_RECORDED)
+        self.assertTrue(field["history_available"])
+
+    def test_an_explicit_null_conflicting_with_a_value_is_a_conflict(self) -> None:
+        """One record says the value is unknown and another states it; that is a disagreement."""
+        events = [
+            event("f1", "compensation", "base", None, effective_from="2026-01-01"),
+            event("f2", "compensation", "base", 7200000, effective_from="2026-01-01"),
+        ]
+        field = personal_timeline.project(events, "2026-08-05")["compensation"]["base"]
+        self.assertEqual(field["state"], "conflict")
+        self.assertIsNone(field["value"])
+        self.assertEqual(len(field["candidates"]), 2)
+
+    def test_a_null_value_superseded_by_a_real_one_becomes_confirmed(self) -> None:
+        events = [
+            event("f1", "compensation", "base", None, effective_from="2025-01-01"),
+            event("f2", "compensation", "base", 7200000, effective_from="2026-04-01",
+                  supersedes="f1"),
+        ]
+        field = personal_timeline.project(events, "2026-08-05")["compensation"]["base"]
+        self.assertEqual(field["state"], "confirmed")
+        self.assertEqual(field["value"], 7200000)
+
     def test_expired_certificate_is_not_currently_valid(self) -> None:
         """AC-10."""
         events = [event("f1", "certification", "synthetic-cert", "Level 1",
@@ -369,6 +399,100 @@ class DeterminismTest(unittest.TestCase):
         self.assertEqual(first["language"]["jlpt"]["value"], "N1")
 
 
+class LedgerTrustTest(unittest.TestCase):
+    """The ledger is a hand-editable file and this output crosses into agent context."""
+
+    def test_an_invalid_fact_row_fails_closed(self) -> None:
+        unwritable = event("f1", "language", "jlpt", "N1", effective_from="2026-01-20")
+        unwritable["evidence"] = []  # a confirmed event may never have empty evidence
+        with self.assertRaises(CareerError):
+            personal_timeline.project([unwritable], "2026-08-05")
+
+    def test_a_row_no_writer_would_accept_cannot_reach_the_projection(self) -> None:
+        for mutate in (
+            lambda row: row.pop("occurred_at"),
+            lambda row: row.update(occurred_at="2026-13-45"),
+            lambda row: row["fact"].update(category="not-a-category"),
+            lambda row: row["fact"].update(effective_from="2026-01-20junk"),
+            lambda row: row.update(status="not-a-status"),
+        ):
+            row = event("f1", "language", "jlpt", "N1", effective_from="2026-01-20")
+            mutate(row)
+            with self.assertRaises(CareerError):
+                personal_timeline.project([row], "2026-08-05")
+
+    def test_events_without_a_fact_are_untouched(self) -> None:
+        """Revalidation is scoped to fact-bearing rows; legacy events keep working."""
+        legacy = {"id": "evt-1", "type": "note", "occurred_at": "not-validated-here"}
+        self.assertEqual(personal_timeline.project([legacy], "2026-08-05"), {"as_of": "2026-08-05"})
+
+
+class DocumentCurrencyTest(unittest.TestCase):
+    """Phase 3 owns document currency; phase 2 stores documents as `observed` only."""
+
+    @staticmethod
+    def record(document_id: str, effective_from: str | None, **key) -> dict:
+        logical = {"type": "resume", "company": None, "purpose": "general", "language": "ja"}
+        logical.update(key)
+        return {
+            "document_id": document_id,
+            "document_type": logical["type"],
+            "logical_key": logical,
+            "effective_from": effective_from,
+            "status": "observed",
+            "sha256": f"sha-{document_id}",
+            "verified_by_user": False,
+        }
+
+    def test_currency_follows_effective_from_not_import_order(self) -> None:
+        records = [self.record("doc_2026", "2026-07-15"), self.record("doc_2024", "2024-05-01")]
+        for ordering in (records, list(reversed(records))):
+            states = {row["document_id"]: row for row in
+                      personal_timeline.document_states(ordering, "2026-08-05")}
+            self.assertEqual(states["doc_2026"]["status"], "current")
+            self.assertEqual(states["doc_2024"]["status"], "superseded")
+
+    def test_interval_is_derived_the_same_way_facts_derive_it(self) -> None:
+        records = [self.record("doc_2024", "2024-05-01"), self.record("doc_2026", "2026-07-15")]
+        states = {row["document_id"]: row for row in
+                  personal_timeline.document_states(records, "2026-08-05")}
+        self.assertEqual(states["doc_2024"]["effective_to"], "2026-07-14")
+        self.assertIsNone(states["doc_2026"]["effective_to"])
+
+    def test_an_older_as_of_makes_the_older_document_current(self) -> None:
+        records = [self.record("doc_2024", "2024-05-01"), self.record("doc_2026", "2026-07-15")]
+        states = {row["document_id"]: row for row in
+                  personal_timeline.document_states(records, "2025-01-01")}
+        self.assertEqual(states["doc_2024"]["status"], "current")
+        self.assertEqual(states["doc_2026"]["status"], "not_yet_effective")
+
+    def test_a_document_without_an_effective_date_is_never_current(self) -> None:
+        """Section 19.3: an unknown effective date is not promoted."""
+        records = [self.record("doc_undated", None)]
+        states = personal_timeline.document_states(records, "2026-08-05")
+        self.assertEqual(states[0]["status"], "unknown_effective_date")
+
+    def test_two_documents_sharing_the_newest_date_cannot_be_ordered(self) -> None:
+        records = [self.record("doc_a", "2026-07-15"), self.record("doc_b", "2026-07-15")]
+        states = personal_timeline.document_states(records, "2026-08-05")
+        self.assertEqual({row["status"] for row in states}, {"conflict"})
+
+    def test_logical_keys_are_independent(self) -> None:
+        records = [
+            self.record("doc_resume", "2024-05-01"),
+            self.record("doc_es", "2026-07-15", type="es", company="Synthetic Corp"),
+        ]
+        states = {row["document_id"]: row for row in
+                  personal_timeline.document_states(records, "2026-08-05")}
+        self.assertEqual(states["doc_resume"]["status"], "current",
+                         "an ES must not supersede a general resume")
+        self.assertEqual(states["doc_es"]["status"], "current")
+
+    def test_document_currency_requires_as_of(self) -> None:
+        with self.assertRaises(CareerError):
+            personal_timeline.document_states([], None)
+
+
 class CalendarValidationTest(unittest.TestCase):
     """AC-22: one value must not be accepted by one path and rejected by another."""
 
@@ -512,13 +636,14 @@ class CliTest(unittest.TestCase):
         self.assertIn('"context_mode": "historical"', result.stdout)
         self.assertIn('"superseded"', result.stdout)
 
-    def test_context_includes_the_current_only_personal_projection(self) -> None:
+    def test_context_does_not_inject_personal_facts_yet(self) -> None:
+        """Section 12.1 needs relevance and a cap before personal facts may enter agent context."""
         result = self._run("context", "--track", "chuto", "--stage", "面接",
                            "--as-of", "2026-08-05")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('"personal_context_mode": "current-only"', result.stdout)
-        self.assertIn('"N1"', result.stdout)
-        self.assertNotIn('"N2"', result.stdout, "historical values stay out of default context")
+        self.assertIn('"as_of": "2026-08-05"', result.stdout)
+        for value in ('"N1"', '"N2"', "personal_profile"):
+            self.assertNotIn(value, result.stdout, "personal context selection is phase 4")
 
 
 if __name__ == "__main__":
