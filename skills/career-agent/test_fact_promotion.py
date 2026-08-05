@@ -26,7 +26,11 @@ import proposals  # noqa: E402
 from models import DOCUMENT_EVIDENCE_PREFIX, CareerError  # noqa: E402
 
 
-class FactPromotionTest(unittest.TestCase):
+class PromotionHarness(unittest.TestCase):
+    """Vault + private store + the CLI. Held apart from the cases so that subclassing it to share
+    the fixture does not re-run every sibling's tests -- an inflated count is a test suite that
+    reports more coverage than it has."""
+
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.base = Path(self._tmp.name)
@@ -60,6 +64,10 @@ class FactPromotionTest(unittest.TestCase):
                            "--category", "language", "--key", "jlpt", "--value", "N1", *extra)
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
+
+
+class FactPromotionTest(PromotionHarness):
+    """The path the PRD describes, and the guards that keep a draft off it."""
 
     def test_the_whole_path_from_document_to_projection(self) -> None:
         document_id = self._import()
@@ -151,7 +159,7 @@ class FactPromotionTest(unittest.TestCase):
         self.assertEqual(approved.returncode, 0, approved.stderr)
 
 
-class ApprovalPreflightTest(FactPromotionTest):
+class ApprovalPreflightTest(PromotionHarness):
     """Approval is the canonical commit, so every invariant is enforced before the append."""
 
     def _approved_fact(self) -> tuple[str, str]:
