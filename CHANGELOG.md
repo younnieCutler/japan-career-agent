@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.9.0] - 2026-08-05
+
+- Added the private career-document store (`skills/career-agent/private_store.py`) with three new
+  CLI commands: `private-doctor`, `private-import`, and `private-list`.
+- The canonical private root cannot resolve inside any Git worktree. Resolution order is
+  `--private-home`, `CAREER_PRIVATE_HOME`, `<CAREER_VAULT>/private` (only when the Vault itself is
+  outside every worktree), then a user-local default. An unsafe root fails with an actionable error
+  naming the offending worktree instead of silently storing documents where `git add -f` can reach
+  them.
+- Import copies and verifies; it never moves or deletes the original. Bytes are stored
+  content-addressed by SHA-256 and verified after publication, so identical bytes imported under two
+  logical keys share one blob while keeping independent version chains. Re-importing identical bytes
+  under the same logical key is idempotent and records a re-observation rather than a new version.
+- Document version chains are scoped by logical identity, so an ES for one company never supersedes
+  an ES for another. Importing records the artifact only; no claim becomes a canonical fact.
+- The private commands resolve their own root and never require an initialized Career Vault.
+- `private-list` returns metadata only; document bodies are never printed.
+- Added `persistence.atomic_write_bytes` for binary blobs, and registered the new module in the
+  architecture boundary guard, the boundary-import test, the canonical-writer policy set, and the
+  check runner. Corrected the stale canonical-writer entry that still named the `career_agent.py`
+  shim instead of `persistence.py`.
+
 ## [1.8.0] — 2026-08-05
 
 - Added `scripts/check_private_data.py`, a deterministic gate against tracking or committing

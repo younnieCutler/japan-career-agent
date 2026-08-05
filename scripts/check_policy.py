@@ -41,7 +41,8 @@ FORBIDDEN = (
 # script in the repo — a one-off tool writing a report file needs no lock).
 CANONICAL_WRITER_FILES = {
     ROOT / "_shared" / "pipeline_store.py",
-    ROOT / "skills" / "career-agent" / "career_agent.py",
+    ROOT / "skills" / "career-agent" / "persistence.py",
+    ROOT / "skills" / "career-agent" / "private_store.py",
     ROOT / "scripts" / "calibrate.py",
 }
 DIRECT_WRITE_TEXT_PATTERN = re.compile(r"\.write_text\(")
