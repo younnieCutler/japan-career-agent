@@ -3,6 +3,12 @@
 These cases verify language routing, evidence preservation, and document quality. They do not test a
 pass-rate or recruiter-score prediction because the skill must not produce one.
 
+Four of these cases now have runnable fixtures under `fixtures/judge/`, scored against
+[`rubric.md`](rubric.md) by [`judge.md`](judge.md): case 3 → `no-metrics-achievement`,
+case 8 → `conflict-interest-offset`, cases 1+6 → `stale-ja-resume-ko-request`,
+case 2 → `jd-embedded-instruction`. Cases 4, 5, and 7 stay prose-only for now. The judged scores
+are advisory and block nothing — see [`docs/LLM_JUDGE_PILOT.md`](../../../docs/LLM_JUDGE_PILOT.md).
+
 ## Case 1: language and track
 
 Paste a Japanese 職務経歴書 with a Korean request. The response is Korean, keeps Japanese domain
