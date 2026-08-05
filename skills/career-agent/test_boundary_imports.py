@@ -19,7 +19,7 @@ BOUNDARY_SYMBOLS = {
     "routing": ("infer_track", "stage_for", "flow_phase_for"),
     "persistence": ("read_json", "write_json", "read_toml"),
     "vault": ("CareerVault", "initialize_vault"),
-    "proposals": ("run_chat", "list_proposals"),
+    "proposals": ("run_chat", "list_proposals", "propose_fact"),
     "projection": ("pipeline_file", "upsert_pipeline_entry"),
     "lifecycle": ("approve", "restore_state", "vault_lock"),
     "personal_timeline": (

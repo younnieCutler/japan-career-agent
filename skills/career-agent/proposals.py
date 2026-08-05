@@ -15,7 +15,7 @@ if str(_SHARED_ROOT) not in sys.path:
 import self_analysis_profile  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
-from models import CHUTO_STAGES, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, CareerError  # noqa: E402
+from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, CareerError  # noqa: E402
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from routing import flow_phase_for, infer_track, language_for, load_flow_reference, skill_context, stage_for  # noqa: E402
@@ -200,6 +200,101 @@ def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
         proposal = {"id": f"proposal-{uuid.uuid4().hex[:12]}", "kind": "career_context", "status": "pending", "created_at": utc_now(), "profile_digest": digest, "event": event}
         write_jsonl(home.proposals, [*proposals, proposal])
     return {"mode": "propose-context", "deduplicated": False, "proposal": proposal, "source": str(source_path)}
+
+
+def document_evidence(document_id: str) -> str:
+    """The one spelling of "this fact came from that document".
+
+    The reference is the `document_id` alone. The registry already maps it to a digest and a
+    storage path, and copying either here would be a second source of truth that goes stale the
+    moment the registry changes -- the same rule that keeps `effective_to` derived.
+    """
+    return f"{DOCUMENT_EVIDENCE_PREFIX}{document_id}"
+
+
+def propose_fact(
+    home: CareerVault,
+    records: list[dict[str, Any]],
+    *,
+    document_id: str,
+    category: str,
+    key: str,
+    value: Any,
+    effective_from: str | None = None,
+    expires_on: str | None = None,
+    supersedes: str | None = None,
+) -> dict[str, Any]:
+    """Propose one personal fact backed by an imported document (PRD phase 5).
+
+    **The tool does not read the document.** Text extraction is a v1 non-goal (section 4), so the
+    value is the user's statement and the document is what they are pointing at. Claiming otherwise
+    would be a machine-read claim nothing here can support.
+
+    The proposal is a `draft`, and `approve` is the only thing that confirms it (section 5.3). A
+    draft fact is inert: it never enters the projection and cannot retire a confirmed fact, so an
+    unreviewed proposal cannot change what any skill sees.
+
+    The document must already be in the registry. A fact whose evidence points at nothing is worse
+    than no fact -- it looks provenance-backed and is not.
+    """
+    known = {str(record.get("document_id")) for record in records}
+    if document_id not in known:
+        raise CareerError(
+            f"no imported document with id {document_id!r}; import it first and use the id "
+            f"`private-list` reports"
+        )
+    fact = {"category": category, "key": key, "value": value}
+    if effective_from is not None:
+        fact["effective_from"] = effective_from
+    if expires_on is not None:
+        fact["expires_on"] = expires_on
+    if supersedes is not None:
+        fact["supersedes"] = supersedes
+    with vault_lock(home):
+        state = home.load_state()
+        track = state.get("track") or home.load_profile().get("track")
+        if track not in TRACKS:
+            raise CareerError("fact proposal requires profile.track or state.track")
+        stage = state.get("stage") or (SHINSOTSU_STAGES[0] if track == "shinsotsu" else CHUTO_STAGES[0])
+        event = {
+            "id": f"evt-{uuid.uuid4().hex[:12]}",
+            "track": track,
+            "stage": stage,
+            "flow_phase": state.get("flow_phase") or "self_analysis",
+            "type": "fact",
+            "occurred_at": utc_now(),
+            # The value stays out of the prose deliberately. A number in `title`/`summary` must
+            # appear in the evidence text to be confirmable, and satisfying that by echoing the
+            # value into the evidence string would make the check circular -- the record would
+            # support itself. The value lives in the structured payload, where `validate_fact`
+            # governs it and supersession can correct it.
+            "title": f"personal fact: {category}/{key}",
+            "summary": "user-stated personal fact backed by an imported private document",
+            "evidence": [document_evidence(document_id)],
+            "source": "private-store",
+            "next_action": None,
+            "deadline": None,
+            "status": "draft",
+            "fact": fact,
+        }
+        validate_event(event)
+        proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
+        proposal = {
+            "id": proposal_id,
+            "kind": "event",
+            "status": "pending",
+            "created_at": utc_now(),
+            "next_action": f"review the value against the document, then run: approve {proposal_id}",
+            "event": event,
+        }
+        write_jsonl(home.proposals, [*read_jsonl(home.proposals), proposal])
+    return {
+        "mode": "propose-fact",
+        "proposal": proposal,
+        "document_id": document_id,
+        "machine_read": False,
+        "needs_confirmation": True,
+    }
 
 
 def proposal_summary(proposal: dict[str, Any]) -> dict[str, Any]:

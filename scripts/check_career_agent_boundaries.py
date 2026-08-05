@@ -69,6 +69,7 @@ OWNED_SYMBOLS = {
     "flow_phase_for": "routing",
     "run_chat": "proposals",
     "propose_career_context": "proposals",
+    "propose_fact": "proposals",
     "approve": "lifecycle",
     "restore_state": "lifecycle",
     "upsert_pipeline_entry": "projection",

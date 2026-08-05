@@ -1668,9 +1668,32 @@ private-import → document record → fact proposals → user confirmation → 
 
 Scope: proposing facts from an imported document behind the existing approval gate (never
 auto-confirming — §5.3), and linking `fact.evidence` to phase 2 `document_id`s so a fact and the
-document backing it stop being separate universes. Until this lands, the feature is complete for a
-user who maintains facts by hand and incomplete for everyone else, and it should be described that
-way rather than as "4 of 4".
+document backing it stop being separate universes.
+
+**The tool does not read the document.** Text extraction is a v1 non-goal (§4), so `propose-fact`
+takes the value from the user and the *document* is what they are pointing at. Calling the result a
+machine-read claim would be a claim nothing here can support; the response says
+`machine_read: false` for exactly that reason.
+
+**The link is the `document_id` alone.** The registry already maps it to a digest and a storage
+path, and copying either into the event would be a second source of truth that goes stale the moment
+the registry changes — the same rule that keeps `effective_to` derived. The evidence string is
+`private-document:<document_id>`, and a proposal naming a document that was never imported is
+rejected: evidence that resolves to nothing looks provenance-backed and is not.
+
+**`approve --evidence` no longer destroys the link.** That flag replaces the evidence list, so a
+user adding a note would have silently deleted the reference the proposal was built around. A
+document reference now survives the replacement; adding a note is not the same statement as "this
+document is no longer the source".
+
+**The value stays out of the prose.** A number in `title`/`summary` must appear in the evidence text
+before an event can be confirmed. Satisfying that rule by echoing the value into the evidence string
+would make it circular — the record would support itself — so the value lives only in the structured
+`fact` payload, where `validate_fact` governs it and supersession can correct it. The prose names the
+category and key.
+
+Reused rather than rebuilt: `approve` confirms these proposals unchanged, a draft fact is already
+inert in the projection, and supersession already handles corrections.
 
 ## 25. Backward compatibility
 

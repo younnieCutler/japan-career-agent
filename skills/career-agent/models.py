@@ -39,6 +39,10 @@ CONTEXT_KINDS = {"active", "evidence", "playbook", "reference"}
 TRUSTED_SOURCE_TYPES = {"official", "personal_evidence", "curated_practice"}
 REQUIRED_CONTEXT_METADATA = {"agent_read", "agent_scope", "status", "source_type", "reviewed_on"}
 UNTRUSTED_DATA_MARKER = "untrusted_career_data"
+# How an event says "this came from that imported private document". The `document_id`
+# alone: the registry already maps it to a digest and a storage path, and a copy of either
+# here would go stale the moment the registry changes.
+DOCUMENT_EVIDENCE_PREFIX = "private-document:"
 CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")
 SHINSOTSU_STAGES = (
     "自己分析・就活軸",

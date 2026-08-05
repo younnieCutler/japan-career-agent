@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.12.0] - 2026-08-05
+
+- `propose-fact` closes the last gap in the flow this feature describes: an imported document can
+  now become a canonical personal fact. Before this, a user who imported a resume still had to
+  hand-edit `events.jsonl` for any of it to reach a projection.
+- **The tool does not read the document.** Text extraction is a v1 non-goal, so the value comes from
+  the user and the document is what they are pointing at. The response says `machine_read: false`
+  rather than letting the shape of the command imply otherwise.
+- The proposal is a `draft` and `approve` is the only thing that confirms it. A pending proposal
+  lives in `proposals.jsonl`, not the event ledger, so an unreviewed fact does not appear in any
+  projection at all.
+- The evidence link is `private-document:<document_id>` and nothing else. The registry already maps
+  the id to a digest and a storage path; copying either into the event would be a second source of
+  truth that goes stale the moment the registry changes. A proposal naming a document that was never
+  imported is rejected -- evidence that resolves to nothing looks provenance-backed and is not.
+- `approve --evidence` no longer destroys that link. The flag replaces the evidence list, so a user
+  adding a note would have silently deleted the reference the proposal was built around; adding a
+  note is not the same statement as "this document is no longer the source".
+- The fact value stays out of `title` and `summary`. A number there must appear in the evidence text
+  before an event can be confirmed, and satisfying that by echoing the value into the evidence string
+  would make the check circular. The value lives in the structured payload, where `validate_fact`
+  governs it.
+- Corrections need no new machinery: `--supersedes` reuses the existing chain, so an approved
+  correction closes the previous interval and the old record stays visible in history.
+
 ## [1.11.0] - 2026-08-05
 
 - Personal facts now reach agent context, under section 12.1's whole list rather than a subset of it:

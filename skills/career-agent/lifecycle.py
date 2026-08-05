@@ -21,7 +21,7 @@ try:
 except ImportError:  # POSIX
     msvcrt = None
 
-from models import CareerError
+from models import DOCUMENT_EVIDENCE_PREFIX, CareerError
 from persistence import append_jsonl, read_json, read_jsonl
 from validation import validate_event
 from vault import CareerVault, utc_now
@@ -117,7 +117,16 @@ def approve(
         if proposal.get("kind") in {"event", "career_context"}:
             event = dict(proposal["event"])
             if evidence is not None:
-                event["evidence"] = evidence
+                # `--evidence` replaces the list, which would silently destroy the provenance link
+                # a fact proposal was built around: the reference to the document backing it. The
+                # user adding a note is not the user saying the document is no longer the source.
+                provenance = [
+                    item for item in proposal["event"].get("evidence") or []
+                    if isinstance(item, str) and item.startswith(DOCUMENT_EVIDENCE_PREFIX)
+                ]
+                event["evidence"] = evidence + [
+                    item for item in provenance if item not in evidence
+                ]
             if deadline is not None:
                 event["deadline"] = deadline
             if company is not None:

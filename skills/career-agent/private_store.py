@@ -302,7 +302,9 @@ def import_document(
         "status": "observed",
         "duplicate": False,
         "source_preserved": resolved_source.exists(),
-        # Phase 3 promotes claims to canonical facts; phase 2 only records the artifact.
+        # Always empty: nothing here reads the document. Text extraction is a v1 non-goal
+        # (section 4), so a claim becomes a fact only when the user states it -- see
+        # `propose-fact`, which links the fact to this document_id behind the approval gate.
         "facts_requiring_confirmation": [],
     }
 
