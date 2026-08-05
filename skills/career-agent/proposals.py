@@ -57,7 +57,9 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
     return event
 
 
-def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track: str | None) -> dict[str, Any]:
+def run_chat(
+    home: CareerVault, skills_root: Path, message: str, requested_track: str | None, as_of: str,
+) -> dict[str, Any]:
     state = home.load_state()
     profile = home.load_profile()
     recent_events = read_jsonl(home.events)[-5:]
@@ -104,7 +106,7 @@ def run_chat(home: CareerVault, skills_root: Path, message: str, requested_track
     stage = stage_for(message, track, state.get("stage"))
     reference = load_flow_reference()
     flow_phase = flow_phase_for(message, track, state, profile, reference)
-    context = select_context(home.path, track, stage)
+    context = select_context(home.path, track, stage, as_of)
     event = make_event(message, track, stage, flow_phase)
     approval_action = approval_action_for(message)
     proposal = {

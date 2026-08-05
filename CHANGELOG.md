@@ -1,5 +1,80 @@
 # Changelog
 
+## [1.10.0] - 2026-08-05
+
+- Added the personal fact timeline and the current personal-profile projection
+  (`skills/career-agent/personal_timeline.py`) with two new commands: `personal-profile` and
+  `personal-timeline`.
+- Facts extend the existing append-only career event ledger rather than opening a second canonical
+  state store. An event may carry a `fact` object, and the ledger's long-declared but never written
+  `superseded` status finally means something — derived from the forward `supersedes` link, not
+  stamped by hand.
+- `effective_to` is derived and cannot be hand-authored: when B supersedes A and `B.effective_from`
+  is known, `A.effective_to` becomes the day before it. When `B.effective_from` is Unknown, both
+  records are reported as a conflict from `A.effective_from` onward instead of resolving
+  newest-wins, because a record with no effective date has no defensible position in the chain.
+- Every projected field carries an explicit `state` of `confirmed`, `unknown`, or `conflict`.
+  `unknown` and `conflict` both set `value` to null, so a consumer that reads `value` and ignores
+  `state` gets nothing rather than a wrong answer. `history_available` reports that history exists
+  without leaking the stale value into `value`. Expired qualifications stay visible in history and
+  are never presented as currently valid. A confirmed fact whose value is an explicit null projects
+  as `unknown`, not as `confirmed` with a null payload — `Unknown` has one serialized shape, and a
+  second spelling of it is one every consumer would have to learn. A null colliding with a real
+  value is a conflict: the records disagree about whether the value is known.
+- `private-list` takes `--as-of` and derives each document's `current` / `superseded` /
+  `not_yet_effective` / `unknown_effective_date` state and its `effective_to` from `effective_from`,
+  using the same rule the fact timeline uses. Phase 2 stores documents as `observed` only, so this
+  is where document currency is decided; import order never decides it. Two documents sharing the
+  newest effective date are reported as a conflict rather than ordered arbitrarily, and documents
+  sharing any effective date are not treated as each other's successor — doing so would derive an
+  `effective_to` one day before the record's own `effective_from`.
+- The fact projection revalidates every fact-bearing row it reads and fails closed. The ledger is a
+  hand-editable file, and a row no writer would have accepted — a confirmed fact with no evidence,
+  an impossible `occurred_at` — must not reach a projection whose output crosses into agent context.
+  Events without a `fact` object are untouched.
+- A draft fact never enters the projection and never retires a confirmed one. Letting an unapproved
+  proposal close an interval would route a state change around the approval gate.
+- `as_of` is a required parameter on every function in the timeline, projection, and context
+  path, and none of them reads a clock. The default is injected once, at the CLI boundary, via
+  `--as-of`. `select_context` and `context_eligible` take it too, so the Vault context path is now
+  reproducible for a fixed date instead of changing at midnight.
+- The personal projection is **not** injected into `context` yet. Section 12.1 requires track/stage
+  relevance and a selection cap on personal context and both are phase 4; until then, wiring the
+  whole profile into the model-facing payload would be exactly the unbounded personal context that
+  section warns about. Use `personal-profile` explicitly.
+- Supersession is validated as a single acyclic chain of confirmed facts inside one logical fact
+  key. Both ends of a link must be confirmed, so an unapproved draft cannot become a predecessor and
+  make a confirmed field report a conflict it did not cause; a successor must share the
+  predecessor's `category` and `key`, so a JLPT record cannot close a compensation record's
+  interval; a predecessor may have at most one confirmed successor, since a fork would let each
+  successor derive a different `effective_to` and make the projection depend on ledger order; and
+  the chain may not loop. A mutual supersession passes every per-node check while deriving
+  `effective_to` values that precede their own `effective_from`, and the projection would then
+  report an ordinary `Unknown` for what is actually corrupt history.
+- Added `validation.iso_date` as the single calendar-date parser and fixed a real divergence it
+  exposes: a malformed `expires_on` made a context note **ineligible** rather than permanently
+  non-expiring. The lenient path was the one feeding the model, while `doctor` reported the same
+  value as a hard error. Date fields are matched against the whole string: parsing a ten-character
+  prefix accepted `2026-01-20junk` and `2026-01-20T99:99:99Z` by discarding the part that made them
+  wrong. `occurred_at` is validated by `validation.iso_timestamp`, which parses the time component
+  instead of pattern-matching around it and requires a full UTC instant — the trailing `Z`, and not
+  a bare date, which is a date rather than an instant. Previously only `deadline` was calendar-checked
+  at all, so an impossible date could enter the ledger through the field every projection orders by,
+  and an offset or naive local time would have stored instants in notations that sort differently as
+  strings. `utc_now()` is the only thing that has ever written an `occurred_at` here, so there is no
+  legacy shape to accommodate.
+- A fact-bearing event may only be `draft` or `confirmed`. `superseded` is derived from another
+  fact's `supersedes` link, so a stored copy is a second way to say the same thing and the two can
+  disagree; hand-writing it also removed a fact from the projection with no successor and no record
+  of why. Ordinary career events still accept the status.
+- Conflict candidates are ordered by effective date, then fact id, before the selection cap is
+  applied. Capping unordered input made the visible subset depend on ledger order even though the
+  conflict itself did not.
+- A duplicate fact id is rejected on read. Per-row validation only checks that an id is present, so
+  a hand-edited ledger could repeat one, and every `supersedes` link resolves its target by id — the
+  same history in a different order would then supersede a different record. All duplicate ids are
+  collected and sorted into one message so the failure is order-independent too.
+
 ## [1.9.0] - 2026-08-05
 
 - Added the private career-document store (`skills/career-agent/private_store.py`) with three new

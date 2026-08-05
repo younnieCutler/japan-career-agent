@@ -311,7 +311,14 @@ stored; the forward `effective_from` on each record already contains the orderin
 
 File creation/modification timestamps are metadata only and must not silently become `effective_from`.
 
-**Timezone rule.** `observed_at` is a UTC instant (`...Z`), matching the existing `utc_now()` helper.
+**Timezone rule.** `observed_at` is a UTC instant (`...Z`), matching the existing `utc_now()` helper,
+and the trailing `Z` is **required, not merely tolerated** — an offset (`+09:00`) or a naive local
+time would store instants in three notations that sort differently as strings, in a ledger whose
+ordering is load-bearing. A bare `YYYY-MM-DD` is likewise rejected: it is a date, not an instant, and
+accepting one here would put the ledger's ordering key into the same shape as the local civil dates
+this section exists to keep apart. There is no legacy exemption because there is nothing to exempt —
+`utc_now()` is the only thing that has ever written an `observed_at` in this repository, and it has
+always emitted the full instant.
 `effective_from`, `effective_to`, and `reviewed_on` are bare calendar dates in the user's local civil
 calendar and are **never timezone-converted**. Without this rule a JLPT result effective `2026-01-20`
 in JST compared against a UTC `as_of` is off by up to a day, and `as_of` reproducibility (§12.4)
@@ -524,6 +531,11 @@ Rules:
 
 - `state: unknown` sets `value: null`. It must never be omitted, defaulted, averaged, or filled from
   history — `history_available` says history exists without leaking the stale value into `value`.
+- A confirmed fact whose `value` is an explicit `null` — "we asked, and it is not known" — projects
+  as `state: unknown`, **not** as `confirmed` with a null payload. `Unknown` gets exactly one shape
+  here; a second spelling of it is one every consumer has to learn, and the one that reads `state`
+  correctly would still branch wrongly. When an explicit `null` and a real value both cover `as_of`,
+  the result is `conflict`: the records disagree about whether the value is known at all.
 - `state: conflict` sets `value: null` and lists every candidate with its evidence. Newest-file-wins
   is forbidden (§19.1).
 - Conflict and unknown vocabulary follows the repository's existing decision vocabulary rather than
@@ -1469,13 +1481,24 @@ Personal fact timeline; supersession and interval derivation (§8.1); `as_of` as
 with no internal clock reads (§12.4); calendar-date rejection extended to the existing paths (§19.2);
 conflict/`Unknown` output shapes (§11.1). **This phase also owns document currency**: `effective_to`
 and current/superseded state for document records are derived here from `effective_from` and `as_of`,
-not read from the registry.
+not read from the registry — `private-list --as-of` reports it, and the derivation rule is the one
+the fact timeline uses, so a document and a fact never disagree about what "current" means.
 Exit criteria: AC-08, AC-10, AC-14, AC-15, AC-21, AC-22, AC-26.
 
-**Decision (resolved): option (a).** The personal timeline extends the existing append-only career
-event ledger — implementing the already-declared but never-written `superseded` status plus
-`effective_from`/`effective_to` — rather than introducing a second canonical state store, which the
-agent contract warns against. The shape is:
+**Phase 3 does not put personal facts into agent context.** The projection is reachable through
+`personal-profile` and `personal-timeline` only. §12.1 requires track/stage relevance and a
+selection cap before personal facts may enter the shared context payload, and both belong to phase
+4; injecting the whole profile in the meantime is the unbounded personal context §12.1 warns about.
+
+**Everything the projection reads is revalidated.** The event ledger is a plain file a user can edit,
+so a fact-bearing row is put back through `validate_event` on read and the projection fails closed if
+it would not have been accepted by a writer. `career_context` already does this for what it reads;
+the personal path needs it more, because its output crosses into agent context.
+
+**Decision (resolved and implemented): option (a).** The personal timeline extends the existing
+append-only career event ledger — implementing the already-declared but never-written `superseded`
+status plus `effective_from`/`effective_to` — rather than introducing a second canonical state store,
+which the agent contract warns against. The shape is:
 
 ```text
 raw documents
@@ -1489,6 +1512,59 @@ The document registry stays separate because it inventories artifacts, not claim
 get no new ledger. `current/personal-profile.json` is a derived cache that must be reconstructible
 from history alone (AC-14), and `as_of` is a required parameter on every internal function on this
 path (AC-21).
+
+An event carries an optional `fact` object: `category`, `key`, `value`, `effective_from`,
+`expires_on`, and `supersedes`. `effective_to` is **rejected** in that payload — it is derived from
+the supersession links (§8.1), and a hand-authored copy is a second source of truth that goes stale
+silently the moment a link changes. `value` is required and may be explicitly `null`; a missing
+`value` is a contract error, not an implicit Unknown.
+
+**Only confirmed facts participate in supersession.** A `draft` fact never enters the projection and
+never closes a confirmed fact's interval. Allowing it to would route a state change around the
+approval gate: merely proposing a correction would blank the current value before the user accepted
+it. A fact-bearing event may therefore only be stored as `draft` or `confirmed`; `superseded` is
+derived from another fact's link, and a stored copy is a second way to say the same thing that can
+disagree with the links. Ordinary career events keep the status.
+
+**Supersession is a single chain inside one logical fact key**, and this is enforced, not assumed:
+
+- both ends of the link must be `confirmed`. Checking only the successor lets an unapproved draft
+  reach the projection through the back door: a confirmed successor with an Unknown
+  `effective_from` marks itself as conflicting against its predecessor, so a draft predecessor
+  makes the whole field report a `Conflict` caused entirely by a record that is not supposed to be
+  visible yet;
+- a successor must carry the predecessor's `category` and `key` — otherwise a JLPT record can close
+  a compensation record's interval and blank the salary;
+- a predecessor may have at most one confirmed successor. A fork is not a value ambiguity to report
+  as a `Conflict`, it is a broken chain: each successor derives a different `effective_to` for the
+  same predecessor, so the last one processed wins and the projection depends on ledger order,
+  breaking AC-15. It is rejected like the other topology errors (a dangling or self-referential
+  `supersedes`), because the data has to be corrected rather than rendered;
+- the chain must be **acyclic**. `A supersedes B` together with `B supersedes A` satisfies every
+  per-node rule above — one successor, one predecessor, one key — and still derives `effective_to`
+  values that precede their own `effective_from`. The projection would then report an ordinary
+  `Unknown` for history that is actually corrupt, which is the worst available outcome: a wrong
+  answer wearing the shape of a correct one. This layer is the canonical temporal source, so it
+  fails closed.
+
+**A fact id identifies exactly one record.** Per-row validation only checks that an id is present
+and non-empty, so a hand-edited ledger can repeat one. Every link above resolves a `supersedes`
+target by id, so a repeated id means the link points at whichever copy happened to appear last —
+the same history in a different order supersedes a different record. Duplicate ids are therefore
+rejected on read, with all of them collected and sorted into one message so the failure itself is
+order-independent too.
+
+**Anything capped must be ordered first.** Candidate lists are sorted by effective date, then fact
+id, before the §12.1 cap is applied. Capping unordered input makes the *visible* subset depend on
+ledger order even when the conflict itself does not — a determinism hole that a test asserting only
+the happy path will not find.
+
+**Open contract, to be settled before phase 4: backdated corrections.** A successor whose
+`effective_from` precedes its predecessor's still derives an `effective_to` earlier than the
+predecessor's own `effective_from` — an inverted interval. Two defensible answers exist: require a
+successor to be strictly later and reject the rest, or support backdated correction as its own
+semantics (the successor replaces the predecessor's interval rather than closing it). Phase 3 does
+neither, because guessing here would bake a product decision into a derivation rule.
 
 ### Phase 4: Context integration and the downstream read path
 Current-only default context; explicit labelled historical mode; stale-context regressions; **and the
