@@ -314,7 +314,11 @@ File creation/modification timestamps are metadata only and must not silently be
 **Timezone rule.** `observed_at` is a UTC instant (`...Z`), matching the existing `utc_now()` helper,
 and the trailing `Z` is **required, not merely tolerated** — an offset (`+09:00`) or a naive local
 time would store instants in three notations that sort differently as strings, in a ledger whose
-ordering is load-bearing.
+ordering is load-bearing. A bare `YYYY-MM-DD` is likewise rejected: it is a date, not an instant, and
+accepting one here would put the ledger's ordering key into the same shape as the local civil dates
+this section exists to keep apart. There is no legacy exemption because there is nothing to exempt —
+`utc_now()` is the only thing that has ever written an `observed_at` in this repository, and it has
+always emitted the full instant.
 `effective_from`, `effective_to`, and `reviewed_on` are bare calendar dates in the user's local civil
 calendar and are **never timezone-converted**. Without this rule a JLPT result effective `2026-01-20`
 in JST compared against a UTC `as_of` is off by up to a day, and `as_of` reproducibility (§12.4)

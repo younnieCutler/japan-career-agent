@@ -579,7 +579,6 @@ class CalendarValidationTest(unittest.TestCase):
 
     def test_iso_timestamp_validates_the_time_component(self) -> None:
         """`T[^Z]+Z` only checked that something sat between the T and the Z."""
-        self.assertEqual(iso_timestamp("2026-01-20", "occurred_at"), "2026-01-20")
         self.assertEqual(
             iso_timestamp("2026-01-20T10:00:00Z", "occurred_at"), "2026-01-20T10:00:00Z"
         )
@@ -588,8 +587,15 @@ class CalendarValidationTest(unittest.TestCase):
                 iso_timestamp(bad, "occurred_at")
 
     def test_iso_timestamp_requires_utc(self) -> None:
-        """Section 7.1: `observed_at` is a UTC instant, not three notations that sort differently."""
+        """Section 7.1: `observed_at` is a UTC instant, not notations that sort differently."""
         for bad in ("2026-01-20T10:00:00+09:00", "2026-01-20T10:00:00", "2026-01-20 10:00:00"):
+            with self.assertRaises(CareerError, msg=bad):
+                iso_timestamp(bad, "occurred_at")
+
+    def test_iso_timestamp_rejects_a_bare_date(self) -> None:
+        """A bare date is not an instant. Section 7.1 requires the trailing `Z`, and `utc_now()`
+        -- the only thing that has ever written an `occurred_at` here -- always emits one."""
+        for bad in ("2026-01-20", "2026-01-20Z"):
             with self.assertRaises(CareerError, msg=bad):
                 iso_timestamp(bad, "occurred_at")
 

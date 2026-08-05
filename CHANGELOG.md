@@ -57,10 +57,12 @@
   value as a hard error. Date fields are matched against the whole string: parsing a ten-character
   prefix accepted `2026-01-20junk` and `2026-01-20T99:99:99Z` by discarding the part that made them
   wrong. `occurred_at` is validated by `validation.iso_timestamp`, which parses the time component
-  instead of pattern-matching around it and requires the trailing `Z`; previously only `deadline`
-  was calendar-checked at all, so an impossible date could enter the ledger through the field every
-  projection orders by, and an offset or naive local time would have stored instants in three
-  notations that sort differently as strings.
+  instead of pattern-matching around it and requires a full UTC instant — the trailing `Z`, and not
+  a bare date, which is a date rather than an instant. Previously only `deadline` was calendar-checked
+  at all, so an impossible date could enter the ledger through the field every projection orders by,
+  and an offset or naive local time would have stored instants in notations that sort differently as
+  strings. `utc_now()` is the only thing that has ever written an `occurred_at` here, so there is no
+  legacy shape to accommodate.
 - A fact-bearing event may only be `draft` or `confirmed`. `superseded` is derived from another
   fact's `supersedes` link, so a stored copy is a second way to say the same thing and the two can
   disagree; hand-writing it also removed a fact from the projection with no successor and no record
