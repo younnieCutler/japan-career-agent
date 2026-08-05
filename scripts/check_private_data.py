@@ -20,6 +20,7 @@ line of file content.
 from __future__ import annotations
 
 import argparse
+import io
 import re
 import subprocess
 import sys
@@ -38,10 +39,16 @@ MAX_READ_BYTES = 65_536
 
 DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".odt", ".rtf"}
 
-# PRIVATE-002: the synthetic allowlist is rule-based, never a path list. A path list goes stale
-# on the first rename, and every stale entry is either a false positive that trains people to
-# bypass the gate or a false negative that silently stops protecting a file.
-SYNTHETIC_PATH_PARTS = {"examples", "mock", "mocks", "fixtures", "tests"}
+# PRIVATE-002: the synthetic allowlist is rule-based, never a path list, and it requires an
+# explicit DECLARATION -- never mere location.
+#
+# An earlier version exempted anything under examples/, tests/, fixtures/, mock/ or mocks/. That
+# turned those directories into detection blind spots: real personal data in `examples/notes.md`
+# was invisible to an ordinary `git add`, while byte-identical content one directory up was
+# blocked. A location is not a statement about content, and it directly contradicts this phase's
+# contract that a generically named personal document is caught.
+#
+# Declaring a fixture is cheap; silently trusting a directory name is not.
 SYNTHETIC_NAME_INFIX = ".example."
 SYNTHETIC_CONTENT_MARKERS = (
     "synthetic://",
@@ -98,6 +105,14 @@ def _git(*arguments: str) -> str:
     return result.stdout
 
 
+def _git_bytes(*arguments: str) -> bytes | None:
+    """Binary-safe git read. Returns None when the object is absent."""
+    result = subprocess.run(
+        ["git", *arguments], cwd=str(ROOT), capture_output=True, check=False
+    )
+    return None if result.returncode else result.stdout
+
+
 def _paths(staged: bool) -> list[str]:
     if staged:
         output = _git("diff", "--cached", "--name-only", "--diff-filter=ACM", "-z")
@@ -106,17 +121,15 @@ def _paths(staged: bool) -> list[str]:
     return sorted(item for item in output.split("\0") if item)
 
 
-def is_synthetic(relative: str, prefix: bytes) -> bool:
-    parts = relative.split("/")
-    if SYNTHETIC_PATH_PARTS.intersection(parts[:-1]):
+def is_synthetic(relative: str, content: bytes) -> bool:
+    if SYNTHETIC_NAME_INFIX in relative.split("/")[-1]:
         return True
-    if SYNTHETIC_NAME_INFIX in parts[-1]:
-        return True
-    text = prefix.decode("utf-8", errors="replace")
+    text = content[:MAX_READ_BYTES].decode("utf-8", errors="replace")
     return any(marker in text for marker in SYNTHETIC_CONTENT_MARKERS)
 
 
-def _read_prefix(path: Path) -> bytes:
+def _read_worktree(relative: str) -> bytes:
+    path = ROOT / relative
     # Symlinks are not followed (PRD §28); an unreadable file is classified on metadata alone.
     if path.is_symlink() or not path.is_file():
         return b""
@@ -124,28 +137,54 @@ def _read_prefix(path: Path) -> bytes:
         if path.stat().st_size > MAX_FILE_BYTES:
             return b""
         with path.open("rb") as stream:
-            return stream.read(MAX_READ_BYTES)
+            return stream.read(MAX_FILE_BYTES)
     except OSError:
         return b""
 
 
-def _office_document(path: Path, prefix: bytes) -> bool:
-    """Detect an Office document by container shape, so a renamed .docx is still caught."""
-    if not prefix.startswith(ZIP_MAGIC):
+def _read_index(relative: str) -> bytes:
+    """Read the staged blob -- the bytes that will actually be committed.
+
+    PRIVATE-005: reading the worktree file here is a bypass, not a shortcut. `git add` a document,
+    then overwrite the worktree copy with something harmless, and a worktree-reading gate inspects
+    the harmless version while the personal bytes sit in the index and land in the commit.
+    """
+    size = _git_bytes("cat-file", "-s", f":{relative}")
+    if size is None:
+        return b""
+    try:
+        if int(size.strip()) > MAX_FILE_BYTES:
+            return b""
+    except ValueError:
+        return b""
+    return _git_bytes("cat-file", "blob", f":{relative}") or b""
+
+
+def read_content(relative: str, staged: bool) -> bytes:
+    return _read_index(relative) if staged else _read_worktree(relative)
+
+
+def _office_document(content: bytes) -> bool:
+    """Detect an Office document by container shape, so a renamed .docx is still caught.
+
+    Reads the whole (size-capped) blob rather than a prefix: a ZIP's central directory lives at
+    the end of the archive, so a prefix cannot be inspected.
+    """
+    if not content.startswith(ZIP_MAGIC):
         return False
     try:
-        with zipfile.ZipFile(path) as archive:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
             names = set(archive.namelist())
     except (zipfile.BadZipFile, OSError):
         return False
     return any(member in names for member in OFFICE_ZIP_MEMBERS)
 
 
-def classify(relative: str) -> Finding | None:
-    path = ROOT / relative
-    prefix = _read_prefix(path)
+def classify(relative: str, staged: bool = False) -> Finding | None:
+    content = read_content(relative, staged)
+    prefix = content[:MAX_READ_BYTES]
 
-    if is_synthetic(relative, prefix):
+    if is_synthetic(relative, content):
         return None
 
     name = relative.split("/")[-1]
@@ -155,7 +194,7 @@ def classify(relative: str) -> Finding | None:
         return Finding(relative, "personal document format", "high", f"extension {suffix}")
     if any(pattern.search(name) for pattern in FILENAME_PATTERNS):
         return Finding(relative, "career document filename", "high", "filename")
-    if _office_document(path, prefix):
+    if _office_document(content):
         return Finding(relative, "office document", "high", "zip container shape")
 
     if b"\0" in prefix:  # binary: never scanned as text
@@ -175,7 +214,11 @@ def classify(relative: str) -> Finding | None:
 
 
 def scan(staged: bool) -> list[Finding]:
-    return [finding for path in _paths(staged) if (finding := classify(path)) is not None]
+    return [
+        finding
+        for path in _paths(staged)
+        if (finding := classify(path, staged=staged)) is not None
+    ]
 
 
 def _report(findings: list[Finding], staged: bool) -> None:

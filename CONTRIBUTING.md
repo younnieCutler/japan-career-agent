@@ -29,9 +29,13 @@ The same check runs in CI over every tracked file, so a clone without the hook s
 request — but only after the document has reached the remote, which is what the hook prevents. Both
 layers are required; neither is sufficient alone.
 
-If the check flags a synthetic fixture, mark it as one rather than weakening the detector: put it
-under `examples/`, `tests/`, `fixtures/`, or `mock/`, use a `.example.` infix, or declare a
-synthetic provenance marker in its content. See `docs/PRIVATE_CAREER_DATA_PRD.md` section 13.3.
+If the check flags a synthetic fixture, declare it rather than weakening the detector: use a
+`.example.` infix in the filename, or put a synthetic marker in the content (`synthetic://...`,
+`provenance: synthetic`, or a statement that the subject is not a real person).
+
+Putting a file under `examples/`, `tests/`, or `mock/` does **not** exempt it. A directory name is
+a convention, not a statement about the bytes inside, and exempting those paths would make them the
+easiest place to leak real data. See `docs/PRIVATE_CAREER_DATA_PRD.md` section 13.3.
 
 ## Verification
 

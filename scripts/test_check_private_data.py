@@ -183,6 +183,35 @@ class StagedGateTest(unittest.TestCase):
             _git(root, "add", "module.py")
             self.assertEqual(check_private_data.main(["--staged"]), 0)
 
+    def test_staged_bytes_are_checked_not_the_worktree_copy(self) -> None:
+        """Stage a personal document, then overwrite the worktree copy with something harmless.
+
+        A worktree-reading gate inspects the harmless version and waves the commit through while
+        the personal bytes sit in the index and land in the commit.
+        """
+        with TemporaryRepo() as root:
+            write(root, "notes.md", SYNTHETIC_RESUME)
+            _git(root, "add", "notes.md")
+            write(root, "notes.md", "just some harmless notes\n")
+            with captured_stderr():
+                self.assertEqual(check_private_data.main(["--staged"]), 1)
+
+    def test_worktree_personal_content_does_not_mask_a_clean_staged_blob(self) -> None:
+        """The mirror image: staged bytes are clean, so the commit is allowed."""
+        with TemporaryRepo() as root:
+            write(root, "notes.md", "harmless\n")
+            _git(root, "add", "notes.md")
+            write(root, "notes.md", SYNTHETIC_RESUME)
+            self.assertEqual(check_private_data.main(["--staged"]), 0)
+
+    def test_staged_deleted_worktree_file_is_still_checked(self) -> None:
+        with TemporaryRepo() as root:
+            write(root, "notes.md", SYNTHETIC_RESUME)
+            _git(root, "add", "notes.md")
+            (root / "notes.md").unlink()
+            with captured_stderr():
+                self.assertEqual(check_private_data.main(["--staged"]), 1)
+
     def test_unstaged_personal_file_does_not_block(self) -> None:
         with TemporaryRepo() as root:
             write(root, "keep.py", "value = 1\n")
@@ -244,14 +273,28 @@ class ClassificationTest(unittest.TestCase):
         self.assertIsNotNone(finding)
         self.assertEqual(finding.signal, "zip container shape")
 
-    def test_synthetic_markers_suppress_detection(self) -> None:
-        write(self.root, "examples/notes.md", SYNTHETIC_RESUME)
-        write(self.root, "tests/notes.md", SYNTHETIC_RESUME)
+    def test_declared_synthetic_fixtures_are_suppressed(self) -> None:
         write(self.root, "profile.example.md", SYNTHETIC_RESUME)
         write(self.root, "marked.md", SYNTHETIC_RESUME + "\nsynthetic://fixture\n")
-        for relative in ("examples/notes.md", "tests/notes.md", "profile.example.md", "marked.md"):
+        write(self.root, "declared.md", SYNTHETIC_RESUME + "\nprovenance: synthetic\n")
+        for relative in ("profile.example.md", "marked.md", "declared.md"):
             with self.subTest(path=relative):
                 self.assertIsNone(check_private_data.classify(relative))
+
+    def test_fixture_directory_alone_does_not_suppress_detection(self) -> None:
+        """A location is not a statement about content.
+
+        Exempting examples/ tests/ fixtures/ mock/ wholesale turned them into blind spots: real
+        personal data in examples/notes.md was invisible to an ordinary `git add`, while identical
+        content one directory up was blocked.
+        """
+        for relative in (
+            "examples/notes.md", "tests/notes.md", "fixtures/notes.md",
+            "mock/notes.md", "skills/x/mocks/notes.md",
+        ):
+            with self.subTest(path=relative):
+                write(self.root, relative, SYNTHETIC_RESUME)
+                self.assertIsNotNone(check_private_data.classify(relative))
 
     def test_secret_pattern_is_detected(self) -> None:
         # Assembled at runtime so the literal never appears in tracked source: the release

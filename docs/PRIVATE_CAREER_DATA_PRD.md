@@ -697,19 +697,32 @@ that trains people to bypass the gate or a false negative that silently stops pr
 allowlist is therefore expressed as rules over content and naming conventions that already exist in
 this repository:
 
+Every rule requires an explicit **declaration**. Location is never one of them:
+
 - the `.example.` infix in a filename;
-- residence under a conventional synthetic-fixture directory: `examples/`, `tests/`, `fixtures/`,
-  `mock/`, or `mocks/`;
 - a `synthetic://` source reference — a marker the matching evidence validator already requires
   whenever provenance is declared synthetic, in both directions;
 - an explicit `provenance: synthetic` declaration, or an in-document statement that the subject is
   not a real person.
 
-The fixture-directory rule was added after implementation found tracked mock profiles at
-`skills/job-seeker-agent/mock/` that carry filled-in `氏名:` identity fields and match none of the
-originally listed rules. They are explicitly synthetic ("実在の人物ではありません"), so the rule set
-was incomplete rather than the fixtures being wrong — exactly the kind of gap AC-19 exists to force
-into the open before the gate ships.
+**Directory location must not suppress detection.** An implementation pass briefly exempted
+anything under `examples/`, `tests/`, `fixtures/`, `mock/`, or `mocks/`, on the reasoning that
+these are conventional fixture directories. Review caught that this turns them into blind spots:
+real personal data in `examples/notes.md` became invisible to an ordinary `git add`, while
+byte-identical content one directory up was blocked. A directory name is a convention, not a
+statement about the bytes inside — and the exemption directly contradicts this phase's contract
+that a generically named personal document is caught.
+
+Declaring a fixture is cheap. Trusting a directory name is not, and the cost lands precisely where
+the data is most likely to be pasted "just for a test".
+
+This still leaves marker-based bypass available to someone who deliberately adds a marker to real
+data. That is inherent to any allowlist and is accepted: the gate defends against accident, not
+against a user determined to defeat it.
+
+The tracked mock profiles at `skills/job-seeker-agent/mock/` satisfy the declaration rules on their
+own — they carry "実在の人物ではありません" — so removing the directory rule keeps AC-19 green
+without weakening anything.
 
 **AC-19 (new, and the most important acceptance criterion in this document): the repository check
 must report clean against the repository's own `HEAD`.**
@@ -850,6 +863,24 @@ alone is insufficient because it depends on a manual step the user may never run
 
 `private-doctor` must report whether the hook is actually installed, so "protected" is an observed
 state rather than an assumption.
+
+**The staged check must read the index, never the working tree.** The commit will contain the
+staged blob, so that is the only content whose classification means anything. Reading the worktree
+file is a bypass, not a shortcut:
+
+```text
+git add resume-shaped-notes.md     # personal bytes enter the index
+echo "harmless" > resume-shaped-notes.md
+git commit                          # a worktree-reading gate inspects "harmless" and passes
+```
+
+The personal bytes are committed while the gate reports clean. Filename and extension signals still
+work under a worktree read — the name comes from the index — which is what makes this failure mode
+easy to miss: the gate looks like it works right up until the content signals are the ones that
+matter. Read staged content with `git cat-file blob :<path>`, size-checked first.
+
+The same applies to a path staged and then deleted from the working tree: the blob is still in the
+index and still lands in the commit.
 
 ### 15.4 Forced-add coverage
 

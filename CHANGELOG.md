@@ -7,10 +7,14 @@
   with `--staged`, over the staged set. Detection is standard-library only: filename tokens,
   document extensions, ZIP container shape (so a renamed `.docx` is still caught), structured
   personal-field labels, and the release bundler's existing secret patterns.
-- The synthetic allowlist is rule-based rather than a path list: `.example.` infix, fixture
-  directories (`examples/`, `tests/`, `fixtures/`, `mock/`, `mocks/`), `synthetic://` references,
-  and declared synthetic provenance. The gate is verified clean against the repository's own
-  tracked content, so it cannot be normalized into being bypassed.
+- `--staged` reads the staged blob via `git cat-file`, not the working-tree file. The commit
+  contains the staged bytes, so staging a document and then overwriting the worktree copy must not
+  clear the gate.
+- The synthetic allowlist requires an explicit declaration — `.example.` infix, `synthetic://`
+  reference, or declared synthetic provenance. Directory location never suppresses detection:
+  exempting `examples/`, `tests/`, or `mock/` would make them blind spots for real data. The gate
+  is verified clean against the repository's own tracked content, so it cannot be normalized into
+  being bypassed.
 - Content detection matches filled-in personal field labels, never topic words, so the repository's
   own documentation about resumes is not flagged.
 - Hardened `.gitignore` with personal-document extensions, Japanese and romanized document-name
