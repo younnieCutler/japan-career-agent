@@ -24,6 +24,21 @@
   governs it.
 - Corrections need no new machinery: `--supersedes` reuses the existing chain, so an approved
   correction closes the previous interval and the old record stays visible in history.
+- **Approval runs a full preflight before anything is written.** Validating a proposal when it is
+  created is necessary and not sufficient: two corrections of the same fact are each individually
+  valid and only the pair is a fork, which no single proposal can see. Inside the approval lock the
+  candidate is appended to the ledger in memory and run through `derive_intervals`, the reader's own
+  rule set, so the writer cannot store a state the reader would reject. Previously a fork reached
+  the ledger and only the next projection reported it — by which point the invalid row was canonical.
+- The document link is re-resolved at approval rather than trusted from proposal time. The private
+  root can change between the two, and extra `--evidence` can name a document nobody imported.
+  Existence, id uniqueness, and the blob still being on disk are all checked, by the same function
+  the proposal path uses.
+- A duplicate `document_id` in the registry makes the reference unusable rather than acceptable. The
+  id is the whole link, so ambiguity in it is ambiguity in the provenance — the same reason a
+  duplicate fact id is rejected on read.
+- Both checks run **before** the pipeline writer. An event carrying a company would otherwise have
+  updated the workspace projection and then failed to reach the ledger.
 
 ## [1.11.0] - 2026-08-05
 

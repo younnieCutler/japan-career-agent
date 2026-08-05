@@ -43,6 +43,18 @@ UNTRUSTED_DATA_MARKER = "untrusted_career_data"
 # alone: the registry already maps it to a digest and a storage path, and a copy of either
 # here would go stale the moment the registry changes.
 DOCUMENT_EVIDENCE_PREFIX = "private-document:"
+
+
+def document_evidence_ids(evidence: Any) -> list[str]:
+    """The document ids an evidence list claims, in order and without duplicates."""
+    seen: list[str] = []
+    for item in evidence or []:
+        if not isinstance(item, str) or not item.startswith(DOCUMENT_EVIDENCE_PREFIX):
+            continue
+        document_id = item[len(DOCUMENT_EVIDENCE_PREFIX):].strip()
+        if document_id and document_id not in seen:
+            seen.append(document_id)
+    return seen
 CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")
 SHINSOTSU_STAGES = (
     "自己分析・就活軸",

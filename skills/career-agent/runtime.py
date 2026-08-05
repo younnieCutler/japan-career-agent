@@ -948,14 +948,11 @@ def main(argv: Iterable[str] | None = None) -> int:
                     # symbol and a caller that skips argparse must fail closed too.
                     result = select_personal_context(events, args.stage, args.as_of)
             elif args.command == "propose-fact":
-                records, unavailable = private_records(home.path)
-                if unavailable:
-                    # Unlike a read path, this one writes a provenance link. A store we cannot
-                    # resolve means we cannot check that the document exists, and an unverifiable
-                    # link is the thing `propose_fact` exists to refuse.
-                    raise CareerError(unavailable)
+                # No degradation here, unlike the read paths: this writes a provenance link, and a
+                # store we cannot resolve is a link we cannot verify.
+                store = PrivateHome(resolve_private_home(None, home.path))
                 result = propose_fact(
-                    home, records,
+                    home, store,
                     document_id=args.document_id, category=args.category, key=args.key,
                     value=args.value, effective_from=args.effective_from,
                     expires_on=args.expires_on, supersedes=args.supersedes,

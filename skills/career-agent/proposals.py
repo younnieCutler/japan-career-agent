@@ -18,6 +18,7 @@ from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
 from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, CareerError  # noqa: E402
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
+from private_store import PrivateHome, resolve_document  # noqa: E402
 from routing import flow_phase_for, infer_track, language_for, load_flow_reference, skill_context, stage_for  # noqa: E402
 from validation import validate_career_context, validate_event  # noqa: E402
 from vault import CareerVault, select_context, utc_now  # noqa: E402
@@ -214,7 +215,7 @@ def document_evidence(document_id: str) -> str:
 
 def propose_fact(
     home: CareerVault,
-    records: list[dict[str, Any]],
+    store: PrivateHome,
     *,
     document_id: str,
     category: str,
@@ -235,14 +236,10 @@ def propose_fact(
     unreviewed proposal cannot change what any skill sees.
 
     The document must already be in the registry. A fact whose evidence points at nothing is worse
-    than no fact -- it looks provenance-backed and is not.
+    than no fact -- it looks provenance-backed and is not. `approve` resolves it again against the
+    store it actually runs against, because these two moments can be an environment change apart.
     """
-    known = {str(record.get("document_id")) for record in records}
-    if document_id not in known:
-        raise CareerError(
-            f"no imported document with id {document_id!r}; import it first and use the id "
-            f"`private-list` reports"
-        )
+    resolve_document(store, document_id)
     fact = {"category": category, "key": key, "value": value}
     if effective_from is not None:
         fact["effective_from"] = effective_from

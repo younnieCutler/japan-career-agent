@@ -1692,8 +1692,31 @@ would make it circular — the record would support itself — so the value live
 `fact` payload, where `validate_fact` governs it and supersession can correct it. The prose names the
 category and key.
 
+**Approval is the canonical commit, so it is where the invariants are enforced.** Validating a
+proposal when it is created is necessary and not sufficient: two corrections of the same fact are
+each individually valid and only the *pair* is a fork, which no single proposal can see. Before
+anything is written, inside the approval lock, the candidate event is appended to the ledger in
+memory and run through `derive_intervals` — the reader's own rule set. The writer therefore cannot
+store a state the reader would reject. Previously the ledger accepted a fork and the next projection
+reported it, by which point the invalid row was canonical and the user had to hand-edit the file.
+
+The provenance link is re-resolved at the same point rather than trusted from proposal time: the
+private root can change between proposing a fact and confirming it, and any extra `--evidence` can
+name a document nobody ever imported. The check covers existence, uniqueness of the id, and the
+blob still being on disk.
+
+Both run **before** the pipeline writer. An event carrying a company would otherwise update the
+workspace projection and then fail to reach the ledger, leaving the two disagreeing about something
+that never happened.
+
 Reused rather than rebuilt: `approve` confirms these proposals unchanged, a draft fact is already
 inert in the projection, and supersession already handles corrections.
+
+**Open: canonical value typing.** `--value` is always a string at the CLI, so a compensation fact
+records `"7200000"`. `validate_fact` does not constrain the type, so a future non-CLI writer passing
+the number `7200000` would produce a second value for the same logical fact that the projection
+reads as a conflict. Either a per-category value type or a JSON-valued input contract has to be
+settled before compensation and other structured facts are extended.
 
 ## 25. Backward compatibility
 

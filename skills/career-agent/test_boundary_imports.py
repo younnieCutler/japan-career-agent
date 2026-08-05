@@ -21,12 +21,15 @@ BOUNDARY_SYMBOLS = {
     "vault": ("CareerVault", "initialize_vault"),
     "proposals": ("run_chat", "list_proposals", "propose_fact"),
     "projection": ("pipeline_file", "upsert_pipeline_entry"),
-    "lifecycle": ("approve", "restore_state", "vault_lock"),
+    "lifecycle": ("approve", "restore_state", "vault_lock", "preflight_confirmation"),
     "personal_timeline": (
         "project", "timeline", "derive_intervals", "document_states",
         "select_personal_context", "historical_comparison", "candidate_profile_values",
     ),
-    "private_store": ("resolve_private_home", "import_document", "private_doctor", "stray_documents"),
+    "private_store": (
+        "resolve_private_home", "import_document", "private_doctor", "stray_documents",
+        "resolve_document",
+    ),
 }
 
 
