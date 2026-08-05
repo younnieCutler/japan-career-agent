@@ -1668,9 +1668,55 @@ private-import → document record → fact proposals → user confirmation → 
 
 Scope: proposing facts from an imported document behind the existing approval gate (never
 auto-confirming — §5.3), and linking `fact.evidence` to phase 2 `document_id`s so a fact and the
-document backing it stop being separate universes. Until this lands, the feature is complete for a
-user who maintains facts by hand and incomplete for everyone else, and it should be described that
-way rather than as "4 of 4".
+document backing it stop being separate universes.
+
+**The tool does not read the document.** Text extraction is a v1 non-goal (§4), so `propose-fact`
+takes the value from the user and the *document* is what they are pointing at. Calling the result a
+machine-read claim would be a claim nothing here can support; the response says
+`machine_read: false` for exactly that reason.
+
+**The link is the `document_id` alone.** The registry already maps it to a digest and a storage
+path, and copying either into the event would be a second source of truth that goes stale the moment
+the registry changes — the same rule that keeps `effective_to` derived. The evidence string is
+`private-document:<document_id>`, and a proposal naming a document that was never imported is
+rejected: evidence that resolves to nothing looks provenance-backed and is not.
+
+**`approve --evidence` no longer destroys the link.** That flag replaces the evidence list, so a
+user adding a note would have silently deleted the reference the proposal was built around. A
+document reference now survives the replacement; adding a note is not the same statement as "this
+document is no longer the source".
+
+**The value stays out of the prose.** A number in `title`/`summary` must appear in the evidence text
+before an event can be confirmed. Satisfying that rule by echoing the value into the evidence string
+would make it circular — the record would support itself — so the value lives only in the structured
+`fact` payload, where `validate_fact` governs it and supersession can correct it. The prose names the
+category and key.
+
+**Approval is the canonical commit, so it is where the invariants are enforced.** Validating a
+proposal when it is created is necessary and not sufficient: two corrections of the same fact are
+each individually valid and only the *pair* is a fork, which no single proposal can see. Before
+anything is written, inside the approval lock, the candidate event is appended to the ledger in
+memory and run through `derive_intervals` — the reader's own rule set. The writer therefore cannot
+store a state the reader would reject. Previously the ledger accepted a fork and the next projection
+reported it, by which point the invalid row was canonical and the user had to hand-edit the file.
+
+The provenance link is re-resolved at the same point rather than trusted from proposal time: the
+private root can change between proposing a fact and confirming it, and any extra `--evidence` can
+name a document nobody ever imported. The check covers existence, uniqueness of the id, and the
+blob still being on disk.
+
+Both run **before** the pipeline writer. An event carrying a company would otherwise update the
+workspace projection and then fail to reach the ledger, leaving the two disagreeing about something
+that never happened.
+
+Reused rather than rebuilt: `approve` confirms these proposals unchanged, a draft fact is already
+inert in the projection, and supersession already handles corrections.
+
+**Open: canonical value typing.** `--value` is always a string at the CLI, so a compensation fact
+records `"7200000"`. `validate_fact` does not constrain the type, so a future non-CLI writer passing
+the number `7200000` would produce a second value for the same logical fact that the projection
+reads as a conflict. Either a per-category value type or a JSON-valued input contract has to be
+settled before compensation and other structured facts are extended.
 
 ## 25. Backward compatibility
 

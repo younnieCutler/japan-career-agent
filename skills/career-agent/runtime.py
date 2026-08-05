@@ -74,6 +74,7 @@ from proposals import (  # noqa: E402
     make_event,
     proposal_summary,
     propose_career_context,
+    propose_fact,
     run_chat,
 )
 from lifecycle import (  # noqa: E402
@@ -146,6 +147,7 @@ _PROPOSAL_COMPATIBILITY_EXPORTS = (
     make_event,
     proposal_summary,
     propose_career_context,
+    propose_fact,
     run_chat,
 )
 
@@ -776,6 +778,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--all-documents", action="store_true",
         help="with --historical: sweep every document instead of naming what is being compared",
     )
+    fact_proposal_parser = subparsers.add_parser(
+        "propose-fact",
+        help="propose a personal fact backed by an imported document; approve confirms it",
+    )
+    # The private root comes from the Vault or CAREER_PRIVATE_HOME, as every other read of it does.
+    add_vault_argument(fact_proposal_parser)
+    fact_proposal_parser.add_argument("--document-id", required=True, help="see private-list")
+    fact_proposal_parser.add_argument("--category", required=True, choices=sorted(FACT_CATEGORIES))
+    fact_proposal_parser.add_argument("--key", required=True, help="the logical fact key, e.g. jlpt")
+    fact_proposal_parser.add_argument(
+        "--value", required=True, help="the value you are stating; this tool does not read the file",
+    )
+    fact_proposal_parser.add_argument("--effective-from", help="YYYY-MM-DD; when it became true")
+    fact_proposal_parser.add_argument("--expires-on", help="YYYY-MM-DD; when it stops being valid")
+    fact_proposal_parser.add_argument(
+        "--supersedes", help="the confirmed fact id this one replaces (see personal-timeline)",
+    )
     context_proposal_parser = subparsers.add_parser(
         "propose-context",
         help="create an approval-gated proposal from a SELF_ANALYSIS_PROFILE YAML",
@@ -928,6 +947,16 @@ def main(argv: Iterable[str] | None = None) -> int:
                     # Stage validation lives in the selector, not here: it is a public boundary
                     # symbol and a caller that skips argparse must fail closed too.
                     result = select_personal_context(events, args.stage, args.as_of)
+            elif args.command == "propose-fact":
+                # No degradation here, unlike the read paths: this writes a provenance link, and a
+                # store we cannot resolve is a link we cannot verify.
+                store = PrivateHome(resolve_private_home(None, home.path))
+                result = propose_fact(
+                    home, store,
+                    document_id=args.document_id, category=args.category, key=args.key,
+                    value=args.value, effective_from=args.effective_from,
+                    expires_on=args.expires_on, supersedes=args.supersedes,
+                )
             elif args.command == "propose-context":
                 result = propose_career_context(home, args.source)
             elif args.mode == "chat":

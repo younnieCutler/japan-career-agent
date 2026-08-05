@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.12.0] - 2026-08-05
+
+- `propose-fact` closes the last gap in the flow this feature describes: an imported document can
+  now become a canonical personal fact. Before this, a user who imported a resume still had to
+  hand-edit `events.jsonl` for any of it to reach a projection.
+- **The tool does not read the document.** Text extraction is a v1 non-goal, so the value comes from
+  the user and the document is what they are pointing at. The response says `machine_read: false`
+  rather than letting the shape of the command imply otherwise.
+- The proposal is a `draft` and `approve` is the only thing that confirms it. A pending proposal
+  lives in `proposals.jsonl`, not the event ledger, so an unreviewed fact does not appear in any
+  projection at all.
+- The evidence link is `private-document:<document_id>` and nothing else. The registry already maps
+  the id to a digest and a storage path; copying either into the event would be a second source of
+  truth that goes stale the moment the registry changes. A proposal naming a document that was never
+  imported is rejected -- evidence that resolves to nothing looks provenance-backed and is not.
+- `approve --evidence` no longer destroys that link. The flag replaces the evidence list, so a user
+  adding a note would have silently deleted the reference the proposal was built around; adding a
+  note is not the same statement as "this document is no longer the source".
+- The fact value stays out of `title` and `summary`. A number there must appear in the evidence text
+  before an event can be confirmed, and satisfying that by echoing the value into the evidence string
+  would make the check circular. The value lives in the structured payload, where `validate_fact`
+  governs it.
+- Corrections need no new machinery: `--supersedes` reuses the existing chain, so an approved
+  correction closes the previous interval and the old record stays visible in history.
+- **Approval runs a full preflight before anything is written.** Validating a proposal when it is
+  created is necessary and not sufficient: two corrections of the same fact are each individually
+  valid and only the pair is a fork, which no single proposal can see. Inside the approval lock the
+  candidate is appended to the ledger in memory and run through `derive_intervals`, the reader's own
+  rule set, so the writer cannot store a state the reader would reject. Previously a fork reached
+  the ledger and only the next projection reported it — by which point the invalid row was canonical.
+- The document link is re-resolved at approval rather than trusted from proposal time. The private
+  root can change between the two, and extra `--evidence` can name a document nobody imported.
+  Existence, id uniqueness, and the blob still being on disk are all checked, by the same function
+  the proposal path uses.
+- A duplicate `document_id` in the registry makes the reference unusable rather than acceptable. The
+  id is the whole link, so ambiguity in it is ambiguity in the provenance — the same reason a
+  duplicate fact id is rejected on read.
+- Both checks run **before** the pipeline writer. An event carrying a company would otherwise have
+  updated the workspace projection and then failed to reach the ledger.
+
 ## [1.11.0] - 2026-08-05
 
 - Personal facts now reach agent context, under section 12.1's whole list rather than a subset of it:

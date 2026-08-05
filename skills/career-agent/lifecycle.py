@@ -21,8 +21,10 @@ try:
 except ImportError:  # POSIX
     msvcrt = None
 
-from models import CareerError
+from models import DOCUMENT_EVIDENCE_PREFIX, CareerError, document_evidence_ids
+from personal_timeline import derive_intervals, facts_from_events
 from persistence import append_jsonl, read_json, read_jsonl
+from private_store import PrivateHome, resolve_private_home, resolve_document
 from validation import validate_event
 from vault import CareerVault, utc_now
 
@@ -92,6 +94,31 @@ def state_version_is_persisted(home: CareerVault, state: dict[str, Any]) -> bool
     return any(row.get("version") == version for row in read_jsonl(home.checkpoints) if isinstance(row, dict))
 
 
+def preflight_confirmation(home: CareerVault, event: dict[str, Any], ledger: list[dict[str, Any]]) -> None:
+    """Check what confirming this event would make true, before anything is written.
+
+    Approval *is* the canonical commit, so this is the last place an invariant can be enforced
+    while it is still cheap. Validating the proposal alone is not enough: two corrections of the
+    same fact are each individually valid, and only the pair is a fork. The check therefore runs
+    against the whole ledger with the candidate appended, inside the approval lock.
+
+    It runs before the pipeline writer for the same reason. An event carrying `--company` would
+    otherwise update the workspace projection and then fail to reach the ledger, leaving the two
+    disagreeing about something that never happened.
+    """
+    for document_id in document_evidence_ids(event.get("evidence")):
+        # Re-resolved here, not trusted from proposal time: the private root can change between
+        # proposing a fact and confirming it, and a reference that resolves to nothing looks
+        # provenance-backed without being it.
+        resolve_document(PrivateHome(resolve_private_home(None, home.path)), document_id)
+    if event.get("fact") is None:
+        return
+    # `derive_intervals` owns every supersession invariant. Calling it here means the writer cannot
+    # store a state the reader would reject -- previously the ledger accepted a fork and only the
+    # next projection reported it, by which point the bad row was canonical.
+    derive_intervals(facts_from_events([*ledger, event]))
+
+
 def approve(
     home: CareerVault,
     proposal_id: str,
@@ -117,7 +144,16 @@ def approve(
         if proposal.get("kind") in {"event", "career_context"}:
             event = dict(proposal["event"])
             if evidence is not None:
-                event["evidence"] = evidence
+                # `--evidence` replaces the list, which would silently destroy the provenance link
+                # a fact proposal was built around: the reference to the document backing it. The
+                # user adding a note is not the user saying the document is no longer the source.
+                provenance = [
+                    item for item in proposal["event"].get("evidence") or []
+                    if isinstance(item, str) and item.startswith(DOCUMENT_EVIDENCE_PREFIX)
+                ]
+                event["evidence"] = evidence + [
+                    item for item in provenance if item not in evidence
+                ]
             if deadline is not None:
                 event["deadline"] = deadline
             if company is not None:
@@ -144,9 +180,14 @@ def approve(
                     ) from exc
                 raise
             event["status"] = "confirmed"
+            existing_events = read_jsonl(home.events)
+            try:
+                preflight_confirmation(home, event, existing_events)
+            except CareerError as exc:
+                record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
+                raise
             pipeline = pipeline_writer(event) if pipeline_writer and event.get("company") else None
 
-            existing_events = read_jsonl(home.events)
             if not any(row.get("id") == event.get("id") for row in existing_events):
                 append_jsonl(home.events, event)
 

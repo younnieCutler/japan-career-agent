@@ -302,7 +302,9 @@ def import_document(
         "status": "observed",
         "duplicate": False,
         "source_preserved": resolved_source.exists(),
-        # Phase 3 promotes claims to canonical facts; phase 2 only records the artifact.
+        # Always empty: nothing here reads the document. Text extraction is a v1 non-goal
+        # (section 4), so a claim becomes a fact only when the user states it -- see
+        # `propose-fact`, which links the fact to this document_id behind the approval gate.
         "facts_requiring_confirmation": [],
     }
 
@@ -330,6 +332,39 @@ def _publish_blob(source: Path, destination: Path, checksum: str) -> None:
 def documents(home: PrivateHome) -> list[dict[str, Any]]:
     """Canonical document records, newest observation last. Re-observation events are not records."""
     return [row for row in home.records() if not row.get("event")]
+
+
+def resolve_document(home: PrivateHome, document_id: str) -> dict[str, Any]:
+    """The one canonical record for an id, or a `CareerError` (PRD phase 5).
+
+    Used at both boundaries that can create a provenance link -- proposing a fact and confirming
+    one -- because they can be minutes and one environment change apart. A proposal that resolved
+    against the store it was written in says nothing about the store the approval runs against.
+
+    `document_id` is the whole link, so its uniqueness is load-bearing: two records sharing one id
+    make the reference ambiguous, and an ambiguous provenance link is not provenance. This is the
+    same reason a duplicate fact id is rejected on read.
+
+    The blob is checked too. A record whose bytes are gone still reads as a reference to a
+    document, which is exactly the shape of evidence that resolves to nothing.
+    """
+    matches = [row for row in documents(home) if str(row.get("document_id")) == document_id]
+    if not matches:
+        raise CareerError(
+            f"no imported document with id {document_id!r} in {home.path}; import it first and "
+            f"use the id `private-list` reports"
+        )
+    if len(matches) > 1:
+        raise CareerError(
+            f"document id {document_id!r} matches {len(matches)} records; a document id must "
+            f"identify exactly one document to be usable as evidence"
+        )
+    record = matches[0]
+    if not (home.blobs / str(record.get("sha256"))).is_file():
+        raise CareerError(
+            f"the stored bytes for document {document_id!r} are missing; run private-doctor"
+        )
+    return record
 
 
 def stray_documents(home: PrivateHome, roots: list[str | Path]) -> dict[str, Any]:
