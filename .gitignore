@@ -25,6 +25,9 @@
 # Exception: CI
 !/.github/
 
+# Exception: tracked Git hooks (opt-in via `git config core.hooksPath .githooks`)
+!/.githooks/
+
 # Exception: Plugin manifests
 !/.claude-plugin/
 !/.codex-plugin/
@@ -74,3 +77,47 @@ build/
 !/.agents/plugins/marketplace.json
 tmp/
 *.webp
+
+# --- Personal career document guard (docs/PRIVATE_CAREER_DATA_PRD.md §15.0) ---
+# Layer 1 of defense in depth: stop the ordinary accident of dropping a real resume, payslip,
+# or certificate into a source directory. The rules below deliberately sit AFTER the `!/docs/`,
+# `!/skills/`, `!/scripts/` re-inclusions above, because the last matching pattern wins — those
+# re-included directories are exactly where an ignore rule is still needed.
+#
+# This layer does NOT cover `git add -f`, files that are already tracked, or generically named
+# files. Those are `scripts/check_private_data.py` (§15.2) and the commit hook (§15.3).
+
+# Document formats that carry personal career data. No such file is tracked today.
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.odt
+*.rtf
+
+# Japanese personal-document filename tokens. These are document names, never source names.
+*履歴書*
+*職務経歴書*
+*エントリーシート*
+*給与明細*
+*源泉徴収*
+
+# Romanized equivalents, scoped so ordinary source names cannot collide: a bare `*cv*` would
+# match `recv.py`, and a bare `*resume*` would match a future `resume_parser.py`.
+*[Pp]ayslip*
+[Cc][Vv].*
+*-[Cc][Vv].*
+*_[Cc][Vv].*
+[Rr]esume.*
+*-[Rr]esume.*
+*_[Rr]esume.*
+
+# A private store must never resolve inside a worktree (§15.1); if one does, do not track it.
+**/private/
+
+# Synthetic fixtures stay tracked (§13.3). Scoped to the `.example.` infix on purpose: a blanket
+# `!/examples/**` here would re-include a real `examples/payslip.pdf`, turning the synthetic
+# allowlist into a hole. Ordinary example sources (`.yml`, `.py`, `.md`) match none of the rules
+# above and stay tracked via the `!/examples/` re-inclusion near the top of this file.
+!*.example.*

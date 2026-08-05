@@ -1,0 +1,35 @@
+#!/bin/sh
+# Block a commit that stages a probable personal career document.
+#
+# Enable once per clone (docs/PRIVATE_CAREER_DATA_PRD.md section 15.3):
+#
+#     git config core.hooksPath .githooks
+#
+# This hook is tracked so it is reviewable and versioned, but enabling it is deliberately a
+# manual step: Git cannot install a hook by being cloned, because .git/hooks is not tracked
+# content. CI runs the same check, so a clone without the hook still fails the pull request --
+# but only after the document has already reached the remote, which is the outcome this hook
+# exists to prevent.
+#
+# This gate fails closed. If the interpreter is missing it blocks the commit rather than waving
+# it through: a leak check that silently does nothing is worse than no leak check at all.
+
+# Probe each candidate by actually running it, not just by resolving the name. On Windows,
+# `command -v python3` happily resolves the Microsoft Store stub in WindowsApps, which prints
+# "Python was not found" and exits non-zero -- so a name-only check selects a broken interpreter
+# and, because this gate fails closed, blocks every commit in the repository.
+interpreter=""
+for candidate in python3 python py; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c "" >/dev/null 2>&1; then
+        interpreter="$candidate"
+        break
+    fi
+done
+
+if [ -z "$interpreter" ]; then
+    echo "pre-commit: no working Python interpreter found; staged files were NOT checked." >&2
+    echo "Install Python, or disable this hook with: git config --unset core.hooksPath" >&2
+    exit 1
+fi
+
+exec "$interpreter" scripts/check_private_data.py --staged
