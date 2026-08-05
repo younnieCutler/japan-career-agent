@@ -87,6 +87,37 @@ def _grouped(facts: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str
     return groups
 
 
+def _assert_acyclic(edges: dict[str, str]) -> None:
+    """Reject a supersession cycle. The chain must be a DAG (PRD section 8.1).
+
+    `A supersedes B` and `B supersedes A` passes every per-node check: each has one successor, one
+    predecessor, and one key. It still derives `effective_to` values that precede their own
+    `effective_from`, and the projection then reports an ordinary `Unknown` for what is actually
+    corrupt history. Phase 3 is the canonical temporal layer, so it fails closed instead.
+
+    Each fact has at most one outgoing `supersedes` edge, so a plain walk finds any cycle; no
+    general graph algorithm is needed.
+    """
+    settled: set[str] = set()
+    for start in sorted(edges):
+        if start in settled:
+            continue
+        path: list[str] = []
+        seen: set[str] = set()
+        node: str | None = start
+        while node is not None and node not in settled:
+            if node in seen:
+                cycle = path[path.index(node):]
+                raise CareerError(
+                    "supersession cycle: " + " -> ".join(sorted(cycle))
+                    + "; a fact key's version chain must not loop"
+                )
+            seen.add(node)
+            path.append(node)
+            node = edges.get(node)
+        settled.update(path)
+
+
 def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Apply section 8.1's single interval rule and mark the unresolvable case.
 
@@ -138,6 +169,9 @@ def derive_intervals(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
             marker = predecessor["effective_from"]
             predecessor["conflicts_from"] = marker
             successor["conflicts_from"] = marker
+
+    _assert_acyclic({fact["fact_id"]: str(fact["supersedes"]) for fact in successors
+                     if fact["status"] == "confirmed"})
 
     for target, ids in sorted(claimed.items()):
         if len(ids) > 1:

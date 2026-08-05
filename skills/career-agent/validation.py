@@ -50,18 +50,27 @@ def iso_date(value: Any, field: str) -> str | None:
 
 
 def iso_timestamp(value: Any, field: str) -> str:
-    """Validate an observation instant: a bare date or a full `YYYY-MM-DDThh:mm:ssZ`.
+    """Validate an observation instant: a bare date or a UTC `YYYY-MM-DDThh:mm:ssZ`.
 
     `DATE_VALUE`'s `T[^Z]+Z` branch checks only that *something* sits between the `T` and the `Z`,
     so `2026-01-20T99:99:99Z` matched. This parses the time component instead of pattern-matching
     around it.
+
+    The trailing `Z` is required rather than merely tolerated. `fromisoformat` also accepts
+    `+09:00` and naive local times, and admitting those would mean the ledger stores instants in
+    three notations that sort differently as strings -- while the contract says `observed_at` is a
+    UTC instant and `utc_now()` already emits exactly that.
     """
     if not isinstance(value, str) or not value.strip():
         raise CareerError(f"{field} must be a non-empty ISO timestamp string")
     if BARE_DATE.fullmatch(value):
         return iso_date(value, field) or value
+    if not value.endswith("Z"):
+        raise CareerError(
+            f"{field} must be a UTC instant ending in Z, or a bare YYYY-MM-DD date: {value!r}"
+        )
     try:
-        dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        dt.datetime.fromisoformat(value[:-1] + "+00:00")
     except ValueError as exc:
         raise CareerError(
             f"{field} must be YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ: {value!r}"

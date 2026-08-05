@@ -257,6 +257,54 @@ class SupersessionTest(unittest.TestCase):
         self.assertEqual(messages[0], messages[1], "the error must not depend on ledger order")
         self.assertIn("b, c", messages[0])
 
+    def test_a_two_node_cycle_is_rejected(self) -> None:
+        """A mutual supersession passes every per-node check and still corrupts the intervals."""
+        events = [
+            event("a", "language", "jlpt", "N2", effective_from="2025-01-01", supersedes="b"),
+            event("b", "language", "jlpt", "N1", effective_from="2026-01-01", supersedes="a"),
+        ]
+        with self.assertRaises(CareerError) as caught:
+            personal_timeline.project(events, "2026-08-05")
+        self.assertIn("cycle", str(caught.exception))
+
+    def test_a_longer_cycle_is_rejected_in_both_ledger_orders(self) -> None:
+        events = [
+            event("a", "language", "jlpt", "N3", effective_from="2024-01-01", supersedes="c"),
+            event("b", "language", "jlpt", "N2", effective_from="2025-01-01", supersedes="a"),
+            event("c", "language", "jlpt", "N1", effective_from="2026-01-01", supersedes="b"),
+        ]
+        messages = []
+        for ordering in (events, list(reversed(events))):
+            with self.assertRaises(CareerError) as caught:
+                personal_timeline.project(ordering, "2026-08-05")
+            messages.append(str(caught.exception))
+        self.assertEqual(messages[0], messages[1], "the error must not depend on ledger order")
+        self.assertIn("a -> b -> c", messages[0])
+
+    def test_a_long_valid_chain_is_not_mistaken_for_a_cycle(self) -> None:
+        events = [
+            event("a", "language", "jlpt", "N3", effective_from="2024-01-01"),
+            event("b", "language", "jlpt", "N2", effective_from="2025-01-01", supersedes="a"),
+            event("c", "language", "jlpt", "N1", effective_from="2026-01-01", supersedes="b"),
+        ]
+        field = personal_timeline.project(events, "2026-08-05")["language"]["jlpt"]
+        self.assertEqual(field["value"], "N1")
+        history = {row["fact_id"]: row for row in
+                   personal_timeline.timeline(events, "language", "jlpt")}
+        self.assertEqual(history["a"]["effective_to"], "2024-12-31")
+        self.assertEqual(history["b"]["effective_to"], "2025-12-31")
+
+    def test_a_draft_cycle_member_does_not_make_a_cycle(self) -> None:
+        proposed = event("a", "language", "jlpt", "N2", effective_from="2025-01-01",
+                         supersedes="b")
+        proposed["status"] = "draft"
+        events = [
+            proposed,
+            event("b", "language", "jlpt", "N1", effective_from="2026-01-01", supersedes="a"),
+        ]
+        field = personal_timeline.project(events, "2026-08-05")["language"]["jlpt"]
+        self.assertEqual(field["value"], "N1")
+
     def test_a_draft_fork_member_does_not_make_a_fork(self) -> None:
         """Only confirmed successors claim a predecessor, so a proposal is not a broken chain."""
         proposed = event("c", "language", "jlpt", "N1", effective_from="2026-01-01",
@@ -345,6 +393,12 @@ class CalendarValidationTest(unittest.TestCase):
             iso_timestamp("2026-01-20T10:00:00Z", "occurred_at"), "2026-01-20T10:00:00Z"
         )
         for bad in ("2026-01-20T99:99:99Z", "2026-01-20Twhatever Z", "2026-13-01T10:00:00Z", ""):
+            with self.assertRaises(CareerError, msg=bad):
+                iso_timestamp(bad, "occurred_at")
+
+    def test_iso_timestamp_requires_utc(self) -> None:
+        """Section 7.1: `observed_at` is a UTC instant, not three notations that sort differently."""
+        for bad in ("2026-01-20T10:00:00+09:00", "2026-01-20T10:00:00", "2026-01-20 10:00:00"):
             with self.assertRaises(CareerError, msg=bad):
                 iso_timestamp(bad, "occurred_at")
 

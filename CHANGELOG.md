@@ -24,18 +24,23 @@
   path, and none of them reads a clock. The default is injected once, at the CLI boundary, via
   `--as-of`. `select_context` and `context_eligible` take it too, so the Vault context path is now
   reproducible for a fixed date instead of changing at midnight.
-- Supersession is validated as a single chain inside one logical fact key. A successor must share
-  the predecessor's `category` and `key`, so a JLPT record cannot close a compensation record's
-  interval, and a predecessor may have at most one confirmed successor — a fork would let each
-  successor derive a different `effective_to`, making the projection depend on ledger order.
+- Supersession is validated as a single acyclic chain inside one logical fact key. A successor must
+  share the predecessor's `category` and `key`, so a JLPT record cannot close a compensation
+  record's interval; a predecessor may have at most one confirmed successor, since a fork would let
+  each successor derive a different `effective_to` and make the projection depend on ledger order;
+  and the chain may not loop. A mutual supersession passes every per-node check while deriving
+  `effective_to` values that precede their own `effective_from`, and the projection would then
+  report an ordinary `Unknown` for what is actually corrupt history.
 - Added `validation.iso_date` as the single calendar-date parser and fixed a real divergence it
   exposes: a malformed `expires_on` made a context note **ineligible** rather than permanently
   non-expiring. The lenient path was the one feeding the model, while `doctor` reported the same
   value as a hard error. Date fields are matched against the whole string: parsing a ten-character
   prefix accepted `2026-01-20junk` and `2026-01-20T99:99:99Z` by discarding the part that made them
   wrong. `occurred_at` is validated by `validation.iso_timestamp`, which parses the time component
-  instead of pattern-matching around it; previously only `deadline` was calendar-checked at all, so
-  an impossible date could enter the ledger through the field every projection orders by.
+  instead of pattern-matching around it and requires the trailing `Z`; previously only `deadline`
+  was calendar-checked at all, so an impossible date could enter the ledger through the field every
+  projection orders by, and an offset or naive local time would have stored instants in three
+  notations that sort differently as strings.
 - A fact-bearing event may only be `draft` or `confirmed`. `superseded` is derived from another
   fact's `supersedes` link, so a stored copy is a second way to say the same thing and the two can
   disagree; hand-writing it also removed a fact from the projection with no successor and no record

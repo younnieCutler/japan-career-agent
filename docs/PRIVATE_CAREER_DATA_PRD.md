@@ -311,7 +311,10 @@ stored; the forward `effective_from` on each record already contains the orderin
 
 File creation/modification timestamps are metadata only and must not silently become `effective_from`.
 
-**Timezone rule.** `observed_at` is a UTC instant (`...Z`), matching the existing `utc_now()` helper.
+**Timezone rule.** `observed_at` is a UTC instant (`...Z`), matching the existing `utc_now()` helper,
+and the trailing `Z` is **required, not merely tolerated** — an offset (`+09:00`) or a naive local
+time would store instants in three notations that sort differently as strings, in a ledger whose
+ordering is load-bearing.
 `effective_from`, `effective_to`, and `reviewed_on` are bare calendar dates in the user's local civil
 calendar and are **never timezone-converted**. Without this rule a JLPT result effective `2026-01-20`
 in JST compared against a UTC `as_of` is off by up to a day, and `as_of` reproducibility (§12.4)
@@ -1511,7 +1514,13 @@ disagree with the links. Ordinary career events keep the status.
   as a `Conflict`, it is a broken chain: each successor derives a different `effective_to` for the
   same predecessor, so the last one processed wins and the projection depends on ledger order,
   breaking AC-15. It is rejected like the other topology errors (a dangling or self-referential
-  `supersedes`), because the data has to be corrected rather than rendered.
+  `supersedes`), because the data has to be corrected rather than rendered;
+- the chain must be **acyclic**. `A supersedes B` together with `B supersedes A` satisfies every
+  per-node rule above — one successor, one predecessor, one key — and still derives `effective_to`
+  values that precede their own `effective_from`. The projection would then report an ordinary
+  `Unknown` for history that is actually corrupt, which is the worst available outcome: a wrong
+  answer wearing the shape of a correct one. This layer is the canonical temporal source, so it
+  fails closed.
 
 **Anything capped must be ordered first.** Candidate lists are sorted by effective date, then fact
 id, before the §12.1 cap is applied. Capping unordered input makes the *visible* subset depend on
