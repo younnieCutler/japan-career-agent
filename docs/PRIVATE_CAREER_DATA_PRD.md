@@ -216,15 +216,8 @@ No user-specific absolute path may be hardcoded.
 ```text
 private/
 ├─ inbox/
-├─ documents/
-│  ├─ resume/
-│  ├─ shokumukeirekisho/
-│  ├─ es/
-│  ├─ certificates/
-│  ├─ compensation/
-│  ├─ education/
-│  ├─ assessments/
-│  └─ other/
+├─ blobs/
+│  └─ <sha256>          # content-addressed; one file per distinct byte sequence
 ├─ timeline/
 │  ├─ documents.jsonl
 │  ├─ facts.jsonl
@@ -235,6 +228,13 @@ private/
 ```
 
 Raw files, append-oriented history, and the current projection must remain separate.
+
+**Blob storage is flat and keyed by hash alone.** An earlier revision of this layout nested blobs
+under a per-document-type directory (`documents/resume/`, `documents/es/`, …). That silently
+contradicts §7.3 and AC-25: the same PDF used both as a general resume and as a company ES has one
+byte sequence and two logical keys, and a type-keyed path stores it twice. The document type,
+purpose, company, language and original filename are properties of the **record**, not of the bytes,
+so none of them may appear in the storage path.
 
 `archive/` is deliberately absent: no flow in this document ever writes to it. Add the directory in
 the same change that introduces the lifecycle which fills it, not before.
@@ -268,7 +268,7 @@ logical_key:
   purpose: general
   language: ja
 
-storage_path: documents/resume/<stored-file>
+storage_path: blobs/<sha256>
 original_name: resume.pdf
 
 sha256: <content-hash>
@@ -276,16 +276,31 @@ size_bytes: 12345
 
 observed_at: 2026-08-05T10:00:00Z
 effective_from: 2026-07-15
-effective_to: null
 
-status: current
-supersedes: doc_<older-id>
-superseded_by: null
+status: observed
 
 source_type: personal_evidence
 verified_by_user: true
 reviewed_on: 2026-08-05
 ```
+
+**Import writes no temporal judgment.** `status` is always `observed`; `effective_to`, `supersedes`,
+`superseded_by`, and any notion of "current" are **derived** by the projection (§12) for an explicit
+`as_of`, never stamped at import time.
+
+Rationale, added after the first implementation got this wrong. If import marks the newest arrival
+`current` and supersedes whatever it finds, then importing a 2024 resume after a 2026 one makes the
+2024 document current — ordering by arrival instead of by `effective_from`, which is precisely the
+stale-context contamination in §2.3. Adding an ordering comparison at import time does not fix it
+either: a document with `effective_from: Unknown` still has no defensible position in the chain, and
+§19.3 already says such a document must not become current automatically. The derivation belongs in
+one place, with `as_of` in hand.
+
+This also removes a crash-consistency hazard. Stamping supersession requires two appends — the new
+record and the old record's state change — and a process that dies between them leaves two documents
+both claiming to be current. A lock serializes concurrent processes but does nothing about a crash
+mid-sequence. **One import appends exactly one canonical line.** Reverse links are derived, not
+stored; the forward `effective_from` on each record already contains the ordering information.
 
 ### 7.1 Time semantics
 
@@ -626,9 +641,22 @@ Within the repository root, the directories that actually matter are the ones `.
 `skills/resume.pdf` matches no ignore rule at all. `docs/` in particular is easy to overlook because
 it reads like a documentation-only area.
 
-Directories that are already ignored (`data/`, `career-home/`, `node_modules/`, `__pycache__/`,
-`dist/`, `build/`) are not Git-exposure risks and are skipped by default; scanning them is wasted
-I/O, not extra safety.
+Skipping is split by what the name is allowed to mean where it is found:
+
+- **Universally skipped:** tool caches and dependency trees — `.git/`, `node_modules/`,
+  `__pycache__/`, `.venv/`, `.mypy_cache/`, `.ruff_cache/`, `.pytest_cache/`. Nobody keeps a 履歴書
+  in `node_modules`, so walking them is wasted I/O rather than extra safety.
+- **Skipped only at the top level of a scan root that is itself a Git worktree:** `data/`,
+  `career-home/`, `dist/`, `build/`. These are *this repository's* ignored runtime state and build
+  outputs, and they are not Git-exposure risks here. Applying the same list to an arbitrary
+  configured scan root would silently blind the scan to `~/Documents/data/履歴書.pdf`. A scan root a
+  user names explicitly gets no repository-shaped assumptions, and a detector with unexplained blind
+  spots is exactly the failure this gate was rewritten to remove.
+
+**A capped scan is incomplete, never clean.** The read/traversal limits below exist so a doctor run
+cannot walk an entire home directory, but hitting the cap must make the stray check **fail**, with
+the count and the advice to narrow the scan root. Reporting green after stopping early would render
+"I stopped looking" as "nothing found", and this check exists precisely to be trusted about absence.
 
 ### 13.2 Detection classes
 
@@ -934,20 +962,28 @@ Exact names may change, but equivalent functionality is required.
 ### 17.1 Diagnose
 
 ```bash
-python skills/career-agent/career_agent.py private-doctor
+python skills/career-agent/career_agent.py private-doctor [--scan-root DIR]...
 ```
 
-Reports:
+Reports, with the phase that owns each line — a diagnostic that lists a check it does not perform is
+worse than one that omits it:
 
-- private-root resolution;
-- Git boundary;
-- permission state (including "not enforced on this platform", §6.3);
-- commit-hook installation state (§15.3);
-- stray documents;
-- already-tracked probable personal documents;
-- invalid timeline/supersession states;
-- duplicate hashes;
-- current-projection drift.
+- private-root resolution — phase 2;
+- Git boundary — phase 2;
+- permission state (including "not enforced on this platform", §6.3) — phase 2;
+- stray documents in configured scan roots (§13.1), via the Phase 1 detector — phase 2;
+- stored-blob integrity: records with missing blobs, and orphan blobs left by an import that failed
+  after publication — phase 2;
+- already-tracked probable personal documents — phase 1, `scripts/check_private_data.py` with no
+  arguments; it needs the repository index, which `private-doctor` deliberately does not assume;
+- commit-hook installation state (§15.3) — phase 4;
+- invalid timeline/supersession states and current-projection drift — phase 3, which is where those
+  concepts first exist.
+
+`--scan-root` is repeatable and defaults to the current working directory. The default is applied at
+the CLI boundary, never inside the store, so a caller always knows exactly which trees were walked.
+The private root is always excluded: documents there are where they belong. If the walk hits its file
+cap the stray check fails rather than passing with an empty finding list (§13.1).
 
 **`private-doctor` must not require an initialized Career Vault.** The current runtime rejects every
 subcommand except `setup` when neither `--vault` nor `CAREER_VAULT` is present, and calls
@@ -1417,22 +1453,42 @@ exists — which matters, because a user with a resume in `docs/` today is expos
 
 ### Phase 2: Private root and registry
 Root resolution with Git-worktree refusal; hash-verified import that copies and preserves the source
-(§14); read-only `private-doctor` that does not require a Vault (§17.1); already-tracked reporting
+(§14); flat content-addressed blob storage (§6.2); registry records that carry observation only and
+no derived temporal state (§7); read-only `private-doctor` that does not require a Vault (§17.1) and
+reports strays in configured scan roots using the Phase 1 detector (§13.1); already-tracked reporting
 including disclosure guidance (§15.5).
 Exit criteria: AC-01, AC-02, AC-03, AC-11, AC-12, AC-23, AC-24, AC-25.
+
+Phase 2 answers "which artifacts exist and where are the bytes". It deliberately answers nothing
+about currency; `private-list` therefore reports `status: observed` for every record rather than
+guessing. The stray scan reuses `check_private_data.classify_bytes` directly — a second detector that
+could disagree with the commit gate would make both verdicts meaningless.
 
 ### Phase 3: Timeline and current projection
 Personal fact timeline; supersession and interval derivation (§8.1); `as_of` as a required parameter
 with no internal clock reads (§12.4); calendar-date rejection extended to the existing paths (§19.2);
-conflict/`Unknown` output shapes (§11.1).
+conflict/`Unknown` output shapes (§11.1). **This phase also owns document currency**: `effective_to`
+and current/superseded state for document records are derived here from `effective_from` and `as_of`,
+not read from the registry.
 Exit criteria: AC-08, AC-10, AC-14, AC-15, AC-21, AC-22, AC-26.
 
-**Decision required before starting this phase.** The repository already has an append-only career
-event ledger whose status vocabulary declares `superseded` — with no code that ever writes it. Either
-(a) implement the personal timeline as that declared-but-unused status plus `effective_from`/
-`effective_to`, or (b) justify a separate ledger explicitly. Option (a) is a materially smaller
-change and avoids a second state store, which the agent contract warns against. This document does
-not silently assume (b).
+**Decision (resolved): option (a).** The personal timeline extends the existing append-only career
+event ledger — implementing the already-declared but never-written `superseded` status plus
+`effective_from`/`effective_to` — rather than introducing a second canonical state store, which the
+agent contract warns against. The shape is:
+
+```text
+raw documents
+    -> private document registry        (separate; an artifact inventory, not a fact ledger)
+    -> existing events.jsonl            (effective_from / effective_to / superseded /
+                                         evidence.document_id)
+    -> derived personal-profile projection
+```
+
+The document registry stays separate because it inventories artifacts, not claims. Personal **facts**
+get no new ledger. `current/personal-profile.json` is a derived cache that must be reconstructible
+from history alone (AC-14), and `as_of` is a required parameter on every internal function on this
+path (AC-21).
 
 ### Phase 4: Context integration and the downstream read path
 Current-only default context; explicit labelled historical mode; stale-context regressions; **and the

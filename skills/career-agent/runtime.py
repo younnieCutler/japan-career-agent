@@ -97,6 +97,16 @@ from persistence import (  # noqa: E402
     write_jsonl,
     write_toml,
 )
+from private_store import (  # noqa: E402
+    DOCUMENT_TYPES,
+    PRIVATE_ENV,
+    PrivateHome,
+    documents as private_documents,
+    import_document,
+    initialize_private_home,
+    private_doctor,
+    resolve_private_home,
+)
 from vault import (  # noqa: E402
     HEADING,
     IGNORED_VAULT_DIRS,
@@ -670,7 +680,69 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_vault_argument(context_proposal_parser)
     context_proposal_parser.add_argument("--source", required=True, help="CWD-relative SELF_ANALYSIS_PROFILE YAML")
+
+    def add_private_arguments(command: argparse.ArgumentParser) -> None:
+        command.add_argument("--private-home", help=f"private root; falls back to {PRIVATE_ENV}")
+        command.add_argument("--vault", default=os.environ.get("CAREER_VAULT"), help="only used to derive <vault>/private")
+
+    private_doctor_parser = subparsers.add_parser(
+        "private-doctor",
+        help="diagnose the private career-document store; never requires an initialized Vault",
+    )
+    add_private_arguments(private_doctor_parser)
+    private_doctor_parser.add_argument(
+        "--scan-root", action="append", default=None, metavar="DIR",
+        help="directory to scan for stray personal documents; repeatable, defaults to the "
+             "current working directory",
+    )
+    private_import_parser = subparsers.add_parser(
+        "private-import",
+        help="copy a document into the private store; the original file is preserved",
+    )
+    add_private_arguments(private_import_parser)
+    private_import_parser.add_argument("source")
+    private_import_parser.add_argument("--type", dest="document_type", required=True, choices=DOCUMENT_TYPES)
+    private_import_parser.add_argument("--effective-from", help="YYYY-MM-DD when the document became applicable")
+    private_import_parser.add_argument("--company", help="company for a company-scoped ES/application document")
+    private_import_parser.add_argument("--purpose", default="general")
+    private_import_parser.add_argument("--language", default="ja")
+    private_list_parser = subparsers.add_parser(
+        "private-list", help="list document metadata; document bodies are never printed",
+    )
+    add_private_arguments(private_list_parser)
     return parser
+
+
+def run_private_command(args: argparse.Namespace) -> dict[str, Any]:
+    """Private-store commands resolve their own root and never touch the Vault contract."""
+    if args.command == "private-doctor":
+        # The CLI boundary supplies the default scan root (section 13.1); the store itself never
+        # invents one, so a caller always knows exactly what was walked.
+        return private_doctor(args.private_home, args.vault, args.scan_root or [Path.cwd()])
+    home = PrivateHome(resolve_private_home(args.private_home, args.vault))
+    if args.command == "private-list":
+        initialize_private_home(home)
+        return {
+            "private_home": str(home.path),
+            # Metadata only: raw document bodies never leave the private store (section 28.1).
+            "documents": [
+                {
+                    "document_id": row["document_id"],
+                    "document_type": row["document_type"],
+                    "logical_key": row["logical_key"],
+                    "effective_from": row["effective_from"],
+                    "status": row["status"],
+                    "sha256": row["sha256"],
+                    "verified_by_user": row["verified_by_user"],
+                }
+                for row in private_documents(home)
+            ],
+        }
+    return import_document(
+        home, args.source, args.document_type,
+        effective_from=args.effective_from, company=args.company,
+        purpose=args.purpose, language=args.language,
+    )
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -684,6 +756,13 @@ def main(argv: Iterable[str] | None = None) -> int:
         if args.command == "setup":
             vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
             result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result.get("ok", True) else 2
+        # AC-23: the private store is independent of the Vault, so these branch above the Vault
+        # requirement. A user checking whether a resume is about to be committed must not first be
+        # told to initialize an unrelated Vault.
+        if args.command in ("private-doctor", "private-import", "private-list"):
+            result = run_private_command(args)
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result.get("ok", True) else 2
         if not args.vault:

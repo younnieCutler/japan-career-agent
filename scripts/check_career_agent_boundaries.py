@@ -19,6 +19,7 @@ DOMAIN_MODULES = (
     "proposals",
     "lifecycle",
     "projection",
+    "private_store",
     "runtime",
 )
 
@@ -45,6 +46,11 @@ OWNED_SYMBOLS = {
     "validate_event": "validation",
     "string_list_from": "validation",
     "atomic_write_text": "persistence",
+    "atomic_write_bytes": "persistence",
+    "resolve_private_home": "private_store",
+    "import_document": "private_store",
+    "private_doctor": "private_store",
+    "stray_documents": "private_store",
     "CareerVault": "vault",
     "load_routing": "routing",
     "infer_track": "routing",

@@ -7,6 +7,10 @@ protection). Two modes:
     python scripts/check_private_data.py             # every tracked file (AC-19)
     python scripts/check_private_data.py --staged    # the staged set (AC-05, commit hook)
 
+`classify_bytes` is the single detection implementation. `private-doctor` imports it to scan
+configured roots for untracked strays (§13.1, AC-03): a second detector that disagrees with the
+commit gate would make both of them meaningless.
+
 Detection is standard-library only by decision, not by omission (PRD §4). Adding a PDF/DOCX
 parser would cost `requirements.txt` + two hash-pinned lock files + an SBOM regeneration, and
 would widen the parsing attack surface against deliberately untrusted input. The signals below
@@ -21,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import re
 import subprocess
 import sys
@@ -82,6 +87,26 @@ STRUCTURED_FIELD_PATTERNS = {
 OFFICE_ZIP_MEMBERS = ("word/document.xml", "xl/workbook.xml", "ppt/presentation.xml")
 ZIP_MAGIC = b"PK\x03\x04"
 
+# Directories skipped by the filesystem stray scan (§13.1) wherever they appear. These are tool
+# caches and dependency trees: no one keeps their 履歴書 in `node_modules`, so walking them is
+# wasted I/O rather than extra safety.
+SKIP_DIRECTORIES = frozenset({
+    ".git", ".venv", "venv", "node_modules", "__pycache__",
+    ".mypy_cache", ".ruff_cache", ".pytest_cache",
+})
+
+# Skipped ONLY at the top level of a scan root that is itself a Git worktree, because that is the
+# only place these names mean what this repository means by them. `data/` and `career-home/` are
+# this repository's ignored runtime state; `dist/`/`build/` are its build outputs. Applying them to
+# an arbitrary `--scan-root` would silently blind the scan to `~/Documents/data/履歴書.pdf`, and a
+# detector with unexplained blind spots is the failure mode this gate was rewritten to avoid.
+REPOSITORY_SKIP_DIRECTORIES = frozenset({"data", "career-home", "dist", "build"})
+
+# ponytail: flat cap instead of a time budget. A doctor run must not walk an entire home directory;
+# raise it or add per-root budgets if a legitimate workspace ever exceeds this. Hitting it makes the
+# scan result incomplete, never clean -- see `scan_directory`.
+MAX_SCAN_FILES = 5000
+
 
 class Finding:
     """One probable personal document. Carries no file content (PRD §16)."""
@@ -121,16 +146,16 @@ def _paths(staged: bool) -> list[str]:
     return sorted(item for item in output.split("\0") if item)
 
 
-def is_synthetic(relative: str, content: bytes) -> bool:
-    if SYNTHETIC_NAME_INFIX in relative.split("/")[-1]:
+def is_synthetic(name: str, content: bytes) -> bool:
+    if SYNTHETIC_NAME_INFIX in name:
         return True
     text = content[:MAX_READ_BYTES].decode("utf-8", errors="replace")
     return any(marker in text for marker in SYNTHETIC_CONTENT_MARKERS)
 
 
-def _read_worktree(relative: str) -> bytes:
-    path = ROOT / relative
-    # Symlinks are not followed (PRD §28); an unreadable file is classified on metadata alone.
+def read_path(path: Path) -> bytes:
+    """Size-capped binary read. Symlinks are not followed (PRD §28) and an unreadable file is
+    classified on metadata alone."""
     if path.is_symlink() or not path.is_file():
         return b""
     try:
@@ -161,7 +186,7 @@ def _read_index(relative: str) -> bytes:
 
 
 def read_content(relative: str, staged: bool) -> bytes:
-    return _read_index(relative) if staged else _read_worktree(relative)
+    return _read_index(relative) if staged else read_path(ROOT / relative)
 
 
 def _office_document(content: bytes) -> bool:
@@ -180,22 +205,25 @@ def _office_document(content: bytes) -> bool:
     return any(member in names for member in OFFICE_ZIP_MEMBERS)
 
 
-def classify(relative: str, staged: bool = False) -> Finding | None:
-    content = read_content(relative, staged)
+def classify_bytes(label: str, name: str, content: bytes) -> Finding | None:
+    """The single detection implementation, over a display label, a filename, and bytes.
+
+    Split out so the filesystem stray scan and the Git gate cannot drift apart: if `private-doctor`
+    and the commit hook ever disagreed about the same file, neither verdict would mean anything.
+    """
     prefix = content[:MAX_READ_BYTES]
 
-    if is_synthetic(relative, content):
+    if is_synthetic(name, content):
         return None
 
-    name = relative.split("/")[-1]
     suffix = Path(name).suffix.lower()
 
     if suffix in DOCUMENT_EXTENSIONS:
-        return Finding(relative, "personal document format", "high", f"extension {suffix}")
+        return Finding(label, "personal document format", "high", f"extension {suffix}")
     if any(pattern.search(name) for pattern in FILENAME_PATTERNS):
-        return Finding(relative, "career document filename", "high", "filename")
+        return Finding(label, "career document filename", "high", "filename")
     if _office_document(content):
-        return Finding(relative, "office document", "high", "zip container shape")
+        return Finding(label, "office document", "high", "zip container shape")
 
     if b"\0" in prefix:  # binary: never scanned as text
         return None
@@ -203,14 +231,18 @@ def classify(relative: str, staged: bool = False) -> Finding | None:
     text = prefix.decode("utf-8", errors="replace")
     for pattern in SECRET_PATTERNS:
         if pattern.search(text):
-            return Finding(relative, "embedded secret", "high", "secret pattern")
+            return Finding(label, "embedded secret", "high", "secret pattern")
 
     matched = sorted(key for key, pattern in STRUCTURED_FIELD_PATTERNS.items() if pattern.search(text))
     if len(matched) >= 2:
-        return Finding(relative, "personal document structure", "high", "+".join(matched))
+        return Finding(label, "personal document structure", "high", "+".join(matched))
     if matched:
-        return Finding(relative, "possible personal data", "ambiguous", matched[0])
+        return Finding(label, "possible personal data", "ambiguous", matched[0])
     return None
+
+
+def classify(relative: str, staged: bool = False) -> Finding | None:
+    return classify_bytes(relative, relative.split("/")[-1], read_content(relative, staged))
 
 
 def scan(staged: bool) -> list[Finding]:
@@ -219,6 +251,37 @@ def scan(staged: bool) -> list[Finding]:
         for path in _paths(staged)
         if (finding := classify(path, staged=staged)) is not None
     ]
+
+
+def scan_directory(root: Path, exclude: tuple[Path, ...] = ()) -> tuple[list[Finding], bool]:
+    """Classify untracked files under ``root``. Returns (findings, hit_the_file_cap).
+
+    `REPOSITORY_SKIP_DIRECTORIES` applies only when ``root`` is itself a Git worktree, and only to
+    its immediate children — an arbitrary scan root gets no repository-shaped assumptions.
+
+    Findings carry absolute paths and a classification only, never file content (PRD §16).
+    """
+    findings: list[Finding] = []
+    root = root.resolve()
+    excluded = tuple(item.resolve() for item in exclude)
+    top_level_skips = REPOSITORY_SKIP_DIRECTORIES if (root / ".git").exists() else frozenset()
+    seen = 0
+    for current, directories, names in os.walk(root, followlinks=False):
+        here = Path(current)
+        if any(here == item or item in here.parents for item in excluded):
+            directories[:] = []
+            continue
+        skip = SKIP_DIRECTORIES | (top_level_skips if here == root else frozenset())
+        directories[:] = sorted(name for name in directories if name not in skip)
+        for name in sorted(names):
+            if seen >= MAX_SCAN_FILES:
+                return findings, True
+            seen += 1
+            path = here / name
+            finding = classify_bytes(str(path), name, read_path(path))
+            if finding is not None:
+                findings.append(finding)
+    return findings, False
 
 
 def _report(findings: list[Finding], staged: bool) -> None:
@@ -243,9 +306,10 @@ def _report(findings: list[Finding], staged: bool) -> None:
             # crashes while reporting a leak is worse than one that reports it plainly.
             "\nAction: unstage it and import it into CAREER_PRIVATE_HOME instead:\n"
             "  git restore --staged <path>\n"
-            "If this file is a synthetic fixture, mark it as one (PRD section 13.3): put it under\n"
-            "an examples/ or tests/ directory, use the .example. infix, or declare a synthetic\n"
-            "provenance marker in its content.",
+            "  python skills/career-agent/career_agent.py private-import <path> --type resume\n"
+            "If this file is a synthetic fixture, DECLARE it as one (PRD section 13.3): use the\n"
+            ".example. infix in the filename, or put a synthetic provenance marker in its content.\n"
+            "Directory location never suppresses detection.",
             file=sys.stderr,
         )
         return

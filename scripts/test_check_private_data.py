@@ -323,5 +323,63 @@ class ClassificationTest(unittest.TestCase):
         self.assertIsNone(check_private_data.classify("link.md"))
 
 
+class DirectoryScanTest(unittest.TestCase):
+    """`scan_directory` backs `private-doctor`'s stray report (PRD 13.1, AC-03)."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name).resolve()
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_untracked_stray_is_found(self) -> None:
+        write(self.root, "notes/履歴書.pdf", "x")
+        findings, truncated = check_private_data.scan_directory(self.root)
+        self.assertFalse(truncated)
+        self.assertEqual([item.confidence for item in findings], ["high"])
+
+    def test_cache_directories_are_skipped_everywhere(self) -> None:
+        write(self.root, "node_modules/pkg/resume.pdf", "x")
+        write(self.root, "a/b/__pycache__/resume.pdf", "x")
+        findings, _ = check_private_data.scan_directory(self.root)
+        self.assertEqual(findings, [])
+
+    def test_repository_skips_do_not_apply_to_an_arbitrary_scan_root(self) -> None:
+        """`data/` is this repository's ignored state; in ~/Documents it is just a folder."""
+        write(self.root, "data/resume.pdf", "x")
+        write(self.root, "career-home/resume.pdf", "x")
+        findings, _ = check_private_data.scan_directory(self.root)
+        self.assertEqual(len(findings), 2, [item.path for item in findings])
+
+    def test_repository_skips_apply_at_the_top_of_a_worktree(self) -> None:
+        (self.root / ".git").mkdir()
+        write(self.root, "data/resume.pdf", "x")
+        write(self.root, "docs/resume.pdf", "x")
+        write(self.root, "docs/data/resume.pdf", "x")
+        findings, _ = check_private_data.scan_directory(self.root)
+        paths = sorted(item.path for item in findings)
+        self.assertEqual(len(paths), 2, paths)
+        self.assertTrue(all("docs" in path for path in paths), paths)
+
+    def test_excluded_subtree_is_skipped(self) -> None:
+        write(self.root, "private/blobs/resume.pdf", "x")
+        write(self.root, "work/resume.pdf", "x")
+        findings, _ = check_private_data.scan_directory(self.root, exclude=(self.root / "private",))
+        self.assertEqual(len(findings), 1)
+        self.assertIn("work", findings[0].path)
+
+    def test_file_cap_stops_the_walk(self) -> None:
+        for index in range(5):
+            write(self.root, f"file{index}.txt", "harmless")
+        original = check_private_data.MAX_SCAN_FILES
+        check_private_data.MAX_SCAN_FILES = 2
+        try:
+            _, truncated = check_private_data.scan_directory(self.root)
+        finally:
+            check_private_data.MAX_SCAN_FILES = original
+        self.assertTrue(truncated)
+
+
 if __name__ == "__main__":
     unittest.main()

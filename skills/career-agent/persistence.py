@@ -44,6 +44,28 @@ def atomic_write_text(path: Path, payload: str) -> None:
             pass
 
 
+def atomic_write_bytes(path: Path, payload: bytes) -> None:
+    """Byte-mode sibling of ``atomic_write_text`` for imported document blobs.
+
+    Personal documents are opaque bytes: decoding them to text would corrupt every binary format
+    and change the SHA-256 the import contract verifies against.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def write_json(path: Path, value: Any) -> None:
     atomic_write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
