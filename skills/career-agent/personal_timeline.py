@@ -457,7 +457,6 @@ MAX_CONTEXT_FACTS = 5
 
 def select_personal_context(
     events: list[dict[str, Any]],
-    records: list[dict[str, Any]],
     stage: str | None,
     as_of: str,
 ) -> dict[str, Any]:
@@ -467,15 +466,23 @@ def select_personal_context(
     value. They are *counted* rather than dropped in silence: a model told nothing about salary
     would conclude there is no salary, when the truth may be that two records disagree.
 
-    Document bodies are never included here or anywhere else (section 12.2, AC-07): only metadata,
-    and only for documents that are current at `as_of`.
+    **No documents.** Default context carries selected facts and nothing else. Document metadata --
+    type, company, purpose, effective dates, digest -- is personal data that neither the stage
+    relevance map nor the cap applies to, so including it would let a stage that needs nothing
+    about the person still receive the shape of every document they own. `personal-documents` is
+    the explicit path.
     """
+    if stage is not None and stage not in STAGE_CATEGORIES:
+        # Fail closed here, not only at the CLI. A missing map entry would otherwise mean "no
+        # category filter", so an unrecognized stage widens the selection to the whole profile --
+        # and this function is a public boundary symbol, reachable without going through argparse.
+        raise CareerError(f"personal context stage is not recognized: {stage!r}")
     projection = project(events, as_of)
-    allowed = STAGE_CATEGORIES.get(stage) if stage else frozenset()
+    allowed = STAGE_CATEGORIES[stage] if stage else frozenset()
     facts: list[dict[str, Any]] = []
     withheld = {"conflict": 0, "unknown": 0}
     for category, keys in projection.items():
-        if category == "as_of" or (allowed is not None and category not in allowed):
+        if category == "as_of" or category not in allowed:
             continue
         for key, field in sorted(keys.items()):
             if field["state"] != "confirmed":
@@ -491,32 +498,48 @@ def select_personal_context(
         "as_of": projection["as_of"],
         "selected_for": {"stage": stage},
         "facts": facts[:MAX_CONTEXT_FACTS],
-        "documents": [
-            document for document in document_states(records, as_of)
-            if document["status"] == "current"
-        ],
         "withheld": withheld,
         "capped_at": MAX_CONTEXT_FACTS,
         "data_trust": UNTRUSTED_DATA_MARKER,
         "instruction_authority": "none",
-        "document_bodies_included": False,
+        "documents_included": False,
     }
 
 
+def _matches(document: dict[str, Any], document_type: str | None, company: str | None) -> bool:
+    key = document["logical_key"]
+    if document_type is not None and key.get("type") != document_type:
+        return False
+    return company is None or key.get("company") == company
+
+
 def historical_comparison(
-    events: list[dict[str, Any]],
     records: list[dict[str, Any]],
     as_of: str,
+    *,
+    document_type: str | None = None,
+    company: str | None = None,
 ) -> dict[str, Any]:
-    """Section 12.2: the opt-in mode, with every temporal role labelled.
+    """Section 12.2 / AC-09: the opt-in mode, for the requested versions, every role labelled.
 
     Superseded documents are reachable *only* here, and each side says which it is. An unlabelled
     historical value is the failure this mode exists to avoid: it looks exactly like a current one.
+
+    `document_type` and `company` narrow the request. "Compare my 2024 resume with my current
+    resume" is a question about resumes; returning every certificate and every company's ES
+    alongside them answers a question nobody asked, with personal data.
+
+    Metadata only, in this mode too. Extracting document text is a v1 non-goal (section 4), so
+    there is no body to select -- the user opens the file themselves from the private store.
     """
-    documents = document_states(records, as_of)
+    documents = [
+        document for document in document_states(records, as_of)
+        if _matches(document, document_type, company)
+    ]
     return {
         "context_mode": "historical-comparison",
         "as_of": as_of,
+        "requested": {"type": document_type, "company": company},
         "current": [document for document in documents if document["status"] == "current"],
         "historical": [document for document in documents if document["status"] == "superseded"],
         "note": "Historical values are not treated as current facts.",
@@ -530,26 +553,56 @@ def historical_comparison(
 # CANDIDATE_PROFILE field names in _shared/schemas.yml so the job-seeker skill has something exact
 # to quote. It returns values, never writes: `data/candidate_profile.yml` is written by a skill
 # following Markdown instructions, with the user confirming, and that stays true.
-CANDIDATE_PROFILE_FIELDS = {
-    "jlpt_level": ("language", "jlpt"),
-    "target_role": ("role", "target"),
-    "segment": ("employment", "segment"),
-    "visa_status": ("employment", "visa_status"),
+#   field: (category, key, permitted values or None for any non-empty string)
+# The domains are the ones _shared/schemas.yml states for CANDIDATE_PROFILE. A fact's `value` is
+# otherwise unconstrained -- `validate_fact` checks that the key exists, not what belongs in it --
+# and the job-seeker skill is told to quote these values exactly, so an unchecked `N9` would become
+# a schema violation two skills downstream.
+CANDIDATE_PROFILE_FIELDS: dict[str, tuple[str, str, frozenset[str] | None]] = {
+    "jlpt_level": ("language", "jlpt", frozenset({"native", "N1", "N2", "N3", "N4", "None"})),
+    "target_role": ("role", "target", None),
+    "segment": (
+        "employment", "segment",
+        frozenset({"dai2_shinsotsu", "standard", "senior_ic", "management"}),
+    ),
+    "visa_status": (
+        "employment", "visa_status", frozenset({"PR", "Engineer/Specialist", "Student"}),
+    ),
 }
+INVALID_FOR_SCHEMA = "the confirmed value is not permitted by the CANDIDATE_PROFILE schema"
+
+
+def _schema_checked(field: str, entry: dict[str, Any], domain: frozenset[str] | None) -> dict[str, Any]:
+    """Refuse to hand a downstream schema a value it does not accept."""
+    value = entry["value"]
+    if domain is None:
+        valid = isinstance(value, str) and bool(value.strip())
+    else:
+        valid = value in domain
+    if valid:
+        return entry
+    return {
+        "state": "invalid",
+        "value": None,
+        "reason": f"{INVALID_FOR_SCHEMA}: {field}={value!r}",
+        "evidence": entry.get("evidence", []),
+    }
 
 
 def candidate_profile_values(events: list[dict[str, Any]], as_of: str) -> dict[str, Any]:
     """Confirmed personal facts in CANDIDATE_PROFILE terms, with Unknown said out loud."""
     projection = project(events, as_of)
     values: dict[str, Any] = {}
-    for field, (category, key) in sorted(CANDIDATE_PROFILE_FIELDS.items()):
+    for field, (category, key, domain) in sorted(CANDIDATE_PROFILE_FIELDS.items()):
         entry = projection.get(category, {}).get(key)
         if entry is None:
             values[field] = {"state": "unknown", "value": None, "reason": UNKNOWN_NO_FACT}
-        else:
+        elif entry["state"] != "confirmed":
             # A conflict or an Unknown is reported as such. Quoting either as a value is exactly the
             # silent-stale-fallback section 12.3 forbids, one layer further downstream.
             values[field] = entry
+        else:
+            values[field] = _schema_checked(field, entry, domain)
     return {
         "as_of": projection["as_of"],
         "schema": "CANDIDATE_PROFILE",

@@ -29,8 +29,27 @@
 - Supersession topology is now settled before any date is read. A cycle contains a backwards edge by
   construction, so deriving first reported the date violation and never named the loop that caused
   it — the less useful of two true statements.
-- A missing private store never breaks `context`. The reason travels in the payload as
-  `documents_unavailable` rather than being swallowed.
+- A missing private store never breaks the historical comparison. The reason travels in the payload
+  as `documents_unavailable` rather than being swallowed.
+- Default personal context carries facts and **no documents**. The relevance map is keyed by fact
+  category and the cap counts facts, so document metadata — type, company, purpose, effective dates,
+  digest — was constrained by neither: a stage that legitimately needs nothing about the person would
+  still have received the shape of every document they own, uncapped. Documents are reachable only
+  through the explicit commands.
+- `select_personal_context` rejects an unrecognized stage itself rather than relying on the CLI in
+  front of it. A missing map entry means "no category filter", and the selector is a public boundary
+  symbol other code can call without going through argparse; a guard only at the outermost layer is
+  a guard the next caller skips.
+- The historical comparison takes `--type` and `--company`. Comparing two resumes should not also
+  disclose every certificate and every company's ES. It stays metadata-only in this mode too, since
+  document text extraction is a v1 non-goal — the user opens the files themselves.
+- `--candidate-profile` validates each value against the domain `_shared/schemas.yml` states and
+  reports a violation as `invalid` with a null value. A fact's `value` is otherwise unconstrained and
+  the consuming skill is told to quote it exactly, so an unchecked `jlpt_level: N9` became a schema
+  violation two skills downstream. Checked per field, so one bad record does not take the others down.
+- `run --mode chat` carries the same `personal_context` block, built by the same selector as the
+  shared `context` command. Two selectors would eventually disagree about what "current" means.
+  `references/shared-vault-context.md` now states what consumers may do with it.
 
 ## [1.10.0] - 2026-08-05
 

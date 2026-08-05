@@ -596,11 +596,7 @@ def run_context(
     if stage is not None and stage not in SHINSOTSU_STAGES + CHUTO_STAGES:
         raise CareerError("shared context stage is not recognized")
     career_context, career_event = latest_career_context(home)
-    records, unavailable = private_records(home.path)
-    personal = select_personal_context(read_jsonl(home.events), records, stage, as_of)
-    if unavailable:
-        personal["documents_unavailable"] = unavailable
-    profile_keys = ("track", "career_status", "target_role", "start_date", "graduation_year", "language", "flow_phase")
+    profile_keys =("track", "career_status", "target_role", "start_date", "graduation_year", "language", "flow_phase")
     return {
         "mode": "context",
         "vault": str(home.path),
@@ -613,9 +609,10 @@ def run_context(
         "career_context_confirmed": career_context is not None,
         "career_context_event_id": career_event.get("id") if career_event else None,
         # Section 12.1. Current, stage-relevant, capped, and confirmed-only -- never the whole
-        # `project()` output, which returns every category and key. Historical document bodies are
-        # not reachable from here at all; `personal-context --historical` is the opt-in path.
-        "personal_context": personal,
+        # `project()` output, which returns every category and key. Documents are not here at all:
+        # neither the relevance map nor the cap applies to them, so `personal-documents` and
+        # `personal-context --historical` are the explicit paths.
+        "personal_context": select_personal_context(read_jsonl(home.events), stage, as_of),
         "read_only": True,
         "note_bodies_included": False,
     }
@@ -753,11 +750,18 @@ def build_parser() -> argparse.ArgumentParser:
     personal_context_parser.add_argument("--stage", help="select facts relevant to this exact stage")
     personal_context_parser.add_argument(
         "--historical", action="store_true",
-        help="section 12.2: retrieve superseded documents, every temporal role labelled",
+        help="section 12.2: retrieve the requested superseded documents, every role labelled",
     )
     personal_context_parser.add_argument(
         "--candidate-profile", action="store_true",
         help="emit confirmed facts in CANDIDATE_PROFILE terms for the job-seeker skill to quote",
+    )
+    personal_context_parser.add_argument(
+        "--type", dest="document_type", choices=sorted(DOCUMENT_TYPES),
+        help="with --historical: restrict the comparison to this document type",
+    )
+    personal_context_parser.add_argument(
+        "--company", help="with --historical: restrict the comparison to this company",
     )
     context_proposal_parser = subparsers.add_parser(
         "propose-context",
@@ -881,21 +885,21 @@ def main(argv: Iterable[str] | None = None) -> int:
                     "history": timeline(read_jsonl(home.events), args.category, args.key),
                 }
             elif args.command == "personal-context":
-                if args.stage is not None and args.stage not in SHINSOTSU_STAGES + CHUTO_STAGES:
-                    # A typo must not widen the selection. An unrecognized stage matches no entry
-                    # in STAGE_CATEGORIES, and a missing entry means "no category filter" -- so
-                    # silently accepting one would turn a misspelling into the whole profile.
-                    raise CareerError("personal context stage is not recognized")
                 events = read_jsonl(home.events)
-                records, unavailable = private_records(home.path)
                 if args.candidate_profile:
                     result = candidate_profile_values(events, args.as_of)
                 elif args.historical:
-                    result = historical_comparison(events, records, args.as_of)
+                    records, unavailable = private_records(home.path)
+                    result = historical_comparison(
+                        records, args.as_of,
+                        document_type=args.document_type, company=args.company,
+                    )
+                    if unavailable:
+                        result["documents_unavailable"] = unavailable
                 else:
-                    result = select_personal_context(events, records, args.stage, args.as_of)
-                if unavailable:
-                    result["documents_unavailable"] = unavailable
+                    # Stage validation lives in the selector, not here: it is a public boundary
+                    # symbol and a caller that skips argparse must fail closed too.
+                    result = select_personal_context(events, args.stage, args.as_of)
             elif args.command == "propose-context":
                 result = propose_career_context(home, args.source)
             elif args.mode == "chat":

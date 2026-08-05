@@ -16,6 +16,7 @@ import self_analysis_profile  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
 from models import CHUTO_STAGES, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, CareerError  # noqa: E402
+from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from routing import flow_phase_for, infer_track, language_for, load_flow_reference, skill_context, stage_for  # noqa: E402
 from validation import validate_career_context, validate_event  # noqa: E402
@@ -107,6 +108,9 @@ def run_chat(
     reference = load_flow_reference()
     flow_phase = flow_phase_for(message, track, state, profile, reference)
     context = select_context(home.path, track, stage, as_of)
+    # Section 12.1. The same selector the shared `context` command uses -- one implementation, so
+    # the chat path and the shared API cannot disagree about what "current personal context" means.
+    personal = select_personal_context(read_jsonl(home.events), stage, as_of)
     event = make_event(message, track, stage, flow_phase)
     approval_action = approval_action_for(message)
     proposal = {
@@ -123,7 +127,7 @@ def run_chat(
         "mode": "chat",
         "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
         "plan": {"track": track, "stage": stage, "flow_phase": flow_phase, "goal": "route and propose a grounded event", "next_action": approval_action},
-        "act": {"proposal_id": proposal["id"], "skill": skill_context(skills_root, stage), "context_count": len(context)},
+        "act": {"proposal_id": proposal["id"], "skill": skill_context(skills_root, stage), "context_count": len(context), "personal_fact_count": len(personal["facts"])},
         "verify": {"event_schema": "valid", "context_is_metadata_only": True, "external_side_effect": False},
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
         "persist": {"proposal_id": proposal["id"]},
@@ -131,7 +135,7 @@ def run_chat(
     with vault_lock(home):
         home.add_proposal(proposal)
         home.append_trajectory(trajectory)
-    return {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
+    return {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "personal_context": personal, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
 
 
 def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:

@@ -578,6 +578,19 @@ and does not travel as a value, but its *count* does. A model told nothing at al
 concludes there is no salary; the truth may be that two records disagree, and that is exactly the
 case a human needs to resolve.
 
+**Default context carries facts and nothing else — no documents.** Rules 4 and 7 are written for
+facts: the relevance map is keyed by fact category and the cap counts facts. Document metadata
+(type, company, purpose, effective dates, digest) is personal data that neither rule constrains, so
+including it would let a stage that legitimately needs *nothing* about the person still receive the
+shape of every document they own, uncapped. Documents are reachable only through the explicit
+document commands, which the user asks for.
+
+**The selection function itself rejects an unrecognized stage.** Not the CLI in front of it. A
+missing entry in the relevance map means "no category filter", so an unrecognized stage that is
+merely passed through widens the selection to the whole profile — and the selector is a public
+boundary symbol other code can call without going through argparse. A guard that only exists at the
+outermost layer is a guard the next caller skips.
+
 ### 12.2 Historical documents are opt-in
 
 Historical document bodies must never enter default current context.
@@ -601,6 +614,17 @@ HISTORICAL
 
 Historical values are not treated as current facts.
 ```
+
+**The request is narrowed to what was asked for.** "Compare my 2024 resume with my current resume"
+is a question about resumes; returning every certificate and every company's ES beside them answers
+a question nobody asked, using personal data. The mode therefore takes a document type and/or a
+company and filters on the logical key.
+
+**Metadata only, in this mode too.** Document *text* extraction is a v1 non-goal (§4), so there is
+no body to select and the phrase "historical document bodies" above describes what must never reach
+default context rather than something this mode delivers. The comparison returns the records and
+their labels; the user opens the files themselves from the private root. Restoring a body-bearing
+comparison requires the text-extraction work that §4 defers, and this criterion moves with it.
 
 ### 12.3 No stale fallback
 
@@ -1306,7 +1330,9 @@ Given a superseded 2024 resume and confirmed current 2026 resume, ordinary curre
 Given historical compensation only, current compensation is `Unknown`.
 
 ### AC-09: Historical query
-Explicit historical comparison can retrieve requested historical/current versions with correct labels.
+Explicit historical comparison can retrieve the requested historical/current versions — narrowed by
+document type and/or company, not the whole store — with correct labels. Records and labels only;
+document text extraction is a v1 non-goal (§4).
 
 ### AC-10: Certificate expiration
 Expired certificates remain in history but are not shown as currently valid.
@@ -1592,6 +1618,39 @@ store that nothing reads, and "define the relationship later" is not a requireme
 to decide later whether the feature has a consumer at all. Note that `candidate_profile.yml` is
 written by a skill following Markdown instructions rather than by Python, so "must not silently
 overwrite" is satisfied by construction; "is actually usable" is the part that needs specifying.
+
+**The consumer contract is part of this phase, not a follow-up.** Adding a `personal_context` block
+that no documented consumer is told to read is the same failure as building a store nothing reads,
+one layer up. `references/shared-vault-context.md` states what the block contains and how to treat
+it, and the chat path uses the *same selector function* as the shared context command — two
+selectors would eventually disagree about what "current" means, which is the whole class of bug this
+document exists to close.
+
+**The downstream schema is validated at the boundary.** A fact's `value` is otherwise unconstrained:
+`validate_fact` checks that the key exists, not what belongs in it. Since the consuming skill is
+instructed to quote these values *exactly*, an unchecked `jlpt_level: N9` becomes a schema violation
+two skills downstream, where nobody can trace it back. The read path therefore checks each field
+against the domain `_shared/schemas.yml` states and reports a violating value as `invalid` with a
+null value — fail-closed per field, so one bad record does not take the other fields down with it.
+`invalid` is deliberately not folded into `unknown`: "we do not know" and "what we have is unusable"
+call for different repairs.
+
+### Phase 5: Document → fact promotion
+Phases 1–4 give a canonical store, a temporal core, and a read path — but **nothing writes facts**.
+A user who imports a resume still has to hand-edit `events.jsonl` for any of it to reach a
+projection, which means the end-to-end flow this document describes is not yet closed:
+
+```text
+private-import → document record → fact proposals → user confirmation → canonical facts → context
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                   phase 5
+```
+
+Scope: proposing facts from an imported document behind the existing approval gate (never
+auto-confirming — §5.3), and linking `fact.evidence` to phase 2 `document_id`s so a fact and the
+document backing it stop being separate universes. Until this lands, the feature is complete for a
+user who maintains facts by hand and incomplete for everyone else, and it should be described that
+way rather than as "4 of 4".
 
 ## 25. Backward compatibility
 

@@ -40,9 +40,10 @@ is active.
 
 When a private store exists, `career-agent personal-context --candidate-profile --vault
 "$CAREER_VAULT"` returns confirmed personal facts already named as `CANDIDATE_PROFILE` fields.
-Quote those values instead of asking again, and quote them exactly. A field returned as `unknown` or
-`conflict` stays Unknown in the profile — never fill it from history, and show every quoted value
-for confirmation before saving, as with any other field.
+Quote those values instead of asking again, and quote them exactly. Only a field whose `state` is
+`confirmed` may be quoted; anything else — `unknown`, `conflict`, `invalid` — stays Unknown in the
+profile. Never fill it from history, and show every quoted value for confirmation before saving, as
+with any other field.
 
 ## Interaction contract
 
