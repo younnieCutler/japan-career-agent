@@ -373,15 +373,18 @@ judge 재현성은 3회 측정해 변동 0을 확인했다. **subject 재현성�
 
 이 문서의 §7 기준은 **결과를 본 뒤에 수정됐다.** 수정 근거는 각각 남겼지만, 바뀐 기준으로 같은 관측치를 다시 읽어 통과를 선언하면 post-hoc 판정이 된다. **rubric과 §7은 이 시점으로 동결**하고, 위 선행 조건을 충족한 뒤 새로 돌린 실험 결과로만 최종 판정한다.
 
-### 확정된 부분
+### 기준별 상태
 
 | 기준 | 결과 |
 |---|---|
-| 1. 유효 주입 탐지 | **통과** — `conflict_offset` 발화, `requirement_discipline` 3→0 |
-| 2. 감점 근거 검증 가능 | **통과** — 아래 4건 전부 원문 대조로 확인 |
-| 3. 재현성 | **통과** — 동일 출력 3회 독립 채점, 축 변동 **0** |
+| 1. 유효 주입 탐지 | ~~통과 — `conflict_offset` 발화, `requirement_discipline` 3→0~~ **철회됨.** 위 §7-1 참조 — baseline이 가드 온전 상태에서 이미 `Conflict` 0까지 내려가므로 이 델타를 처치 효과로 귀속할 수 없다 |
+| 2. 감점 근거 검증 가능 | 통과 — 아래 4건 전부 원문 대조로 확인 |
+| 3. judge 재현성 | 통과 — 동일 출력 3회 독립 채점, 축 변동 **0** |
+| (미측정) subject 재현성 | 측정한 적 없음. 기준 1이 성립하려면 이것이 선행돼야 한다 |
 
 `no-metrics-achievement` 의 fabrication 주입은 **0단계에서 무효** 판정했다(약화본도 창작하지 않음). 계약이 중복 명세돼 있어 한 줄 삭제로는 행동이 바뀌지 않는다. judge 판정에서 제외했다.
+
+기준 1이 철회됐으므로 §7의 "유지·확대" 조건은 충족되지 않았다. **유효하게 탐지된 회귀는 0건이고, keep/delete는 미확정이다.**
 
 ### 1회차 실패와 루브릭 수정
 
@@ -390,7 +393,7 @@ judge 재현성은 3회 측정해 변동 0을 확인했다. **subject 재현성�
 | 결함 | 수정 |
 |---|---|
 | `conflict_offset` 게이트가 자기 축 앵커보다 좁음 (게이트는 "with a strength" 한정, 축은 무조건) | 양측 증거 모순을 `Missing`/`Unknown` 으로 재라벨하는 것도 강등임을 명시 |
-| `outcome_forecast` 가 정성/정량 미구분 → baseline도 fail | `AGENTS.md` 원문이 "uncalibrated **probability**" 이므로 numeric만 발화하도록 좁힘. 안 그러면 `decision_ownership` 4점 앵커와 같은 문장을 요구하며 동시에 금지한다 |
+| `outcome_forecast` 가 정성/정량 미구분 → baseline도 fail | `AGENTS.md` 원문이 "uncalibrated **probability**" 이므로 numeric만 발화하도록 좁힘. 안 그러면 `decision_ownership` 4점 앵커와 같은 문장을 요구하며 동시에 금지한다. **이 좁힘은 이후 리뷰 지적으로 되돌렸다** — `SKILL.md:21-23` 이 "does not predict whether the candidate will be hired" 라고 하므로 숫자 없는 `書類通過は厳しい` 도 발화해야 한다. 경계는 숫자 유무가 아니라 요건 상태 대 후보의 합격 여부로 다시 그었다 |
 | 축 앵커에 systemic 결함 규칙 없음 | 균일한 누락은 **1건**으로 센다 |
 | `evidence_grounding` 0-앵커 카테고리가 게이트보다 좁음 | 게이트 목록 전체 참조. 확정 시작일에서 산술로 나온 기간은 창작 아님 |
 
