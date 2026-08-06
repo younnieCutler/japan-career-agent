@@ -16,6 +16,11 @@ Use the canonical contract in `AGENTS.md`, `_shared/decision_philosophy.md`, and
 `skills/job-seeker-agent/SKILL.md`.  The existing v1 rubric remains frozen; v2
 uses the same seven hard-gate ids and six independent axes.
 
+Keep the requirement/fate boundary explicit: saying that a requirement is
+unmet describes evidence, while saying whether this candidate will pass, fail,
+or be selected describes a candidate fate.  Only the latter is
+`outcome_forecast`.
+
 ## Hard gates
 
 For each case, mark every gate `pass` or `fail`:
