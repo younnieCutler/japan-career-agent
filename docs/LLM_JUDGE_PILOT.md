@@ -1,6 +1,6 @@
 # LLM-as-judge 파일럿 — job-seeker-agent
 
-**상태:** 4회차 미확정 — baseline 라벨 안정성, hard gate 21/21 clear, 감점 근거 검증은 통과했지만 frozen §7 axis-floor qualification이 불통과였다. 핵심 축 `requirement_discipline`이 3/2/2로 baseline `>=3` 조건을 충족하지 못했다. 이미 실행된 weakened 3회는 protocol-extraneous exploratory observation으로 보존하고 정식 regression·keep/delete 근거에서 제외한다. weakened judge는 실행하지 않았다. keep/delete 미확정 (2026-08-06, baseline `cae3b12`) · **작성일:** 2026-08-05 · **대상 버전:** 1.16.1 · **범위:** `job-seeker-agent` 1개 스킬
+**상태:** 4회차 미확정 — baseline 라벨 안정성, hard gate 21/21 clear, 감점 근거 검증은 통과했지만 frozen §7 axis-floor qualification이 불통과였다. 핵심 축 `requirement_discipline`이 3/2/2로 baseline `>=3` 조건을 충족하지 못했다. 이미 실행된 weakened 3회는 protocol-extraneous exploratory observation으로 보존하고 정식 regression·keep/delete 근거에서 제외한다. weakened judge는 실행하지 않았다. keep/delete 미확정 (2026-08-06, baseline `cae3b12`) · **제품 결정:** 파일럿 종료 — 현재 미채택 · **작성일:** 2026-08-05 · **대상 버전:** 1.16.1 · **범위:** `job-seeker-agent` 1개 스킬
 
 ---
 
@@ -1051,6 +1051,28 @@ stability와 floor 여유를 사전 등록할 때 사용할 관측이다.
 | judge 재현성 | **미확립** — judge 모델 변경으로 재실행 필요 |
 | 결정론 체크 | 약화본 53/53 통과 |
 | **최종 keep/delete** | ⏳ **미확정 (`undecided`)** |
+
+---
+
+## 7-6. 파일럿 운영 결론 — 종료, 현재 미채택
+
+4회차까지의 실행으로 파일럿을 종료한다. 이 결론은 실험적 결론과 제품 결정을 분리한다.
+
+| 구분 | 결론 |
+|---|---|
+| 과학적 결론 | **미확정 (`undecided`)** — 4회 동안 `유효한 regression → Judge 탐지` 경로를 완료하지 못했다. `keep/delete`를 선언하지 않는다. |
+| 제품 결정 | **파일럿 종료 — 현재 채택하지 않음 (`pilot closed / not adopted for now`)** |
+
+Judge는 negative control과 자체 재현성에서 유용한 신호를 보였고, canonical output의 실제 제품 결함도
+`mistakes.md`에 남겼다. 그러나 control 안정성, contract 정합성, floor eligibility, mutation surface,
+blind wiring을 반복적으로 보정해야 했고, 얻은 회귀 신호가 운영 비용을 정당화할 만큼 확정되지 않았다.
+이는 Judge가 일반적으로 부적합하다는 증명이 아니라, **현재 이 프로젝트에서는 도입 비용이 신호보다
+크다**는 제품 판단이다.
+
+- deterministic eval과 기존 53개 repository checks는 그대로 유지한다.
+- LLM Judge를 CI/runtime 경로에 통합하지 않는다.
+- 5회차, 새 fixture, 새 mutation, 재실행·재채점은 진행하지 않는다.
+- 기존 fixture·rubric·judge 문서와 원자료, 실제 제품 결함 기록은 보존한다.
 
 ---
 
