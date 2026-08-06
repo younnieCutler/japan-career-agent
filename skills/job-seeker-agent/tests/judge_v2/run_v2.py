@@ -6,7 +6,6 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-import os
 import subprocess
 from pathlib import Path
 
