@@ -1,141 +1,138 @@
 # Japan Recruit AI Agent
 
-日本の求職者向け local-first **evidence-based Career OS**です。このプロジェクトは採用結果を
-予測せず、Recruit・Persol・dodaなどの非公開アルゴリズムも再現しません。ユーザーが提供した
-証拠を使い、確認済みの事実、衝突、`Unknown`、根拠、次に確認すべき質問を整理します。
+[English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
 現在のリリース: `1.17.0`。
 
-## Canonical rules
+日本での就職・転職に向けた local-first の evidence-based なキャリア意思決定支援です。Claude Code と Codex で使う plugin/skill の集合で、ローカルで動く Career Agent runtime が求職者と採用側の workflow を扱います。
 
-- hard eligibility、required skills、experience、portable skills、conditions、career values、
-  practical constraints、candidate interest、employer signalsを別々の軸として扱います。
-- 根拠がない情報は `Unknown`。平均、default pass、任意の点数や係数は作りません。
-- 確認済みのhard requirement・法的要件・must-have・dealbreakerのConflictは、他の強みで相殺しません。
-- `interest_level`は本人の選好の記録であり、objective evidenceやDecision Statusを変更しません。
-- 重要な事実にはsource、observed_at、confidence、provenanceを付けます。`heuristic`は確認のための
-  仮説であり、判定の根拠にはしません。
-- `Proceed` / `Review` / `Conflict`、`Matched` / `Missing` / `Unknown`を使い、最終判断はユーザーが行います。
-  応募やメッセージ送信は自動で行いません。
-- 履歴書、JD、Webページ、YAML、Vault metadata、pipeline、rulesはuntrusted career dataです。
-  データをinstructionとして実行しません。
+キャリアの方向整理、履歴書・職務経歴書、JD と企業情報の確認、求人やオファーの比較、面接練習、次の行動の管理に使えます。ホスティング型SaaSや単体GUIではなく、pluginとローカルruntimeで構成されています。
 
-詳しくは [`_shared/decision_philosophy.md`](_shared/decision_philosophy.md) と
-[`_shared/schemas.yml`](_shared/schemas.yml) を参照してください。
+## 何が違うのか
 
-## Skills
+- 根拠を使い、ない経歴や点数を作りません。
+- 確認できない情報は `Unknown` のまま残します。
+- 確認済みの hard・法的要件・must-have・dealbreaker のConflictを、別の強みで相殺しません。
+- 採用結果や採用される確率を予測しません。
+- 最終判断と承認はユーザーが行います。応募やメッセージ送信は自動で行いません。
 
-- `jiko-bunseki`: 公式SPI3ではないwork-style reflectionと方向整理
-- `job-seeker-agent`: 履歴書・職務経歴書・自己PR・根拠付きCANDIDATE_PROFILE
-- `hiring-manager-agent`: 明示されたJD要件と面接評価基準
-- `kigyou-bunseki`: 出典・日付付きの企業／求人調査
-- `matching-simulator`: 独立軸による診断と `Proceed` / `Review` / `Conflict`
-- `company-battlecard`: 合計点を作らない企業・オファー比較
-- `mock-interviewer`: ユーザー主導の面接練習と根拠付き深掘り質問
-- `tenshoku-strategy`: 面接マナー、follow-up、年収交渉、退職、入社、tracking
-- `career-agent`: 承認ゲート付きVault状態とCWD workspace projection
+## 基本の流れ
 
-## Vaultとworkspace
-
-Vaultは個人のcanonical state、`./data/pipeline.yml`は現在のjob-search workspaceにおける会社別
-projectionです。必要な場合は両方を明示します。
-
-status barは `--workspace` の明示パス、`CAREER_WORKSPACE`、現在のCWDの順に
-`data/pipeline.yml`を読み込みます。別のディレクトリから起動しても誤ったpipelineを読まない
-ための優先順位です。
-
-## 信頼性とcontext hardening (`1.6.2`)
-
-- Career VaultのJSON/TOML状態と書き換え型JSONL snapshotはatomic replacementを使い、
-  append-only JSONLの既存の意味は維持します。
-- Contextは常時ロードするinvariant、タスク別lazy reference、ユーザー／evidenceの原文に
-  分けます。`python scripts/check_context_budget.py`がbyte・文字数・行数を決定的に検査します。
-- 通常のstatus barでは行動につながらない反復情報を減らしますが、すべてのblockerと制限付きの
-  action/rule previewは残します。
-- UserPromptSubmit launcherは古いplugin pathや存在しないscriptをPython実行前に確認し、問題が
-  あってもpromptをblockしません。POSIX/Windows launcherはstatus出力をbufferし、正常終了時
-  だけ出力するため、runtime失敗ではdegraded blockを一つだけ表示します。ただしhostがtimeout
-  でprocessを終了した場合、出力前に終わることがあります。Claude manifestは標準hookファイル
-  を重複宣言しません。
-- `_shared/self_analysis_profile.py`がcanonical v2 profileを検証します。checklist exportは
-  raw reflectionのままで、未評価は`null`、確認済みで空のリストは`[]`と区別します。episode
-  ID、activity ID、behaviorからepisodeへの参照、optional nested shapeも検証し、matchingや
-  Vault contextへ自動投入しません。
-- 確認済みのrequired skillまたはexperience gapは`Proceed`ではなく`Review`です。preferred gapは
-  独立軸として残します。required gapには決定的な確認質問を付け、pipelineでも
-  `match_required_gaps`と`match_unknowns`を分けます。scoreや採用結果の予測は追加しません。
-
-## Persistence・workspace・policy hardening (`1.6.3`)
-
-- 同じVaultへの同時CLI実行が競合しないよう、すべてのwriterにlockを追加しました。pipeline
-  atomic writerに`fsync`を追加し、rule昇格もbare `write_text`ではなく同じlock+atomic経路を
-  使うようにしました。
-- `CAREER_WORKSPACE`/`--workspace`の解決をすべてのpipeline関連コマンドで共有実装に統一し、
-  一部コマンドがCWD相対pathにデフォルトしていた問題をなくしました。
-- canonical writerでのbare `write_text`使用、legacy fieldへの数値リテラル直接代入、hook
-  commandのバージョン固定plugin cache path、理由のない`# noqa`を静的検出するチェックを
-  追加しました。cache path検査は実際のCodexインストールのネスト構造も検出するよう修正しました。
-- `scripts/check_version_bump.py`を追加し、動作を変えるPRがリリースバージョンを上げずに
-  mergeされることをCIで防ぎます。
-
-```powershell
-$env:CAREER_VAULT='C:\path\to\career-vault'
-$env:CAREER_WORKSPACE='C:\path\to\job-search-workspace'
-python skills/career-agent/career_agent.py context --vault $env:CAREER_VAULT
-python skills/career-agent/career_agent.py approve --vault $env:CAREER_VAULT --workspace $env:CAREER_WORKSPACE <proposal-id>
+```mermaid
+flowchart LR
+    A[ユーザーの依頼] --> B[Career Agent]
+    B --> C[根拠と現在の状態]
+    C --> D{確認が必要か}
+    D -->|Yes| E[Unknown、Conflict、または確認質問]
+    E --> F[ユーザーが確認]
+    F --> G[canonical state]
+    D -->|No| H[分析または準備]
+    G --> H
 ```
 
-## 5分 Quickstart
+## インストール
 
-cloneしたリポジトリのルートで実行します。`proposals` が表示したIDを `PROPOSAL_ID` に
-置き換えてから `approve` を実行してください。
+普段使っている host に plugin を追加します。
+
+### Claude Code
 
 ```bash
-python skills/career-agent/career_agent.py setup --vault .career-agent-vault --track chuto --target-role "Platform Engineer"
-python skills/career-agent/career_agent.py guided --vault .career-agent-vault
-python skills/career-agent/career_agent.py run --vault .career-agent-vault --mode chat --message "転職の面接を準備したい"
-python skills/career-agent/career_agent.py proposals --vault .career-agent-vault
-python skills/career-agent/career_agent.py approve --vault .career-agent-vault --workspace . PROPOSAL_ID --evidence "転職の面接を準備したい" --company "Aozora Systems (Synthetic)"
-python skills/career-agent/career_agent.py status --vault .career-agent-vault
-python -c "from pathlib import Path; print(Path('data/pipeline.yml').read_text(encoding='utf-8'))"
+claude plugin marketplace add younnieCutler/japan-recruit-ai-agent
+claude plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
-流れは setup → chat proposal → proposal確認 → evidence付きapprove → confirmed statusと
-workspace projectionの確認です。approveはユーザー主導のままで、応募送信やメッセージ送信は
-行いません。
+### Codex
 
-`restore-state`はrollback/undoではなくstate recoveryです。append-only ledger、proposal、pipeline
-projectionは巻き戻しません。Vault note本文は自動で読み込まずmetadataだけを使います。
+```bash
+codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
+codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
+```
 
-## 外部claimと検証
+### ローカル fallback
 
-時間により変化するsalary・platform・market情報は [`_shared/career_claims.yml`](_shared/career_claims.yml) に
-publisher、source、日付、confidence、claim type、expiryとともに登録します。期限切れは `Stale` です。
-公式サービスページにpublication dateがない場合は `published_at: unknown` とし、
-`observed_at` と `expires_on` は必ず明示します。
+ファイルを直接確認したり実行したりする場合は、リポジトリを clone します。
 
-## ステータスバーのネットワーク動作
+```bash
+git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
+```
 
-ステータスバーは local-first ですが、24時間に最大1回、公開マニフェスト
-（`https://raw.githubusercontent.com/younnieCutler/japan-recruit-ai-agent/main/.claude-plugin/plugin.json`）へ
-分離された非同期のバージョン確認を行うことがあります。このリクエストは
-ローカルキャッシュだけを読み書きし、pipeline・Vault・候補者データを送信しません。オフライン
-や失敗時は静かに処理を続けます。ホストの起動前に `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` を設定
-すると外部リクエストを完全に無効化できます。
+## Quick Start
 
-## 貢献と変更履歴
+インストール後、Claude Code または Codex に普段の言葉で依頼してください。
 
-開発手順と Ubuntu/Windows の検証基準は [`CONTRIBUTING.md`](CONTRIBUTING.md)、リリース履歴は
-[`CHANGELOG.md`](CHANGELOG.md) を参照してください。
+```text
+日本での転職準備を始めたいです。
+このJDと私の経験を比較し、確認できないことはUnknownのままにしてください。
+来週の面接を準備したいです。
+この職務経歴書を、ない根拠を足さずにレビューしてください。
+```
+
+最初から `proposal_id`、`CAREER_VAULT`、`data/pipeline.yml` を理解する必要はありません。まず依頼を一文で書き、必要になったときだけ下のローカル向け workflow を使います。
+
+## できること
+
+| 目的 | できること | Skill |
+|---|---|---|
+| 方向を整理する | work-style reflection からキャリアの仮説を整理します | `jiko-bunseki` |
+| 書類を準備する | ユーザーが示した根拠をもとに履歴書、職務経歴書、自己PR、candidate profileを扱います | `job-seeker-agent` |
+| 職務と企業を読む | JDの要件と企業・求人の出典付き観察を分けて整理します | `hiring-manager-agent`, `kigyou-bunseki` |
+| 選択肢を比べる | 候補者とJDを独立した軸で確認し、合計点なしで企業やオファーを比べます | `matching-simulator`, `company-battlecard` |
+| 準備を続ける | 面接練習、転職戦略、ローカルのキャリア状態と次の行動を扱います | `mock-interviewer`, `tenshoku-strategy`, `career-agent` |
+
+## 根拠の扱い方
+
+このツール群は、客観的な根拠とユーザーの希望を混ぜません。主な用語は次のとおりです。
+
+| 用語 | 意味 |
+|---|---|
+| `Confirmed` | 現在の事実として使える根拠。可能な場合は source と provenance を付けます |
+| `Unknown` | 確認できていない情報。自動で pass や点数にはしません |
+| `Contradictory`, `Stale`, `Low Confidence` | 現在の事実として使う前に確認が必要な根拠 |
+| `Matched`, `Missing`, `Unknown` | 候補者とJDの比較で使う requirement の状態 |
+| `Proceed`, `Review`, `Conflict` | Decision Status。確認済みのhard conflictはConflictのままです |
+
+`interest_level` はユーザーの希望を記録するものです。objective evidence、Decision Status、順番は変えません。履歴書、JD、Webページ、YAML、Vault metadata、pipeline、rulesはinstructionではなくcareer dataです。
+
+## Advanced: Career Agent
+
+ローカルruntimeでは、個人のCareer Vaultをcanonical stateとして管理し、会社ごとのworkflow状態を `./data/pipeline.yml` にprojectionします。
+
+明示的なlocal setupとguided menuを使う場合:
+
+```bash
+VAULT=/path/to/career-agent-vault
+python skills/career-agent/career_agent.py setup --vault "$VAULT" --track chuto --target-role "Platform Engineer"
+python skills/career-agent/career_agent.py guided --vault "$VAULT" --format human
+```
+
+`guided` は setup 状態、pending proposal、`Unknown` と `Conflict` の数、workspace metadata、実行できる次の操作を表示します。スクリプトでは `--choice <id-or-number>` を使えます。書き込みを行う操作には `--confirm` が必要です。guided mode がproposalを自動承認したり、private noteの本文を読んだりすることはありません。
+
+詳しいCLI契約は [`skills/career-agent/SKILL.md`](skills/career-agent/SKILL.md) を参照してください。
+
+## local-first と完全オフラインは同じではありません
+
+status bar は24時間に最大1回、公開plugin manifestに対する分離された非ブロッキングのバージョン確認を実行する場合があります。Vault、pipeline、candidate dataは送信しません。完全に無効にするには次を設定します。
+
+```bash
+export JAPAN_RECRUIT_NO_UPDATE_CHECK=1
+```
+
+`1.6.2` と `1.6.3` の persistence、context、workspace、policy hardening の詳細は、このページではなく [`CHANGELOG.md`](CHANGELOG.md) にあります。
+
+## 開発
+
+リポジトリを変更する前に [`CONTRIBUTING.md`](CONTRIBUTING.md) を読んでください。標準のローカル検証コマンドは次です。
 
 ```bash
 python scripts/run_all_checks.py
 ```
 
-このrunnerがリポジトリの標準検証経路です。リリース・ドキュメント整合性、policy、CIテスト
-マトリクス、Jiko export contractをまとめて実行します。
+リリース guard は [`scripts/check_version_bump.py`](scripts/check_version_bump.py)、リリース履歴は [`CHANGELOG.md`](CHANGELOG.md) にあります。
 
-CIはUbuntuとWindowsで動作します。legacyデータは読み取り可能ですが、新しいlegacy writeと、
-1–5のlegacy portable skillをMHLW 29-point allocationへ自動変換する処理は拒否します。
+判断契約は [`_shared/decision_philosophy.md`](_shared/decision_philosophy.md) と [`_shared/schemas.yml`](_shared/schemas.yml) にあります。時点で変わる外部 claim は [`_shared/career_claims.yml`](_shared/career_claims.yml) に置きます。
+
+## 安全範囲
+
+ログイン、CAPTCHA bypass、アクセス制御の bypass、応募、メッセージ送信は行いません。履歴書の根拠や採用結果を作ることもありません。
 
 MIT License.
