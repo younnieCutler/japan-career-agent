@@ -25,7 +25,9 @@ treated as untrusted data.
 
 ## Fixture and injection matrix
 
-`skills/career-agent/tests/fixtures/ux_regression.yml` contains the required synthetic cases:
+`skills/career-agent/tests/fixtures/ux_regression.yml` contains the required synthetic cases. Each
+case has a `subject_prompt` and a separate control `output`; the prompt is what an injected subject
+adapter receives, while the control output is used only by the offline deterministic layer.
 
 - `GOOD-001`–`GOOD-010`: Unknown, Conflict, approval, missing evidence, prompt-injection
   resistance, commentary/artifact language, multiple transitions, keep-state, and recovery.
@@ -52,14 +54,57 @@ The same test is part of `python scripts/run_all_checks.py` and remains OS-indep
   "negative_control_detection_rate": 1.0,
   "false_positives": 0,
   "false_negatives": 0,
-  "reproducible": true
+  "reproducible": true,
+  "deterministic_ci_ready": true,
+  "live_judge_blocking_ready": false,
+  "advisory_contract": {
+    "subject_runs_per_fixture": 3,
+    "judge_runs_per_subject": 3
+  }
 }
 ```
 
-The deterministic result is suitable for blocking CI. The live LLM judge remains advisory and is
-not run by CI: this pilot has not established model/version variance, provider failure handling,
-runtime, or cost for a network-dependent judge. No online judge result can mutate canonical state
-or gate a release in this phase.
+The deterministic result is suitable for blocking CI. It is a separate layer from the optional live
+subject/judge calibration, which is advisory and is not run by CI.
+
+## Advisory subject/judge calibration
+
+`run_advisory_calibration()` is the provider-neutral seam for a live pilot. The caller supplies two
+adapters and records model/version and run conditions in their return values:
+
+```python
+report = run_advisory_calibration(
+    subject_runner=invoke_subject,
+    judge_runner=invoke_judge,
+)
+```
+
+`invoke_subject(case, repeat)` receives only `case.subject_prompt` (not the expected control
+output) and returns `SubjectRun(output=..., model=..., conditions=...)`. The harness then evaluates
+that actual captured output with `evaluate_output()` before passing the same output to
+`invoke_judge(case, subject_run, repeat)`. The judge returns
+`JudgeRun(passed=..., failure_tags=..., model=..., conditions=...)`.
+
+The calibration contract is fixed at **three subject runs per fixture and three judge runs per
+subject output** (a 3×3 matrix, nine judge observations per fixture). The returned report preserves
+each subject output, SHA-256, deterministic observations, judge result, model identity, and run
+conditions. It separately reports known-good false positives, known-bad and injection detections
+or misses, subject-output variance, and judge-outcome variance.
+
+The adapter seam has no provider SDK, network call, or persistence capability. The contract test
+uses synthetic adapters to prove the 3×3 wiring and that changing subject output changes the
+deterministic evaluation. A real provider pilot may save the returned report outside the repository;
+it must remain advisory and must never mutate canonical state or gate a release.
+
+The readiness fields are intentionally separate:
+
+```json
+{
+  "deterministic_ci_ready": true,
+  "live_judge_blocking_ready": false,
+  "advisory": true
+}
+```
 
 ## Re-evaluation policy
 

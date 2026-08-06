@@ -8,7 +8,8 @@ state-mutating callbacks. The live LLM judge remains advisory and is deliberatel
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+import hashlib
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -20,6 +21,8 @@ SCHEMA_VERSION = 1
 GOOD_COUNT = 10
 BAD_COUNT = 8
 INJECTION_COUNT = 5
+SUBJECT_RUNS = 3
+JUDGE_RUNS = 3
 
 RULE_IDS = (
     "evidence_fidelity",
@@ -91,10 +94,52 @@ class Fixture:
     fixture_id: str
     category: str
     checks: tuple[str, ...]
+    subject_prompt: str
     output: str
     language_expectation: str
     target_rule: str | None = None
     baseline: str | None = None
+
+
+@dataclass(frozen=True)
+class SubjectCase:
+    """The synthetic prompt a subject adapter may see.
+
+    The expected fixture output is intentionally absent. An adapter therefore has to produce
+    an output from the case prompt instead of echoing the answer that the deterministic layer
+    uses as its control.
+    """
+
+    fixture_id: str
+    category: str
+    checks: tuple[str, ...]
+    subject_prompt: str
+    language_expectation: str
+    target_rule: str | None = None
+    baseline: str | None = None
+
+
+@dataclass(frozen=True)
+class SubjectRun:
+    """One captured subject response and the conditions supplied by its adapter."""
+
+    output: str
+    model: str
+    conditions: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class JudgeRun:
+    """One advisory judge decision over one captured subject response."""
+
+    passed: bool
+    model: str
+    failure_tags: tuple[str, ...] = ()
+    conditions: Mapping[str, Any] = field(default_factory=dict)
+
+
+SubjectRunner = Callable[[SubjectCase, int], SubjectRun]
+JudgeRunner = Callable[[SubjectCase, SubjectRun, int], JudgeRun]
 
 
 @dataclass(frozen=True)
@@ -127,7 +172,7 @@ def _string(value: Any, label: str) -> str:
 
 def _fixture(raw: Any, label: str, *, injection: bool = False) -> Fixture:
     mapping = _mapping(raw, label)
-    required = {"id", "checks", "output", "language_expectation"}
+    required = {"id", "checks", "subject_prompt", "output", "language_expectation"}
     optional = {"category", "target_rule", "baseline"}
     _keys(mapping, required, optional, label)
     fixture_id = _string(mapping["id"], f"{label}.id")
@@ -154,6 +199,7 @@ def _fixture(raw: Any, label: str, *, injection: bool = False) -> Fixture:
         fixture_id=fixture_id,
         category=category,
         checks=tuple(checks),
+        subject_prompt=_string(mapping["subject_prompt"], f"{label}.subject_prompt"),
         output=_string(mapping["output"], f"{label}.output"),
         language_expectation=_string(mapping["language_expectation"], f"{label}.language_expectation"),
         target_rule=target_rule,
@@ -202,6 +248,18 @@ def load_registry(path: Path = FIXTURE_PATH) -> tuple[tuple[Fixture, ...], tuple
     if sum(item.category == "known_bad" for item in fixtures) != BAD_COUNT:
         raise UXRegressionError(f"expected {BAD_COUNT} known-bad fixtures")
     return fixtures, injections
+
+
+def _subject_case(fixture: Fixture) -> SubjectCase:
+    return SubjectCase(
+        fixture_id=fixture.fixture_id,
+        category=fixture.category,
+        checks=fixture.checks,
+        subject_prompt=fixture.subject_prompt,
+        language_expectation=fixture.language_expectation,
+        target_rule=fixture.target_rule,
+        baseline=fixture.baseline,
+    )
 
 
 def _text(fixture: Fixture) -> str:
@@ -309,8 +367,16 @@ def evaluate_fixture(fixture: Fixture) -> tuple[RuleResult, ...]:
     )
 
 
-def _observation(fixture: Fixture) -> dict[str, Any]:
-    results = evaluate_fixture(fixture)
+def evaluate_output(fixture: Fixture, output: str) -> tuple[RuleResult, ...]:
+    """Evaluate captured subject output instead of the registry's control output."""
+
+    if not isinstance(output, str) or not output.strip():
+        raise UXRegressionError("subject output must be a non-empty string")
+    return evaluate_fixture(replace(fixture, output=output))
+
+
+def _observation(fixture: Fixture, output: str | None = None) -> dict[str, Any]:
+    results = evaluate_fixture(fixture) if output is None else evaluate_output(fixture, output)
     by_rule = {item.rule_id: item for item in results}
     failed = tuple(item.rule_id for item in results if not item.passed)
     if fixture.category == "known_good":
@@ -332,6 +398,15 @@ def _observation(fixture: Fixture) -> dict[str, Any]:
         "failed_rules": list(failed),
         "reasons": {item.rule_id: item.reason for item in results},
     }
+
+
+def _expected_safe(fixture: Fixture, observation: Mapping[str, Any]) -> bool:
+    """Return whether the observed output satisfies this fixture's expected control."""
+
+    failed_rules = set(observation["failed_rules"])
+    if fixture.category == "known_good":
+        return not failed_rules
+    return not fixture.target_rule or fixture.target_rule not in failed_rules
 
 
 def run_calibration(path: Path = FIXTURE_PATH) -> dict[str, Any]:
@@ -365,11 +440,322 @@ def run_calibration(path: Path = FIXTURE_PATH) -> dict[str, Any]:
         "reproducible": first == second,
         "false_positive_count": len(good_false_positives),
         "false_negative_count": len(bad_missed) + len(regressions_missed),
-        "blocking_ci_ready": False,
-        "blocking_ci_reason": "The deterministic registry is CI-safe, but no live model/provider variance or network failure evidence has been calibrated.",
+        "deterministic_ci_ready": True,
+        "live_judge_blocking_ready": False,
+        "live_judge_blocking_reason": "The deterministic registry is CI-safe, but no live model/provider variance or network failure evidence has been calibrated.",
         "observations": {
             "known_good": good_observations,
             "known_bad": bad_observations,
             "regression_injections": injection_observations,
         },
+    }
+
+
+def _normalise_subject_run(value: Any, label: str) -> SubjectRun:
+    if isinstance(value, SubjectRun):
+        output = value.output
+        model = value.model
+        conditions = value.conditions
+    else:
+        mapping = _mapping(value, label)
+        _keys(mapping, {"output", "model"}, {"conditions"}, label)
+        output = mapping["output"]
+        model = mapping["model"]
+        conditions = mapping.get("conditions", {})
+    if not isinstance(conditions, Mapping):
+        raise UXRegressionError(f"{label}.conditions must be a mapping")
+    return SubjectRun(
+        output=_string(output, f"{label}.output"),
+        model=_string(model, f"{label}.model"),
+        conditions=dict(conditions),
+    )
+
+
+def _normalise_judge_run(value: Any, label: str) -> JudgeRun:
+    if isinstance(value, JudgeRun):
+        passed = value.passed
+        model = value.model
+        failure_tags = value.failure_tags
+        conditions = value.conditions
+    else:
+        mapping = _mapping(value, label)
+        _keys(mapping, {"passed", "model"}, {"failure_tags", "conditions"}, label)
+        passed = mapping["passed"]
+        model = mapping["model"]
+        failure_tags = mapping.get("failure_tags", ())
+        conditions = mapping.get("conditions", {})
+    if not isinstance(passed, bool):
+        raise UXRegressionError(f"{label}.passed must be a boolean")
+    if not isinstance(failure_tags, (list, tuple)) or not all(isinstance(item, str) for item in failure_tags):
+        raise UXRegressionError(f"{label}.failure_tags must be a string list")
+    if not isinstance(conditions, Mapping):
+        raise UXRegressionError(f"{label}.conditions must be a mapping")
+    return JudgeRun(
+        passed=passed,
+        model=_string(model, f"{label}.model"),
+        failure_tags=tuple(failure_tags),
+        conditions=dict(conditions),
+    )
+
+
+def _sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def run_advisory_calibration(
+    path: Path = FIXTURE_PATH,
+    *,
+    subject_runner: SubjectRunner,
+    judge_runner: JudgeRunner,
+) -> dict[str, Any]:
+    """Run the optional subject/judge calibration over actual captured subject output.
+
+    The adapters are deliberately injected by the caller: this module has no provider SDK,
+    network access, or canonical-state write path. Each subject response is evaluated by the
+    deterministic rubric before the advisory judge sees it, and every subject/judge run is kept
+    in the returned report for provenance and variance analysis.
+    """
+
+    fixtures, injections = load_registry(path)
+    all_fixtures = (*fixtures, *injections)
+    fixture_reports: dict[str, dict[str, Any]] = {}
+    deterministic_false_positives: list[dict[str, Any]] = []
+    deterministic_false_negatives: list[dict[str, Any]] = []
+    judge_false_positives: list[dict[str, Any]] = []
+    judge_false_negatives: list[dict[str, Any]] = []
+    deterministic_detected: dict[str, list[dict[str, Any]]] = {
+        "known_bad": [],
+        "regression_injections": [],
+    }
+    deterministic_missed: dict[str, list[dict[str, Any]]] = {
+        "known_bad": [],
+        "regression_injections": [],
+    }
+    judge_detected: dict[str, list[dict[str, Any]]] = {
+        "known_bad": [],
+        "regression_injections": [],
+    }
+    judge_missed: dict[str, list[dict[str, Any]]] = {
+        "known_bad": [],
+        "regression_injections": [],
+    }
+
+    for fixture in all_fixtures:
+        case = _subject_case(fixture)
+        bucket = "known_bad" if fixture.category == "known_bad" else "regression_injections"
+        subject_records: list[dict[str, Any]] = []
+        for subject_number in range(1, SUBJECT_RUNS + 1):
+            subject = _normalise_subject_run(
+                subject_runner(case, subject_number),
+                f"{fixture.fixture_id}.subject_run[{subject_number}]",
+            )
+            observation = _observation(fixture, subject.output)
+            deterministic_passed = _expected_safe(fixture, observation)
+            run_key = {"fixture_id": fixture.fixture_id, "subject_run": subject_number}
+            if fixture.category == "known_good" and not deterministic_passed:
+                deterministic_false_positives.append(run_key)
+            elif fixture.category != "known_good" and deterministic_passed:
+                deterministic_false_negatives.append(run_key)
+                deterministic_missed[bucket].append(run_key)
+            elif fixture.category != "known_good":
+                deterministic_detected[bucket].append(run_key)
+
+            judge_records: list[dict[str, Any]] = []
+            for judge_number in range(1, JUDGE_RUNS + 1):
+                judge = _normalise_judge_run(
+                    judge_runner(case, subject, judge_number),
+                    f"{fixture.fixture_id}.judge_run[{subject_number},{judge_number}]",
+                )
+                judge_key = {
+                    "fixture_id": fixture.fixture_id,
+                    "subject_run": subject_number,
+                    "judge_run": judge_number,
+                }
+                flagged = not judge.passed
+                if fixture.category == "known_good" and flagged:
+                    judge_false_positives.append(judge_key)
+                elif fixture.category != "known_good" and not flagged:
+                    judge_false_negatives.append(judge_key)
+                    judge_missed[bucket].append(judge_key)
+                elif fixture.category != "known_good":
+                    judge_detected[bucket].append(judge_key)
+                judge_records.append(
+                    {
+                        "run": judge_number,
+                        "passed": judge.passed,
+                        "detected": flagged,
+                        "failure_tags": list(judge.failure_tags),
+                        "model": judge.model,
+                        "conditions": dict(judge.conditions),
+                    }
+                )
+            subject_records.append(
+                {
+                    "run": subject_number,
+                    "model": subject.model,
+                    "conditions": dict(subject.conditions),
+                    "output": subject.output,
+                    "output_sha256": _sha256(subject.output),
+                    "deterministic": {
+                        "passed": deterministic_passed,
+                        "detected": not deterministic_passed,
+                        "failed_rules": observation["failed_rules"],
+                        "reasons": observation["reasons"],
+                    },
+                    "judge_runs": judge_records,
+                }
+            )
+
+        output_hashes = [record["output_sha256"] for record in subject_records]
+        judge_outcomes = [
+            judge["passed"]
+            for record in subject_records
+            for judge in record["judge_runs"]
+        ]
+        fixture_reports[fixture.fixture_id] = {
+            "id": fixture.fixture_id,
+            "category": fixture.category,
+            "target_rule": fixture.target_rule,
+            "baseline": fixture.baseline,
+            "subject_prompt": fixture.subject_prompt,
+            "subject_runs": subject_records,
+            "subject_variance": {
+                "stable": len(set(output_hashes)) == 1,
+                "distinct_outputs": len(set(output_hashes)),
+                "run_count": len(output_hashes),
+            },
+            "judge_variance": {
+                "stable": len(set(judge_outcomes)) == 1,
+                "distinct_outcomes": len(set(judge_outcomes)),
+                "run_count": len(judge_outcomes),
+                "by_subject_run": [
+                    {
+                        "subject_run": record["run"],
+                        "stable": len({judge["passed"] for judge in record["judge_runs"]}) == 1,
+                    }
+                    for record in subject_records
+                ],
+            },
+        }
+
+    def layer_summary(
+        false_positives: list[dict[str, Any]],
+        false_negatives: list[dict[str, Any]],
+        detected: dict[str, list[dict[str, Any]]],
+        missed: dict[str, list[dict[str, Any]]],
+    ) -> dict[str, Any]:
+        good_count = sum(item.category == "known_good" for item in all_fixtures)
+        bad_count = sum(item.category == "known_bad" for item in all_fixtures)
+        injection_count = sum(item.category == "injection" for item in all_fixtures)
+        return {
+            "known_good": {
+                "total": good_count,
+                "runs": good_count * SUBJECT_RUNS,
+                "false_positives": false_positives,
+                "false_positive_count": len(false_positives),
+            },
+            "known_bad": {
+                "total": bad_count,
+                "detected": detected["known_bad"],
+                "missed": missed["known_bad"],
+                "false_negative_count": sum(
+                    item["fixture_id"].startswith("BAD-") for item in false_negatives
+                ),
+                "judge_runs": bad_count * SUBJECT_RUNS * JUDGE_RUNS,
+            },
+            "regression_injections": {
+                "total": injection_count,
+                "detected": detected["regression_injections"],
+                "missed": missed["regression_injections"],
+                "false_negative_count": sum(
+                    item["fixture_id"].startswith("RI-") for item in false_negatives
+                ),
+                "judge_runs": injection_count * SUBJECT_RUNS * JUDGE_RUNS,
+            },
+            "false_positive_count": len(false_positives),
+            "false_negative_count": len(false_negatives),
+        }
+
+    unstable_subject = [
+        fixture_id
+        for fixture_id, report in fixture_reports.items()
+        if not report["subject_variance"]["stable"]
+    ]
+    unstable_judge = [
+        fixture_id
+        for fixture_id, report in fixture_reports.items()
+        if not report["judge_variance"]["stable"]
+    ]
+    subject_models = sorted(
+        {
+            record["model"]
+            for report in fixture_reports.values()
+            for record in report["subject_runs"]
+        }
+    )
+    judge_models = sorted(
+        {
+            judge["model"]
+            for report in fixture_reports.values()
+            for record in report["subject_runs"]
+            for judge in record["judge_runs"]
+        }
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "rubric_rules": list(RULE_IDS),
+        "subject_runs_per_fixture": SUBJECT_RUNS,
+        "judge_runs_per_subject": JUDGE_RUNS,
+        "model_identity": {"subject_models": subject_models, "judge_models": judge_models},
+        "run_conditions": {
+            "subject": [
+                {
+                    "fixture_id": fixture_id,
+                    "run": record["run"],
+                    "model": record["model"],
+                    "conditions": record["conditions"],
+                }
+                for fixture_id, report in fixture_reports.items()
+                for record in report["subject_runs"]
+            ],
+            "judge": [
+                {
+                    "fixture_id": fixture_id,
+                    "subject_run": record["run"],
+                    "judge_run": judge["run"],
+                    "model": judge["model"],
+                    "conditions": judge["conditions"],
+                }
+                for fixture_id, report in fixture_reports.items()
+                for record in report["subject_runs"]
+                for judge in record["judge_runs"]
+            ],
+        },
+        "deterministic": layer_summary(
+            deterministic_false_positives,
+            deterministic_false_negatives,
+            deterministic_detected,
+            deterministic_missed,
+        ),
+        "judge": layer_summary(
+            judge_false_positives,
+            judge_false_negatives,
+            judge_detected,
+            judge_missed,
+        ),
+        "variance": {
+            "subject": {
+                "stable": not unstable_subject,
+                "unstable_fixtures": unstable_subject,
+            },
+            "judge": {
+                "stable": not unstable_judge,
+                "unstable_fixtures": unstable_judge,
+            },
+        },
+        "advisory": True,
+        "deterministic_ci_ready": True,
+        "live_judge_blocking_ready": False,
+        "live_judge_blocking_reason": "Live model/provider variance is recorded for review only and never gates CI or canonical state.",
+        "observations": fixture_reports,
     }
