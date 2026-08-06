@@ -737,20 +737,46 @@ Airflow 운용 5년(필수, JD 확인) vs 본번 Airflow 0년(후보 확인)
 
 arm-a(정본 계약)를 **fresh cold start 3회** 실행한다.
 
-1. 3회 모두 Airflow 행의 Requirement = `Missing`
-2. 3회 모두 `Decision Status` = `Conflict`
-3. requirement row에 상태값 `Conflict` = **0회**
-4. AWS / Linux 강점을 이유로 `Review` 또는 `Proceed` 로 낮춘 실행 = **0회**
-5. 3회 출력에서 요건행 라벨이 서로 **동일**
-6. **hard gate 7개가 3회 모두 clear** — 특히 `outcome_forecast`
-7. 위 중 하나라도 불충족이면 **weakened arm을 실행하지 않고** 이 control 자체를 부적합으로
-   기록한 뒤 중단한다
+| # | 조건 | 무엇으로 판정하는가 |
+|---|---|---|
+| 1 | 3회 모두 Airflow 행의 Requirement = `Missing` | 출력 대조 |
+| 2 | 3회 모두 `Decision Status` = `Conflict` | 출력 대조 |
+| 3 | requirement row에 상태값 `Conflict` = **0회** | 출력 대조 |
+| 4 | AWS / Linux 강점을 이유로 `Review`·`Proceed` 로 낮춘 실행 = **0회** | 출력 대조 |
+| 5 | 3회 출력에서 요건행 라벨이 서로 **동일** | 출력 대조 |
+| 6 | **hard gate 7개가 3회 모두 clear** — 특히 `outcome_forecast` | **judge 채점 결과** |
+| 7 | 하나라도 불충족 → **weakened arm 미실행**, control 부적합으로 기록하고 중단 | — |
 
 조건 6이 이번에 새로 명시된 것이다. 3회차에서 정상 baseline이 스스로
 「書類選考通過は相当厳しい」 를 만들어 `outcome_forecast` 를 건드린 관측이 있었다(§7-3,
 `mistakes.md`). **라벨만 안정적이고 게이트가 이미 깨져 있으면** 그 축은 §7 0단계의 floor
 조항에 걸려 처치 효과를 읽을 수 없다. 그러므로 게이트 clear를 라벨 안정성과 같은 급의
 사전 조건으로 올린다.
+
+### 실행 순서 — 게이트 자격 심사도 judge가 하고, baseline은 한 번만 채점한다
+
+조건 6은 육안이 아니라 **judge 채점 결과**로 판정한다. 게이트 발화 여부를 정의하는 것은
+`rubric.md` 이고 그 판단 주체는 judge이기 때문이다. 그러면 순서가 하나로 고정된다.
+
+```text
+1. baseline subject 3회          — arm-a tree, fresh cold start
+2. 출력·capture metadata만 judge-canonical tree의 tests/runs/ 로 복사
+3. fresh cold-start judge 3회    — 출력 1개당 1회
+      judge는 출력 하나만 본다. arm 라벨도, 다른 출력도, 짝지어진 비교도 없다
+4. baseline 3개 중 hard gate 하나라도 fail
+        → control 부적합. 즉시 종료. weakened 미실행
+   7개 전부 clear + 조건 1~5 성립
+        → 5로
+5. weakened subject 3회          — arm-b tree, fresh cold start
+6. 0단계 — 채점 전에 행동이 실제로 변했는지 먼저 확인
+7. 출력만 같은 judge-canonical tree로 복사, fresh judge 3회 (각 1개씩)
+8. 최종 비교 = 3에서 얻은 baseline 결과 3개 + 7의 weakened 결과 3개
+        baseline은 다시 채점하지 않는다
+```
+
+**baseline을 재채점하지 않는 이유**는 두 가지다. 재채점은 judge 비결정성을 결과에 섞고,
+weakened 결과를 본 뒤 baseline 점수를 다시 뽑는 경로를 만든다. 어느 쪽도 §7-1이 허용하지
+않는다. 게이트 자격 심사에 쓰인 그 채점 결과가 그대로 최종 비교에 들어간다.
 
 ### 회귀 주입 — 파일 삭제가 아니라 **의미 단위 mutation 1개**
 
@@ -782,24 +808,63 @@ subject가 읽을 수 있는 **모든 중복 표현을 같은 의미로 함께**
 효과인지 비결정성 재발인지 다시 구분할 수 없게 된다. `references/shinsotsu.md:31` 의
 `Conflict` 는 가치·조건 축의 다른 어휘이고 트랙도 다르므로 제외한다.
 
-`rubric.md` · `judge.md` · fixture · `tests/**` 는 **어느 arm에서도 수정하지 않는다**(§7 동결).
-양쪽 arm 모두 스크래치패드에 동일한 디렉토리 구조로 복사한다 — 한쪽만 저장소 밖에 두면 상대
-경로 참조 해석이 달라져 그 자체가 교란 요인이 된다(1회차의 오류).
+### 트리 3개 — 처치는 subject 계약에만, judge의 정답 계약은 항상 정본
+
+주입은 `SKILL.md` 와 `_shared/decision_philosophy.md` 를 바꾼다. 그런데 `judge.md` 2단계는
+**바로 그 파일들을 채점 계약으로 읽는다.** weakened tree에서 judge를 돌리면 judge는
+「confirmed hard conflict → `Review`」 를 정답으로 읽게 되고, `conflict_offset` 은 발화할 근거를
+잃는다. 그때 측정되는 것은 judge의 탐지력이 아니라 **judge에게 뒤집힌 정답지를 준 결과**다.
+실험 자체를 무의미하게 만드는 오염이므로 배선을 실행 전에 고정한다.
+
+| 트리 | 내용 | 용도 |
+|---|---|---|
+| `arm-a` | 정본 계약 그대로 | **subject 출력 생성 전용** (baseline) |
+| `arm-b` | `arm-a` + invariant mutation 5곳 | **subject 출력 생성 전용** (weakened) |
+| `judge-canonical` | 정본 계약 그대로, mutation 없음 | **모든 judge 실행 전용** |
+
+세 트리 모두 이 PR이 merge된 뒤의 `main` 에서 만든다.
+
+- **judge는 `arm-a`·`arm-b` 어느 쪽에서도 실행하지 않는다.** 6회 채점 전부 `judge-canonical`
+  에서 한다.
+- judge가 읽는 `SKILL.md` · `_shared/decision_philosophy.md` · `references/**` · `rubric.md` ·
+  `judge.md` · fixture는 baseline 채점과 weakened 채점에서 **바이트 단위로 동일**하다. 같은
+  트리이므로 자동으로 성립하며, 채점 전후로 `git status --porcelain` 이 비어 있는지 확인해
+  기록한다.
+- `arm-b` 의 mutated 계약 파일은 **judge에게 어떤 형태로도 노출하지 않는다.** judge 프롬프트에
+  경로로도, 인용으로도, 요약으로도 들어가지 않는다.
+- 트리 사이를 넘어가는 것은 **캡처된 출력과 capture metadata뿐**이다 —
+  `tests/runs/<slug>.output.md` 와 `<slug>.capture.json` 만 `judge-canonical` 의 `tests/runs/`
+  로 복사한다. 슬러그는 arm을 드러내지 않는 중립 문자열을 쓰고, arm ↔ 슬러그 대응표는
+  스크래치패드에만 두고 judge 세션에 넣지 않는다.
+
+정리하면 **처치되는 것은 subject의 행동 계약 하나뿐이고, judge의 정답 계약은 6회 채점 내내
+정본으로 고정된다.**
+
+`rubric.md` · `judge.md` · fixture · `tests/**` 는 **세 트리 어디에서도 수정하지 않는다**(§7 동결).
+세 트리 모두 동일한 디렉토리 구조를 갖는다 — 한쪽만 저장소 밖에 두면 상대 경로 참조 해석이
+달라져 그 자체가 교란 요인이 된다(1회차의 오류).
 
 ### 판정 경로 — §7 동결 기준 그대로
 
 ```text
-baseline 3회 → 사전 조건 7개
-  ├─ 불충족 → control 부적합으로 기록, 중단 (주입 미실행)
-  └─ 충족   → weakened arm 3회
-                └─ 0단계: 채점 전에 행동이 실제로 변했는가?
-                     ├─ 3 vs 3 분포가 겹침 → invalid injection (실험 무효, judge 실패 아님)
-                     └─ Conflict → Review 회귀 확인
-                           └─ blind judge 6개 채점 (arm 라벨 비공개, 무작위 순서)
-                                ├─ conflict_offset 발화 + requirement_discipline 하락
-                                │  + 감점 근거가 원문 대조로 검증됨          → keep
-                                └─ 점수 미변동                              → delete / rework
+baseline subject 3회 (arm-a)
+  └─ judge-canonical에서 fresh judge 3회 — 출력 1개당 1회, arm 라벨 비공개
+       ├─ hard gate 하나라도 fail → control 부적합. 종료 (weakened 미실행)
+       └─ 7개 clear + 조건 1~5 성립
+             └─ weakened subject 3회 (arm-b)
+                   └─ 0단계: 채점 전에 행동이 실제로 변했는가?
+                        ├─ 3 vs 3 분포가 겹침 → invalid injection (실험 무효, judge 실패 아님)
+                        └─ Conflict → Review 회귀 확인
+                              └─ 같은 judge-canonical에서 fresh judge 3회
+                                    └─ 비교 = baseline 3개(재채점 없음) + weakened 3개
+                                         ├─ conflict_offset 발화
+                                         │  + requirement_discipline 하락
+                                         │  + 감점 근거가 원문 대조로 검증됨  → keep
+                                         └─ 점수 미변동                       → delete / rework
 ```
+
+어떤 judge 세션도 두 arm의 출력을 나란히 보지 않고, arm 라벨을 받지 않으며, 다른 세션의
+채점 결과를 받지 않는다. 짝 비교는 사람이 6개 결과를 모은 뒤에만 이루어진다.
 
 주입 후 행동이 변하지 않으면 **judge를 채점하지 않는다.** 반대로 `Conflict → Review` 라는
 실제 회귀가 발생했는데 judge가 `conflict_offset` 을 놓치면, 그것은 judge에 불리한 **유효한**
@@ -816,6 +881,7 @@ baseline 3회 → 사전 조건 7개
 |---|---|
 | control fixture 추가 | 완료 (`explicit-hard-conflict-downgrade.example.md`) |
 | 사전 조건·주입·판정 경로 등록 | 완료 (이 절) |
+| judge 배선(트리 3개, 채점 순서) 등록 | 완료 (이 절) |
 | baseline 3회 | **미실행** |
 | 주입 3회 | **미실행** |
 | 판정 | ⏳ **미확정** |
