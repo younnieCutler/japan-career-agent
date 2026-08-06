@@ -687,6 +687,18 @@ def recover_approval(home: CareerVault, workspace: str | Path | None = None) -> 
     )
 
 
+def _requires_approval_recovery(args: argparse.Namespace) -> bool:
+    """Only gate commands that can write; read-only inspection must remain available."""
+    if args.command in {
+        "setup", "guided", "approve", "restore-state", "index",
+        "propose-fact", "propose-context",
+    }:
+        return True
+    if args.command == "doctor":
+        return bool(args.fix)
+    return args.command == "run"
+
+
 def workspace_summary(workspace: str | Path | None = None) -> dict[str, Any]:
     """Read a safe workspace projection without creating a missing workspace or pipeline."""
     resolved = workspace_path(workspace)
@@ -1417,7 +1429,8 @@ def main(argv: Iterable[str] | None = None) -> int:
             result = initialize_vault(home.path)
         else:
             home.require_initialized()
-            recover_approval(home, workspace=getattr(args, "workspace", None))
+            if _requires_approval_recovery(args):
+                recover_approval(home, workspace=getattr(args, "workspace", None))
             if args.command == "doctor":
                 result = doctor(home, fix=args.fix, workspace=args.workspace)
             elif args.command == "status":

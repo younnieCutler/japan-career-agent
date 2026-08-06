@@ -48,6 +48,14 @@ codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
 codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
+### リリースチャンネル
+
+リリース準備中は、リポジトリのバージョンが stable marketplace チャンネルより先に進む
+ことがあります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを
+参照し、`main` は追跡しません。そのため、ソースメタデータが `1.17.2` で stable
+marketplace ref が `v1.17.1` になっている状態は意図したものです。リリース workflow が
+`v1.17.2` を公開し、stable メタデータの変更がマージされた後に ref も更新されます。
+
 ### ローカル fallback
 
 ファイルを直接確認したり実行したりする場合は、リポジトリを clone します。

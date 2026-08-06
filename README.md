@@ -48,6 +48,14 @@ codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
 codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
+### Release channels
+
+The repository version can be ahead of the stable marketplace channel while a release is being
+prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
+follows `main`. Therefore source metadata at `1.17.2` and a stable marketplace ref of `v1.17.1`
+are intentional until the release workflow publishes `v1.17.2` and the stable metadata update is
+merged.
+
 ### Local fallback
 
 Clone the repository when you need to inspect or run the files directly:

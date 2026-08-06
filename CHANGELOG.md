@@ -3,6 +3,10 @@
 ## [1.17.2] - 2026-08-06
 
 - Make the stable Codex marketplace channel resolve to the immutable `v1.17.1` tag.
+- Keep read-only `status`, `doctor`, and proposal inspection available when a pending approval
+  journal needs repair; write-capable commands still recover before proceeding.
+- Document that the stable marketplace intentionally follows the latest published tag, which may
+  lag source metadata while a release is being prepared.
 - Add crash-recoverable approval transactions and durable JSONL appends.
 - Add executable canonical schema validation, typed lifecycle vocabulary, and release/install checks.
 

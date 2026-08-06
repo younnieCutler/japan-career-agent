@@ -902,6 +902,17 @@ class CareerAgentTests(unittest.TestCase):
             recover_approval(home, workspace=self.workdir)
         self.assertEqual(failure.exception.code, "APPROVAL_RECOVERY_FAILED")
 
+    def test_read_only_commands_remain_available_when_recovery_journal_is_broken(self) -> None:
+        journal = self.vault / ".career-agent" / "approval-transaction.json"
+        journal.write_text("{not-json\n", encoding="utf-8")
+
+        for command in ("status", "doctor", "proposals"):
+            result = run(self.vault, command)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("APPROVAL_RECOVERY_FAILED", result.stdout + result.stderr)
+
+        self.assertTrue(journal.exists())
+
 
 
 if __name__ == "__main__":

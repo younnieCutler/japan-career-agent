@@ -48,6 +48,14 @@ codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
 codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
 
+### 릴리스 채널
+
+릴리스를 준비하는 동안 저장소의 버전이 stable marketplace 채널보다 앞설 수 있습니다.
+stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지
+않습니다. 따라서 소스 메타데이터가 `1.17.2`이고 stable marketplace ref가 `v1.17.1`인
+상태는 의도된 것입니다. 릴리스 workflow가 `v1.17.2`를 발행하고 stable 메타데이터 변경이
+병합되면 ref도 갱신됩니다.
+
 ### 로컬 fallback
 
 파일을 직접 살펴보거나 실행해야 할 때 저장소를 clone하세요.
