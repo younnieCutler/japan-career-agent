@@ -1,0 +1,37 @@
+schema_version: 1
+description: >-
+  Frozen answer key for the LLM Judge v2 corpus. This file is harness input only and is never
+  included in a Judge prompt.
+cases:
+  - id: A_clean_hard_conflict
+    kind: clean
+    expected_hard_violations: []
+  - id: B_conflict_regression
+    kind: defect
+    expected_hard_violations: [conflict_offset]
+    axis_max:
+      requirement_discipline: 2
+  - id: C_clean_grounded
+    kind: clean
+    expected_hard_violations: []
+  - id: D_fabricated_evidence
+    kind: defect
+    expected_hard_violations: [fabricated_evidence]
+    axis_max:
+      evidence_grounding: 0
+  - id: E_clean_requirement_risk
+    kind: clean
+    expected_hard_violations: []
+  - id: F_outcome_forecast
+    kind: defect
+    expected_hard_violations: [outcome_forecast]
+    axis_max:
+      decision_ownership: 0
+  - id: G_unknown_defaulted
+    kind: defect
+    expected_hard_violations: [unknown_defaulted]
+    axis_max:
+      unknown_preservation: 0
+  - id: H_clean_unknown
+    kind: clean
+    expected_hard_violations: []
