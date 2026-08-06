@@ -1,6 +1,6 @@
 # LLM-as-judge 파일럿 — job-seeker-agent
 
-**상태:** 4회차 미확정 — 새 control의 정본 baseline은 3/3 `Missing` + `Decision Status: Conflict`, hard gate 7개도 3/3 clear였다. 그러나 약화본이 `Review` / `Conflict` / `Conflict` 로 갈려 정본 분포와 겹쳤으므로 사전 등록대로 **invalid injection** 처리했고 약화본 judge는 실행하지 않았다. keep/delete 미확정 (2026-08-06, baseline `cae3b12`) · **작성일:** 2026-08-05 · **대상 버전:** 1.16.1 · **범위:** `job-seeker-agent` 1개 스킬
+**상태:** 4회차 미확정 — baseline 라벨 안정성, hard gate 21/21 clear, 감점 근거 검증은 통과했지만 frozen §7 axis-floor qualification이 불통과였다. 핵심 축 `requirement_discipline`이 3/2/2로 baseline `>=3` 조건을 충족하지 못했다. 이미 실행된 weakened 3회는 protocol-extraneous exploratory observation으로 보존하고 정식 regression·keep/delete 근거에서 제외한다. weakened judge는 실행하지 않았다. keep/delete 미확정 (2026-08-06, baseline `cae3b12`) · **작성일:** 2026-08-05 · **대상 버전:** 1.16.1 · **범위:** `job-seeker-agent` 1개 스킬
 
 ---
 
@@ -929,12 +929,15 @@ arm은 local-only opaque commit의 clean tree였다. judge-canonical에는 매�
 ### harness 사전 실패 — 실험 run에서 제외
 
 유효 run 전에 harness 실패가 두 번 있었다. 첫 호출은 PowerShell이 Codex의 stderr 배너를 terminating
-error로 처리해 frozen capture가 생성되지 않았고, 다음 호출은 Windows native pipe가 일본어 stdin을
-`?`로 손상했다. 두 원자료와 해시는 ignored handoff에 보존했다. 전자는 capture 계약을, 후자는
-fixture 본문 바이트 전달 계약을 충족하지 않으므로 어느 arm에도 세지 않았다. 이후 UTF-8 no-BOM
-stdin과 non-terminating stderr 처리를 고정하고 아래 6회를 실행했다.
+error로 처리해 output은 남았지만 frozen capture가 생성되지 않았고, 다음 호출은 Windows native pipe가
+일본어 stdin을 `?`로 손상했다. 두 원자료와 해시는 ignored handoff에 보존했다. 첫 번째는 output 부재가
+아니라 capture 계약 위반을 확인한 즉시 제외했다. 두 번째는 label-bearing output이 실제로 존재했고
+원자료 확인 과정에서 `Review` 라벨도 보였지만, 제외 근거는 그 라벨이 아니라 byte-level fixture 전달
+위반이었다. semantic label을 baseline 집계에 넣기 전에 protocol-invalid로 제외했으며, 이후 라벨은
+보존된 원자료의 일부로만 확인했다. 이후 UTF-8 no-BOM stdin과 non-terminating stderr 처리를 고정하고
+아래 6회를 실행했다.
 
-### baseline — 사전 조건 7개 전부 통과
+### baseline — §7-4 추가 조건 통과, frozen §7 axis-floor 불통과
 
 | 관측 | 실행 1 | 실행 2 | 실행 3 |
 |---|---|---|---|
@@ -945,8 +948,10 @@ stdin과 non-terminating stderr 처리를 고정하고 아래 6회를 실행했�
 | AWS/Linux로 하향 | 없음 | 없음 | 없음 |
 | hard gate 7개 | clear | clear | clear |
 
-따라서 §7-4의 조건 1~6이 모두 성립했고 조건 7의 중단 경로는 발동하지 않았다. 세 judge 결과는
-모두 정상 JSON이었고 retry는 0회였다.
+따라서 §7-4의 추가 조건 1~6은 모두 성립했고 세 judge 결과는 정상 JSON이었으며 retry는 0회였다.
+그러나 이 추가 조건은 frozen §7 0단계의 axis-floor qualification을 대체하지 않는다. 이번 주입의
+사전 등록 핵심 축인 `requirement_discipline`은 3/2/2였고, frozen 조건은 해당 baseline이 3 이상이어야
+한다.
 
 | judge 축 | 실행 1 | 실행 2 | 실행 3 |
 |---|---:|---:|---:|
@@ -961,11 +966,27 @@ stdin과 non-terminating stderr 처리를 고정하고 아래 6회를 실행했�
 - 실행 3의 「`本番 Airflow 運用 5年以上 … | 運用 0年 … | Missing`」 행에도 source/date/confidence metadata가 없다.
 
 세 감점은 모두 실제 출력의 누락을 가리킨다. 정본에서 3/3 반복된 제품 결함이므로 기존
-`tests/mistakes.md`에 한 행을 추가했다. 낮은 baseline 점수 자체는 사전 조건 실패가 아니다.
+`tests/mistakes.md`에 한 행을 추가했다. 이 제품 결함의 기록과 frozen axis-floor 판정은 서로 다른
+경로이며, floor 불통과는 아래 공식 순서에서 별도로 적용한다.
 
-### weakened — 분포 중첩으로 invalid injection
+### 공식 판정 순서
 
-채점 전에 약화본 3개를 정본 3개와 대조했다.
+| 단계 | 결과 |
+|---|---|
+| baseline subject 3회 안정성 | 통과 |
+| baseline hard gates | 통과 — 21/21 clear |
+| baseline 감점 근거 검증 | 통과 — 3건 모두 원문 대조 |
+| frozen §7 axis-floor qualification | **불통과** — `requirement_discipline` 3/2/2, 요구 조건 baseline `>=3` |
+| weakened arm 진입 | 공식 경로에서는 여기서 중단했어야 함 |
+| 최종 keep/delete | **undecided** |
+
+따라서 이번 회차의 공식 중단 이유는 axis-floor 불통과다. 결과를 본 뒤 이 조건을 추가한 것이
+아니라, §7 0단계에 이미 동결된 floor 조건을 baseline Judge 결과에 적용한 것이다.
+
+### 이미 실행된 weakened arm — protocol-extraneous exploratory observation
+
+axis-floor 불통과 뒤에는 weakened arm으로 넘어가서는 안 됐지만, 이미 실행된 3회 원자료는 삭제하지
+않고 보존한다. 이 3회는 정식 regression 결과가 아니며 keep/delete 판단에 사용하지 않는다.
 
 | 관측 | 실행 1 | 실행 2 | 실행 3 |
 |---|---|---|---|
@@ -973,11 +994,11 @@ stdin과 non-terminating stderr 처리를 고정하고 아래 6회를 실행했�
 | AWS / Linux | `Matched` / `Matched` | `Matched` / `Matched` | `Matched` / `Matched` |
 | Decision Status | **`Review`** | **`Conflict`** | **`Conflict`** |
 
-정본 `Conflict / Conflict / Conflict` 와 약화본 `Review / Conflict / Conflict` 가 겹친다. §7-4가
-요구한 3대3 완전 분리가 아니므로 **invalid injection** 이다. `AGENTS.md`의 정본 invariant는
-사전 등록대로 mutation하지 않았고, 약화본 실행 2·3은 실제로 「AWS・Linux 경험으로相殺できません」,
-「歓迎要件の一致で相殺できない」라고 썼다. 이를 원인으로 단정하거나 결과를 골라 유효 주입으로
-재분류하지 않는다.
+정본 `Conflict / Conflict / Conflict` 와 약화본 `Review / Conflict / Conflict` 가 겹친다는 관측은
+있지만, axis-floor 불통과 뒤의 protocol-extraneous 자료이므로 이 분포를 **invalid injection**이라는
+공식 중단 이유나 keep/delete 근거로 사용하지 않는다. 약화본 실행 2·3은 실제로 「AWS・Linux 経験で
+相殺できません」, 「歓迎要件の一致で相殺できない」라고 썼지만, 출력 텍스트만으로 mutation과의
+인과를 단정하지 않는다.
 
 따라서 약화본 output은 judge-canonical에 복사하지 않았고 judge도 실행하지 않았다. `conflict_offset`
 탐지나 `requirement_discipline` 2점 하락은 측정하지 않았으며 keep/delete도 정하지 않는다.
@@ -986,6 +1007,36 @@ stdin과 non-terminating stderr 처리를 고정하고 아래 6회를 실행했�
 이는 산문 계약 mutation을 결정론 체크가 읽지 않는다는 예측과 일치하지만, 주입 무효 판정을 바꾸지
 않는다.
 
+### mutation surface audit — 5회차 선행 조건
+
+§7-4의 mutation 목록은 5개 계약 위치만 열거했고, 모든 세션이 읽는 `AGENTS.md:12-13`의
+「confirmed hard, legal, must-have, avoid, or dealbreaker conflict is not offset by another strength」
+진술을 누락했다. 따라서 이번 arm-b는 정본 invariant를 다섯 위치에서 뒤집은 **깨끗한 단일 invariant
+flip이 아니었다**. 이 누락은 이번 결과를 재해석하거나 재실행할 사유가 아니라 5회차 설계의 선행
+조건으로 기록한다. 다음 회차에서 mutation surface를 먼저 완전성 검증해야 하며, 이번 판정은 그대로
+`undecided`다.
+
+### 모델 비교 가능성과 이월 기준
+
+4회차 subject/judge는 `gpt-5.6-terra`로 고정했지만 2·3회차의 6회 baseline은 Sonnet 계열 세션이었다.
+따라서 4회차 baseline을 이전 6회와 직접 비교해 fixture만 개선됐다고 분리할 수 없다. 또한 §6.3
+네거티브 컨트롤과 judge 재현성은 1회차의 다른 judge 모델에서 얻은 결과를 이월한 기록이었다. judge
+모델이 변경된 이번 회차에서는 두 기준을 확립한 것으로 볼 수 없다.
+
+| 기준 | 4회차 상태 |
+|---|---|
+| §6.3 네거티브 컨트롤 | **미확립 — judge 모델 변경으로 재실행 필요** |
+| judge 재현성 | **미확립 — judge 모델 변경으로 재실행 필요** |
+
+이번 회차에서는 어느 기준도 재실행하지 않는다. 5회차 설계 입력으로만 기록한다.
+
+### 측정 축 점수 변동 — 5회차 설계 입력
+
+라벨 안정성 사전 조건은 등록대로 통과했지만, 핵심 축 `requirement_discipline` 점수는 3/2/2로
+1점 폭으로 흔들렸고, weakened에서 2점이 관측돼도 바닥 0까지 2점뿐이다. 이는 이번 회차의 floor
+불통과를 사후적으로 만든 근거가 아니라, frozen floor를 적용한 결과이며, 5회차에서 축 score
+stability와 floor 여유를 사전 등록할 때 사용할 관측이다.
+
 ### 4회차 기준별 상태
 
 | 기준 | 결과 |
@@ -993,8 +1044,11 @@ stdin과 non-terminating stderr 처리를 고정하고 아래 6회를 실행했�
 | baseline subject 안정성 | **통과** — 상태 분포 3/3 동일 |
 | baseline hard gate | **통과** — 7개 × 3회 모두 clear |
 | baseline 감점 검증 가능성 | **통과** — 3개 인용 모두 원문 대조 성공 |
-| 0단계 유효 주입 | **불통과** — 약화본 2/3이 정본과 같은 `Conflict` |
-| weakened judge | **미실행** — invalid injection 중단 규칙 |
+| frozen §7 axis-floor | **불통과** — `requirement_discipline` 3/2/2, 요구 조건 `>=3` |
+| 이미 실행된 weakened | protocol-extraneous exploratory observation; 정식 regression 아님 |
+| weakened judge | **미실행** — 공식 floor 중단 이후 |
+| §6.3 네거티브 컨트롤 | **미확립** — judge 모델 변경으로 재실행 필요 |
+| judge 재현성 | **미확립** — judge 모델 변경으로 재실행 필요 |
 | 결정론 체크 | 약화본 53/53 통과 |
 | **최종 keep/delete** | ⏳ **미확정 (`undecided`)** |
 
