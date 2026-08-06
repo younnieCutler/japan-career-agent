@@ -91,7 +91,7 @@ v1의 역사적 결론을 수정하거나 재해석하지 않으며, 제품 파�
 않는다. 모든 candidate는 `gpt-5.6-terra`, reasoning `medium`,
 `codex exec --ephemeral --ignore-user-config --ignore-rules --sandbox read-only`
 로 실행했다. raw output/capture는 저장소 밖
-`C:\Users\金貞潤\Documents\jraa-llm-judge-v2-6-artifacts\`에 보존했다.
+scratch artifact directory에 보존했다.
 
 | 실행 | commit | 결과 | hard detection | clean FP | schema/quote | 비고 |
 |---:|---|---|---|---:|---|---|
