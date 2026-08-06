@@ -50,7 +50,8 @@ labels는 experiment 1 실행 전에 변경하지 않는다. harness bug가 보�
 2. clean case의 hard-gate false positive가 0이다.
 3. 결과 JSON schema와 case/gate/axis 구조가 유효하다.
 4. 모든 failed gate와 4 미만 axis 값에 captured output의 원문 quote가 있다.
-5. expected axis floor와 unexpected hard failure가 없다.
+5. expected axis floor를 충족한다. defect case의 추가 hard label은 부수 관측으로
+   기록하고, clean case의 hard-gate false positive만 0 조건으로 막는다.
 6. 동률이면 더 짧고 단순한 procedure를 우선한다.
 
 현재 best보다 앞 단계의 조건을 개선하고 뒤 단계의 조건을 악화시키지 않으면

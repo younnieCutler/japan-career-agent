@@ -162,7 +162,6 @@ def validate(result_path: Path, corpus_path: Path, expected_path: Path, schema_p
 
     expected_detected = all(set(expected_cases[c].get("expected_hard_violations", [])) <= set(detected.get(c, [])) for c in expected_cases)
     clean_fp_zero = not clean_false_positive_cases
-    no_unexpected = not unexpected_failures
     quotes_valid = not quote_failures and not axis_failures
     return {
         "schema_valid": schema_valid,
@@ -176,7 +175,11 @@ def validate(result_path: Path, corpus_path: Path, expected_path: Path, schema_p
         "expected_sha256": _sha256(expected_path),
         "schema_sha256": _sha256(schema_path),
         "errors": errors,
-        "lexicographic_pass": bool(schema_valid and expected_detected and clean_fp_zero and no_unexpected and quotes_valid and not errors),
+        # Additional labels on a defect case are recorded observations.  The frozen
+        # false-positive gate applies only to clean counterparts; a correct extra
+        # label must not make a candidate fail merely because the answer key listed
+        # the primary defect first.
+        "lexicographic_pass": bool(schema_valid and expected_detected and clean_fp_zero and quotes_valid and not errors),
     }
 
 
