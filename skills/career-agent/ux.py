@@ -246,6 +246,86 @@ def attach(command: str, result: Mapping[str, Any], *, args: Mapping[str, Any] |
             )
         return {**dict(result), "ux": outcome}
 
+    if command == "guided":
+        guided = result.get("guided") if isinstance(result.get("guided"), Mapping) else {}
+        summary = guided.get("summary") if isinstance(guided.get("summary"), Mapping) else {}
+        available = guided.get("available_actions") if isinstance(guided.get("available_actions"), list) else []
+        selection = result.get("selection") if isinstance(result.get("selection"), Mapping) else {}
+        selection_status = str(selection.get("status") or "menu")
+        if not result.get("ok", True) or selection_status in {"invalid", "blocked"}:
+            state = "blocked"
+            reason_code = str(result.get("error_code") or "OPERATION_BLOCKED")
+            reason_message = str(result.get("error") or "The guided choice could not be dispatched.")
+        elif selection_status == "confirmation_required":
+            state = "needs_confirmation"
+            confirmation_reason = {
+                "complete_setup": (
+                    "SETUP_REQUIRED",
+                    "Review the setup fields, then explicitly confirm before writing profile state.",
+                ),
+                "start_task": (
+                    "GUIDED_CONFIRMATION_REQUIRED",
+                    "Review the user-described task, then explicitly confirm before creating its proposal.",
+                ),
+                "approve_proposal": (
+                    "PENDING_PROPOSAL",
+                    "Review the pending proposal, then explicitly confirm before approval.",
+                ),
+                "restore_state": (
+                    "STATE_RECOVERY_REQUIRED",
+                    "Review the saved snapshot, then explicitly confirm before recovery changes the current state.",
+                ),
+            }
+            reason_code, reason_message = confirmation_reason.get(
+                str(selection.get("action")),
+                ("GUIDED_CONFIRMATION_REQUIRED", "Review the current state, then explicitly confirm before any write."),
+            )
+        else:
+            state = str(guided.get("state") or "ready")
+            if state == "needs_input":
+                reason_code = "SETUP_REQUIRED"
+                reason_message = "Complete the missing setup fields before dependent actions can proceed."
+            elif state == "needs_confirmation":
+                reason_code = "PENDING_PROPOSAL"
+                reason_message = "A pending proposal remains outside canonical state until explicit approval."
+            elif state == "review":
+                reason_code = "REVIEW_REQUIRED"
+                reason_message = "One or more evidence states need review; Unknown and Conflict remain explicit."
+            elif state == "blocked":
+                reason_code = str((summary.get("workspace_error") or {}).get("code") or "OPERATION_BLOCKED") if isinstance(summary.get("workspace_error"), Mapping) else "OPERATION_BLOCKED"
+                reason_message = str(
+                    ((summary.get("workspace_error") or {}).get("message") or "The current guided state is blocked.")
+                    if isinstance(summary.get("workspace_error"), Mapping)
+                    else "The current guided state is blocked."
+                )
+            else:
+                reason_code = "GUIDED_READY"
+                reason_message = "Available actions are derived from the current canonical state."
+        disclosures: list[dict[str, str]] = []
+        if not summary.get("setup_complete"):
+            disclosures.append(_disclosure("vault-purpose", "vault", "Vault stores approved personal career facts in the user's private area."))
+        if summary.get("pending_proposals"):
+            disclosures.append(_disclosure("proposal-approval-boundary", "proposal", "A proposal is not canonical until the existing approval path validates it."))
+        if summary.get("unknown_count"):
+            disclosures.append(_disclosure("unknown-state", "unknown", "Unknown means verified evidence is missing; it may remain Unknown."))
+        if summary.get("conflict_count"):
+            disclosures.append(_disclosure("conflict-state", "conflict", "Conflict means confirmed evidence disagrees; it is not offset by another strength."))
+        if isinstance(summary.get("workspace"), Mapping):
+            disclosures.append(_disclosure("workspace-purpose", "workspace", f"Workspace: {summary['workspace'].get('path') or 'not resolved'}; it contains job-search projection state."))
+        effects_changed = ["guided-selected operation"] if result.get("write_performed") or result.get("state_changed") else []
+        effects_unchanged = [] if result.get("state_changed") else ["canonical state"]
+        outcome = _outcome(
+            state,
+            "Guided actions are available from the current state.",
+            reason_code=reason_code,
+            reason_message=reason_message,
+            actions=available,
+            changed=effects_changed,
+            unchanged=effects_unchanged,
+            disclosures=disclosures,
+        )
+        return {**dict(result), "ux": outcome}
+
     if command == "doctor":
         errors = result.get("errors") if isinstance(result.get("errors"), list) else []
         warnings = result.get("warnings") if isinstance(result.get("warnings"), list) else []

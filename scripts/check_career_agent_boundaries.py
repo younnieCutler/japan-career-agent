@@ -21,6 +21,7 @@ DOMAIN_MODULES = (
     "projection",
     "personal_timeline",
     "private_store",
+    "guided",
     "ux",
     "runtime",
 )

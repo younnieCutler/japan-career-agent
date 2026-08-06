@@ -10,7 +10,8 @@ python scripts/run_workflows.py --workflow all --format human
 ```
 
 The runner calls the canonical Career Agent and matching commands, then checks semantic invariants.
-It does not enable guided mode, submit an application, send a message, or create a recommendation.
+These PR2 workflows do not enable guided mode, submit an application, send a message, or create a
+recommendation. PR3's guided frontend consumes these workflows as its state specification.
 
 The three workflows are intentionally fixed:
 

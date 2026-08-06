@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.15.0] - 2026-08-06
+
+- Added the thin `career_agent.py guided` frontend with canonical-state summaries, stable action
+  IDs, deterministic `--choice` testing, and explicit confirmation before setup, proposal, approval,
+  or recovery writes.
+- Distinguished guided confirmation reasons for setup, proposal creation, approval, and state
+  recovery so each blocked write explains the correct next step.
+- Guided actions dispatch through the existing setup, status, context, proposal, and approval
+  facades; Unknown, Conflict, pending proposals, cancellation, and invalid choices remain explicit.
+
 ## [1.14.0] - 2026-08-06
 
 - Added the PR2 progressive-disclosure explanations at setup, workspace, private-store,
