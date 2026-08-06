@@ -837,6 +837,32 @@ subject가 읽을 수 있는 **모든 중복 표현을 같은 의미로 함께**
   로 복사한다. 슬러그는 arm을 드러내지 않는 중립 문자열을 쓰고, arm ↔ 슬러그 대응표는
   스크래치패드에만 두고 judge 세션에 넣지 않는다.
 
+#### capture metadata의 대칭 — provenance가 arm 라벨이 되지 않게
+
+출력 본문에서 arm을 지워도 **capture metadata에 arm이 남는다.** `judge.md` 계약은
+`runtime_identity.repository_commit` 과 `git_status_clean` 을 judge에게 그대로 보여준다. 그래서
+arm-a가 정본 main 커밋 그대로이고 arm-b가 uncommitted mutation 상태이면, judge는 출력을 읽기도
+전에 두 값만으로 처치군을 알아낼 수 있다 — `git_status_clean: false` 인 쪽이 weakened다.
+
+**provenance를 지우거나 마스킹해서 해결하지 않는다.** capture metadata 수정은 `judge.md` 계약을
+건드리는 일이고, `git_status_clean` 은 "이 출력이 어떤 트리에서 나왔는지" 를 사후 검증할 수 있게
+하려고 있는 필드다. 대신 **두 arm을 대칭으로 만들어** 그 필드가 처치를 가리키지 않게 한다.
+
+- arm-a · arm-b 모두 **clean working tree에서** subject를 실행한다.
+- arm-b의 mutation은 uncommitted working-tree edit로 두지 않고 **scratch-local 커밋**으로 만든다.
+- arm-a도 `judge-canonical` 의 HEAD SHA를 그대로 쓰지 않는다. 동일한 정본 내용 위에
+  `git commit --allow-empty` 로 커밋 하나를 만들어 **별도의 opaque SHA**를 갖게 한다.
+- 두 scratch 커밋은 **remote에 push하지 않는다.**
+- 결과적으로 `git_status_clean` 은 arm-a · arm-b 모두 `true` 다.
+- 두 `repository_commit` 값은 서로 다르지만, **둘 다 judge가 원격에서 해석할 수 없는 local-only
+  opaque SHA**다. 어느 쪽이 정본인지 SHA만으로는 판별되지 않는다.
+- arm ↔ SHA 대응표는 스크래치패드에만 두고 **judge 세션에 절대 제공하지 않는다.**
+- `judge-canonical` 은 이 두 scratch 커밋과 무관한 **별도의 clean 정본 HEAD**를 계속 쓴다.
+- capture metadata는 **수정도 마스킹도 하지 않고** `judge.md` 계약대로 그대로 전달한다.
+
+즉 provenance를 없애는 것이 아니라, **provenance가 treatment label로 읽히지 않도록 두 arm을
+대칭으로 놓는 것**이다.
+
 정리하면 **처치되는 것은 subject의 행동 계약 하나뿐이고, judge의 정답 계약은 6회 채점 내내
 정본으로 고정된다.**
 
@@ -882,6 +908,7 @@ baseline subject 3회 (arm-a)
 | control fixture 추가 | 완료 (`explicit-hard-conflict-downgrade.example.md`) |
 | 사전 조건·주입·판정 경로 등록 | 완료 (이 절) |
 | judge 배선(트리 3개, 채점 순서) 등록 | 완료 (이 절) |
+| capture metadata 대칭 배선 등록 | 완료 (이 절) |
 | baseline 3회 | **미실행** |
 | 주입 3회 | **미실행** |
 | 판정 | ⏳ **미확정** |
