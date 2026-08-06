@@ -1,6 +1,6 @@
 # LLM-as-judge 파일럿 — job-seeker-agent
 
-**상태:** 검증 중단 — subject 출력이 비결정적이어서 회귀 실험이 신호를 내지 못한다. `SKILL.md` 어휘 충돌 해소가 선행 조건. keep/delete 미확정 (2026-08-06, baseline `b2efcb4`) · **작성일:** 2026-08-05 · **대상 버전:** 1.12.0 · **범위:** `job-seeker-agent` 1개 스킬
+**상태:** 검증 중단(2회차) — 1.12.1이 `Conflict` 어휘 충돌을 해소했고 그 결함은 재발하지 않았으나, `Missing` 대 `Unknown` 경계에서 subject가 여전히 비결정적이다. 회귀 주입 미실행. keep/delete 미확정 (2026-08-06, baseline `df4bbba`) · **작성일:** 2026-08-05 · **대상 버전:** 1.12.1 · **범위:** `job-seeker-agent` 1개 스킬
 
 ---
 
@@ -413,6 +413,147 @@ judge 재현성은 3회 측정해 변동 0을 확인했다. **subject 재현성�
 마지막 항목이 가장 무겁다. `Conflict` 는 정본 어휘에서 **Decision 레벨** 값인데 `:104` 는 Requirement 에 쓰라고 한다. 실제 영향이 관측됐다 — 미약화 출력은 `Conflict`, 약화 출력은 `Missing` 을 썼고 **둘 다 계약의 한쪽을 충실히 따른 것**이다. 테이블 헤더를 정본으로 읽는 judge는 `conflict_offset` 을 영영 발화시키지 않으므로 재현성 위협이기도 하다.
 
 **네 건 모두 `tests/mistakes.md` 에 기록하고 제품은 고치지 않았다.** 관측 1회로 계약을 바꾸는 것은 이 저장소가 이미 기각한 패턴이다(근거 1건짜리 주장을 규칙으로 승격). 기존 승격 경로를 그대로 쓴다 — 같은 패턴이 2~3회 반복되면 그때 `SKILL.md` 를 고친다.
+
+---
+
+## 7-2. 2회차 실행 — subject 안정성 재검증 (2026-08-06)
+
+§7-1이 남긴 선행 조건 순서(① 계약 해소 → ② subject 3회 안정성 → ③ 회귀 주입)의 ②를 실행했다.
+① 은 1.12.1(PR #37)에서 완료됐다. baseline `df4bbba`.
+
+### 판정: **미확정 (undecided)** — 사전 pass 조건 미충족으로 ③ 미실행
+
+`conflict-interest-offset` fixture에 대해 subject를 3회 독립 실행한 결과, 사전 등록한 3개 조건 중
+2번이 깨졌다. §7이 정한 대로 회귀 주입으로 넘어가지 않고 여기서 중단한다.
+
+### 프로토콜 — 실행 전에 고정한 것
+
+라운드 1은 약화본만 저장소 밖으로 복사했다. `SKILL.md` 가 `../../_shared/decision_philosophy.md`
+와 `references/*` 를 상대 경로로 참조하므로 그 비대칭 자체가 교란 요인이다. 이번에는 **두 arm 모두**
+스크래치패드에 동일 구조로 복사했다(`AGENTS.md` + `_shared/decision_philosophy.md` +
+`skills/job-seeker-agent/**`, `tests/` 제외). subject 프롬프트 6개는 하나의 템플릿에서 렌더링했고
+arm 간 차이는 **경로 문자열뿐**이다.
+
+| 항목 | 고정값 |
+|---|---|
+| subject | Sonnet 서브에이전트, 매 실행 새로 spawn (cold start), 3회 병렬·독립 |
+| 노출 | fixture **본문만**(`## User turn` + `## JD`). 파일 경로·frontmatter 미노출 |
+| 프로필 | `chuto-park-minjun.md` 를 이전 턴 문서로 인라인. **「テスト時の期待ギャップ」 표와 「用途: テスト・デモ用」 줄은 제거** — 실사용자가 붙여넣을 수 없는 기대값 힌트이므로 |
+| 파일 접근 | arm 루트 밖 읽기 금지, `Skill`/`Agent`/web 도구 금지 (subject가 정본 스킬이나 `tests/` 를 우회 로드하는 것을 차단) |
+| 절제 사전 등록 | weakened = `SKILL.md:57-59` 3줄만 삭제. `:106-111`(어휘 규정)은 유지 — 둘 다 지우면 1.12.1이 방금 없앤 모호성이 재도입돼 주입 효과와 비결정성 재발이 다시 뒤섞인다 |
+| 채점 입력 | fixture에서 `gates_expected_clear` · `notes` 제거 후 judge에 전달할 예정이었다. `axes_exercised` 는 `judge.md` 4단계가 요구하므로 유지 |
+
+> **동결 절차에서의 의도적 이탈 2건**을 기록한다. (a) 프로필의 기대값 메타 표 제거, (b) judge 입력
+> 에서 `gates_expected_clear`·`notes` 제거. 둘 다 정답지 노출을 막기 위한 것이고 두 arm에 동일하게
+> 적용되지만, `judge.md` 가 규정한 입력 계약과 다르다. (b)는 이번 회차에서 실제로 사용되지 않았다 —
+> 채점 단계에 도달하지 못했다.
+
+### subject 3회 원자료 (arm-a, 미약화)
+
+必須要件 3행 + 歓迎要件 3행. 셀에 기록된 **요건 상태 라벨**을 그대로 옮긴 것이다.
+
+| 요건 행 | 실행 1 | 실행 2 | 실행 3 |
+|---|---|---|---|
+| Airflow 본番運用 5년 이상 | **`Unknown`** | **`Missing`** | **`Missing`** |
+| Python/pandas ETL | `Missing` | `Missing` | `Missing` |
+| SQL 튜닝 | `Unknown` | `Unknown` | `Unknown` |
+| (歓迎) AWS 데이터 기반 구축 | `Missing` | `Missing` | `Missing` |
+| (歓迎) Linux 서버 운용 | `Matched` | `Matched` | `Matched` |
+| (歓迎) 監視基盤 | `Matched` | `Matched` | `Matched` |
+
+| 지표 | 실행 1 | 실행 2 | 실행 3 |
+|---|---|---|---|
+| requirement row의 **상태값**이 `Conflict` 인 행 | 0 | 0 | 0 |
+| requirement row 안에 `Conflict` **토큰**이 등장한 행 | 0 | 1 | 0 |
+| 표 안 `Missing` 출현 | 2 | 3 | 3 |
+| 표 안 `Unknown` 출현 | 2 | 1 | 1 |
+| Decision Status | `Conflict` (독립 문장) | `Conflict` (표 셀 안에 서술) | `Conflict` (「判定（Decision Status）」 절) |
+
+실행 2의 `Conflict` 토큰은 상태값이 아니라 셀 안의 교차 참조다 — 셀은
+`**Missing（重要度：core）→ 両側とも確認済みで内容が食い違うため、Decision StatusはConflict**`.
+상태는 `Missing`, `Conflict` 는 Decision 레벨을 가리킨다. 사전 조건 1을 "상태값" 으로 읽으면 3회 모두
+0, "토큰 등장" 으로 읽으면 1회 발생이다. **두 해석을 실행 전에 구분해두지 않았으므로 둘 다 기록한다.**
+결과를 보고 유리한 쪽을 고르지 않는다.
+
+### 사전 pass 조건 대조
+
+| # | 조건 | 결과 |
+|---|---|---|
+| 1 | requirement row에서 `Conflict` 0회 | **상태값 기준 통과 (0/0/0)** · 토큰 기준 1회 발생. 위 단락 참조 |
+| 2 | 동일 evidence를 가진 row의 label이 3회 실행에서 동일 | **불통과** — Airflow 행이 `Unknown` / `Missing` / `Missing` |
+| 3 | hard confirmed gap → Requirement `Missing` + Decision Status `Conflict` | **통과** — pandas 행이 3회 모두 `Missing`, Decision Status 3회 모두 `Conflict` |
+
+**1.12.1이 고치려던 결함은 재발하지 않았다.** 요건 표에 `Conflict` 를 상태값으로 쓴 실행은 0건이고,
+Decision Status는 3회 모두 `Conflict` 로 수렴했다. 라운드 1의 9/3/0 변동은 사라졌다.
+남은 비결정성은 **다른 경계**에 있다.
+
+### 원인 — `Missing` 대 `Unknown`, 그리고 파생 사실의 재량
+
+세 실행이 Airflow 행에 **서로 다른 근거 경로**를 썼다. 관측된 것만 적는다.
+
+| 실행 | 라벨 | 셀에 적힌 근거 |
+|---|---|---|
+| 1 | `Unknown` | 「記載がないことは「経験なし」の確定ではなく、未質問の状態」 — 후보 측 부재를 일방 증거로 처리 |
+| 2 | `Missing` | 「職務経歴書にAirflow／ワークフロー管理ツールの記載なし」 — 같은 일방 부재를 미충족으로 처리 |
+| 3 | `Missing` | 「技術経験の通算年数も、前職ヘルプデスク2年＋現職インフラ1年で、要件の「5年」自体に届いていない」 — 확정된 재직 기간에서 산술로 파생한 **양측 증거** |
+
+정본은 `references/evaluation_rules.md:16-29` 이고, 이 fixture와 거의 같은 예제를 명시한다 —
+*"A one-sided gap remains `Unknown` until the missing side is confirmed"*, 그리고 Spark 예제의
+*"State: Unknown until the candidate's production history is confirmed; if absent after
+confirmation, report Missing"*. 이 기준으로:
+
+- 실행 1은 정본과 일치한다.
+- 실행 2는 일방 부재를 `Missing` 으로 올렸으므로 정본에서 벗어난다. 이 실행은 `SKILL.md:104` 가
+  요구하는 출처·날짜·신뢰도 메타데이터 열도 통째로 빠져 있다.
+- 실행 3은 **후보 측에도 확정 증거가 있다**. 통산 3년이라는 확정 이력은 "5년 이상" 을 논리적으로
+  충족 불가능하게 만들므로 양측 확정 → `Missing` 이 정본과 충돌하지 않는다.
+
+즉 실행 1과 3은 **둘 다 계약을 지켰는데 라벨이 다르다.** 갈린 지점은 계약 문구가 아니라 *실행이
+파생 사실(재직 기간 산술)을 끌어왔는가*이며, 계약은 그것을 요구하지도 금지하지도 않는다.
+`SKILL.md` 본문만 보면 `:109`(일방·`Contradictory`·`Stale` → `Unknown`)와
+`:110-111`(missing core skill → `Missing`)이 두 줄 간격으로 인접해 있고, 둘을 가르는 규칙은
+**지연 로딩되는 `references/evaluation_rules.md`** 안에만 있다.
+
+> 이것은 1.12.1이 고친 결함과 **같은 종류가 아니다.** 그때는 두 문장이 서로 반대를 말했다. 지금은
+> 문장들이 모순되지 않고, 어느 쪽이 적용되는지가 실행이 어떤 증거 경로를 밟느냐에 달려 있다.
+> 계약 결함으로 단정하지 않고 관측 그대로 기록한다.
+
+관측 불가로 남는 것: 각 실행이 실제로 어떤 `references/` 파일을 로드했는지는 사후에 알 수 없다.
+실행 3의 `source_type` / `confidence` 어휘는 `evaluation_rules.md:50-53` 의 것이고 실행 2에는
+메타데이터 열이 아예 없다는 **출력상의 차이**만 관측됐다. 로딩 여부 추론은 여기까지다.
+
+### 왜 회귀 주입으로 넘어가지 않았는가
+
+주입할 축은 `requirement_discipline` / `decision_ownership` 이고, 그 축의 baseline이 실행마다
+`Unknown`↔`Missing` 으로 움직인다. §7-1이 철회 사유로 적은 것과 **정확히 같은 구조** —
+대조군이 흔들리면 처치 효과를 귀속할 수 없다. 라운드 1의 오류는 그 상태에서 주입을 돌린 것이었고,
+같은 오류를 반복하지 않는다.
+
+weakened arm(`SKILL.md:57-59` 삭제)은 준비만 하고 **실행하지 않았다.** 판정을 위해 축 점수를 본 적이
+없으므로 §7 기준을 결과에 맞춰 다시 읽을 여지도 없다.
+
+### 다음 회차의 선행 조건
+
+1. `Missing` 과 `Unknown` 의 경계를 `SKILL.md` 본문에서 결정 가능하게 만든다 —
+   `references/evaluation_rules.md:16-29` 의 규칙이 지연 로딩 참조 안에만 있는 한, 그 참조를
+   라우팅하지 않은 실행은 `:109` 와 `:110-111` 중 어느 쪽이든 고를 수 있다. **제품 계약 변경이므로
+   이 실험 PR이 아니라 별도 PR에서 다룬다.**
+2. 파생 사실(확정 날짜에서의 기간 산술 등)을 요건 판정에 쓰는 것이 필수인지 재량인지 정한다.
+   재량으로 남기면 이 fixture는 `requirement_discipline` 의 대조군이 될 수 없다.
+3. 그 위에서 subject 3회를 다시 돌려 사전 조건 3개를 모두 통과시킨 뒤 회귀 주입을 재실행한다.
+
+1·2가 해결되기 전에는 어떤 keep/delete 판정도 실행 변동과 구분되지 않는다.
+
+### 이번 회차 기준별 상태
+
+| 기준 | 결과 |
+|---|---|
+| §6.3 네거티브 컨트롤 | 1회차에서 통과. 재실행 불필요 |
+| judge 재현성 | 1회차에서 통과(동일 출력 3회 채점, 변동 0). 재실행 불필요 |
+| **subject 재현성** | **불통과** — Airflow 행 `Unknown`/`Missing`/`Missing` |
+| 유효 주입 탐지 | **미실행** (선행 조건 미충족) |
+| 감점 근거 검증 가능성 | 미실행 |
+| **최종 keep/delete** | ⏳ **미확정** |
 
 ---
 
