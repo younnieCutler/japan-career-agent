@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from localization import action_label, normalize_language, state_label, text
+
 
 def _action(
     action_id: str,
@@ -63,6 +65,7 @@ def build_summary(
     pending_proposals: int = 0,
     personal_profile: Mapping[str, Any] | None = None,
     status_error: Mapping[str, Any] | None = None,
+    pending_kind: str | None = None,
 ) -> dict[str, Any]:
     """Build a metadata-only guided summary from existing command projections."""
     profile = profile or {}
@@ -95,6 +98,7 @@ def build_summary(
         "track": track,
         "career_status": profile.get("career_status", state.get("career_status", "active")),
         "target_role": profile.get("target_role"),
+        "language": normalize_language(profile.get("language")),
         "setup_complete": setup_complete,
         "workspace": {
             "path": workspace.get("path"),
@@ -104,6 +108,7 @@ def build_summary(
             "updated": workspace.get("updated"),
         },
         "pending_proposals": _int(pending_proposals),
+        "pending_kind": pending_kind,
         "unknown_count": counts["unknown"],
         "conflict_count": counts["conflict"],
         "open_action_count": len(open_actions),
@@ -119,8 +124,9 @@ def build_summary(
     return summary
 
 
-def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
+def derive_actions(summary: Mapping[str, Any], *, language: str | None = None) -> list[dict[str, Any]]:
     """Derive only transitions that are valid for the supplied canonical summary."""
+    language = normalize_language(language or summary.get("language"))
     actions: list[dict[str, Any]] = []
     workspace_error = isinstance(summary.get("workspace_error"), Mapping)
 
@@ -128,7 +134,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "complete_setup",
-                "Complete setup",
+                action_label(language, "complete_setup"),
                 command="setup",
                 operation_kind="repair",
                 requires_confirmation=True,
@@ -138,7 +144,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "inspect_workspace",
-                "Choose an existing workspace",
+                action_label(language, "inspect_workspace"),
                 command="status --workspace <path>",
                 operation_kind="navigate",
             )
@@ -147,7 +153,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "review_proposals",
-                "Review pending proposals",
+                action_label(language, "review_proposals"),
                 command="proposals",
             )
         )
@@ -155,7 +161,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
             actions.append(
                 _action(
                     "approve_proposal",
-                    "Approve the pending proposal",
+                    action_label(language, "approve_proposal", proposal_kind=summary.get("pending_kind")),
                     command="approve <proposal_id>",
                     operation_kind="approve",
                     requires_confirmation=True,
@@ -165,7 +171,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "inspect_unknown",
-                "Inspect Unknown evidence",
+                action_label(language, "inspect_unknown"),
                 command="personal-profile",
                 operation_kind="inspect",
             )
@@ -174,7 +180,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "inspect_conflict",
-                "Inspect conflicting evidence",
+                action_label(language, "inspect_conflict"),
                 command="personal-profile",
                 operation_kind="inspect",
             )
@@ -184,7 +190,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "inspect_workspace_state",
-                "View workspace and pipeline state",
+                action_label(language, "inspect_workspace_state"),
                 command="status",
                 operation_kind="inspect",
             )
@@ -193,7 +199,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "inspect_status",
-                "Inspect current status",
+                action_label(language, "inspect_status"),
                 command="status",
                 operation_kind="inspect",
             )
@@ -202,7 +208,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "start_task",
-                "Start a user-described task",
+                action_label(language, "start_task"),
                 command="run --mode chat --message <message>",
                 operation_kind="propose",
                 requires_confirmation=True,
@@ -212,7 +218,7 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "restore_state",
-                "Restore a saved state snapshot",
+                action_label(language, "restore_state"),
                 command="restore-state <version>",
                 operation_kind="repair",
                 requires_confirmation=True,
@@ -222,12 +228,12 @@ def derive_actions(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             _action(
                 "inspect_context",
-                "Inspect shared context",
+                action_label(language, "inspect_context"),
                 command="context",
                 operation_kind="inspect",
             )
         )
-    actions.append(_action("exit", "Exit", operation_kind="keep_state"))
+    actions.append(_action("exit", action_label(language, "exit"), operation_kind="keep_state"))
 
     # Stable ordering and IDs make scripted tests independent of incidental wording.
     unique: list[dict[str, Any]] = []
@@ -290,25 +296,51 @@ def render_human(result: Mapping[str, Any]) -> str:
     guided = result.get("guided") if isinstance(result.get("guided"), Mapping) else {}
     summary = guided.get("summary") if isinstance(guided.get("summary"), Mapping) else {}
     actions = guided.get("available_actions") if isinstance(guided.get("available_actions"), list) else []
-    lines = ["Guided Career Agent", f"State: {guided.get('state', 'ready')}", "Current state:"]
-    lines.append(f"- track: {summary.get('track') or 'not set'}")
-    lines.append(f"- setup: {'complete' if summary.get('setup_complete') else 'required'}")
+    ux = result.get("ux") if isinstance(result.get("ux"), Mapping) else {}
+    language = normalize_language(ux.get("language") or summary.get("language"))
+    lines = [text(language, "summary.guided_title"), f"{text(language, 'section.state')}: {state_label(language, guided.get('state', 'ready'))}", f"{text(language, 'section.current_state')}:"]
+    lines.append(f"- {text(language, 'section.track')}: {summary.get('track') or text(language, 'guided.track_unset')}")
+    lines.append(f"- {text(language, 'section.setup')}: {text(language, 'guided.setup_complete' if summary.get('setup_complete') else 'guided.setup_required')}")
     workspace = summary.get("workspace") if isinstance(summary.get("workspace"), Mapping) else {}
-    lines.append(f"- workspace: {workspace.get('path') or 'not resolved'}")
-    lines.append(f"- pending proposals: {summary.get('pending_proposals', 0)}")
-    lines.append(f"- Unknown: {summary.get('unknown_count', 0)}")
-    lines.append(f"- Conflict: {summary.get('conflict_count', 0)}")
+    lines.append(f"- {text(language, 'section.workspace')}: {workspace.get('path') or text(language, 'guided.workspace_unresolved')}")
+    lines.append(f"- {text(language, 'section.pending')}: {summary.get('pending_proposals', 0)}")
+    lines.append(f"- {text(language, 'section.unknown')}: {summary.get('unknown_count', 0)}")
+    lines.append(f"- {text(language, 'section.conflict')}: {summary.get('conflict_count', 0)}")
+    if ux.get("summary"):
+        lines.append(f"{text(language, 'section.summary')}: {ux['summary']}")
+    reason = ux.get("reason") if isinstance(ux.get("reason"), Mapping) else {}
+    if reason.get("message"):
+        lines.append(f"{text(language, 'section.reason')}: {reason['message']}")
+    disclosures = ux.get("disclosures") if isinstance(ux.get("disclosures"), list) else []
+    if disclosures:
+        lines.append(f"{text(language, 'section.context')}:")
+        for disclosure in disclosures:
+            if isinstance(disclosure, Mapping) and disclosure.get("message"):
+                lines.append(f"- {disclosure['message']}")
     if summary.get("major_blockers"):
-        lines.append(f"- blockers: {', '.join(str(item) for item in summary['major_blockers'])}")
-    lines.append("Available actions:")
+        blocker_labels = {
+            "setup": text(language, "section.setup"),
+            "pending_proposals": text(language, "section.pending"),
+            "conflict": text(language, "section.conflict"),
+            "workspace": text(language, "section.workspace"),
+        }
+        lines.append(f"- {text(language, 'section.problem')}: {', '.join(blocker_labels.get(str(item), str(item)) for item in summary['major_blockers'])}")
+    lines.append(f"{text(language, 'section.available_actions')}:")
     for index, action in enumerate(actions, start=1):
-        suffix = " (confirmation required)" if action.get("requires_confirmation") else ""
-        lines.append(f"{index}. {action.get('label', action.get('id'))}{suffix} [{action.get('id')}]")
+        suffix = text(language, "guided.confirmation_suffix") if action.get("requires_confirmation") else ""
+        label = str(action.get("label") or action_label(language, str(action.get("id")), proposal_kind=action.get("proposal_kind")))
+        lines.append(f"{index}. {label}{suffix}")
     selection = result.get("selection") if isinstance(result.get("selection"), Mapping) else {}
     if selection.get("status"):
-        lines.append(f"Selection: {selection['status']}")
-    if result.get("error"):
-        lines.insert(0, f"Problem: {result['error']}")
-    if result.get("next_command"):
-        lines.append(f"Next command: {result['next_command']}")
+        selection_labels = {
+            "menu": text(language, "section.available_actions"),
+            "confirmation_required": state_label(language, "needs_confirmation"),
+            "completed": state_label(language, "completed"),
+            "cancelled": text(language, "action.keep_pending"),
+            "invalid": state_label(language, "blocked"),
+            "blocked": state_label(language, "blocked"),
+        }
+        lines.append(f"{text(language, 'section.selection')}: {selection_labels.get(str(selection['status']), str(selection['status']))}")
+    if result.get("error") and reason.get("message"):
+        lines.insert(0, f"{text(language, 'section.problem')}: {reason['message']}")
     return "\n".join(lines)

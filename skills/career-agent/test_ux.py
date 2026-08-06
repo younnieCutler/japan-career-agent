@@ -79,7 +79,7 @@ class UXContractTests(unittest.TestCase):
 
             human = run(vault, "status", "--format", "human")
             self.assertEqual(human.returncode, 0, human.stderr)
-            self.assertIn("State:", human.stdout)
+            self.assertIn("상태:", human.stdout)
             self.assertNotIn("—", human.stdout)
 
     def test_workspace_and_recovery_blockers_are_explicit_and_non_mutating(self) -> None:

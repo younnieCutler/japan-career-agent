@@ -10,6 +10,9 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from models import CareerError
+from localization import UX_TEXT, action_label, effect_label, normalize_language, state_label, text
+
+__all__ = ["UX_TEXT", "attach", "error_payload", "render_human", "text"]
 
 
 UX_STATES = {
@@ -84,22 +87,26 @@ def _proposal_id(result: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _proposal_actions(proposal_id: str | None) -> list[dict[str, Any]]:
+def _proposal_actions(
+    proposal_id: str | None,
+    language: str,
+    proposal_kind: str | None = None,
+) -> list[dict[str, Any]]:
     review_command = "proposals"
     approve_command = "approve <proposal_id>"
     if proposal_id:
         review_command = f"proposals --id {proposal_id}"
         approve_command = f"approve {proposal_id}"
     return [
-        _action("review_proposal", "Review proposal", command=review_command),
+        _action("review_proposal", action_label(language, "review_proposal"), command=review_command),
         _action(
             "approve_proposal",
-            "Approve proposal",
+            action_label(language, "approve_proposal", proposal_kind=proposal_kind),
             command=approve_command,
             operation_kind="approve",
             requires_confirmation=True,
         ),
-        _action("keep_pending", "Keep pending", operation_kind="keep_state"),
+        _action("keep_pending", action_label(language, "keep_pending"), operation_kind="keep_state"),
     ]
 
 
@@ -140,6 +147,7 @@ def _state_issues(result: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 def _with_state_actions(
     outcome: dict[str, Any], issues: list[dict[str, Any]], *, command: str,
+    language: str,
 ) -> dict[str, Any]:
     if not issues:
         return outcome
@@ -148,50 +156,79 @@ def _with_state_actions(
     if "FACT_UNKNOWN" in ids:
         outcome["next"]["actions"].extend(
             [
-                _action("inspect_context", "Inspect related evidence", command="context"),
-                _action("keep_unknown", "Keep Unknown", operation_kind="keep_state"),
+                _action("inspect_context", action_label(language, "inspect_context"), command="context"),
+                _action("keep_unknown", action_label(language, "keep_unknown"), operation_kind="keep_state"),
             ]
         )
         outcome["disclosures"].append(
             _disclosure(
                 "unknown-state",
                 "unknown",
-                "Unknown means verified evidence is missing; you may provide evidence or keep Unknown.",
+                text(language, "disclosure.unknown"),
             )
         )
     if "FACT_CONFLICT" in ids:
         outcome["next"]["actions"].extend(
             [
-                _action("inspect_conflict", "Inspect conflicting evidence", command="personal-profile"),
-                _action("keep_conflict", "Keep Conflict", operation_kind="keep_state"),
+                _action("inspect_conflict", action_label(language, "inspect_conflict"), command="personal-profile"),
+                _action("keep_conflict", action_label(language, "keep_conflict"), operation_kind="keep_state"),
             ]
         )
         outcome["disclosures"].append(
             _disclosure(
                 "conflict-state",
                 "conflict",
-                "Conflict means confirmed evidence disagrees; it is not offset by other strengths.",
+                text(language, "disclosure.conflict"),
             )
         )
     if outcome["state"] == "ready":
         outcome["state"] = "review"
         outcome["reason"] = {
             "code": "REVIEW_REQUIRED",
-            "message": "The command completed, but one or more evidence states need review.",
+            "message": text(language, "reason.review_required"),
         }
     return outcome
 
 
-def attach(command: str, result: Mapping[str, Any], *, args: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def attach(
+    command: str,
+    result: Mapping[str, Any],
+    *,
+    args: Mapping[str, Any] | None = None,
+    language: str | None = None,
+) -> dict[str, Any]:
     """Add the additive ``ux`` block to one successful command result."""
     args = args or {}
-    mode = str(result.get("mode") or command)
+    language = normalize_language(
+        language
+        or result.get("language")
+        or (result.get("profile", {}).get("language") if isinstance(result.get("profile"), Mapping) else None)
+    )
     proposal_id = _proposal_id(result)
     proposal = result.get("proposal")
     proposal_pending = isinstance(proposal, Mapping) and proposal.get("status") == "pending"
     pending = result.get("pending_proposals")
     if not isinstance(pending, int):
-        pending = 1 if proposal_pending else 0
+        pending = int(result.get("count") or 0) if command == "proposals" else (1 if proposal_pending else 0)
+    proposal_kind = str(proposal.get("kind") or "") if isinstance(proposal, Mapping) else None
+    if command == "run" and str(args.get("mode") or result.get("mode")) == "heartbeat":
+        proposal_kind = "heartbeat"
+    if command == "proposals" and not proposal:
+        listed = result.get("proposals") if isinstance(result.get("proposals"), list) else []
+        if len(listed) == 1 and isinstance(listed[0], Mapping):
+            proposal_kind = str(listed[0].get("kind") or "") or None
+    if proposal_kind is None:
+        pending_kind = result.get("pending_kind")
+        if pending_kind:
+            proposal_kind = str(pending_kind)
+
+    def finish(outcome: dict[str, Any]) -> dict[str, Any]:
+        outcome["language"] = language
+        for item in outcome.get("next", {}).get("actions", []):
+            if isinstance(item, dict) and item.get("id"):
+                if command != "guided":
+                    item["label"] = action_label(language, str(item["id"]), proposal_kind=proposal_kind)
+        return {**dict(result), "ux": outcome}
 
     if command == "setup":
         needs_input = result.get("needs_input") or []
@@ -199,52 +236,52 @@ def attach(command: str, result: Mapping[str, Any], *, args: Mapping[str, Any] |
         if needs_input:
             outcome = _outcome(
                 "needs_input",
-                "Career Agent setup needs profile input.",
+                text(language, "summary.setup_needs_input"),
                 reason_code="SETUP_REQUIRED",
-                reason_message="The profile is missing required setup fields.",
-                actions=[_action("run_setup", "Complete setup", command="setup", operation_kind="repair", requires_confirmation=True)],
+                reason_message=text(language, "reason.setup_required"),
+                actions=[_action("run_setup", action_label(language, "run_setup"), command="setup", operation_kind="repair", requires_confirmation=True)],
                 issues=[{"code": "SETUP_REQUIRED", "subject": str(field), "message": "This setup field is required."} for field in needs_input],
                 disclosures=[
                     _disclosure(
                         "vault-purpose",
                         "vault",
-                        "Vault stores approved personal career facts in the user's private area.",
+                        text(language, "disclosure.vault"),
                     )
                 ],
             )
         elif diagnosis.get("ok") is False:
             outcome = _outcome(
                 "blocked",
-                "Career Agent setup is blocked by doctor errors.",
+                text(language, "summary.setup_blocked"),
                 reason_code="SETUP_REQUIRED",
-                reason_message="Setup completed its write step, but the vault still has blocking errors.",
-                actions=[_action("run_doctor", "Inspect setup errors", command="doctor", operation_kind="repair", requires_confirmation=False)],
+                reason_message=text(language, "reason.setup_blocked"),
+                actions=[_action("run_doctor", action_label(language, "run_doctor"), command="doctor", operation_kind="repair", requires_confirmation=False)],
                 unchanged=["canonical career facts"],
                 disclosures=[
                     _disclosure(
                         "vault-purpose",
                         "vault",
-                        "Vault stores approved personal career facts in the user's private area.",
+                        text(language, "disclosure.vault"),
                     )
                 ],
             )
         else:
             outcome = _outcome(
                 "ready",
-                "Career Agent setup is ready.",
+                text(language, "summary.setup_ready"),
                 reason_code="SETUP_COMPLETE",
-                reason_message="The vault and profile passed the setup checks.",
-                actions=[_action("inspect_status", "Inspect current status", command="status")],
+                reason_message=text(language, "reason.setup_complete"),
+                actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")],
                 changed=["vault/profile setup" if result.get("created") else "profile setup"],
                 disclosures=[
                     _disclosure(
                         "vault-purpose",
                         "vault",
-                        "Vault stores approved personal career facts in the user's private area.",
+                        text(language, "disclosure.vault"),
                     )
                 ],
             )
-        return {**dict(result), "ux": outcome}
+        return finish(outcome)
 
     if command == "guided":
         guided = result.get("guided") if isinstance(result.get("guided"), Mapping) else {}
@@ -255,68 +292,82 @@ def attach(command: str, result: Mapping[str, Any], *, args: Mapping[str, Any] |
         if not result.get("ok", True) or selection_status in {"invalid", "blocked"}:
             state = "blocked"
             reason_code = str(result.get("error_code") or "OPERATION_BLOCKED")
-            reason_message = str(result.get("error") or "The guided choice could not be dispatched.")
+            reason_message = text(language, "error.guided_choice")
         elif selection_status == "confirmation_required":
             state = "needs_confirmation"
             confirmation_reason = {
                 "complete_setup": (
                     "SETUP_REQUIRED",
-                    "Review the setup fields, then explicitly confirm before writing profile state.",
+                    text(language, "reason.guided_confirmation"),
                 ),
                 "start_task": (
                     "GUIDED_CONFIRMATION_REQUIRED",
-                    "Review the user-described task, then explicitly confirm before creating its proposal.",
+                    text(language, "reason.guided_confirmation"),
                 ),
                 "approve_proposal": (
                     "PENDING_PROPOSAL",
-                    "Review the pending proposal, then explicitly confirm before approval.",
+                    text(language, "reason.pending_proposal"),
                 ),
                 "restore_state": (
                     "STATE_RECOVERY_REQUIRED",
-                    "Review the saved snapshot, then explicitly confirm before recovery changes the current state.",
+                    text(language, "reason.guided_confirmation"),
                 ),
             }
             reason_code, reason_message = confirmation_reason.get(
                 str(selection.get("action")),
-                ("GUIDED_CONFIRMATION_REQUIRED", "Review the current state, then explicitly confirm before any write."),
+                ("GUIDED_CONFIRMATION_REQUIRED", text(language, "reason.guided_confirmation")),
             )
         else:
             state = str(guided.get("state") or "ready")
             if state == "needs_input":
                 reason_code = "SETUP_REQUIRED"
-                reason_message = "Complete the missing setup fields before dependent actions can proceed."
+                reason_message = text(language, "reason.setup_required")
             elif state == "needs_confirmation":
                 reason_code = "PENDING_PROPOSAL"
-                reason_message = "A pending proposal remains outside canonical state until explicit approval."
+                reason_message = text(language, "reason.pending_proposal")
             elif state == "review":
                 reason_code = "REVIEW_REQUIRED"
-                reason_message = "One or more evidence states need review; Unknown and Conflict remain explicit."
+                reason_message = text(language, "reason.review_required")
             elif state == "blocked":
                 reason_code = str((summary.get("workspace_error") or {}).get("code") or "OPERATION_BLOCKED") if isinstance(summary.get("workspace_error"), Mapping) else "OPERATION_BLOCKED"
                 reason_message = str(
-                    ((summary.get("workspace_error") or {}).get("message") or "The current guided state is blocked.")
+                    text(language, "reason.operation_blocked")
                     if isinstance(summary.get("workspace_error"), Mapping)
-                    else "The current guided state is blocked."
+                    else text(language, "reason.operation_blocked")
                 )
             else:
                 reason_code = "GUIDED_READY"
-                reason_message = "Available actions are derived from the current canonical state."
+                reason_message = text(language, "reason.guided_ready")
         disclosures: list[dict[str, str]] = []
         if not summary.get("setup_complete"):
-            disclosures.append(_disclosure("vault-purpose", "vault", "Vault stores approved personal career facts in the user's private area."))
+            disclosures.append(_disclosure("vault-purpose", "vault", text(language, "disclosure.vault")))
         if summary.get("pending_proposals"):
-            disclosures.append(_disclosure("proposal-approval-boundary", "proposal", "A proposal is not canonical until the existing approval path validates it."))
+            disclosures.append(_disclosure("proposal-approval-boundary", "proposal", text(language, "disclosure.approval")))
         if summary.get("unknown_count"):
-            disclosures.append(_disclosure("unknown-state", "unknown", "Unknown means verified evidence is missing; it may remain Unknown."))
+            disclosures.append(_disclosure("unknown-state", "unknown", text(language, "disclosure.unknown")))
         if summary.get("conflict_count"):
-            disclosures.append(_disclosure("conflict-state", "conflict", "Conflict means confirmed evidence disagrees; it is not offset by another strength."))
+            disclosures.append(_disclosure("conflict-state", "conflict", text(language, "disclosure.conflict")))
         if isinstance(summary.get("workspace"), Mapping):
-            disclosures.append(_disclosure("workspace-purpose", "workspace", f"Workspace: {summary['workspace'].get('path') or 'not resolved'}; it contains job-search projection state."))
+            path = summary["workspace"].get("path") or text(language, "guided.workspace_unresolved")
+            disclosures.append(_disclosure("workspace-purpose", "workspace", f"{text(language, 'section.workspace')}: {path}"))
+        action_result = result.get("action_result") if isinstance(result.get("action_result"), Mapping) else {}
+        queue_only = action_result.get("applied") is False
+        if queue_only:
+            reason_code = "APPROVAL_COMPLETE"
+            reason_message = text(language, "reason.approval_queue_only")
+            disclosures.append(_disclosure("heartbeat-approval", "heartbeat", text(language, "disclosure.heartbeat")))
+            summary_text = text(language, "summary.approval_queue_only")
+        elif str(selection.get("action") or "") == "approve_proposal" and action_result:
+            reason_code = "APPROVAL_COMPLETE"
+            reason_message = text(language, "reason.approval_event")
+            summary_text = text(language, "summary.approval_event")
+        else:
+            summary_text = text(language, "summary.guided_ready")
         effects_changed = ["guided-selected operation"] if result.get("write_performed") or result.get("state_changed") else []
         effects_unchanged = [] if result.get("state_changed") else ["canonical state"]
         outcome = _outcome(
             state,
-            "Guided actions are available from the current state.",
+            summary_text,
             reason_code=reason_code,
             reason_message=reason_message,
             actions=available,
@@ -324,7 +375,7 @@ def attach(command: str, result: Mapping[str, Any], *, args: Mapping[str, Any] |
             unchanged=effects_unchanged,
             disclosures=disclosures,
         )
-        return {**dict(result), "ux": outcome}
+        return finish(outcome)
 
     if command == "doctor":
         errors = result.get("errors") if isinstance(result.get("errors"), list) else []
@@ -332,143 +383,174 @@ def attach(command: str, result: Mapping[str, Any], *, args: Mapping[str, Any] |
         if errors:
             outcome = _outcome(
                 "blocked",
-                "Doctor found blocking setup or workspace issues.",
+                text(language, "summary.doctor_blocked"),
                 reason_code="SETUP_REQUIRED",
-                reason_message="The reported errors must be inspected before dependent operations can proceed.",
-                actions=[_action("run_doctor", "Run doctor with repair", command="doctor --fix", operation_kind="repair", requires_confirmation=True)],
+                reason_message=text(language, "reason.doctor_error"),
+                actions=[_action("run_doctor", action_label(language, "run_doctor"), command="doctor --fix", operation_kind="repair", requires_confirmation=True)],
                 issues=[{"code": "DOCTOR_ERROR", "subject": "doctor", "message": str(item)} for item in errors],
                 unchanged=["canonical career state"],
             )
         elif warnings:
             outcome = _outcome(
                 "review",
-                "Doctor completed with warnings to review.",
+                text(language, "summary.doctor_warning"),
                 reason_code="REVIEW_REQUIRED",
-                reason_message="The vault is usable, but some profile or context warnings remain.",
-                actions=[_action("inspect_status", "Inspect current status", command="status")],
+                reason_message=text(language, "reason.doctor_warning"),
+                actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")],
                 issues=[{"code": "DOCTOR_WARNING", "subject": "doctor", "message": str(item)} for item in warnings],
             )
         else:
-            outcome = _outcome("ready", "Doctor checks passed.", reason_code="DOCTOR_OK", reason_message="No blocking doctor findings were reported.", actions=[_action("inspect_status", "Inspect current status", command="status")])
-        return {**dict(result), "ux": outcome}
+            outcome = _outcome("ready", text(language, "summary.doctor_ok"), reason_code="DOCTOR_OK", reason_message=text(language, "reason.doctor_ok"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")])
+        return finish(outcome)
 
     if command == "status":
         if not result.get("profile", {}).get("track"):
             outcome = _outcome(
                 "needs_input",
-                "A career track is still required.",
+                text(language, "summary.status_needs_track"),
                 reason_code="SETUP_REQUIRED",
-                reason_message="The vault is initialized, but profile.track is not set.",
-                actions=[_action("run_setup", "Complete setup", command="setup", operation_kind="repair", requires_confirmation=True)],
+                reason_message=text(language, "reason.setup_required"),
+                actions=[_action("run_setup", action_label(language, "run_setup"), command="setup", operation_kind="repair", requires_confirmation=True)],
                 disclosures=[
                     _disclosure(
                         "vault-purpose",
                         "vault",
-                        "Vault stores approved personal career facts in the user's private area.",
+                        text(language, "disclosure.vault"),
                     )
                 ],
             )
         elif pending:
+            heartbeat_pending = proposal_kind == "heartbeat"
+            disclosure_key = (
+                "disclosure.heartbeat"
+                if heartbeat_pending
+                else "disclosure.event_approval"
+                if proposal_kind == "event"
+                else "disclosure.approval"
+            )
             outcome = _outcome(
                 "needs_confirmation",
-                f"{pending} proposal(s) are waiting for explicit approval.",
+                text(language, "summary.heartbeat_pending" if heartbeat_pending else "summary.status_pending_count", count=pending),
                 reason_code="PENDING_PROPOSAL",
-                reason_message="Draft proposals are not canonical until explicitly approved.",
-                actions=_proposal_actions(None),
+                reason_message=text(language, "reason.heartbeat_pending" if heartbeat_pending else "reason.pending_proposal"),
+                actions=_proposal_actions(None, language, proposal_kind),
                 unchanged=["canonical state until approval"],
                 disclosures=[
                     _disclosure(
                         "proposal-approval-boundary",
                         "proposal",
-                        "A proposal is an unconfirmed change; Approve explicitly validates and applies it to canonical state.",
+                        text(language, disclosure_key),
                     ),
                     _disclosure(
                         "workspace-purpose",
                         "workspace",
-                        f"Current workspace: {result.get('workspace', {}).get('path') if isinstance(result.get('workspace'), Mapping) else 'the resolved workspace'}. Purpose: the working area for job-search and company/application state.",
+                        f"{text(language, 'section.workspace')}: {result.get('workspace', {}).get('path') if isinstance(result.get('workspace'), Mapping) else text(language, 'guided.workspace_unresolved')}",
                     ),
                 ],
             )
         else:
             outcome = _outcome(
                 "ready",
-                "Career Agent is ready for the next user-owned action.",
+                text(language, "summary.status_ready"),
                 reason_code="STATUS_READY",
-                reason_message="No pending approval is blocking the current status.",
-                actions=[_action("inspect_profile", "Inspect personal profile", command="personal-profile"), _action("inspect_context", "Inspect shared context", command="context")],
+                reason_message=text(language, "reason.status_ready"),
+                actions=[_action("inspect_profile", action_label(language, "inspect_profile"), command="personal-profile"), _action("inspect_context", action_label(language, "inspect_context"), command="context")],
                 disclosures=[
                     _disclosure(
                         "workspace-purpose",
                         "workspace",
-                        f"Current workspace: {result.get('workspace', {}).get('path') if isinstance(result.get('workspace'), Mapping) else 'the resolved workspace'}. Purpose: the working area for job-search and company/application state.",
+                        f"{text(language, 'section.workspace')}: {result.get('workspace', {}).get('path') if isinstance(result.get('workspace'), Mapping) else text(language, 'guided.workspace_unresolved')}",
                     )
                 ],
             )
-        return {**dict(result), "ux": outcome}
+        return finish(outcome)
 
     if command in {"run", "propose-fact", "propose-context"}:
-        operation_created_pending = command == "run" and str(result.get("mode")) in {"heartbeat", "discover"}
+        operation_created_pending = command == "run" and str(args.get("mode") or result.get("mode")) in {"heartbeat", "discover"}
         if proposal_pending or pending or operation_created_pending:
             outcome = _outcome(
                 "needs_confirmation",
-                "A proposal was created and is waiting for review.",
+                text(language, "summary.heartbeat_pending" if proposal_kind == "heartbeat" else "summary.operation_pending"),
                 reason_code="PENDING_PROPOSAL",
-                reason_message="The proposal is not canonical until explicit approval.",
-                actions=_proposal_actions(proposal_id),
+                reason_message=text(language, "reason.heartbeat_pending" if proposal_kind == "heartbeat" else "reason.operation_pending"),
+                actions=_proposal_actions(proposal_id, language, proposal_kind),
                 unchanged=["personal profile and canonical state"],
                 disclosures=[
                     _disclosure(
                         "proposal-approval-boundary",
                         "proposal",
-                        "A proposal is an unconfirmed change; Approve explicitly validates and applies it to canonical state.",
+                        text(language, "disclosure.heartbeat" if proposal_kind == "heartbeat" else "disclosure.event_approval" if proposal_kind == "event" else "disclosure.approval"),
                     )
                 ],
             )
         elif result.get("needs_confirmation"):
             outcome = _outcome(
                 "needs_input",
-                str(result.get("question") or "More setup input is required before a proposal can be created."),
+                str(result.get("question") or text(language, "reason.setup_required")),
                 reason_code="SETUP_REQUIRED",
-                reason_message="The existing routing contract requested missing user input.",
-                actions=[_action("run_setup", "Complete required setup", command="setup", operation_kind="repair", requires_confirmation=True)],
+                reason_message=text(language, "reason.setup_required"),
+                actions=[_action("run_setup", action_label(language, "complete_required_setup"), command="setup", operation_kind="repair", requires_confirmation=True)],
             )
         else:
-            outcome = _outcome("completed", f"{mode} completed.", reason_code="OPERATION_COMPLETE", reason_message="The existing command completed without a pending proposal.", actions=[_action("inspect_status", "Inspect current status", command="status")])
-        return {**dict(result), "ux": _with_state_actions(outcome, _state_issues(result), command=command)}
+            outcome = _outcome("completed", text(language, "summary.operation_complete"), reason_code="OPERATION_COMPLETE", reason_message=text(language, "reason.operation_complete"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")])
+        return finish(_with_state_actions(outcome, _state_issues(result), command=command, language=language))
 
     if command == "proposals":
         if result.get("proposal"):
             status = str(result["proposal"].get("status") or "")
             if status == "pending":
-                outcome = _outcome("needs_confirmation", "Review this proposal before approval.", reason_code="PENDING_PROPOSAL", reason_message="The proposal remains a draft until explicit approval.", actions=_proposal_actions(proposal_id), unchanged=["canonical state"], disclosures=[_disclosure("proposal-approval-boundary", "proposal", "A proposal is an unconfirmed change; Approve explicitly validates and applies it to canonical state.")])
+                kind = str(result["proposal"].get("kind") or "")
+                outcome = _outcome("needs_confirmation", text(language, "summary.proposal_review"), reason_code="PENDING_PROPOSAL", reason_message=text(language, "reason.proposal_review"), actions=_proposal_actions(proposal_id, language, kind), unchanged=["canonical state"], disclosures=[_disclosure("proposal-approval-boundary", "proposal", text(language, "disclosure.heartbeat" if kind == "heartbeat" else "disclosure.event_approval" if kind == "event" else "disclosure.approval"))])
             else:
-                outcome = _outcome("review", "Proposal review completed.", reason_code="PROPOSAL_REVIEWED", reason_message="The proposal status is shown without changing it.", actions=[_action("inspect_status", "Inspect current status", command="status")])
+                outcome = _outcome("review", text(language, "summary.proposal_reviewed"), reason_code="PROPOSAL_REVIEWED", reason_message=text(language, "reason.proposal_reviewed"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")])
         elif pending:
-            outcome = _outcome("needs_confirmation", f"{pending} pending proposal(s) need review.", reason_code="PENDING_PROPOSAL", reason_message="Pending proposals are not canonical state.", actions=_proposal_actions(None), unchanged=["canonical state"], disclosures=[_disclosure("proposal-approval-boundary", "proposal", "A proposal is an unconfirmed change; Approve explicitly validates and applies it to canonical state.")])
+            outcome = _outcome("needs_confirmation", text(language, "summary.status_pending_count", count=pending), reason_code="PENDING_PROPOSAL", reason_message=text(language, "reason.pending_proposal"), actions=_proposal_actions(None, language), unchanged=["canonical state"], disclosures=[_disclosure("proposal-approval-boundary", "proposal", text(language, "disclosure.approval"))])
         else:
-            outcome = _outcome("ready", "No pending proposals need approval.", reason_code="NO_PENDING_PROPOSALS", reason_message="The proposal queue is clear for the current filter.", actions=[_action("inspect_status", "Inspect current status", command="status")])
-        return {**dict(result), "ux": outcome}
+            outcome = _outcome("ready", text(language, "summary.no_pending"), reason_code="NO_PENDING_PROPOSALS", reason_message=text(language, "reason.no_pending"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")])
+        return finish(outcome)
 
     if command == "approve":
-        outcome = _outcome("completed", "Proposal approved and canonical state updated.", reason_code="APPROVAL_COMPLETE", reason_message="The existing approval and evidence checks passed.", actions=[_action("inspect_profile", "Inspect personal profile", command="personal-profile"), _action("inspect_status", "Inspect current status", command="status")], changed=["approved event/canonical state"], unchanged=["original private document"], disclosures=[_disclosure("proposal-approval-boundary", "proposal", "Approve was explicit; the canonical state changed only after existing validation and evidence checks passed.")])
-        return {**dict(result), "ux": _with_state_actions(outcome, _state_issues(result), command=command)}
+        approved_proposal = result.get("proposal") if isinstance(result.get("proposal"), Mapping) else {}
+        queue_only = result.get("applied") is False or approved_proposal.get("kind") == "heartbeat"
+        if queue_only:
+            outcome = _outcome(
+                "completed",
+                text(language, "summary.approval_queue_only"),
+                reason_code="APPROVAL_COMPLETE",
+                reason_message=text(language, "reason.approval_queue_only"),
+                actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")],
+                unchanged=["canonical state"],
+                disclosures=[_disclosure("heartbeat-approval", "heartbeat", text(language, "disclosure.heartbeat"))],
+            )
+        else:
+            outcome = _outcome(
+                "completed",
+                text(language, "summary.approval_event"),
+                reason_code="APPROVAL_COMPLETE",
+                reason_message=text(language, "reason.approval_event"),
+                actions=[_action("inspect_profile", action_label(language, "inspect_profile"), command="personal-profile"), _action("inspect_status", action_label(language, "inspect_status"), command="status")],
+                changed=["approved event/canonical state"],
+                unchanged=["original private document"],
+                disclosures=[_disclosure("proposal-approval-boundary", "proposal", text(language, "disclosure.event_approval"))],
+            )
+        return finish(_with_state_actions(outcome, _state_issues(result), command=command, language=language))
 
     if command == "restore-state":
-        outcome = _outcome("completed", "State snapshot restored for recovery.", reason_code="STATE_RECOVERY_COMPLETE", reason_message="Only the current snapshot changed; append-only history was retained.", actions=[_action("inspect_status", "Inspect current status", command="status")], changed=["current state snapshot"], unchanged=["events.jsonl", "proposals.jsonl", "workspace pipeline"], disclosures=[_disclosure("restore-state-semantics", "recovery", "Restore-state replaces the current snapshot for recovery; it is not a general undo and does not rewind append-only history.")])
-        return {**dict(result), "ux": outcome}
+        outcome = _outcome("completed", text(language, "summary.restore_complete"), reason_code="STATE_RECOVERY_COMPLETE", reason_message=text(language, "reason.restore_complete"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")], changed=["current state snapshot"], unchanged=["events.jsonl", "proposals.jsonl", "workspace pipeline"], disclosures=[_disclosure("restore-state-semantics", "recovery", text(language, "disclosure.restore"))])
+        return finish(outcome)
 
     if command in {"private-import", "private-list", "private-doctor"}:
         changed = ["private-store copy and metadata"] if command == "private-import" else []
         unchanged = ["original source file"] if command == "private-import" else []
-        outcome = _outcome("completed" if command == "private-import" else "ready", f"{mode} completed.", reason_code="PRIVATE_STORE_READY", reason_message="Private-store boundaries were preserved.", actions=[_action("inspect_status", "Inspect current status", command="status")], changed=changed, unchanged=unchanged, disclosures=[_disclosure("private-store-boundary", "private_store", "The document is stored outside the Git repository; the source is preserved and the import is not an automatically confirmed career fact.")])
-        return {**dict(result), "ux": outcome}
+        outcome = _outcome("completed" if command == "private-import" else "ready", text(language, "summary.private_store_ready"), reason_code="PRIVATE_STORE_READY", reason_message=text(language, "reason.private_store"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")], changed=changed, unchanged=unchanged, disclosures=[_disclosure("private-store-boundary", "private_store", text(language, "disclosure.private_store"))])
+        return finish(outcome)
 
     if command in {"personal-profile", "personal-context", "context"}:
-        outcome = _outcome("ready", f"{mode} is available for inspection.", reason_code="READ_ONLY_RESULT", reason_message="This command did not change canonical state.", actions=[_action("inspect_status", "Inspect current status", command="status")], unchanged=["canonical state"])
-        return {**dict(result), "ux": _with_state_actions(outcome, _state_issues(result), command=command)}
+        outcome = _outcome("ready", text(language, "summary.read_only"), reason_code="READ_ONLY_RESULT", reason_message=text(language, "reason.read_only"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")], unchanged=["canonical state"])
+        return finish(_with_state_actions(outcome, _state_issues(result), command=command, language=language))
 
-    outcome = _outcome("ready", f"{mode} completed.", reason_code="OPERATION_COMPLETE", reason_message="The command completed.", actions=[_action("inspect_status", "Inspect current status", command="status")])
-    return {**dict(result), "ux": _with_state_actions(outcome, _state_issues(result), command=command)}
+    outcome = _outcome("ready", text(language, "summary.operation_complete"), reason_code="OPERATION_COMPLETE", reason_message=text(language, "reason.operation_complete"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")])
+    return finish(_with_state_actions(outcome, _state_issues(result), command=command, language=language))
 
 
 def _error_code(error: CareerError) -> str:
@@ -495,24 +577,39 @@ def _error_code(error: CareerError) -> str:
     return "OPERATION_BLOCKED"
 
 
-def error_payload(error: CareerError) -> dict[str, Any]:
+def error_payload(error: CareerError, *, language: str | None = None) -> dict[str, Any]:
+    language = normalize_language(language)
     code = _error_code(error)
     message = str(error)
     action_map: dict[str, list[dict[str, Any]]] = {
-        "SETUP_REQUIRED": [_action("run_setup", "Run setup", command="setup", operation_kind="repair", requires_confirmation=True)],
-        "WORKSPACE_NOT_FOUND": [_action("inspect_status", "Choose an existing workspace", command="status", operation_kind="navigate")],
-        "PROPOSAL_NOT_FOUND": [_action("review_proposal", "List pending proposals", command="proposals")],
-        "PROPOSAL_NOT_PENDING": [_action("review_proposal", "Review proposal status", command="proposals")],
-        "EVIDENCE_REQUIRED": [_action("provide_evidence", "Provide evidence and retry", operation_kind="provide_evidence")],
-        "EVIDENCE_MISMATCH": [_action("provide_evidence", "Provide matching evidence and retry", operation_kind="provide_evidence")],
-        "DOCUMENT_NOT_FOUND": [_action("inspect_context", "Inspect private-store documents", command="private-list")],
-        "DOCUMENT_AMBIGUOUS": [_action("inspect_context", "Inspect private-store documents", command="private-list")],
-        "PRIVATE_STORE_UNSAFE_PATH": [_action("inspect_context", "Choose a private store outside the worktree", command="private-doctor", operation_kind="repair")],
-        "STATE_VERSION_NOT_FOUND": [_action("restore_state", "Choose a persisted state version", command="restore-state <version>", operation_kind="repair", requires_confirmation=True)],
-        "INVALID_STAGE": [_action("inspect_context", "Inspect supported stages", command="context")],
+        "SETUP_REQUIRED": [_action("run_setup", action_label(language, "run_setup"), command="setup", operation_kind="repair", requires_confirmation=True)],
+        "WORKSPACE_NOT_FOUND": [_action("inspect_status", action_label(language, "inspect_workspace"), command="status", operation_kind="navigate")],
+        "PROPOSAL_NOT_FOUND": [_action("review_proposal", action_label(language, "review_proposals"), command="proposals")],
+        "PROPOSAL_NOT_PENDING": [_action("review_proposal", action_label(language, "review_proposal"), command="proposals")],
+        "EVIDENCE_REQUIRED": [_action("provide_evidence", action_label(language, "provide_evidence"), operation_kind="provide_evidence")],
+        "EVIDENCE_MISMATCH": [_action("provide_evidence", action_label(language, "provide_matching_evidence"), operation_kind="provide_evidence")],
+        "DOCUMENT_NOT_FOUND": [_action("inspect_context", action_label(language, "inspect_context"), command="private-list")],
+        "DOCUMENT_AMBIGUOUS": [_action("inspect_context", action_label(language, "inspect_context"), command="private-list")],
+        "PRIVATE_STORE_UNSAFE_PATH": [_action("inspect_context", action_label(language, "inspect_context"), command="private-doctor", operation_kind="repair")],
+        "STATE_VERSION_NOT_FOUND": [_action("restore_state", action_label(language, "choose_state_version"), command="restore-state <version>", operation_kind="repair", requires_confirmation=True)],
+        "INVALID_STAGE": [_action("inspect_context", action_label(language, "inspect_context"), command="context")],
     }
-    actions = action_map.get(code, [_action("retry", "Review the input and retry", operation_kind="retry")])
-    return {
+    actions = action_map.get(code, [_action("retry", action_label(language, "retry"), operation_kind="retry")])
+    localized_reason = {
+        "SETUP_REQUIRED": "reason.setup_required",
+        "EVIDENCE_REQUIRED": "action.provide_evidence",
+        "EVIDENCE_MISMATCH": "action.provide_matching_evidence",
+    }.get(code, "reason.operation_blocked")
+    localized_disclosures = []
+    if code in {"WORKSPACE_NOT_FOUND", "WORKSPACE_AMBIGUOUS"}:
+        localized_disclosures.append(
+            _disclosure(
+                "workspace-resolution",
+                "workspace",
+                f"{text(language, 'section.workspace')}: {error.details.get('workspace', text(language, 'guided.workspace_unresolved'))}",
+            )
+        )
+    payload = {
         "ok": False,
         "error": message,
         "error_code": code,
@@ -524,53 +621,46 @@ def error_payload(error: CareerError) -> dict[str, Any]:
         "external_side_effect": False,
         "ux": _outcome(
             "blocked" if not error.state_changed else "recovery_required",
-            "The operation was not completed.",
+            text(language, "summary.operation_not_completed"),
             reason_code=code,
-            reason_message=message.splitlines()[0],
+            reason_message=text(language, localized_reason),
             actions=actions,
             unchanged=["canonical state"] if not error.state_changed else [],
-            disclosures=(
-                [
-                    _disclosure(
-                        "workspace-resolution",
-                        "workspace",
-                        f"The requested workspace could not be resolved: {error.details.get('workspace', 'path was not available') }.",
-                    )
-                ]
-                if code in {"WORKSPACE_NOT_FOUND", "WORKSPACE_AMBIGUOUS"}
-                else []
-            ),
+            disclosures=localized_disclosures,
         ),
     }
+    payload["ux"]["language"] = language
+    return payload
 
 
 def render_human(payload: Mapping[str, Any]) -> str:
     """Render only the UX projection; JSON remains the default machine contract."""
     ux = payload.get("ux") if isinstance(payload.get("ux"), Mapping) else {}
-    lines = [f"State: {ux.get('state', 'blocked' if payload.get('ok') is False else 'ready')}"]
+    language = normalize_language(ux.get("language"))
+    raw_state = ux.get("state", "blocked" if payload.get("ok") is False else "ready")
+    lines = [f"{text(language, 'section.state')}: {state_label(language, raw_state)}"]
     if ux.get("summary"):
-        lines.append(f"Summary: {ux['summary']}")
+        lines.append(f"{text(language, 'section.summary')}: {ux['summary']}")
     reason = ux.get("reason") if isinstance(ux.get("reason"), Mapping) else {}
     if reason.get("message"):
-        lines.append(f"Reason: {reason['message']}")
+        lines.append(f"{text(language, 'section.reason')}: {reason['message']}")
     disclosures = ux.get("disclosures") if isinstance(ux.get("disclosures"), list) else []
     if disclosures:
-        lines.append("Context:")
+        lines.append(f"{text(language, 'section.context')}:")
         for disclosure in disclosures:
             if isinstance(disclosure, Mapping) and disclosure.get("message"):
                 lines.append(f"- {disclosure['message']}")
     actions = ux.get("next", {}).get("actions", []) if isinstance(ux.get("next"), Mapping) else []
     if actions:
-        lines.append("Next actions:")
+        lines.append(f"{text(language, 'section.next_actions')}:")
         for action in actions:
-            suffix = " (confirmation required)" if action.get("requires_confirmation") else ""
-            command = f" -> {action['command']}" if action.get("command") else ""
-            lines.append(f"- {action.get('id')}: {action.get('label')}{command}{suffix}")
+            suffix = text(language, "guided.confirmation_suffix") if action.get("requires_confirmation") else ""
+            lines.append(f"- {action.get('label')}{suffix}")
     effects = ux.get("effects") if isinstance(ux.get("effects"), Mapping) else {}
-    for label, key in (("Changed", "changed"), ("Unchanged", "unchanged")):
+    for label_key, key in (("section.changed", "changed"), ("section.unchanged", "unchanged")):
         values = effects.get(key) or []
         if values:
-            lines.append(f"{label}: {', '.join(str(value) for value in values)}")
-    if payload.get("ok") is False and payload.get("error"):
-        lines.insert(0, f"Problem: {payload['error']}")
+            lines.append(f"{text(language, label_key)}: {', '.join(effect_label(language, value) for value in values)}")
+    if payload.get("ok") is False and reason.get("message"):
+        lines.insert(0, f"{text(language, 'section.problem')}: {reason['message']}")
     return "\n".join(lines)

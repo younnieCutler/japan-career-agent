@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.17.1] - 2026-08-06
+
+- Preserve heartbeat-specific labels and disclosures in `status` and guided human output.
+- Add pending proposal kind metadata to the additive status JSON contract.
+- Add chat response language hard-gate coverage for KO/JA/EN turn switching.
+
+## [1.17.0] - 2026-08-06
+
+- Localize Career Agent human UX in Korean, Japanese, and English.
+- Follow the latest chat message language immediately, with profile-language fallback for message-free commands.
+- Distinguish event confirmation from heartbeat review and keep heartbeat approval queue-only (`applied: false`).
+- Add locale-catalog completeness and language/terminology regression coverage.
+
 ## [1.16.1] - 2026-08-06
 
 - `job-seeker-agent` states the `Missing` / `Unknown` boundary in `SKILL.md` itself. The rule is not
