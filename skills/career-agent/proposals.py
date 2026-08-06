@@ -309,3 +309,24 @@ def list_proposals(home: CareerVault, *, include_all: bool = False, limit: int |
     if limit is not None:
         rows = rows[:limit]
     return {"mode": "proposals", "count": len(rows), "proposals": [proposal_summary(row) for row in rows]}
+
+
+def review_proposal(home: CareerVault, proposal_id: str) -> dict[str, Any]:
+    """Return one explicitly requested proposal for review.
+
+    The ordinary list remains metadata-only.  A caller must name the proposal before its
+    approval-relevant body is returned, and this function never changes proposal state.
+    """
+    proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
+    if proposal is None:
+        raise CareerError(
+            f"proposal not found: {proposal_id}",
+            code="PROPOSAL_NOT_FOUND",
+            details={"proposal_id": proposal_id},
+        )
+    return {
+        "mode": "proposal",
+        "read_only": True,
+        "proposal": proposal,
+        "summary": proposal_summary(proposal),
+    }

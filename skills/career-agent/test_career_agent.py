@@ -218,7 +218,9 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual({item["id"] for item in pending["proposals"]}, {first["proposal"]["id"], second["proposal"]["id"]})
         self.assertTrue(all(set(item) == {"id", "kind", "status", "created_at", "title", "stage", "company"}
                             for item in pending["proposals"]))
-        self.assertNotIn("summary", json.dumps(pending, ensure_ascii=False))
+        # The metadata-only rows must not expose proposal bodies.  The additive UX contract has
+        # its own top-level summary, which is intentionally not part of any proposal row.
+        self.assertTrue(all("summary" not in row for row in pending["proposals"]))
 
         output(run(self.vault, "approve", first["proposal"]["id"], "--evidence", "転職の面接を準備したい"))
         after_approval = proposals_path.read_bytes()
