@@ -37,6 +37,7 @@ CHECKS = (
     ("career-agent golden CLI", (PYTHON, "skills/career-agent/test_golden_cli.py")),
     ("career-agent UX contract", (PYTHON, "skills/career-agent/test_ux.py")),
     ("career-agent guided frontend", (PYTHON, "skills/career-agent/test_guided.py")),
+    ("career-agent localization", (PYTHON, "skills/career-agent/test_localization.py")),
     ("career-agent UX regression eval", (PYTHON, "skills/career-agent/test_ux_regression_eval.py")),
     ("Career Agent P1 workflows", (PYTHON, "scripts/test_workflows.py")),
     ("career-agent boundary imports", (PYTHON, "skills/career-agent/test_boundary_imports.py")),

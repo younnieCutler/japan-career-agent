@@ -17,7 +17,7 @@ import sys
 import uuid
 
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 _SHARED_ROOT = Path(__file__).resolve().parent.parent.parent / "_shared"
 if str(_SHARED_ROOT) not in sys.path:
@@ -142,6 +142,7 @@ from vault import (  # noqa: E402
     utc_now,
 )
 from ux import attach as project_ux, error_payload, render_human  # noqa: E402
+from localization import normalize_language, text  # noqa: E402
 from guided import (  # noqa: E402
     build_summary,
     derive_actions,
@@ -460,6 +461,8 @@ def normalize_posting(posting: dict[str, Any]) -> dict[str, Any]:
 def choose_actions(home: CareerVault) -> list[dict[str, Any]]:
     events = read_jsonl(home.events)
     state = home.load_state()
+    profile = home.load_profile()
+    profile_language = normalize_language(profile.get("language"))
     actions: list[dict[str, Any]] = []
     for deadline in state.get("deadlines", []):
         if deadline.get("status") != "open":
@@ -469,8 +472,7 @@ def choose_actions(home: CareerVault) -> list[dict[str, Any]]:
         except (KeyError, ValueError):
             continue
         if days <= 7:
-            actions.append({"text": f"마감 확인: {deadline.get('title', 'deadline')}", "event_id": deadline.get("event_id"), "stage": state.get("stage"), "flow_phase": state.get("flow_phase"), "estimated_minutes": 15, "deadline": deadline["date"], "requires_confirmation": True, "reason": "deadline"})
-    profile = home.load_profile()
+            actions.append({"text": text(profile_language, "heartbeat.deadline_action", key=deadline.get("title", "deadline")), "event_id": deadline.get("event_id"), "stage": state.get("stage"), "flow_phase": state.get("flow_phase"), "estimated_minutes": 15, "deadline": deadline["date"], "requires_confirmation": True, "reason": "deadline"})
     seen_dates = {item.get("deadline") for item in actions}
     for key, value in profile.items():
         if not isinstance(value, str) or not DATE_VALUE.match(value) or value in seen_dates:
@@ -480,7 +482,7 @@ def choose_actions(home: CareerVault) -> list[dict[str, Any]]:
         except ValueError:
             continue
         if 0 <= days <= 7:
-            actions.append({"text": f"마감 확인: {key}", "event_id": None, "stage": state.get("stage"), "flow_phase": state.get("flow_phase"), "estimated_minutes": 15, "deadline": value, "requires_confirmation": True, "reason": "profile_deadline"})
+            actions.append({"text": text(profile_language, "heartbeat.deadline_action", key=key), "event_id": None, "stage": state.get("stage"), "flow_phase": state.get("flow_phase"), "estimated_minutes": 15, "deadline": value, "requires_confirmation": True, "reason": "profile_deadline"})
     for event in reversed(events):
         if event.get("status") == "confirmed" and event.get("next_action"):
             action = {"text": event["next_action"], "event_id": event["id"], "stage": event["stage"], "flow_phase": event.get("flow_phase"), "estimated_minutes": 30, "deadline": event.get("deadline"), "requires_confirmation": True, "reason": "latest confirmed event"}
@@ -726,6 +728,7 @@ def _guided_snapshot(
     profile = home.load_profile() if home.profile.is_file() else {}
     state = home.load_state() if home.state_toml.is_file() else default_state()
     status_error: dict[str, Any] | None = None
+    pending_kind: str | None = None
     if initialized:
         try:
             status_result = status(home, workspace=workspace)
@@ -733,6 +736,9 @@ def _guided_snapshot(
             if not isinstance(workspace_result, dict):
                 workspace_result = _guided_workspace_fallback(workspace)
             pending = status_result.get("pending_proposals", 0)
+            pending_rows = [row for row in read_jsonl(home.proposals) if row.get("status") == "pending"]
+            if len(pending_rows) == 1:
+                pending_kind = str(pending_rows[0].get("kind") or "") or None
         except CareerError as exc:
             status_error = {
                 "code": exc.code or "WORKSPACE_NOT_FOUND",
@@ -740,6 +746,9 @@ def _guided_snapshot(
             }
             workspace_result = _guided_workspace_fallback(workspace, exc)
             pending = sum(1 for row in read_jsonl(home.proposals) if row.get("status") == "pending")
+            pending_rows = [row for row in read_jsonl(home.proposals) if row.get("status") == "pending"]
+            if len(pending_rows) == 1:
+                pending_kind = str(pending_rows[0].get("kind") or "") or None
     else:
         workspace_result = _guided_workspace_fallback(workspace)
         pending = 0
@@ -751,6 +760,7 @@ def _guided_snapshot(
         state=state,
         workspace=workspace_result,
         pending_proposals=pending,
+        pending_kind=pending_kind,
         personal_profile=personal_profile,
         status_error=status_error,
     )
@@ -838,7 +848,7 @@ def run_guided(
     if interactive and not queue:
         print(render_guided_human(result))
         try:
-            queue.append(input("Choose an action (number or id; Enter exits): ").strip() or "exit")
+            queue.append(input(text(normalize_language(snapshot["summary"].get("language")), "guided.prompt")).strip() or "exit")
         except EOFError:
             queue.append("exit")
     if not queue:
@@ -989,7 +999,7 @@ def run_guided(
     except CareerError as exc:
         failed = _guided_snapshot(home, workspace, as_of)
         failed_result = _guided_result(failed)
-        failed_result.update(error_payload(exc))
+        failed_result.update(error_payload(exc, language=language_for(message or "") if message else normalize_language(home.load_profile().get("language"))))
         failed_result["guided"] = {
             "state": guided_state(failed["summary"], selection_status="blocked"),
             "summary": failed["summary"],
@@ -1012,7 +1022,9 @@ def run_guided(
     result["action_result"] = action_result
     result["read_only"] = not write_action
     result["write_performed"] = write_action
-    result["state_changed"] = resolved in {"complete_setup", "approve_proposal", "restore_state"}
+    result["state_changed"] = resolved in {"complete_setup", "restore_state"} or (
+        resolved == "approve_proposal" and action_result.get("applied", True) is not False
+    )
     if write_action:
         refreshed = _guided_snapshot(home, workspace, as_of)
         result["guided"] = {
@@ -1286,6 +1298,25 @@ def run_private_command(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def _output_language(args: argparse.Namespace, result: Mapping[str, Any] | None = None, home: CareerVault | None = None) -> str:
+    """Choose human-output language without changing the machine contract."""
+    if args.command == "run" and args.mode == "chat":
+        message = args.message or ""
+        return normalize_language((result or {}).get("language") or language_for(message))
+    if args.command == "guided" and args.message:
+        return language_for(args.message)
+    if args.command == "setup" and args.language:
+        return normalize_language(args.language)
+    if result and isinstance(result.get("profile"), dict) and result["profile"].get("language"):
+        return normalize_language(result["profile"].get("language"))
+    if home is not None:
+        try:
+            return normalize_language(home.load_profile().get("language"))
+        except (CareerError, OSError, ValueError):
+            pass
+    return normalize_language(None)
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -1297,7 +1328,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         if args.command == "setup":
             vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
             result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
-            result = project_ux(args.command, result, args=vars(args))
+            result = project_ux(args.command, result, args=vars(args), language=_output_language(args, result))
             if args.output_format == "human":
                 print(render_human(result))
             else:
@@ -1326,7 +1357,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                 graduation_year=args.graduation_year,
                 language=args.language,
             )
-            result = project_ux(args.command, result, args=vars(args))
+            result = project_ux(args.command, result, args=vars(args), language=_output_language(args, result, CareerVault(vault_path)))
             if args.output_format == "human":
                 print(render_guided_human(result))
             else:
@@ -1337,7 +1368,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         # told to initialize an unrelated Vault.
         if args.command in ("private-doctor", "private-import", "private-list"):
             result = run_private_command(args)
-            result = project_ux(args.command, result, args=vars(args))
+            result = project_ux(args.command, result, args=vars(args), language=_output_language(args, result))
             if args.output_format == "human":
                 print(render_human(result))
             else:
@@ -1434,14 +1465,14 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = run_heartbeat(home)
             else:
                 result = run_discover(home, args.source)
-        result = project_ux(args.command, result, args=vars(args))
+        result = project_ux(args.command, result, args=vars(args), language=_output_language(args, result, home))
         if args.output_format == "human":
             print(render_human(result))
         else:
             print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except CareerError as exc:
-        result = error_payload(exc)
+        result = error_payload(exc, language=_output_language(args, locals().get("result"), locals().get("home")))
         if getattr(args, "output_format", "json") == "human":
             print(render_human(result), file=sys.stderr)
         else:

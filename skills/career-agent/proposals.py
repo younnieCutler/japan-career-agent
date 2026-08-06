@@ -22,24 +22,17 @@ from private_store import PrivateHome, resolve_document  # noqa: E402
 from routing import flow_phase_for, infer_track, language_for, load_flow_reference, skill_context, stage_for  # noqa: E402
 from validation import validate_career_context, validate_event  # noqa: E402
 from vault import CareerVault, select_context, utc_now  # noqa: E402
+from localization import text  # noqa: E402
 
 
 def approval_action_for(message: str) -> str:
-    return {
-        "ko": "근거를 확인한 뒤 이벤트 확정",
-        "ja": "根拠を確認してからイベントを確定する",
-        "en": "Confirm evidence before saving",
-    }[language_for(message)]
+    return text(language_for(message), "event.approval_instruction")
 
 
 def make_event(message: str, track: str, stage: str, flow_phase: str, *, status: str = "draft") -> dict[str, Any]:
     event_id = f"evt-{uuid.uuid4().hex[:12]}"
     language = language_for(message)
-    title = {
-        "ko": "사용자 입력 기반 경력 이벤트",
-        "ja": "ユーザー入力に基づくキャリアイベント",
-        "en": "User-reported career event",
-    }[language]
+    title = text(language, "event.title")
     event = {
         "id": event_id,
         "track": track,
@@ -81,9 +74,9 @@ def run_chat(
             "persist": {"trajectory_only": True},
         }
         home.append_trajectory(trajectory)
-        question = "track must be explicit: shinsotsu or chuto"
+        question = text(language_for(message), "chat.track_question")
         if retry_count >= 2:
-            question += " (asked before — reply with your track, or set it directly in career-profile.toml)"
+            question += f" {text(language_for(message), 'chat.track_retry')}"
         return {"mode": "chat", "language": language_for(message), "needs_confirmation": True, "question": question, "saved": str(home.trajectories)}
     if track == "shinsotsu" and not isinstance(profile.get("graduation_year"), int):
         goal = "collect required shinsotsu graduation year before proposing an event"
@@ -101,9 +94,9 @@ def run_chat(
                 "persist": {"trajectory_only": True},
             }
         )
-        question = "profile.graduation_year is required for shinsotsu before an event proposal can be created"
+        question = text(language_for(message), "chat.graduation_question")
         if retry_count >= 2:
-            question += " (asked before — set profile.graduation_year directly in career-profile.toml)"
+            question += f" {text(language_for(message), 'chat.graduation_retry')}"
         return {"mode": "chat", "language": language_for(message), "track": track, "needs_confirmation": True, "question": question, "saved": str(home.trajectories)}
     stage = stage_for(message, track, state.get("stage"))
     reference = load_flow_reference()

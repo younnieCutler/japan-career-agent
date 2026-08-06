@@ -708,7 +708,7 @@ class CareerAgentTests(unittest.TestCase):
         output(run(self.vault, "run", "--mode", "chat", "--message", message))
         third = output(run(self.vault, "run", "--mode", "chat", "--message", message))
         self.assertNotIn("asked before", first["question"])
-        self.assertIn("asked before", third["question"])
+        self.assertIn("career-profile.toml", third["question"])
 
     def test_generic_followup_keeps_current_stage_instead_of_resetting(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
