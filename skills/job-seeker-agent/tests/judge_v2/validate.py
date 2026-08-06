@@ -38,6 +38,108 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _type_matches(value: object, expected: str) -> bool:
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "array":
+        return isinstance(value, list)
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "null":
+        return value is None
+    return False
+
+
+def _validate_json_schema(
+    value: object,
+    schema: dict[str, object],
+    root_schema: dict[str, object],
+    path: str = "$",
+) -> list[str]:
+    """Validate the small JSON-Schema subset used by output_schema.json.
+
+    Keeping this dependency-free makes the harness usable in the repository's
+    documented Python environment while still exercising the schema passed to
+    Codex, instead of merely hashing that file.
+    """
+
+    errors: list[str] = []
+    ref = schema.get("$ref")
+    if isinstance(ref, str) and ref.startswith("#/$defs/"):
+        definition_name = ref.removeprefix("#/$defs/")
+        definitions = root_schema.get("$defs")
+        definition = definitions.get(definition_name) if isinstance(definitions, dict) else None
+        if not isinstance(definition, dict):
+            return [f"{path}: unresolved schema reference {ref}"]
+        return _validate_json_schema(value, definition, root_schema, path)
+
+    expected_type = schema.get("type")
+    if expected_type is not None:
+        expected_types = expected_type if isinstance(expected_type, list) else [expected_type]
+        if not any(isinstance(item, str) and _type_matches(value, item) for item in expected_types):
+            errors.append(f"{path}: expected type {expected_type!r}")
+            return errors
+
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{path}: expected const {schema['const']!r}, got {value!r}")
+    enum = schema.get("enum")
+    if isinstance(enum, list) and value not in enum:
+        errors.append(f"{path}: expected one of {enum!r}, got {value!r}")
+
+    if isinstance(value, str):
+        min_length = schema.get("minLength")
+        if isinstance(min_length, int) and len(value) < min_length:
+            errors.append(f"{path}: string is shorter than minLength {min_length}")
+
+    if isinstance(value, list):
+        min_items = schema.get("minItems")
+        max_items = schema.get("maxItems")
+        if isinstance(min_items, int) and len(value) < min_items:
+            errors.append(f"{path}: fewer than minItems {min_items}")
+        if isinstance(max_items, int) and len(value) > max_items:
+            errors.append(f"{path}: more than maxItems {max_items}")
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(value):
+                errors.extend(_validate_json_schema(item, item_schema, root_schema, f"{path}[{index}]"))
+
+    if (isinstance(value, int) and not isinstance(value, bool)) or isinstance(value, float):
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path}: value is below minimum {minimum}")
+        if isinstance(maximum, (int, float)) and value > maximum:
+            errors.append(f"{path}: value is above maximum {maximum}")
+
+    if isinstance(value, dict):
+        required = schema.get("required")
+        if isinstance(required, list):
+            for name in required:
+                if isinstance(name, str) and name not in value:
+                    errors.append(f"{path}: missing required property {name!r}")
+        properties = schema.get("properties")
+        known_properties = properties if isinstance(properties, dict) else {}
+        additional = schema.get("additionalProperties", True)
+        for name, item in value.items():
+            child_path = f"{path}.{name}"
+            if name in known_properties:
+                property_schema = known_properties[name]
+                if isinstance(property_schema, dict):
+                    errors.extend(_validate_json_schema(item, property_schema, root_schema, child_path))
+            elif additional is False:
+                errors.append(f"{child_path}: additional property is not allowed")
+            elif isinstance(additional, dict):
+                errors.extend(_validate_json_schema(item, additional, root_schema, child_path))
+
+    return errors
+
+
 def _case_blocks(corpus: str) -> dict[str, str]:
     headers = list(re.finditer(r"^## ([A-Z]_[^\n]+)$", corpus, re.MULTILINE))
     blocks: dict[str, str] = {}
@@ -63,10 +165,19 @@ def validate(result_path: Path, corpus_path: Path, expected_path: Path, schema_p
     corpus_raw = corpus_path.read_text(encoding="utf-8")
     expected = yaml.safe_load(expected_path.read_text(encoding="utf-8"))
     result = json.loads(result_raw)
+    schema_document = json.loads(schema_path.read_text(encoding="utf-8"))
     expected_cases = {entry["id"]: entry for entry in expected["cases"]}
     case_blocks = _case_blocks(corpus_raw)
     errors: list[str] = []
-    schema_valid = True
+    schema_errors = (
+        _validate_json_schema(result, schema_document, schema_document)
+        if isinstance(schema_document, dict)
+        else ["schema document must be a JSON object"]
+    )
+    errors.extend(f"schema: {error}" for error in schema_errors)
+    schema_valid = not schema_errors
+    if not isinstance(result, dict):
+        result = {}
 
     if result.get("result_schema_version") != 2:
         errors.append("result_schema_version must be 2")
@@ -89,8 +200,13 @@ def validate(result_path: Path, corpus_path: Path, expected_path: Path, schema_p
             schema_valid = False
             continue
         case_id = case.get("case_id")
+        if not isinstance(case_id, str):
+            errors.append(f"case_id must be a string, got {case_id!r}")
+            schema_valid = False
+            continue
         if case_id in seen:
             errors.append(f"duplicate case: {case_id}")
+            schema_valid = False
         seen.add(case_id)
         if case_id not in expected_cases:
             errors.append(f"unknown case: {case_id}")
@@ -122,6 +238,13 @@ def validate(result_path: Path, corpus_path: Path, expected_path: Path, schema_p
                 failed.append(gate_id)
                 if not _quote_exists(finding.get("evidence"), case_output):
                     quote_failures.append(f"{case_id}/{gate_id}")
+        expected_gate_status = "fail" if failed else "clear"
+        if case.get("gate_status") != expected_gate_status:
+            errors.append(
+                f"{case_id}: gate_status {case.get('gate_status')!r} does not match findings "
+                f"({expected_gate_status!r})"
+            )
+            schema_valid = False
         detected[case_id] = failed
         expected_entry = expected_cases[case_id]
         expected_failures = set(expected_entry.get("expected_hard_violations", []))

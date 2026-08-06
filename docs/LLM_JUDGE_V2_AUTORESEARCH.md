@@ -1,6 +1,6 @@
 # LLM Judge v2 — autoresearch-style fixed-corpus experiment
 
-**상태:** 6회 완료 — final best `KEEP`, verification에서 axis 재현성 미확인
+**상태:** 6회 완료 — final best `PROVISIONAL KEEP (hard-gate dimensions)`, axis 평가 미확립
 **브랜치:** `experiment/llm-judge-autoresearch-6`
 **기준:** `origin/main` `08b4b8ca70ecc2fbefba07207eb6a5f775ee5c0b`
 **구분:** 기존 LLM Judge v1 파일럿(`docs/LLM_JUDGE_PILOT.md`)과 별도 실험
@@ -67,6 +67,24 @@ labels는 experiment 1 실행 전에 변경하지 않는다. harness bug가 보�
 않는다. 최종 best에는 실험 예산에 포함하지 않는 fresh 2~3 case verification을
 추가하되, 6회째 뒤에는 새 아이디어를 실행하지 않는다.
 
+### Methodological correction recorded after the six runs
+
+The runner supplied only `judge.md` and `corpus.md` to each Judge and explicitly
+forbade inspecting other files.  Although `judge.md` referred to the frozen v1
+anchors, it did not contain the complete 0/2/4 anchors for all six axes.  The
+frozen v1 rubric was therefore not actually in the Judge input.  The seven
+hard-gate definitions were written directly in `judge.md`, so hard-gate
+detection, clean hard-gate false positives, and output-quote checks remain
+interpretable.  Axis values, the axis-floor comparison, and axis reproducibility
+are under-specified and are **not established or measurable from this run**.
+The observed `decision_ownership` value changing from 0 to 1 is not attributed
+to Judge stochasticity.  No experiment or verification was rerun, and no corpus,
+expected label, or v1 record was changed.
+
+For any future run, the frozen input must include and hash the Judge procedure,
+fixed corpus, exact frozen v1 rubric, and the required canonical contract
+snapshot.  This correction is a record of the wiring fact, not a new experiment.
+
 ## Exactly six pre-registered experiments
 
 각 행의 변경은 candidate `judge.md`에서 한 개념만 바꾼다. baseline은 별도
@@ -95,12 +113,12 @@ scratch artifact directory에 보존했다.
 
 | 실행 | commit | 결과 | hard detection | clean FP | schema/quote | 비고 |
 |---:|---|---|---|---:|---|---|
-| 1 | `d17d183` | DISCARD | all expected | 0 | pass | `F` decision_ownership가 1 (floor 0) |
-| 2 | `47088a6` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
-| 3 | `7357417` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
-| 4 | `cd2033b` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
-| 5 | `9627d27` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
-| 6 | `3e6414e` | **KEEP** | all expected | 0 | pass | 동일 결과, output 예시 제거로 단순화 |
+| 1 | `d17d183` | DISCARD | all expected | 0 | pass | no hard-gate improvement; axis observation is not interpretable after the wiring correction |
+| 2 | `47088a6` | DISCARD | all expected | 0 | pass | same hard-gate result as best; longer prompt |
+| 3 | `7357417` | DISCARD | all expected | 0 | pass | same hard-gate result as best; longer prompt |
+| 4 | `cd2033b` | DISCARD | all expected | 0 | pass | same hard-gate result as best; longer prompt |
+| 5 | `9627d27` | DISCARD | all expected | 0 | pass | same hard-gate result as best; longer prompt |
+| 6 | `3e6414e` | **PROVISIONAL KEEP (hard-gate dimensions)** | all expected | 0 | pass | same hard-gate result and clean FP with a simpler procedure |
 
 Experiment 3의 첫 호출은 judge 인자에 corpus path를 넣은 wiring typo였고
 실험에 세지 않았다. 잘못된 metadata/output은 scratch에 남겼고, 올바른 path로
@@ -110,9 +128,11 @@ Experiment 3의 첫 호출은 judge 인자에 corpus path를 넣은 wiring typo�
 ### Final verification
 
 최종 best `3e6414e`를 fresh session 두 번 더 실행했다(실험 7·8이 아님).
-두 번 모두 hard detection 전체, clean FP 0, schema/quote는 유지했지만
+두 번 모두 hard detection 전체, clean FP 0, schema/quote는 유지됐다.
 `F_outcome_forecast.decision_ownership`가 experiment 6의 `0`에서 `1`로
-변했다. 따라서 hard-gate 탐지는 재현됐지만 axis 점수 재현성은 **불통과**다.
+변했지만, complete frozen v1 axis anchors가 Judge 입력에 없었으므로 이 값의
+변화는 Judge stochasticity나 axis 재현성 실패로 해석할 수 없다. Axis 평가,
+axis floor, axis reproducibility는 이번 실행에서 **확립되지 않았고 측정 불가**다.
 두 verification 모두 결과를 scratch에 보존했으며 새 candidate·corpus·재채점
 루프는 실행하지 않았다.
 
@@ -123,15 +143,18 @@ Experiment 3의 첫 호출은 judge 인자에 corpus path를 넣은 wiring typo�
   관측하지 않았다.
 - defect case의 부수 label(`B: decision_taken`, `G: fabricated_evidence`)은
   결과에 보존했지만 acceptance의 clean false-positive gate와 혼동하지 않았다.
-- 모델/언어 routing과 axis 점수는 고정 corpus에서도 흔들릴 수 있다. 이 실험은
-  subject stochasticity를 제거했지만 Judge stochasticity까지 제거하지 못했다.
+- hard-gate detector는 고정 corpus에서 안정적인 신호를 보였지만, axis rubric
+  snapshot을 Judge에게 전달하지 않아 axis 값·floor·재현성은 이번 실행에서
+  under-specified이며 measurable하지 않다. 이를 Judge stochasticity의 증거로
+  기록하지 않는다.
 
 ## Recommendation
 
 **권고: `continue later` (현재 도입하지 않음).** 여섯 candidate 모두
 expected hard violation을 탐지하고 clean false positive 0을 유지했으며,
-최종 best는 같은 결과를 더 짧게 달성했다. 그러나 fresh verification에서
-`decision_ownership` axis가 0/1로 흔들려 reproducibility 조건을 충족하지 못했고,
-valid regression→Judge 운영 경로의 제품 통합 근거도 없다. 따라서 CI/runtime에
-넣거나 v1 결론을 덮어쓰지 않는다. 이 branch/PR의 여섯 결과를 보존한 채 다음
-작업 주기에서 별도 설계로 재검토할 수 있지만, 오늘은 6회 후 종료한다.
+최종 best는 같은 hard-gate 결과를 더 단순하게 달성했다. 따라서 fixed-corpus
+hard-gate detector 용도는 향후 고려할 수 있다. 다만 complete frozen v1 axis
+anchors가 Judge 입력에서 빠져 axis 평가·floor·재현성은 확립되지 않았고, valid
+regression→Judge 운영 경로의 제품 통합 근거도 없다. 이를 근거로 v2 전체를
+채택하지 않으며 CI/runtime에도 넣지 않는다. v1 결론은 덮어쓰지 않고, 이
+branch/PR의 여섯 결과를 보존한 채 오늘은 6회 후 종료한다.
