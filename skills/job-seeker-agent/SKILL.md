@@ -113,9 +113,10 @@ requirement is or how firmly the JD states it.
 Use `Missing` only when comparable confirmed candidate evidence exists and does not meet a confirmed
 JD requirement. Absence is not that evidence — silence in a resume or profile does not show that the
 candidate lacks the skill — so a requirement the candidate has said nothing about stays `Unknown`
-until they confirm it, as does evidence that is one-sided, `Contradictory`, or `Stale`. Ask before
-labelling. A confirmed `Missing` core skill then carries an implication and a verification or
-retargeting question; it is not an arbitrary multiplier or a proprietary platform judgement.
+until they confirm it, as does evidence that is one-sided, `Contradictory`, or `Stale`. Do not change
+`Unknown` to `Missing` until the candidate-side evidence is confirmed. A confirmed `Missing` core
+skill then carries an implication and a verification or retargeting question; it is not an arbitrary
+multiplier or a proprietary platform judgement.
 
 ### STEP 1 — Candidate evidence
 
