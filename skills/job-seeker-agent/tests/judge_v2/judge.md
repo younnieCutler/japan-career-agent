@@ -18,11 +18,6 @@ uses the same seven hard-gate ids and six independent axes.
 
 ## Hard gates
 
-Before looking for violations, make a clean-first pass over each captured
-output: identify contract-following requirement statements and user-owned
-verification language.  Then mark a gate failed only when a positive violating
-sentence is present, rather than because a requirement is difficult or missing.
-
 For each case, mark every gate `pass` or `fail`:
 
 - `fabricated_evidence`: a metric, STAR detail, responsibility, salary, date,
