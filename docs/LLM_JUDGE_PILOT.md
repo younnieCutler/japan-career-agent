@@ -1,6 +1,6 @@
 # LLM-as-judge 파일럿 — job-seeker-agent
 
-**상태:** 검증 중단(3회차) — 1.16.1이 `Missing`/`Unknown` 경계를 `SKILL.md`에 명시했으나 subject는 여전히 같은 행에서 갈린다. 계약의 공백이 아니라 **두 실행이 확인되지 않은 완전성 전제로 `Unknown`을 `Missing`으로 올린 것**이다. 회귀 주입 미실행. keep/delete 미확정 (2026-08-06, baseline `9305fb2`). **4회차는 §7-4에 사전 등록만 되어 있고 아직 실행되지 않았다** · **작성일:** 2026-08-05 · **대상 버전:** 1.16.1 · **범위:** `job-seeker-agent` 1개 스킬
+**상태:** 4회차 미확정 — 새 control의 정본 baseline은 3/3 `Missing` + `Decision Status: Conflict`, hard gate 7개도 3/3 clear였다. 그러나 약화본이 `Review` / `Conflict` / `Conflict` 로 갈려 정본 분포와 겹쳤으므로 사전 등록대로 **invalid injection** 처리했고 약화본 judge는 실행하지 않았다. keep/delete 미확정 (2026-08-06, baseline `cae3b12`) · **작성일:** 2026-08-05 · **대상 버전:** 1.16.1 · **범위:** `job-seeker-agent` 1개 스킬
 
 ---
 
@@ -915,6 +915,88 @@ baseline subject 3회 (arm-a)
 
 이 PR은 **사전 등록까지만** 담는다. 실행은 이 절이 merge된 뒤에 시작한다 — 측정 대상을
 측정한 뒤에 기준을 적는 것을 막기 위한 순서이며, §7-3이 다음 회차 설계에 요구한 조건이다.
+
+---
+
+## 7-5. 4회차 실행 결과 (2026-08-06)
+
+§7-4를 `cae3b12` 위에서 그대로 실행했다. subject와 judge는 모두 `gpt-5.6-terra`, reasoning
+effort `medium`의 독립 `--ephemeral` cold start였다. user config, multi-agent, web/apps를 끄고
+subject worktree를 read-only로 제공했다. arms와 judge는 서로 다른 bare clone을 사용했고, 두 subject
+arm은 local-only opaque commit의 clean tree였다. judge-canonical에는 매번 output/capture 한 쌍만
+복사했으며 baseline을 재채점하지 않았다.
+
+### harness 사전 실패 — 실험 run에서 제외
+
+유효 run 전에 harness 실패가 두 번 있었다. 첫 호출은 PowerShell이 Codex의 stderr 배너를 terminating
+error로 처리해 frozen capture가 생성되지 않았고, 다음 호출은 Windows native pipe가 일본어 stdin을
+`?`로 손상했다. 두 원자료와 해시는 ignored handoff에 보존했다. 전자는 capture 계약을, 후자는
+fixture 본문 바이트 전달 계약을 충족하지 않으므로 어느 arm에도 세지 않았다. 이후 UTF-8 no-BOM
+stdin과 non-terminating stderr 처리를 고정하고 아래 6회를 실행했다.
+
+### baseline — 사전 조건 7개 전부 통과
+
+| 관측 | 실행 1 | 실행 2 | 실행 3 |
+|---|---|---|---|
+| Airflow Requirement | `Missing` | `Missing` | `Missing` |
+| AWS / Linux | `Matched` / `Matched` | `Matched` / `Matched` | `Matched` / `Matched` |
+| requirement row 상태값 `Conflict` | 0 | 0 | 0 |
+| Decision Status | `Conflict` | `Conflict` | `Conflict` |
+| AWS/Linux로 하향 | 없음 | 없음 | 없음 |
+| hard gate 7개 | clear | clear | clear |
+
+따라서 §7-4의 조건 1~6이 모두 성립했고 조건 7의 중단 경로는 발동하지 않았다. 세 judge 결과는
+모두 정상 JSON이었고 retry는 0회였다.
+
+| judge 축 | 실행 1 | 실행 2 | 실행 3 |
+|---|---:|---:|---:|
+| `requirement_discipline` | 3 | 2 | 2 |
+| `decision_ownership` | 4 | 4 | 4 |
+| 나머지 4축 | `null` | `null` | `null` |
+
+감점 인용도 원문에서 검증했다.
+
+- 실행 1의 「根拠：JD（自社採用ページ、2026年8月1日閲覧）／ご提示の確認済み経験（本会話、2026年8月6日）。」에는 confidence가 없다.
+- 실행 2의 3열 표 「`要件 | 確認済みの経験 | 判定`」에는 requirement별 candidate/JD source quote와 source/date/confidence metadata가 없다.
+- 실행 3의 「`本番 Airflow 運用 5年以上 … | 運用 0年 … | Missing`」 행에도 source/date/confidence metadata가 없다.
+
+세 감점은 모두 실제 출력의 누락을 가리킨다. 정본에서 3/3 반복된 제품 결함이므로 기존
+`tests/mistakes.md`에 한 행을 추가했다. 낮은 baseline 점수 자체는 사전 조건 실패가 아니다.
+
+### weakened — 분포 중첩으로 invalid injection
+
+채점 전에 약화본 3개를 정본 3개와 대조했다.
+
+| 관측 | 실행 1 | 실행 2 | 실행 3 |
+|---|---|---|---|
+| Airflow Requirement | `Missing` | `Missing` | `Missing` |
+| AWS / Linux | `Matched` / `Matched` | `Matched` / `Matched` | `Matched` / `Matched` |
+| Decision Status | **`Review`** | **`Conflict`** | **`Conflict`** |
+
+정본 `Conflict / Conflict / Conflict` 와 약화본 `Review / Conflict / Conflict` 가 겹친다. §7-4가
+요구한 3대3 완전 분리가 아니므로 **invalid injection** 이다. `AGENTS.md`의 정본 invariant는
+사전 등록대로 mutation하지 않았고, 약화본 실행 2·3은 실제로 「AWS・Linux 경험으로相殺できません」,
+「歓迎要件の一致で相殺できない」라고 썼다. 이를 원인으로 단정하거나 결과를 골라 유효 주입으로
+재분류하지 않는다.
+
+따라서 약화본 output은 judge-canonical에 복사하지 않았고 judge도 실행하지 않았다. `conflict_offset`
+탐지나 `requirement_discipline` 2점 하락은 측정하지 않았으며 keep/delete도 정하지 않는다.
+
+약화 scratch commit의 clean tree에서 `python scripts/run_all_checks.py` 는 **53/53 통과**했다.
+이는 산문 계약 mutation을 결정론 체크가 읽지 않는다는 예측과 일치하지만, 주입 무효 판정을 바꾸지
+않는다.
+
+### 4회차 기준별 상태
+
+| 기준 | 결과 |
+|---|---|
+| baseline subject 안정성 | **통과** — 상태 분포 3/3 동일 |
+| baseline hard gate | **통과** — 7개 × 3회 모두 clear |
+| baseline 감점 검증 가능성 | **통과** — 3개 인용 모두 원문 대조 성공 |
+| 0단계 유효 주입 | **불통과** — 약화본 2/3이 정본과 같은 `Conflict` |
+| weakened judge | **미실행** — invalid injection 중단 규칙 |
+| 결정론 체크 | 약화본 53/53 통과 |
+| **최종 keep/delete** | ⏳ **미확정 (`undecided`)** |
 
 ---
 
