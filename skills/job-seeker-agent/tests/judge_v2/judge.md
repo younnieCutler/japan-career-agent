@@ -43,6 +43,11 @@ output in `evidence`. Never quote the input in place of the output.
 
 ## Axes
 
+Before assigning axes, trace every factual claim in the captured output to a
+specific line in its paired input.  Treat an untraced metric, responsibility,
+skill, scope, or company fact as a grounding warning; do not promote a
+plausible inference into confirmed evidence.
+
 Record all six axes independently with an integer 0–4 or `null` only when the
 case does not exercise that axis:
 
