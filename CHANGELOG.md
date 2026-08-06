@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0] - 2026-08-06
+
+- Added the PR2 progressive-disclosure explanations at setup, workspace, private-store,
+  proposal/approval, evidence-state, and recovery boundaries.
+- Added exactly three reproducible synthetic workflows: First 10 Minutes, Real Application, and
+  Recovery, with semantic invariant checks and no guided frontend.
+
 ## [1.13.0] - 2026-08-06
 
 - Career Agent P0 UX contract work begins on the dedicated `feat/career-agent-ux` branch.
