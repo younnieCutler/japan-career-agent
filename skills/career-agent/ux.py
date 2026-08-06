@@ -217,6 +217,10 @@ def attach(
         listed = result.get("proposals") if isinstance(result.get("proposals"), list) else []
         if len(listed) == 1 and isinstance(listed[0], Mapping):
             proposal_kind = str(listed[0].get("kind") or "") or None
+    if proposal_kind is None:
+        pending_kind = result.get("pending_kind")
+        if pending_kind:
+            proposal_kind = str(pending_kind)
 
     def finish(outcome: dict[str, Any]) -> dict[str, Any]:
         outcome["language"] = language
@@ -416,18 +420,26 @@ def attach(
                 ],
             )
         elif pending:
+            heartbeat_pending = proposal_kind == "heartbeat"
+            disclosure_key = (
+                "disclosure.heartbeat"
+                if heartbeat_pending
+                else "disclosure.event_approval"
+                if proposal_kind == "event"
+                else "disclosure.approval"
+            )
             outcome = _outcome(
                 "needs_confirmation",
-                text(language, "summary.status_pending_count", count=pending),
+                text(language, "summary.heartbeat_pending" if heartbeat_pending else "summary.status_pending_count", count=pending),
                 reason_code="PENDING_PROPOSAL",
-                reason_message=text(language, "reason.pending_proposal"),
-                actions=_proposal_actions(None, language),
+                reason_message=text(language, "reason.heartbeat_pending" if heartbeat_pending else "reason.pending_proposal"),
+                actions=_proposal_actions(None, language, proposal_kind),
                 unchanged=["canonical state until approval"],
                 disclosures=[
                     _disclosure(
                         "proposal-approval-boundary",
                         "proposal",
-                        text(language, "disclosure.approval"),
+                        text(language, disclosure_key),
                     ),
                     _disclosure(
                         "workspace-purpose",

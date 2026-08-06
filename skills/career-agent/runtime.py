@@ -690,12 +690,19 @@ def workspace_summary(workspace: str | Path | None = None) -> dict[str, Any]:
 def status(home: CareerVault, workspace: str | Path | None = None) -> dict[str, Any]:
     state = home.load_state()
     profile = home.load_profile()
+    pending_rows = [row for row in read_jsonl(home.proposals) if row.get("status") == "pending"]
+    pending_kind = (
+        str(pending_rows[0].get("kind") or "") or None
+        if len(pending_rows) == 1
+        else None
+    )
     return {
         "vault": str(home.path),
         "profile": {"track": profile.get("track"), "career_status": profile.get("career_status", "active"), "target_role": profile.get("target_role")},
         "state": state,
         "event_count": len(read_jsonl(home.events)),
-        "pending_proposals": sum(1 for row in read_jsonl(home.proposals) if row.get("status") == "pending"),
+        "pending_proposals": len(pending_rows),
+        "pending_kind": pending_kind,
         "posting_count": len(read_jsonl(home.postings)),
         "workspace": workspace_summary(workspace),
     }
@@ -736,9 +743,7 @@ def _guided_snapshot(
             if not isinstance(workspace_result, dict):
                 workspace_result = _guided_workspace_fallback(workspace)
             pending = status_result.get("pending_proposals", 0)
-            pending_rows = [row for row in read_jsonl(home.proposals) if row.get("status") == "pending"]
-            if len(pending_rows) == 1:
-                pending_kind = str(pending_rows[0].get("kind") or "") or None
+            pending_kind = str(status_result.get("pending_kind") or "") or None
         except CareerError as exc:
             status_error = {
                 "code": exc.code or "WORKSPACE_NOT_FOUND",

@@ -34,22 +34,51 @@ class LocalizationTests(unittest.TestCase):
         for language in SUPPORTED_LANGUAGES:
             self.assertEqual(set(UX_TEXT[language]), expected, language)
 
-    def test_latest_chat_message_language_wins_each_turn(self) -> None:
+    def test_chat_response_language_is_a_hard_gate_each_turn(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             vault = Path(directory) / "vault"
             setup = run(vault, "setup", "--track", "chuto", "--language", "ko")
             self.assertEqual(setup.returncode, 0, setup.stderr)
-            for message, marker in (
-                ("面接の準備をしたい", "状態:"),
-                ("그럼 이력서는?", "상태:"),
-                ("Can you review my resume?", "State:"),
-            ):
+            fixtures = (
+                ("面接の準備をしたい", "状態:", ("상태:", "State:")),
+                ("그럼 이력서는?", "상태:", ("状態:", "State:")),
+                ("Can you review my resume?", "State:", ("상태:", "状態:")),
+            )
+            for message, marker, forbidden_markers in fixtures:
                 result = run(vault, "run", "--mode", "chat", "--message", message, "--format", "human")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn(marker, result.stdout)
+                for forbidden in forbidden_markers:
+                    self.assertNotIn(forbidden, result.stdout)
             event_json = run(vault, "run", "--mode", "chat", "--message", "Prepare an interview", "--format", "json")
             event_payload = json.loads(event_json.stdout)
             self.assertEqual(event_payload["ux"]["next"]["actions"][1]["label"], "Confirm")
+
+    def test_status_and_guided_preserve_heartbeat_action_semantics(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            vault = Path(directory) / "heartbeat-vault"
+            self.assertEqual(run(vault, "setup", "--track", "chuto", "--language", "ko").returncode, 0)
+            heartbeat = run(vault, "run", "--mode", "heartbeat", "--format", "json")
+            self.assertEqual(heartbeat.returncode, 0, heartbeat.stderr)
+
+            status = json.loads(run(vault, "status", "--format", "json").stdout)
+            self.assertEqual(status["pending_kind"], "heartbeat")
+            self.assertEqual(status["ux"]["next"]["actions"][1]["label"], "확인 완료로 처리")
+            status_human = run(vault, "status", "--format", "human")
+            self.assertIn("확인 완료로 처리", status_human.stdout)
+            self.assertIn("확정된 경력 정보는 바뀌지 않고", status_human.stdout)
+
+            guided_human = run(vault, "guided", "--format", "human")
+            self.assertIn("확인 완료로 처리", guided_human.stdout)
+            self.assertNotIn("확인하기", guided_human.stdout)
+
+            event_vault = Path(directory) / "event-vault"
+            self.assertEqual(run(event_vault, "setup", "--track", "chuto", "--language", "ko").returncode, 0)
+            event = run(event_vault, "run", "--mode", "chat", "--message", "prepare interview", "--format", "json")
+            self.assertEqual(event.returncode, 0, event.stderr)
+            event_status = json.loads(run(event_vault, "status", "--format", "json").stdout)
+            self.assertEqual(event_status["pending_kind"], "event")
+            self.assertEqual(event_status["ux"]["next"]["actions"][1]["label"], "확정하기")
 
     def test_profile_language_is_used_by_message_free_commands(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

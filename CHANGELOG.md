@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.17.1] - 2026-08-06
+
+- Preserve heartbeat-specific labels and disclosures in `status` and guided human output.
+- Add pending proposal kind metadata to the additive status JSON contract.
+- Add chat response language hard-gate coverage for KO/JA/EN turn switching.
+
 ## [1.17.0] - 2026-08-06
 
 - Localize Career Agent human UX in Korean, Japanese, and English.

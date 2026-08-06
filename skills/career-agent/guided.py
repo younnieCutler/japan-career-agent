@@ -328,7 +328,7 @@ def render_human(result: Mapping[str, Any]) -> str:
     lines.append(f"{text(language, 'section.available_actions')}:")
     for index, action in enumerate(actions, start=1):
         suffix = text(language, "guided.confirmation_suffix") if action.get("requires_confirmation") else ""
-        label = action_label(language, str(action.get("id")), proposal_kind=action.get("proposal_kind"))
+        label = str(action.get("label") or action_label(language, str(action.get("id")), proposal_kind=action.get("proposal_kind")))
         lines.append(f"{index}. {label}{suffix}")
     selection = result.get("selection") if isinstance(result.get("selection"), Mapping) else {}
     if selection.get("status"):
