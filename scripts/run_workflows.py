@@ -149,6 +149,8 @@ def _first_10_minutes(root: Path) -> dict[str, Any]:
     )
     document_id = str(imported.get("document_id") or "")
     _assert(bool(document_id), "first-10-minutes: private import did not return a document id")
+    _assert(imported.get("source_preserved") is True, "first-10-minutes: private import did not preserve source")
+    _assert(source.is_file(), "first-10-minutes: source file disappeared after import")
     _assert(
         any(item.get("id") == "private-store-boundary" for item in imported["ux"].get("disclosures", [])),
         "first-10-minutes: private-store boundary was not disclosed",
@@ -194,6 +196,16 @@ def _first_10_minutes(root: Path) -> dict[str, Any]:
         "first-10-minutes: review did not expose the provenance link",
     )
 
+    before_approval = _invoke(
+        root,
+        ["personal-profile", "--vault", str(vault), "--as-of", AS_OF],
+        env=_workflow_env(private_home),
+    )
+    _assert(
+        before_approval.get("skill", {}).get("python") is None,
+        "first-10-minutes: proposal mutated canonical profile before approval",
+    )
+
     approved = _invoke(
         root,
         [
@@ -227,6 +239,7 @@ def _first_10_minutes(root: Path) -> dict[str, Any]:
             "setup_ready": True,
             "proposal_pending_before_approval": True,
             "review_read_only": True,
+            "canonical_unchanged_before_approval": True,
             "approval_explicit": True,
             "confirmed_projection": True,
             "source_preserved": bool(imported.get("source_preserved")),
