@@ -9,7 +9,7 @@ confirmed conflicts, candidate values, company observations, and real applicatio
 
 It is not a hiring-outcome predictor and not a copy of a private company or agency system.
 
-Current release: `1.15.0`.
+Current release: `1.16.0`.
 
 ## What it does
 
@@ -125,7 +125,6 @@ into `PROPOSAL_ID` before running `approve`.
 
 ```bash
 python skills/career-agent/career_agent.py setup --vault .career-agent-vault --track chuto --target-role "Platform Engineer"
-python skills/career-agent/career_agent.py guided --vault .career-agent-vault
 python skills/career-agent/career_agent.py run --vault .career-agent-vault --mode chat --message "転職の面接を準備したい"
 python skills/career-agent/career_agent.py proposals --vault .career-agent-vault
 python skills/career-agent/career_agent.py approve --vault .career-agent-vault --workspace . PROPOSAL_ID --evidence "転職の面接を準備したい" --company "Aozora Systems (Synthetic)"

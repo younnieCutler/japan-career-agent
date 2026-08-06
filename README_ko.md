@@ -5,7 +5,7 @@
 증거를 바탕으로 무엇이 확인되었고, 무엇이 충돌하며, 무엇이 `Unknown`인지와 다음에 확인할
 질문을 정리합니다.
 
-현재 릴리스: `1.15.0`.
+현재 릴리스: `1.16.0`.
 
 ## 핵심 원칙
 
@@ -59,7 +59,6 @@ python skills/career-agent/career_agent.py approve --vault $env:CAREER_VAULT --w
 
 ```powershell
 python skills/career-agent/career_agent.py setup --vault .career-agent-vault --track chuto --target-role "Platform Engineer"
-python skills/career-agent/career_agent.py guided --vault .career-agent-vault
 python skills/career-agent/career_agent.py run --vault .career-agent-vault --mode chat --message "転職の面接を準備したい"
 python skills/career-agent/career_agent.py proposals --vault .career-agent-vault
 python skills/career-agent/career_agent.py approve --vault .career-agent-vault --workspace . PROPOSAL_ID --evidence "転職の面接を準備したい" --company "Aozora Systems (Synthetic)"
