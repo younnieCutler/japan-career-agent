@@ -361,7 +361,7 @@ class CliTest(PrivateStoreTest):
         environment.pop("CAREER_VAULT", None)
         return subprocess.run(
             [sys.executable, str(SCRIPT_DIR / "career_agent.py"), *arguments],
-            capture_output=True, text=True, check=False, env=environment,
+            capture_output=True, text=True, encoding="utf-8", check=False, env=environment,
         )
 
     def test_private_doctor_cli_needs_no_vault(self) -> None:
@@ -395,7 +395,7 @@ class CliTest(PrivateStoreTest):
         result = subprocess.run(
             [sys.executable, str(SCRIPT_DIR / "career_agent.py"), "private-import",
              str(self.source), "--type", "resume"],
-            capture_output=True, text=True, check=False, env=environment,
+            capture_output=True, text=True, encoding="utf-8", check=False, env=environment,
         )
         self.assertEqual(result.returncode, 2)
 
