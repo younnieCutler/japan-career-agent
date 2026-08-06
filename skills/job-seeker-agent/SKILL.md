@@ -106,8 +106,15 @@ Extract each requirement into an evidence table:
 `Conflict` is not a requirement state and never appears in this table. It is a `Decision Status`
 value. A hard requirement that both sides evidence and disagree on is `Missing` here, and that
 `Missing` is what makes the `Decision Status` a `Conflict` — one finding, recorded at the level each
-belongs to. Evidence that is one-sided, `Contradictory`, or `Stale` leaves the requirement `Unknown`.
-A missing core skill is a `Missing` requirement with an implication and a verification or
+belongs to. That `Missing` is still earned by the candidate's own confirmed evidence: what separates
+`Missing` from `Unknown` is what the candidate's side actually carries, never how important the
+requirement is or how firmly the JD states it.
+
+Use `Missing` only when comparable confirmed candidate evidence exists and does not meet a confirmed
+JD requirement. Absence is not that evidence — silence in a resume or profile does not show that the
+candidate lacks the skill — so a requirement the candidate has said nothing about stays `Unknown`
+until they confirm it, as does evidence that is one-sided, `Contradictory`, or `Stale`. Ask before
+labelling. A confirmed `Missing` core skill then carries an implication and a verification or
 retargeting question; it is not an arbitrary multiplier or a proprietary platform judgement.
 
 ### STEP 1 — Candidate evidence

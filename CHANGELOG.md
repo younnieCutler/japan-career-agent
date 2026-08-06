@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.16.1] - 2026-08-06
+
+- `job-seeker-agent` states the `Missing` / `Unknown` boundary in `SKILL.md` itself. The rule is not
+  new — `_shared/decision_philosophy.md` already keeps absence of evidence at `Unknown`, and
+  `references/evaluation_rules.md` already leaves a one-sided gap `Unknown` until the missing side is
+  confirmed. It was only reachable through a lazily-routed reference, so a run that did not load it
+  saw "one-sided evidence stays `Unknown`" and "a missing core skill is a `Missing` requirement"
+  two lines apart with nothing choosing between them.
+- `Missing` now names its precondition: comparable **confirmed candidate evidence** that does not
+  meet a confirmed JD requirement. Silence in a resume or profile is not that evidence, so a
+  requirement the candidate has said nothing about stays `Unknown` until they confirm it.
+- No new obligation was added. Deriving a fact the candidate did not state — computing a career
+  length from confirmed dates, for instance — is still neither required nor forbidden, and the
+  requirement state does not depend on how firmly the JD is worded.
+
 ## [1.16.0] - 2026-08-06
 
 - Added the P2 UX regression rubric with eight independent safety/navigation rules, ten
