@@ -258,8 +258,28 @@ def attach(command: str, result: Mapping[str, Any], *, args: Mapping[str, Any] |
             reason_message = str(result.get("error") or "The guided choice could not be dispatched.")
         elif selection_status == "confirmation_required":
             state = "needs_confirmation"
-            reason_code = "PENDING_PROPOSAL" if selection.get("action") in {"approve_proposal", "start_task"} else "SETUP_REQUIRED"
-            reason_message = "Review the current state, then explicitly confirm before any write."
+            confirmation_reason = {
+                "complete_setup": (
+                    "SETUP_REQUIRED",
+                    "Review the setup fields, then explicitly confirm before writing profile state.",
+                ),
+                "start_task": (
+                    "GUIDED_CONFIRMATION_REQUIRED",
+                    "Review the user-described task, then explicitly confirm before creating its proposal.",
+                ),
+                "approve_proposal": (
+                    "PENDING_PROPOSAL",
+                    "Review the pending proposal, then explicitly confirm before approval.",
+                ),
+                "restore_state": (
+                    "STATE_RECOVERY_REQUIRED",
+                    "Review the saved snapshot, then explicitly confirm before recovery changes the current state.",
+                ),
+            }
+            reason_code, reason_message = confirmation_reason.get(
+                str(selection.get("action")),
+                ("GUIDED_CONFIRMATION_REQUIRED", "Review the current state, then explicitly confirm before any write."),
+            )
         else:
             state = str(guided.get("state") or "ready")
             if state == "needs_input":

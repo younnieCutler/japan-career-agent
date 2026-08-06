@@ -157,6 +157,57 @@ class GuidedFrontendTests(unittest.TestCase):
             self.assertEqual(approved_payload["action_result"]["event"]["status"], "confirmed")
             self.assertEqual(approved_payload["guided"]["summary"]["pending_proposals"], 0)
 
+    def test_all_write_actions_require_confirmation_before_dispatch(self) -> None:
+        scenarios = (
+            ("complete_setup", "SETUP_REQUIRED"),
+            ("start_task", "GUIDED_CONFIRMATION_REQUIRED"),
+            ("approve_proposal", "PENDING_PROPOSAL"),
+            ("restore_state", "STATE_RECOVERY_REQUIRED"),
+        )
+        for action, reason_code in scenarios:
+            with self.subTest(action=action):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    vault = root / "vault"
+                    work = root / "workspace"
+                    work.mkdir()
+                    extra: tuple[str, ...] = ()
+                    if action != "complete_setup":
+                        setup = run(vault, "setup", "--track", "chuto", cwd=work)
+                        self.assertEqual(setup.returncode, 0, setup.stderr)
+                    if action in {"approve_proposal", "restore_state"}:
+                        proposed = run(
+                            vault,
+                            "run",
+                            "--mode",
+                            "chat",
+                            "--message",
+                            "prepare interview",
+                            cwd=work,
+                        )
+                        self.assertEqual(proposed.returncode, 0, proposed.stderr)
+                        proposal_id = json.loads(proposed.stdout)["proposal"]["id"]
+                        if action == "approve_proposal":
+                            extra = ("--proposal-id", proposal_id)
+                        else:
+                            approved = run(
+                                vault,
+                                "approve",
+                                proposal_id,
+                                "--evidence",
+                                "prepare interview",
+                                cwd=work,
+                            )
+                            self.assertEqual(approved.returncode, 0, approved.stderr)
+
+                    result = run(vault, "guided", "--choice", action, *extra, cwd=work)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    guided = json.loads(result.stdout)
+                    self.assertEqual(guided["selection"]["status"], "confirmation_required")
+                    self.assertFalse(guided["state_changed"])
+                    self.assertFalse(guided.get("write_performed", False))
+                    self.assertEqual(guided["ux"]["reason"]["code"], reason_code)
+
 
 if __name__ == "__main__":
     unittest.main()
