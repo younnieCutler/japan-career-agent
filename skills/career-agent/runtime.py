@@ -75,6 +75,7 @@ from proposals import (  # noqa: E402
     proposal_summary,
     propose_career_context,
     propose_fact,
+    review_proposal,
     run_chat,
 )
 from lifecycle import (  # noqa: E402
@@ -140,6 +141,7 @@ from vault import (  # noqa: E402
     today,
     utc_now,
 )
+from ux import attach as project_ux, error_payload, render_human  # noqa: E402
 
 _PROPOSAL_COMPATIBILITY_EXPORTS = (
     approval_action_for,
@@ -651,10 +653,43 @@ def approve(
     )
 
 
-def status(home: CareerVault) -> dict[str, Any]:
+def workspace_summary(workspace: str | Path | None = None) -> dict[str, Any]:
+    """Read a safe workspace projection without creating a missing workspace or pipeline."""
+    resolved = workspace_path(workspace)
+    explicit = workspace is not None
+    if explicit and not resolved.is_dir():
+        raise CareerError(
+            f"workspace not found: {resolved}",
+            code="WORKSPACE_NOT_FOUND",
+            details={"workspace": str(resolved)},
+        )
+    pipeline = pipeline_file(workspace)
+    data = pipeline_store.load(pipeline)
+    companies = data.get("companies") if isinstance(data, dict) else []
+    if not isinstance(companies, list):
+        companies = []
+    return {
+        "path": str(resolved),
+        "exists": resolved.is_dir(),
+        "pipeline": str(pipeline),
+        "pipeline_exists": pipeline.is_file(),
+        "company_count": len(companies),
+        "updated": data.get("updated") if isinstance(data, dict) else None,
+    }
+
+
+def status(home: CareerVault, workspace: str | Path | None = None) -> dict[str, Any]:
     state = home.load_state()
     profile = home.load_profile()
-    return {"vault": str(home.path), "profile": {"track": profile.get("track"), "career_status": profile.get("career_status", "active"), "target_role": profile.get("target_role")}, "state": state, "event_count": len(read_jsonl(home.events)), "pending_proposals": sum(1 for row in read_jsonl(home.proposals) if row.get("status") == "pending"), "posting_count": len(read_jsonl(home.postings))}
+    return {
+        "vault": str(home.path),
+        "profile": {"track": profile.get("track"), "career_status": profile.get("career_status", "active"), "target_role": profile.get("target_role")},
+        "state": state,
+        "event_count": len(read_jsonl(home.events)),
+        "pending_proposals": sum(1 for row in read_jsonl(home.proposals) if row.get("status") == "pending"),
+        "posting_count": len(read_jsonl(home.postings)),
+        "workspace": workspace_summary(workspace),
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -679,8 +714,18 @@ def build_parser() -> argparse.ArgumentParser:
             help="project as of this date instead of today; the projection never reads the clock",
         )
 
+    def add_output_format(command: argparse.ArgumentParser) -> None:
+        command.add_argument(
+            "--format",
+            dest="output_format",
+            choices=("json", "human"),
+            default="json",
+            help="output format; JSON remains the default machine-readable contract",
+        )
+
     init_parser = subparsers.add_parser("init")
     add_vault_argument(init_parser)
+    add_output_format(init_parser)
     setup_parser = subparsers.add_parser(
         "setup",
         help="one-shot first run: init the vault (default ~/.career-agent-vault) + profile fields + doctor",
@@ -690,10 +735,12 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--target-role")
     setup_parser.add_argument("--graduation-year", type=int)
     setup_parser.add_argument("--language", default=None)
+    add_output_format(setup_parser)
     doctor_parser = subparsers.add_parser("doctor")
     add_vault_argument(doctor_parser)
     add_workspace_argument(doctor_parser)
     doctor_parser.add_argument("--fix", action="store_true", help="migrate the legacy nested data/pipeline.yml shape")
+    add_output_format(doctor_parser)
     run = subparsers.add_parser("run")
     add_vault_argument(run)
     run.add_argument("--mode", choices=("chat", "heartbeat", "discover"), required=True)
@@ -701,8 +748,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--track", choices=sorted(TRACKS))
     run.add_argument("--source", help="JSON file for discover; stdin is used when omitted")
     add_as_of_argument(run)
+    add_output_format(run)
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)
+    add_workspace_argument(status_parser)
+    add_output_format(status_parser)
     proposals_parser = subparsers.add_parser(
         "proposals",
         help="list proposal metadata without exposing proposal bodies",
@@ -710,6 +760,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(proposals_parser)
     proposals_parser.add_argument("--all", dest="include_all", action="store_true", help="include approved and superseded proposals")
     proposals_parser.add_argument("--limit", type=int, help="return at most N proposals (N must be positive)")
+    proposals_parser.add_argument("--id", dest="proposal_id", help="review one proposal body explicitly")
+    add_output_format(proposals_parser)
     approve_parser = subparsers.add_parser("approve")
     add_vault_argument(approve_parser)
     add_workspace_argument(approve_parser)
@@ -720,26 +772,31 @@ def build_parser() -> argparse.ArgumentParser:
     approve_parser.add_argument("--compensation", type=float, help="compensation amount for an offer/application event")
     approve_parser.add_argument("--currency", help="currency for --compensation, e.g. JPY")
     approve_parser.add_argument("--next-action", help="actual action that remains after approval")
+    add_output_format(approve_parser)
     restore_parser = subparsers.add_parser(
         "restore-state",
         help="replace the current state with a saved snapshot; the append-only ledger is kept",
     )
     add_vault_argument(restore_parser)
     restore_parser.add_argument("version")
+    add_output_format(restore_parser)
     index_parser = subparsers.add_parser("index")
     add_vault_argument(index_parser)
     index_parser.add_argument("--include-archives", action="store_true", help="include 06-archives in the index")
+    add_output_format(index_parser)
     context_parser = subparsers.add_parser("context")
     add_vault_argument(context_parser)
     context_parser.add_argument("--track", choices=sorted(TRACKS), help="override the profile/state track")
     context_parser.add_argument("--stage", help="select verified notes for this exact stage")
     add_as_of_argument(context_parser)
+    add_output_format(context_parser)
     profile_parser = subparsers.add_parser(
         "personal-profile",
         help="current personal-profile projection; Unknown and Conflict are explicit states",
     )
     add_vault_argument(profile_parser)
     add_as_of_argument(profile_parser)
+    add_output_format(profile_parser)
     timeline_parser = subparsers.add_parser(
         "personal-timeline",
         help="full labelled history for one fact key, including superseded records",
@@ -747,6 +804,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(timeline_parser)
     timeline_parser.add_argument("--category", required=True, choices=sorted(FACT_CATEGORIES))
     timeline_parser.add_argument("--key", required=True, help="the logical fact key, e.g. jlpt")
+    add_output_format(timeline_parser)
     personal_context_parser = subparsers.add_parser(
         "personal-context",
         help="stage-relevant personal context; --historical is the opt-in labelled comparison",
@@ -778,6 +836,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--all-documents", action="store_true",
         help="with --historical: sweep every document instead of naming what is being compared",
     )
+    add_output_format(personal_context_parser)
     fact_proposal_parser = subparsers.add_parser(
         "propose-fact",
         help="propose a personal fact backed by an imported document; approve confirms it",
@@ -795,12 +854,14 @@ def build_parser() -> argparse.ArgumentParser:
     fact_proposal_parser.add_argument(
         "--supersedes", help="the confirmed fact id this one replaces (see personal-timeline)",
     )
+    add_output_format(fact_proposal_parser)
     context_proposal_parser = subparsers.add_parser(
         "propose-context",
         help="create an approval-gated proposal from a SELF_ANALYSIS_PROFILE YAML",
     )
     add_vault_argument(context_proposal_parser)
     context_proposal_parser.add_argument("--source", required=True, help="CWD-relative SELF_ANALYSIS_PROFILE YAML")
+    add_output_format(context_proposal_parser)
 
     def add_private_arguments(command: argparse.ArgumentParser) -> None:
         command.add_argument("--private-home", help=f"private root; falls back to {PRIVATE_ENV}")
@@ -816,6 +877,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="directory to scan for stray personal documents; repeatable, defaults to the "
              "current working directory",
     )
+    add_output_format(private_doctor_parser)
     private_import_parser = subparsers.add_parser(
         "private-import",
         help="copy a document into the private store; the original file is preserved",
@@ -827,11 +889,13 @@ def build_parser() -> argparse.ArgumentParser:
     private_import_parser.add_argument("--company", help="company for a company-scoped ES/application document")
     private_import_parser.add_argument("--purpose", default="general")
     private_import_parser.add_argument("--language", default="ja")
+    add_output_format(private_import_parser)
     private_list_parser = subparsers.add_parser(
         "private-list", help="list document metadata; document bodies are never printed",
     )
     add_private_arguments(private_list_parser)
     add_as_of_argument(private_list_parser)
+    add_output_format(private_list_parser)
     return parser
 
 
@@ -870,14 +934,22 @@ def main(argv: Iterable[str] | None = None) -> int:
         if args.command == "setup":
             vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
             result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            result = project_ux(args.command, result, args=vars(args))
+            if args.output_format == "human":
+                print(render_human(result))
+            else:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result.get("ok", True) else 2
         # AC-23: the private store is independent of the Vault, so these branch above the Vault
         # requirement. A user checking whether a resume is about to be committed must not first be
         # told to initialize an unrelated Vault.
         if args.command in ("private-doctor", "private-import", "private-list"):
             result = run_private_command(args)
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            result = project_ux(args.command, result, args=vars(args))
+            if args.output_format == "human":
+                print(render_human(result))
+            else:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result.get("ok", True) else 2
         if not args.vault:
             raise CareerError("--vault or CAREER_VAULT is required; the runtime never defaults to the current directory")
@@ -889,12 +961,14 @@ def main(argv: Iterable[str] | None = None) -> int:
             if args.command == "doctor":
                 result = doctor(home, fix=args.fix, workspace=args.workspace)
             elif args.command == "status":
-                result = status(home)
+                result = status(home, workspace=args.workspace)
             elif args.command == "proposals":
                 if args.limit is not None and args.limit < 1:
                     raise CareerError("--limit must be a positive integer")
-                result = list_proposals(home, include_all=args.include_all, limit=args.limit)
+                result = review_proposal(home, args.proposal_id) if args.proposal_id else list_proposals(home, include_all=args.include_all, limit=args.limit)
             elif args.command == "approve":
+                if args.workspace is not None:
+                    workspace_summary(args.workspace)
                 result = approve(
                     home, args.proposal_id, args.evidence, args.deadline, args.company,
                     args.compensation, args.currency, args.workspace, args.next_action,
@@ -968,10 +1042,18 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = run_heartbeat(home)
             else:
                 result = run_discover(home, args.source)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        result = project_ux(args.command, result, args=vars(args))
+        if args.output_format == "human":
+            print(render_human(result))
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except CareerError as exc:
-        print(json.dumps({"ok": False, "error": str(exc), "safe_stop": True, "retry_count": 0, "external_side_effect": False}, ensure_ascii=False), file=sys.stderr)
+        result = error_payload(exc)
+        if getattr(args, "output_format", "json") == "human":
+            print(render_human(result), file=sys.stderr)
+        else:
+            print(json.dumps(result, ensure_ascii=False), file=sys.stderr)
         return 2
 
 

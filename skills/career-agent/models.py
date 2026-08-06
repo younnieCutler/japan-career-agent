@@ -138,7 +138,27 @@ REQUIRED_EVENT_FIELDS = (
 
 
 class CareerError(ValueError):
-    """A user-correctable Career Agent contract or lifecycle error."""
+    """A user-correctable Career Agent contract or lifecycle error.
+
+    ``message`` remains the historical string representation.  The optional metadata gives the
+    CLI UX adapter a stable way to describe an expected blocker without changing existing callers
+    that only catch the exception or compare ``str(exc)``.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        retryable: bool = True,
+        details: dict[str, Any] | None = None,
+        state_changed: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
+        self.details = details or {}
+        self.state_changed = state_changed
 
 
 class Event(TypedDict, total=False):
@@ -204,7 +224,9 @@ class ErrorResult(TypedDict, total=False):
     error: str
     error_code: str
     retryable: bool
+    details: dict[str, Any]
     state_changed: bool
+    ux: dict[str, Any]
 
 
 def as_text(value: Any) -> str:

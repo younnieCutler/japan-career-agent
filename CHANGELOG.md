@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.13.0] - 2026-08-06
+
+- Career Agent P0 UX contract work begins on the dedicated `feat/career-agent-ux` branch.
+- Major CLI operations will expose additive state, reason, allowed-transition, and unchanged-state
+  metadata while preserving the existing JSON fields and approval/evidence boundaries.
+
 ## [1.12.1] - 2026-08-06
 
 - `job-seeker-agent`'s requirement table said two different things about `Conflict`, and both were
