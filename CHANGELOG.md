@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.17.2] - 2026-08-06
+
+- Make the stable Codex marketplace channel resolve to the immutable `v1.17.1` tag.
+- Add crash-recoverable approval transactions and durable JSONL appends.
+- Add executable canonical schema validation, typed lifecycle vocabulary, and release/install checks.
+
 ## [1.17.1] - 2026-08-06
 
 - Preserve heartbeat-specific labels and disclosures in `status` and guided human output.

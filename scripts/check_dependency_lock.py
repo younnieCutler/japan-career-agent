@@ -124,10 +124,11 @@ def validate(runtime: Path, development: Path, requirements: Path) -> list[str]:
     direct = direct_dependencies(requirements)
     runtime_packages = parse_lock(runtime)
     development_packages = parse_lock(development)
-    if set(runtime_packages) != set(direct):
-        errors.append(
-            f"runtime lock package set {sorted(runtime_packages)} does not match direct requirements {sorted(direct)}"
-        )
+    missing_direct = sorted(set(direct) - set(runtime_packages))
+    if missing_direct:
+        errors.append(f"runtime lock is missing direct packages {missing_direct}")
+    # Transitive runtime dependencies are intentionally pinned in the lock even though they do
+    # not belong in the small direct requirements.txt contract.
     for name in sorted(direct):
         package = runtime_packages.get(name)
         if package is None:

@@ -2,6 +2,69 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
+      "bom-ref": "pkg:pypi/attrs@25.3.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "427318ce031701fea540783410126f03899a97ffc6f61596ad581ac2e40e3bc3"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "attrs",
+      "purl": "pkg:pypi/attrs@25.3.0",
+      "scope": "required",
+      "type": "library",
+      "version": "25.3.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/jsonschema@4.25.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "24c2e8da302de79c8b9382fee3e76b355e44d2a4364bb207159ce10b517bd716"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "jsonschema",
+      "purl": "pkg:pypi/jsonschema@4.25.0",
+      "scope": "required",
+      "type": "library",
+      "version": "4.25.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/jsonschema-specifications@2025.4.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4653bffbd6584f7de83a67e0d620ef16900b390ddc7939d56684d6c81e33f1af"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "jsonschema-specifications",
+      "purl": "pkg:pypi/jsonschema-specifications@2025.4.1",
+      "scope": "required",
+      "type": "library",
+      "version": "2025.4.1"
+    },
+    {
       "bom-ref": "pkg:pypi/pyyaml@6.0.3",
       "hashes": [
         {
@@ -35,6 +98,72 @@
       "version": "6.0.3"
     },
     {
+      "bom-ref": "pkg:pypi/referencing@0.36.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e8699adbbf8b5c7de96d8ffa0eb5c158b3beafce084968e2ea8bb08c6794dcd0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "referencing",
+      "purl": "pkg:pypi/referencing@0.36.2",
+      "scope": "required",
+      "type": "library",
+      "version": "0.36.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/rpds-py@0.26.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0a0b60701f2300c81b2ac88a5fb893ccfa408e1c4a555a77f908a2596eb875a5"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "1e6c15d2080a63aaed876e228efe4f814bc7889c63b1e112ad46fdc8b368b9e1"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "2c03c9b0c64afd0320ae57de4c982801271c0c211aa2d37f3003ff5feb75bb04"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "5e09330b21d98adc8ccb2dbb9fc6cb434e8908d4c119aeaa772cb1caab5440a0"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "696764a5be111b036256c0b18cd29783fab22154690fc698062fc1b0084b511d"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "87a5531de9f71aceb8af041d72fc4cab4943648d91875ed56d2e629bef6d4c03"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "d80bf832ac7b1920ee29a426cdca335f96a2b5caa839811803e999b41ba9030d"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "rpds-py",
+      "purl": "pkg:pypi/rpds-py@0.26.0",
+      "scope": "required",
+      "type": "library",
+      "version": "0.26.0"
+    },
+    {
       "bom-ref": "pkg:pypi/ruff@0.15.10",
       "hashes": [
         {
@@ -62,22 +191,47 @@
       "scope": "optional",
       "type": "library",
       "version": "0.15.10"
+    },
+    {
+      "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "typing-extensions",
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "scope": "required",
+      "type": "library",
+      "version": "4.16.0"
     }
   ],
   "metadata": {
     "component": {
       "name": "japan-recruit-ai-agent",
       "type": "application",
-      "version": "1.17.1"
+      "version": "1.17.2"
     },
     "properties": [
       {
         "name": "lock.sha256",
-        "value": "276cf62880edbb85868ae009351f8a8e8ef48ec6beed6bf8e81607f4e3f6e31f"
+        "value": "affe78ec27057fcc087f7da655fd0bf6b778debca227de66412f191edd35a67c"
       }
     ]
   },
-  "serialNumber": "urn:uuid:276cf628-80ed-bb85-868a-e009351f8a8e",
+  "serialNumber": "urn:uuid:affe78ec-2705-7fcc-087f-7da655fd0bf6",
   "specVersion": "1.5",
   "version": 1
 }

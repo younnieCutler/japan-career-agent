@@ -13,6 +13,120 @@
 
 schema_version: "2.3"
 
+# Executable contract catalog. The descriptive sections below remain the human-facing source of
+# field meaning and legacy policy; these Draft 2020-12 definitions provide a machine-checkable
+# shape at every serialization boundary without changing the existing YAML contract.
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/younnieCutler/japan-recruit-ai-agent/shared-schemas"
+$defs:
+  SELF_ANALYSIS_PROFILE:
+    type: object
+    required:
+      - self_analysis_version
+      - candidate_name
+      - language_preference
+      - track
+      - interest_hypotheses
+      - behavior_tendencies
+      - evidence_episodes
+      - career_self_efficacy
+      - perceived_barriers
+      - perceived_supports
+      - environment_preferences
+      - value_candidates
+      - avoid_candidates
+    properties:
+      self_analysis_version: {type: integer, const: 2}
+      candidate_name: {type: string, minLength: 1}
+      language_preference: {enum: [ko, ja, en]}
+      track: {enum: [shinsotsu, chuto]}
+      interest_hypotheses: {type: [array, 'null']}
+      behavior_tendencies: {type: [array, 'null']}
+      evidence_episodes: {type: [array, 'null']}
+      career_self_efficacy: {type: [object, 'null']}
+      perceived_barriers: {type: [array, 'null']}
+      perceived_supports: {type: [array, 'null']}
+      environment_preferences: {type: [object, 'null']}
+      value_candidates: {type: [array, 'null']}
+      avoid_candidates: {type: [array, 'null']}
+      career_context_confirmed: {type: boolean}
+    additionalProperties: true
+
+  CANDIDATE_PROFILE:
+    type: object
+    required: [candidate_name, work_style_reflection, skill_stack, target_role, jlpt_level]
+    properties:
+      candidate_name: {type: string, minLength: 1}
+      work_style_reflection: {type: object}
+      skill_stack: {type: array}
+      target_role: {type: string, minLength: 1}
+      jlpt_level: {type: [string, 'null']}
+      track: {enum: [shinsotsu, chuto, null]}
+      portable_skill_level: {type: [integer, 'null'], minimum: 1, maximum: 5}
+      portable_skill_allocation: {type: [object, 'null']}
+      career_values: {type: [object, 'null']}
+    additionalProperties: true
+
+  COMPANY_PROFILE:
+    type: object
+    required: [company_name, position, required_skills]
+    properties:
+      company_name: {type: string, minLength: 1}
+      position: {type: string, minLength: 1}
+      required_skills: {type: array, items: {type: string}}
+      requirements: {type: [object, 'null']}
+      conditions: {type: [object, 'null']}
+      mhlw_mapping: {type: [object, 'null']}
+      visa_sponsorship: {type: [boolean, 'null']}
+    additionalProperties: true
+
+  MATCH_HISTORY:
+    type: array
+    items:
+      type: object
+      required: [date, model_version, candidate_name, company_name, position_title]
+      properties:
+        date: {type: string, minLength: 1}
+        model_version: {enum: [evidence_based_v3, legacy_v1]}
+        candidate_name: {type: string, minLength: 1}
+        company_name: {type: string, minLength: 1}
+        position_title: {type: string, minLength: 1}
+        decision_status: {enum: [proceed, review, conflict, null]}
+      additionalProperties: true
+
+  PIPELINE:
+    type: object
+    required: [companies]
+    properties:
+      updated: {type: [string, 'null']}
+      companies:
+        type: array
+        items:
+          type: object
+          required: [slug, name]
+          properties:
+            slug: {type: string, minLength: 1}
+            name: {type: string, minLength: 1}
+            stage: {type: [integer, 'null'], minimum: 0, maximum: 7}
+            closed: {type: [boolean, 'null']}
+            decision_status: {enum: [proceed, review, conflict, null]}
+          additionalProperties: true
+    additionalProperties: true
+
+  RULES:
+    type: array
+    items:
+      type: object
+      required: [id, text, status, source, supported_by, created]
+      properties:
+        id: {type: string, minLength: 1}
+        text: {type: string, minLength: 1}
+        status: {enum: [candidate, active, retired]}
+        source: {enum: [self_authored, derived_from_rejections]}
+        supported_by: {type: array, items: {type: string}}
+        created: {type: string, minLength: 1}
+      additionalProperties: true
+
 legacy_field_policy:
   readable: true
   writable: false

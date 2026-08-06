@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -39,6 +40,13 @@ def main() -> int:
                  if entry.get("name") == claude.get("name")), None)
     if item is None:
         raise SystemExit("marketplace plugin name mismatch")
+    codex_marketplace = json.loads((ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8"))
+    codex_item = next((entry for entry in codex_marketplace.get("plugins", []) if entry.get("name") == claude.get("name")), None)
+    if codex_item is None:
+        raise SystemExit("Codex marketplace plugin name mismatch")
+    source = codex_item.get("source") if isinstance(codex_item.get("source"), dict) else {}
+    if source.get("source") != "url" or not re.fullmatch(r"v\d+\.\d+\.\d+", str(source.get("ref", ""))):
+        raise SystemExit("Codex marketplace must use an immutable semantic-version tag")
     print(f"manifest consistency: {claude['name']} v{claude['version']}")
     return 0
 

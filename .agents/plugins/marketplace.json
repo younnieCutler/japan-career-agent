@@ -9,7 +9,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/younnieCutler/japan-recruit-ai-agent.git",
-        "ref": "main"
+        "ref": "v1.17.1"
       },
       "policy": {
         "installation": "AVAILABLE",

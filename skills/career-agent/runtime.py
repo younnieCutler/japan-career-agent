@@ -82,6 +82,8 @@ from lifecycle import (  # noqa: E402
     approve as _lifecycle_approve,
     count_consecutive_safe_stops,
     record_failed_attempt,
+    read_approval_transaction,
+    recover_pending,
     restore_state,
     state_version_is_persisted,
     vault_lock,
@@ -635,6 +637,20 @@ def run_context(
     }
 
 
+def _pipeline_writer_for(home: CareerVault, workspace: str | Path | None = None):
+    def pipeline_writer(event: dict[str, Any]) -> Path | None:
+        transaction = read_approval_transaction(home)
+        transaction_workspace = transaction.get("workspace") if transaction else None
+        target_workspace = transaction_workspace or workspace
+        return upsert_pipeline_entry(
+            event,
+            path=pipeline_file(target_workspace),
+            workspace=target_workspace,
+        )
+
+    return pipeline_writer
+
+
 def approve(
     home: CareerVault,
     proposal_id: str,
@@ -657,7 +673,16 @@ def approve(
         currency=currency,
         workspace=workspace,
         next_action=next_action,
-        pipeline_writer=lambda event: upsert_pipeline_entry(event, path=pipeline_file(workspace), workspace=workspace),
+        pipeline_writer=_pipeline_writer_for(home, workspace),
+        state_projector=apply_event_to_state,
+    )
+
+
+def recover_approval(home: CareerVault, workspace: str | Path | None = None) -> dict[str, Any] | None:
+    """Replay an interrupted approval using the workspace recorded in its journal."""
+    return recover_pending(
+        home,
+        pipeline_writer=_pipeline_writer_for(home, workspace),
         state_projector=apply_event_to_state,
     )
 
@@ -1332,6 +1357,9 @@ def main(argv: Iterable[str] | None = None) -> int:
     try:
         if args.command == "setup":
             vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
+            setup_home = CareerVault(vault_path)
+            if setup_home.initialized():
+                recover_approval(setup_home)
             result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
             result = project_ux(args.command, result, args=vars(args), language=_output_language(args, result))
             if args.output_format == "human":
@@ -1341,8 +1369,11 @@ def main(argv: Iterable[str] | None = None) -> int:
             return 0 if result.get("ok", True) else 2
         if args.command == "guided":
             vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
+            guided_home = CareerVault(vault_path)
+            if guided_home.initialized():
+                recover_approval(guided_home, workspace=args.workspace)
             result = run_guided(
-                CareerVault(vault_path),
+                guided_home,
                 workspace=args.workspace,
                 as_of=args.as_of,
                 choices=args.choice,
@@ -1362,7 +1393,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                 graduation_year=args.graduation_year,
                 language=args.language,
             )
-            result = project_ux(args.command, result, args=vars(args), language=_output_language(args, result, CareerVault(vault_path)))
+            result = project_ux(args.command, result, args=vars(args), language=_output_language(args, result, guided_home))
             if args.output_format == "human":
                 print(render_guided_human(result))
             else:
@@ -1386,6 +1417,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             result = initialize_vault(home.path)
         else:
             home.require_initialized()
+            recover_approval(home, workspace=getattr(args, "workspace", None))
             if args.command == "doctor":
                 result = doctor(home, fix=args.fix, workspace=args.workspace)
             elif args.command == "status":

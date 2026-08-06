@@ -13,6 +13,7 @@ _SHARED_ROOT = Path(__file__).resolve().parent.parent.parent / "_shared"
 if str(_SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(_SHARED_ROOT))
 import self_analysis_profile  # noqa: E402
+from schema_contract import validate_new_write  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
 from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, CareerError  # noqa: E402
@@ -152,7 +153,10 @@ def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
     if "self_analysis_version" in raw:
         try:
             self_analysis_profile.validate_self_analysis_profile(raw)
+            validate_new_write("SELF_ANALYSIS_PROFILE", raw)
         except self_analysis_profile.ProfileValidationError as exc:
+            raise CareerError(str(exc)) from exc
+        except ValueError as exc:
             raise CareerError(str(exc)) from exc
     payload = validate_career_context(raw)
     digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()

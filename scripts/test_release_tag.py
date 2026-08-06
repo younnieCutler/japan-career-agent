@@ -134,6 +134,7 @@ class ReleaseTagTests(unittest.TestCase):
             "contents: write",
             "python scripts/run_all_checks.py",
             "scripts/check_release_tag.py",
+            "scripts/check_release_consistency.py --require-tag",
             "changed=false",
             "if: steps.release.outputs.changed == 'true'",
             "github-actions[bot]",
