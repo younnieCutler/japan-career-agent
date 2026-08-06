@@ -1,6 +1,6 @@
 # LLM Judge v2 — autoresearch-style fixed-corpus experiment
 
-**상태:** 6회 실험 실행 전 — corpus와 acceptance rule 동결
+**상태:** 6회 완료 — final best `KEEP`, verification에서 axis 재현성 미확인
 **브랜치:** `experiment/llm-judge-autoresearch-6`
 **기준:** `origin/main` `08b4b8ca70ecc2fbefba07207eb6a5f775ee5c0b`
 **구분:** 기존 LLM Judge v1 파일럿(`docs/LLM_JUDGE_PILOT.md`)과 별도 실험
@@ -29,6 +29,12 @@ discard라는 루프 철학만 참고한다. 이 실험은 모델 학습이나 �
 | v1 contract | `skills/job-seeker-agent/tests/rubric.md`, `judge.md`, 기존 fixture와 history |
 | model | subject 없음; Judge `gpt-5.6-terra`, reasoning effort `medium` |
 | session | 매 실행 `codex exec --ephemeral`, user config·rules 무시, read-only |
+
+Frozen hashes:
+
+- corpus SHA-256: `e41cb27f7b95c005ce836b15cd3119fef44e8e3141799de63acbd82ece547a78`
+- expected SHA-256: `98eb08464df515ca5cc2b7494edba81266280a729d6bf20e657fae3d4d415af7`
+- result schema SHA-256: `9d4e6757a1b80c53170d3bee4cad0f81e4463f5a07d96714594935114044f4ba`
 
 Corpus case set:
 
@@ -75,18 +81,57 @@ labels는 experiment 1 실행 전에 변경하지 않는다. harness bug가 보�
 | 5 | axis 평가 전에 factual claim을 input line에 trace하는 단계 추가 |
 | 6 | detection·false positive·schema·quote 결과가 유지되는 최소 procedure로 단순화 |
 
-실제 keep/discard와 commit, corpus/schema 해시는 six-experiment 결과 표에
-추가한다. v1의 역사적 결론을 수정하거나 재해석하지 않으며, 제품 파일·CI·runtime
-동작은 변경하지 않는다.
+v1의 역사적 결론을 수정하거나 재해석하지 않으며, 제품 파일·CI·runtime 동작은
+변경하지 않는다.
 
 ## Results
 
-실험 전. 결과는 `skills/job-seeker-agent/tests/judge_v2/results.tsv`에 6개
-행으로 기록한다. raw runtime output은 저장소 밖 scratch artifact로 보존하고
-tracked 파일에는 넣지 않는다.
+결과는 [`results.tsv`](../skills/job-seeker-agent/tests/judge_v2/results.tsv)에
+정확히 6개 행으로 기록했다. baseline은 별도 preflight이며 여섯 실험에 포함하지
+않는다. 모든 candidate는 `gpt-5.6-terra`, reasoning `medium`,
+`codex exec --ephemeral --ignore-user-config --ignore-rules --sandbox read-only`
+로 실행했다. raw output/capture는 저장소 밖
+`C:\Users\金貞潤\Documents\jraa-llm-judge-v2-6-artifacts\`에 보존했다.
+
+| 실행 | commit | 결과 | hard detection | clean FP | schema/quote | 비고 |
+|---:|---|---|---|---:|---|---|
+| 1 | `d17d183` | DISCARD | all expected | 0 | pass | `F` decision_ownership가 1 (floor 0) |
+| 2 | `47088a6` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
+| 3 | `7357417` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
+| 4 | `cd2033b` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
+| 5 | `9627d27` | DISCARD | all expected | 0 | pass | baseline과 동일, 더 긴 prompt |
+| 6 | `3e6414e` | **KEEP** | all expected | 0 | pass | 동일 결과, output 예시 제거로 단순화 |
+
+Experiment 3의 첫 호출은 judge 인자에 corpus path를 넣은 wiring typo였고
+실험에 세지 않았다. 잘못된 metadata/output은 scratch에 남겼고, 올바른 path로
+같은 candidate를 한 번 평가했다. 이 harness 관측은 corpus/expected를 수정하는
+근거로 사용하지 않았다.
+
+### Final verification
+
+최종 best `3e6414e`를 fresh session 두 번 더 실행했다(실험 7·8이 아님).
+두 번 모두 hard detection 전체, clean FP 0, schema/quote는 유지했지만
+`F_outcome_forecast.decision_ownership`가 experiment 6의 `0`에서 `1`로
+변했다. 따라서 hard-gate 탐지는 재현됐지만 axis 점수 재현성은 **불통과**다.
+두 verification 모두 결과를 scratch에 보존했으며 새 candidate·corpus·재채점
+루프는 실행하지 않았다.
+
+### Product impact and limitations
+
+- 제품 코드, `SKILL.md`, v1 rubric/judge/fixture/history, `mistakes.md`, CI 및
+  runtime은 변경하지 않았다. 이 synthetic corpus에서 새 실제 제품 결함은
+  관측하지 않았다.
+- defect case의 부수 label(`B: decision_taken`, `G: fabricated_evidence`)은
+  결과에 보존했지만 acceptance의 clean false-positive gate와 혼동하지 않았다.
+- 모델/언어 routing과 axis 점수는 고정 corpus에서도 흔들릴 수 있다. 이 실험은
+  subject stochasticity를 제거했지만 Judge stochasticity까지 제거하지 못했다.
 
 ## Recommendation
 
-6회와 최종 verification이 끝난 뒤에만 `adopt v2`, `continue later`,
-`discard v2` 중 하나를 근거와 함께 기록한다. 7번째 아이디어나 추가 corpus는
-실행하지 않는다.
+**권고: `continue later` (현재 도입하지 않음).** 여섯 candidate 모두
+expected hard violation을 탐지하고 clean false positive 0을 유지했으며,
+최종 best는 같은 결과를 더 짧게 달성했다. 그러나 fresh verification에서
+`decision_ownership` axis가 0/1로 흔들려 reproducibility 조건을 충족하지 못했고,
+valid regression→Judge 운영 경로의 제품 통합 근거도 없다. 따라서 CI/runtime에
+넣거나 v1 결론을 덮어쓰지 않는다. 이 branch/PR의 여섯 결과를 보존한 채 다음
+작업 주기에서 별도 설계로 재검토할 수 있지만, 오늘은 6회 후 종료한다.
