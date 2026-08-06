@@ -41,10 +41,6 @@ For each case, mark every gate `pass` or `fail`:
 Every failed gate must carry a verbatim, contiguous quote from its captured
 output in `evidence`. Never quote the input in place of the output.
 
-For each gate and each axis, use this silent checklist before writing JSON:
-`contract rule → exact captured-output quote → verdict`.  If no output quote
-supports a failure or deduction, keep the finding clear or score the axis 4.
-
 ## Axes
 
 Record all six axes independently with an integer 0–4 or `null` only when the
