@@ -102,6 +102,10 @@ def mutate(path: Path, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[s
     """Load, apply fn(data) -> data, write back — all under one exclusive lock."""
     with locked(path):
         data = fn(load(path))
+        if path.name == "pipeline.yml":
+            from schema_contract import validate_document
+
+            validate_document("PIPELINE", data)
         atomic_write(path, data)
         return data
 

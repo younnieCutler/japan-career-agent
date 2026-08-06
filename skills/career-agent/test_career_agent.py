@@ -774,21 +774,25 @@ class CareerAgentTests(unittest.TestCase):
         pipeline_target = self.workdir / "data" / "pipeline.yml"
 
         with patch("career_agent.pipeline_file", return_value=pipeline_target):
-            # Failure 1: Simulated failure during pipeline store write
-            with patch("pipeline_store.upsert_company", side_effect=ValueError("simulated pipeline error")):
-                with self.assertRaises(ValueError):
-                    approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+            from models import CareerError
 
-            # Verify vault is unchanged and proposal remains pending
-            events_file = self.vault / "02-state" / "events.jsonl"
-            self.assertEqual(len(read_jsonl(events_file)) if events_file.exists() else 0, 0)
-            pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
-            self.assertEqual(pending_props[0]["status"], "pending")
-
-            # Failure 2: Simulated failure during save_state (pipeline succeeds, state fails)
+            # Failure 1: canonical event append succeeds, but state persistence fails.
             with patch.object(CareerVault, "save_state", side_effect=OSError("simulated state error")):
                 with self.assertRaises(OSError):
                     approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+
+            # The event is canonical while the proposal remains pending for replay.
+            events_file = self.vault / "02-state" / "events.jsonl"
+            self.assertEqual(len(read_jsonl(events_file)) if events_file.exists() else 0, 1)
+            pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
+            self.assertEqual(pending_props[0]["status"], "pending")
+            self.assertTrue((self.vault / ".career-agent" / "approval-transaction.json").exists())
+
+            # Failure 2: recovery reaches the workspace projection, which fails.
+            with patch("pipeline_store.upsert_company", side_effect=ValueError("simulated pipeline error")):
+                with self.assertRaises(CareerError) as failure:
+                    approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+            self.assertEqual(failure.exception.code, "APPROVAL_RECOVERY_FAILED")
 
             # Verify proposal is STILL pending after failure 2
             pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
@@ -797,8 +801,9 @@ class CareerAgentTests(unittest.TestCase):
             # Failure 3: proposal replacement fails after all projection stores committed.
             # The proposal must remain retryable, while the committed projection is reusable.
             with patch.object(CareerVault, "replace_proposal", side_effect=OSError("simulated proposal error")):
-                with self.assertRaises(OSError):
+                with self.assertRaises(CareerError) as failure:
                     approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
+            self.assertEqual(failure.exception.code, "APPROVAL_RECOVERY_FAILED")
 
             pending_props = [p for p in read_jsonl(self.vault / "02-state" / "proposals.jsonl") if p["id"] == proposal_id]
             self.assertEqual(pending_props[0]["status"], "pending")
@@ -814,6 +819,7 @@ class CareerAgentTests(unittest.TestCase):
             clean_result = approve(home, proposal_id, evidence=["面接申込完了"], company="A社")
             self.assertTrue(clean_result["approved"])
             self.assertEqual(clean_result["version"], committed_version)
+            self.assertFalse((self.vault / ".career-agent" / "approval-transaction.json").exists())
 
             # Check deduplication across all projection stores and state-version side effects.
             events = read_jsonl(self.vault / "02-state" / "events.jsonl")
@@ -876,6 +882,36 @@ class CareerAgentTests(unittest.TestCase):
                 }
 
             self.assertEqual(logical_projection(home, pipeline_target), logical_projection(fresh_home, fresh_target))
+
+    def test_approval_recovery_fails_closed_on_event_content_mismatch(self) -> None:
+        from unittest.mock import patch
+        from career_agent import CareerError, CareerVault, approve, recover_approval, write_json
+
+        home = CareerVault(self.vault)
+        self.set_profile(track="chuto", target_role="Backend Dev", career_status="active")
+        proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "A社に面接を申し込んだ", cwd=self.workdir))
+        proposal_id = proposed["proposal"]["id"]
+        with patch.object(CareerVault, "save_state", side_effect=OSError("simulated state error")):
+            with self.assertRaises(OSError):
+                approve(home, proposal_id, evidence=["面接申込完了"], company="A社", workspace=self.workdir)
+        journal = self.vault / ".career-agent" / "approval-transaction.json"
+        payload = json.loads(journal.read_text(encoding="utf-8"))
+        payload["event"]["summary"] = "tampered"
+        write_json(journal, payload)
+        with self.assertRaises(CareerError) as failure:
+            recover_approval(home, workspace=self.workdir)
+        self.assertEqual(failure.exception.code, "APPROVAL_RECOVERY_FAILED")
+
+    def test_read_only_commands_remain_available_when_recovery_journal_is_broken(self) -> None:
+        journal = self.vault / ".career-agent" / "approval-transaction.json"
+        journal.write_text("{not-json\n", encoding="utf-8")
+
+        for command in ("status", "doctor", "proposals"):
+            result = run(self.vault, command)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("APPROVAL_RECOVERY_FAILED", result.stdout + result.stderr)
+
+        self.assertTrue(journal.exists())
 
 
 

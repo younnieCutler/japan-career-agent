@@ -7,6 +7,8 @@ module remains independent of the runtime and can be tested in isolation.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
@@ -21,9 +23,17 @@ try:
 except ImportError:  # POSIX
     msvcrt = None
 
-from models import DOCUMENT_EVIDENCE_PREFIX, CareerError, document_evidence_ids
+from models import (
+    ApprovalStage,
+    ApprovalTransactionRecord,
+    CareerError,
+    DOCUMENT_EVIDENCE_PREFIX,
+    ProposalKind,
+    ProposalStatus,
+    document_evidence_ids,
+)
 from personal_timeline import derive_intervals, facts_from_events
-from persistence import append_jsonl, read_json, read_jsonl
+from persistence import append_jsonl, read_json, read_jsonl, write_json
 from private_store import PrivateHome, resolve_private_home, resolve_document
 from validation import validate_event
 from vault import CareerVault, utc_now
@@ -31,6 +41,73 @@ from vault import CareerVault, utc_now
 
 PipelineWriter = Callable[[dict[str, Any]], Path | None]
 StateProjector = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
+
+APPROVAL_TRANSACTION_STAGES = tuple(stage.value for stage in ApprovalStage)
+APPROVAL_TRANSACTION_FILENAME = "approval-transaction.json"
+
+
+def approval_transaction_path(home: CareerVault) -> Path:
+    return home.runtime / APPROVAL_TRANSACTION_FILENAME
+
+
+def read_approval_transaction(home: CareerVault) -> dict[str, Any] | None:
+    path = approval_transaction_path(home)
+    if not path.exists():
+        return None
+    value = read_json(path, None)
+    if not isinstance(value, dict):
+        raise CareerError(
+            f"invalid approval transaction: {path}",
+            code="APPROVAL_RECOVERY_FAILED",
+            retryable=False,
+        )
+    if value.get("stage") not in APPROVAL_TRANSACTION_STAGES:
+        raise CareerError(
+            f"invalid approval transaction stage: {value.get('stage')!r}",
+            code="APPROVAL_RECOVERY_FAILED",
+            retryable=False,
+        )
+    if not isinstance(value.get("proposal_id"), str) or not isinstance(value.get("event"), dict):
+        raise CareerError(
+            "approval transaction is missing its proposal or event",
+            code="APPROVAL_RECOVERY_FAILED",
+            retryable=False,
+        )
+    return value
+
+
+def _event_fingerprint(event: dict[str, Any]) -> str:
+    payload = json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _write_transaction(home: CareerVault, transaction: dict[str, Any]) -> None:
+    home.ensure_runtime()
+    try:
+        record = ApprovalTransactionRecord.from_dict(transaction)
+    except ValueError as exc:
+        raise _recovery_error("invalid approval transaction record") from exc
+    write_json(approval_transaction_path(home), record.to_dict())
+
+
+def _advance_transaction(home: CareerVault, transaction: dict[str, Any], stage: str, **changes: Any) -> None:
+    transaction.update(changes)
+    transaction["stage"] = stage
+    _write_transaction(home, transaction)
+
+
+def _clear_transaction(home: CareerVault) -> None:
+    approval_transaction_path(home).unlink(missing_ok=True)
+
+
+def _recovery_error(message: str, **details: Any) -> CareerError:
+    return CareerError(
+        message,
+        code="APPROVAL_RECOVERY_FAILED",
+        retryable=False,
+        details=details,
+        state_changed=True,
+    )
 
 
 @contextmanager
@@ -119,6 +196,128 @@ def preflight_confirmation(home: CareerVault, event: dict[str, Any], ledger: lis
     derive_intervals(facts_from_events([*ledger, event]))
 
 
+def _recover_locked(
+    home: CareerVault,
+    transaction: dict[str, Any],
+    *,
+    pipeline_writer: PipelineWriter | None,
+    state_projector: StateProjector | None,
+) -> dict[str, Any]:
+    event = dict(transaction["event"])
+    expected_fingerprint = transaction.get("event_fingerprint")
+    if expected_fingerprint != _event_fingerprint(event):
+        raise _recovery_error("approval transaction event fingerprint does not match")
+
+    proposal_id = str(transaction["proposal_id"])
+    proposal_rows = read_jsonl(home.proposals)
+    proposal = next((row for row in proposal_rows if row.get("id") == proposal_id), None)
+    if proposal is None:
+        raise _recovery_error("approval transaction proposal is missing", proposal_id=proposal_id)
+    existing_events = read_jsonl(home.events)
+    matching_events = [row for row in existing_events if row.get("id") == event.get("id")]
+    if matching_events and any(_event_fingerprint(row) != expected_fingerprint for row in matching_events):
+        raise _recovery_error("event id already exists with different content", event_id=event.get("id"))
+    if not matching_events:
+        try:
+            validate_event(event, for_confirmation=True)
+            preflight_confirmation(home, event, existing_events)
+            append_jsonl(home.events, event)
+        except Exception as exc:
+            if isinstance(exc, CareerError):
+                raise _recovery_error(str(exc), proposal_id=proposal_id) from exc
+            raise _recovery_error("could not recover the canonical event ledger", error=str(exc)) from exc
+    _advance_transaction(home, transaction, "ledger_written")
+
+    state = home.load_state()
+    if state.get("last_event_id") == event.get("id") and state_version_is_persisted(home, state):
+        version = str(state["version"])
+    else:
+        projected_state = state_projector(state, event) if state_projector else state
+        version = home.save_state(projected_state)
+    _advance_transaction(home, transaction, "state_written", state_version=version)
+
+    if event.get("company"):
+        workspace = transaction.get("workspace")
+        if workspace and not Path(str(workspace)).is_dir():
+            raise _recovery_error("approval workspace is no longer available", workspace=str(workspace))
+        if pipeline_writer is None:
+            raise _recovery_error("approval transaction requires a workspace projection writer")
+        try:
+            pipeline = pipeline_writer(event)
+        except Exception as exc:
+            raise _recovery_error("could not recover the workspace projection", error=str(exc)) from exc
+    else:
+        pipeline = None
+    _advance_transaction(home, transaction, "projection_written", pipeline=str(pipeline) if pipeline else None)
+
+    resolved_at = utc_now()
+    updated = proposal
+    if proposal.get("status") == ProposalStatus.PENDING:
+        resolution = {
+            "status": "approved",
+            "resolved_at": resolved_at,
+            "approved_event_id": event["id"],
+            "state_version": version,
+        }
+        updated = home.replace_proposal(
+            proposal_id,
+            status="approved",
+            approved_at=resolved_at,
+            version=version,
+            approved_event_id=event["id"],
+            resolution=resolution,
+        )
+    elif proposal.get("status") == ProposalStatus.APPROVED:
+        if proposal.get("approved_event_id") not in {None, event.get("id")}:
+            raise _recovery_error("proposal was approved for a different event", proposal_id=proposal_id)
+    else:
+        raise _recovery_error("approval transaction proposal has an invalid status", proposal_id=proposal_id)
+
+    _advance_transaction(home, transaction, "committed", state_version=version)
+    _clear_transaction(home)
+    result: dict[str, Any] = {
+        "approved": True,
+        "event": event,
+        "version": version,
+        "proposal": updated,
+        "recovered": True,
+    }
+    if pipeline:
+        result["pipeline"] = str(pipeline)
+    return result
+
+
+def recover_pending(
+    home: CareerVault,
+    *,
+    pipeline_writer: PipelineWriter | None = None,
+    state_projector: StateProjector | None = None,
+) -> dict[str, Any] | None:
+    """Replay one incomplete approval transaction while holding the Vault lock."""
+    if not approval_transaction_path(home).exists():
+        return None
+    with vault_lock(home):
+        try:
+            transaction = read_approval_transaction(home)
+        except CareerError as exc:
+            if exc.code == "APPROVAL_RECOVERY_FAILED":
+                raise
+            raise _recovery_error(str(exc)) from exc
+        if transaction is None:
+            return None
+        try:
+            return _recover_locked(
+                home,
+                transaction,
+                pipeline_writer=pipeline_writer,
+                state_projector=state_projector,
+            )
+        except CareerError:
+            raise
+        except Exception as exc:
+            raise _recovery_error("approval transaction replay failed", error=str(exc)) from exc
+
+
 def approve(
     home: CareerVault,
     proposal_id: str,
@@ -134,14 +333,20 @@ def approve(
     state_projector: StateProjector | None = None,
 ) -> dict[str, Any]:
     """Approve one pending proposal exactly once and preserve retry safety."""
-    del workspace  # The injected writer owns workspace resolution.
+    recovered = recover_pending(
+        home,
+        pipeline_writer=pipeline_writer,
+        state_projector=state_projector,
+    )
+    if recovered and recovered.get("proposal", {}).get("id") == proposal_id:
+        return recovered
     with vault_lock(home):
         proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
         if not proposal:
             raise CareerError(f"proposal not found: {proposal_id}")
-        if proposal.get("status") != "pending":
+        if proposal.get("status") != ProposalStatus.PENDING:
             raise CareerError(f"proposal is not pending: {proposal_id}")
-        if proposal.get("kind") in {"event", "career_context"}:
+        if proposal.get("kind") in {ProposalKind.EVENT, ProposalKind.CAREER_CONTEXT}:
             event = dict(proposal["event"])
             if evidence is not None:
                 # `--evidence` replaces the list, which would silently destroy the provenance link
@@ -186,17 +391,42 @@ def approve(
             except CareerError as exc:
                 record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
                 raise
-            pipeline = pipeline_writer(event) if pipeline_writer and event.get("company") else None
-
+            transaction_workspace = None
+            if event.get("company") and pipeline_writer:
+                transaction_workspace = str(Path(workspace).expanduser().resolve()) if workspace else str(Path.cwd().resolve())
+            transaction: dict[str, Any] = {
+                "version": 1,
+                "transaction_id": f"approval-{uuid.uuid4().hex[:12]}",
+                "proposal_id": proposal_id,
+                "proposal_kind": proposal.get("kind"),
+                "event": event,
+                "event_fingerprint": _event_fingerprint(event),
+                "workspace": transaction_workspace,
+                "created_at": utc_now(),
+                "stage": "prepared",
+            }
+            _write_transaction(home, transaction)
             if not any(row.get("id") == event.get("id") for row in existing_events):
                 append_jsonl(home.events, event)
+            _advance_transaction(home, transaction, "ledger_written")
 
             state = home.load_state()
             projected_state = state_projector(state, event) if state_projector else state
-            if projected_state == state and state_version_is_persisted(home, state):
+            if state.get("last_event_id") == event.get("id") and state_version_is_persisted(home, state):
+                version = state["version"]
+            elif projected_state == state and state_version_is_persisted(home, state):
                 version = state["version"]
             else:
                 version = home.save_state(projected_state)
+            _advance_transaction(home, transaction, "state_written", state_version=version)
+
+            pipeline = pipeline_writer(event) if pipeline_writer and event.get("company") else None
+            _advance_transaction(
+                home,
+                transaction,
+                "projection_written",
+                pipeline=str(pipeline) if pipeline else None,
+            )
             resolved_at = utc_now()
             resolution = {
                 "status": "approved",
@@ -212,6 +442,8 @@ def approve(
                 approved_event_id=event["id"],
                 resolution=resolution,
             )
+            _advance_transaction(home, transaction, "committed", state_version=version)
+            _clear_transaction(home)
             result = {"approved": True, "event": event, "version": version, "proposal": updated}
             if pipeline:
                 result["pipeline"] = str(pipeline)

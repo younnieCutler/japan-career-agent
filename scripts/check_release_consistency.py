@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,6 +24,13 @@ CHANGELOG_HEADING = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--require-tag",
+        action="store_true",
+        help="also require the immutable v<version> tag to exist in the current checkout",
+    )
+    args = parser.parse_args()
     errors: list[str] = []
     manifest_versions: list[str] = []
 
@@ -59,6 +68,18 @@ def main() -> int:
             errors.append(
                 f"{path.name}: current release {match.group(1)!r} != manifest {release_version!r}"
             )
+
+    if args.require_tag and release_version is not None:
+        tag = f"v{release_version}"
+        tag_check = subprocess.run(
+            ["git", "rev-parse", "--verify", f"refs/tags/{tag}"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if tag_check.returncode != 0:
+            errors.append(f"missing immutable release tag: {tag}")
 
     if errors:
         print("release consistency errors:")

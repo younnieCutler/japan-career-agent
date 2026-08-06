@@ -74,6 +74,8 @@ def append_jsonl(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="\n") as stream:
         stream.write(json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:

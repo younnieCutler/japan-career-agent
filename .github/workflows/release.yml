@@ -82,6 +82,9 @@ jobs:
             --checksums release/SHA256SUMS \
             --artifact "release/$artifact" \
             --sbom release/sbom.cdx.json
+      - name: smoke-test unpacked release bundle
+        if: steps.release.outputs.changed == 'true'
+        run: python scripts/test_release_install.py --bundle release
       - name: upload verified release bundle
         if: steps.release.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
@@ -109,6 +112,9 @@ jobs:
             git tag --annotate "$TAG" "$GITHUB_SHA" --message "Release $TAG"
             git push origin "$TAG"
             python scripts/check_release_tag.py --tag "$TAG" --sha "$GITHUB_SHA"
+          fi
+          if [[ "$DRY_RUN" != "true" ]]; then
+            python scripts/check_release_consistency.py --require-tag
           fi
       - name: create GitHub Release
         if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
