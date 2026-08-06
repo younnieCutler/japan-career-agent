@@ -36,6 +36,7 @@ CHECKS = (
     ("career-agent", (PYTHON, "skills/career-agent/test_career_agent.py")),
     ("career-agent golden CLI", (PYTHON, "skills/career-agent/test_golden_cli.py")),
     ("career-agent UX contract", (PYTHON, "skills/career-agent/test_ux.py")),
+    ("career-agent guided frontend", (PYTHON, "skills/career-agent/test_guided.py")),
     ("Career Agent P1 workflows", (PYTHON, "scripts/test_workflows.py")),
     ("career-agent boundary imports", (PYTHON, "skills/career-agent/test_boundary_imports.py")),
     ("career-agent architecture boundary", (PYTHON, "scripts/check_career_agent_boundaries.py")),

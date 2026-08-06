@@ -39,6 +39,7 @@ python skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --me
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python skills/career-agent/career_agent.py status --vault "$VAULT"
+python skills/career-agent/career_agent.py guided --vault "$VAULT" --format human
 python skills/career-agent/career_agent.py approve --vault "$VAULT" --workspace "/path/to/job-search-workspace" <proposal-id> --evidence "resume line 12" --next-action "Prepare interview notes"
 python skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python skills/career-agent/career_agent.py index --vault "$VAULT"
@@ -48,6 +49,13 @@ python skills/career-agent/career_agent.py propose-context --vault "$VAULT" --so
 
 Set `CAREER_VAULT` instead of passing `--vault` repeatedly. The runtime never defaults to the
 repository or current working directory.
+
+`guided` is a thin menu over the same canonical state and operations. It shows setup status,
+pending proposals, Unknown/Conflict counts, workspace metadata, and only valid next actions.
+Use `--choice <id-or-number>` for a deterministic non-TTY run; write-capable choices also require
+`--confirm` and their operation-specific input (`--message`, `--proposal-id`, or `--version`).
+Invalid choices and `cancel` leave canonical state unchanged. Guided mode does not rank companies,
+recommend applications, approve automatically, or read note bodies.
 
 ## Runtime contract
 
