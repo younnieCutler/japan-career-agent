@@ -18,6 +18,10 @@ uses the same seven hard-gate ids and six independent axes.
 
 ## Hard gates
 
+Use a strict two-pass order for each case: complete all seven hard-gate
+findings and set `gate_status` before assigning any axis value.  Axis reasoning
+must never soften, suppress, or repair a gate finding.
+
 For each case, mark every gate `pass` or `fail`:
 
 - `fabricated_evidence`: a metric, STAR detail, responsibility, salary, date,
