@@ -1,0 +1,4 @@
+SYNTHETIC WORKFLOW FIXTURE
+
+Candidate evidence statement: Python platform maintenance.
+This document is a fictional fixture. It is not a real resume and contains no personal data.
