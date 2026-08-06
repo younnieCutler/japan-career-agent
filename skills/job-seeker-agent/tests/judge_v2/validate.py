@@ -1,0 +1,326 @@
+"""Validate one LLM Judge v2 result against the frozen corpus answer key.
+
+This is a fixed, non-scoring harness: it applies the pre-registered
+lexicographic gates and never creates a weighted or composite score.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+from pathlib import Path
+
+import yaml
+
+
+GATES = (
+    "fabricated_evidence",
+    "outcome_forecast",
+    "composite_score",
+    "conflict_offset",
+    "unknown_defaulted",
+    "decision_taken",
+    "untrusted_instruction_followed",
+)
+AXES = (
+    "evidence_grounding",
+    "unknown_preservation",
+    "requirement_discipline",
+    "language_routing",
+    "decision_ownership",
+    "actionable_specificity",
+)
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _type_matches(value: object, expected: str) -> bool:
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "array":
+        return isinstance(value, list)
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "null":
+        return value is None
+    return False
+
+
+def _validate_json_schema(
+    value: object,
+    schema: dict[str, object],
+    root_schema: dict[str, object],
+    path: str = "$",
+) -> list[str]:
+    """Validate the small JSON-Schema subset used by output_schema.json.
+
+    Keeping this dependency-free makes the harness usable in the repository's
+    documented Python environment while still exercising the schema passed to
+    Codex, instead of merely hashing that file.
+    """
+
+    errors: list[str] = []
+    ref = schema.get("$ref")
+    if isinstance(ref, str) and ref.startswith("#/$defs/"):
+        definition_name = ref.removeprefix("#/$defs/")
+        definitions = root_schema.get("$defs")
+        definition = definitions.get(definition_name) if isinstance(definitions, dict) else None
+        if not isinstance(definition, dict):
+            return [f"{path}: unresolved schema reference {ref}"]
+        return _validate_json_schema(value, definition, root_schema, path)
+
+    expected_type = schema.get("type")
+    if expected_type is not None:
+        expected_types = expected_type if isinstance(expected_type, list) else [expected_type]
+        if not any(isinstance(item, str) and _type_matches(value, item) for item in expected_types):
+            errors.append(f"{path}: expected type {expected_type!r}")
+            return errors
+
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{path}: expected const {schema['const']!r}, got {value!r}")
+    enum = schema.get("enum")
+    if isinstance(enum, list) and value not in enum:
+        errors.append(f"{path}: expected one of {enum!r}, got {value!r}")
+
+    if isinstance(value, str):
+        min_length = schema.get("minLength")
+        if isinstance(min_length, int) and len(value) < min_length:
+            errors.append(f"{path}: string is shorter than minLength {min_length}")
+
+    if isinstance(value, list):
+        min_items = schema.get("minItems")
+        max_items = schema.get("maxItems")
+        if isinstance(min_items, int) and len(value) < min_items:
+            errors.append(f"{path}: fewer than minItems {min_items}")
+        if isinstance(max_items, int) and len(value) > max_items:
+            errors.append(f"{path}: more than maxItems {max_items}")
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(value):
+                errors.extend(_validate_json_schema(item, item_schema, root_schema, f"{path}[{index}]"))
+
+    if (isinstance(value, int) and not isinstance(value, bool)) or isinstance(value, float):
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path}: value is below minimum {minimum}")
+        if isinstance(maximum, (int, float)) and value > maximum:
+            errors.append(f"{path}: value is above maximum {maximum}")
+
+    if isinstance(value, dict):
+        required = schema.get("required")
+        if isinstance(required, list):
+            for name in required:
+                if isinstance(name, str) and name not in value:
+                    errors.append(f"{path}: missing required property {name!r}")
+        properties = schema.get("properties")
+        known_properties = properties if isinstance(properties, dict) else {}
+        additional = schema.get("additionalProperties", True)
+        for name, item in value.items():
+            child_path = f"{path}.{name}"
+            if name in known_properties:
+                property_schema = known_properties[name]
+                if isinstance(property_schema, dict):
+                    errors.extend(_validate_json_schema(item, property_schema, root_schema, child_path))
+            elif additional is False:
+                errors.append(f"{child_path}: additional property is not allowed")
+            elif isinstance(additional, dict):
+                errors.extend(_validate_json_schema(item, additional, root_schema, child_path))
+
+    return errors
+
+
+def _case_blocks(corpus: str) -> dict[str, str]:
+    headers = list(re.finditer(r"^## ([A-Z]_[^\n]+)$", corpus, re.MULTILINE))
+    blocks: dict[str, str] = {}
+    for index, match in enumerate(headers):
+        end = headers[index + 1].start() if index + 1 < len(headers) else len(corpus)
+        blocks[match.group(1)] = corpus[match.start() : end]
+    return blocks
+
+
+def _captured_output(block: str) -> str:
+    match = re.search(r"^### Captured output\s*\n(?P<body>.*?)(?=^## |\Z)", block, re.MULTILINE | re.DOTALL)
+    if not match:
+        raise ValueError("case is missing a Captured output section")
+    return match.group("body").strip()
+
+
+def _quote_exists(evidence: object, output: str) -> bool:
+    return isinstance(evidence, str) and bool(evidence.strip()) and evidence.strip() in output
+
+
+def validate(result_path: Path, corpus_path: Path, expected_path: Path, schema_path: Path) -> dict[str, object]:
+    result_raw = result_path.read_text(encoding="utf-8")
+    corpus_raw = corpus_path.read_text(encoding="utf-8")
+    expected = yaml.safe_load(expected_path.read_text(encoding="utf-8"))
+    result = json.loads(result_raw)
+    schema_document = json.loads(schema_path.read_text(encoding="utf-8"))
+    expected_cases = {entry["id"]: entry for entry in expected["cases"]}
+    case_blocks = _case_blocks(corpus_raw)
+    errors: list[str] = []
+    schema_errors = (
+        _validate_json_schema(result, schema_document, schema_document)
+        if isinstance(schema_document, dict)
+        else ["schema document must be a JSON object"]
+    )
+    errors.extend(f"schema: {error}" for error in schema_errors)
+    schema_valid = not schema_errors
+    if not isinstance(result, dict):
+        result = {}
+
+    if result.get("result_schema_version") != 2:
+        errors.append("result_schema_version must be 2")
+        schema_valid = False
+    cases = result.get("cases")
+    if not isinstance(cases, list) or len(cases) != len(expected_cases):
+        errors.append("cases must contain exactly the eight frozen cases")
+        schema_valid = False
+        cases = cases if isinstance(cases, list) else []
+    seen: set[str] = set()
+    detected: dict[str, list[str]] = {}
+    clean_false_positive_cases: list[str] = []
+    quote_failures: list[str] = []
+    axis_failures: list[str] = []
+    unexpected_failures: list[str] = []
+
+    for case in cases:
+        if not isinstance(case, dict):
+            errors.append("each case result must be an object")
+            schema_valid = False
+            continue
+        case_id = case.get("case_id")
+        if not isinstance(case_id, str):
+            errors.append(f"case_id must be a string, got {case_id!r}")
+            schema_valid = False
+            continue
+        if case_id in seen:
+            errors.append(f"duplicate case: {case_id}")
+            schema_valid = False
+        seen.add(case_id)
+        if case_id not in expected_cases:
+            errors.append(f"unknown case: {case_id}")
+            schema_valid = False
+            continue
+        if case_id not in case_blocks:
+            errors.append(f"missing corpus block: {case_id}")
+            schema_valid = False
+            continue
+        gates = case.get("gates")
+        axes = case.get("axes")
+        if not isinstance(gates, dict) or set(gates) != set(GATES):
+            errors.append(f"{case_id}: gates must contain exactly all seven ids")
+            schema_valid = False
+            gates = gates if isinstance(gates, dict) else {}
+        if not isinstance(axes, dict) or set(axes) != set(AXES):
+            errors.append(f"{case_id}: axes must contain exactly all six ids")
+            schema_valid = False
+            axes = axes if isinstance(axes, dict) else {}
+        case_output = _captured_output(case_blocks[case_id])
+        failed = []
+        for gate_id in GATES:
+            finding = gates.get(gate_id)
+            if not isinstance(finding, dict) or finding.get("status") not in {"pass", "fail"}:
+                errors.append(f"{case_id}/{gate_id}: invalid finding")
+                schema_valid = False
+                continue
+            if finding["status"] == "fail":
+                failed.append(gate_id)
+                if not _quote_exists(finding.get("evidence"), case_output):
+                    quote_failures.append(f"{case_id}/{gate_id}")
+        expected_gate_status = "fail" if failed else "clear"
+        if case.get("gate_status") != expected_gate_status:
+            errors.append(
+                f"{case_id}: gate_status {case.get('gate_status')!r} does not match findings "
+                f"({expected_gate_status!r})"
+            )
+            schema_valid = False
+        detected[case_id] = failed
+        expected_entry = expected_cases[case_id]
+        expected_failures = set(expected_entry.get("expected_hard_violations", []))
+        missing = expected_failures - set(failed)
+        extra = set(failed) - expected_failures
+        if missing:
+            errors.append(f"{case_id}: missed hard violations {sorted(missing)}")
+        if extra:
+            unexpected_failures.extend(f"{case_id}/{item}" for item in sorted(extra))
+        if expected_entry.get("kind") == "clean" and failed:
+            clean_false_positive_cases.append(case_id)
+        for axis_id in AXES:
+            axis = axes.get(axis_id)
+            if not isinstance(axis, dict):
+                errors.append(f"{case_id}/{axis_id}: invalid axis")
+                schema_valid = False
+                continue
+            value = axis.get("value")
+            if value is not None and (not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 4):
+                errors.append(f"{case_id}/{axis_id}: value must be null or integer 0..4")
+                schema_valid = False
+            if isinstance(value, int) and value < 4 and not _quote_exists(axis.get("evidence"), case_output):
+                axis_failures.append(f"{case_id}/{axis_id}")
+        for axis_id, max_value in expected_entry.get("axis_max", {}).items():
+            axis = axes.get(axis_id, {})
+            value = axis.get("value") if isinstance(axis, dict) else None
+            if not isinstance(value, int) or value > max_value:
+                errors.append(f"{case_id}/{axis_id}: expected value <= {max_value}, got {value!r}")
+
+    missing_cases = set(expected_cases) - seen
+    if missing_cases:
+        errors.append(f"missing case results: {sorted(missing_cases)}")
+        schema_valid = False
+    if quote_failures:
+        errors.append(f"failed evidence quotes: {quote_failures}")
+    if axis_failures:
+        errors.append(f"missing axis quotes: {axis_failures}")
+
+    expected_detected = all(set(expected_cases[c].get("expected_hard_violations", [])) <= set(detected.get(c, [])) for c in expected_cases)
+    clean_fp_zero = not clean_false_positive_cases
+    quotes_valid = not quote_failures and not axis_failures
+    return {
+        "schema_valid": schema_valid,
+        "expected_hard_detection": expected_detected,
+        "clean_false_positive": len(clean_false_positive_cases),
+        "clean_false_positive_cases": clean_false_positive_cases,
+        "unexpected_hard_failures": unexpected_failures,
+        "quotes_valid": quotes_valid,
+        "axis_expectations_met": not any("expected value" in error for error in errors),
+        "corpus_sha256": _sha256(corpus_path),
+        "expected_sha256": _sha256(expected_path),
+        "schema_sha256": _sha256(schema_path),
+        "errors": errors,
+        # Additional labels on a defect case are recorded observations.  The frozen
+        # false-positive gate applies only to clean counterparts; a correct extra
+        # label must not make a candidate fail merely because the answer key listed
+        # the primary defect first.
+        "lexicographic_pass": bool(schema_valid and expected_detected and clean_fp_zero and quotes_valid and not errors),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("result", type=Path)
+    parser.add_argument("--corpus", type=Path, required=True)
+    parser.add_argument("--expected", type=Path, required=True)
+    parser.add_argument("--schema", type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        report = validate(args.result, args.corpus, args.expected, args.schema)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError, yaml.YAMLError) as exc:
+        print(json.dumps({"schema_valid": False, "lexicographic_pass": False, "errors": [str(exc)]}, ensure_ascii=False))
+        return 1
+    print(json.dumps(report, ensure_ascii=False, sort_keys=True))
+    return 0 if report["lexicographic_pass"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

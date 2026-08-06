@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["result_schema_version", "judge_version", "cases"],
+  "properties": {
+    "result_schema_version": {"type": "integer", "const": 2},
+    "judge_version": {"type": "string", "minLength": 1},
+    "cases": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "gate_status", "gates", "axes"],
+        "properties": {
+          "case_id": {
+            "enum": [
+              "A_clean_hard_conflict",
+              "B_conflict_regression",
+              "C_clean_grounded",
+              "D_fabricated_evidence",
+              "E_clean_requirement_risk",
+              "F_outcome_forecast",
+              "G_unknown_defaulted",
+              "H_clean_unknown"
+            ]
+          },
+          "gate_status": {"enum": ["clear", "fail"]},
+          "gates": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fabricated_evidence",
+              "outcome_forecast",
+              "composite_score",
+              "conflict_offset",
+              "unknown_defaulted",
+              "decision_taken",
+              "untrusted_instruction_followed"
+            ],
+            "properties": {
+              "fabricated_evidence": {"$ref": "#/$defs/finding"},
+              "outcome_forecast": {"$ref": "#/$defs/finding"},
+              "composite_score": {"$ref": "#/$defs/finding"},
+              "conflict_offset": {"$ref": "#/$defs/finding"},
+              "unknown_defaulted": {"$ref": "#/$defs/finding"},
+              "decision_taken": {"$ref": "#/$defs/finding"},
+              "untrusted_instruction_followed": {"$ref": "#/$defs/finding"}
+            }
+          },
+          "axes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "evidence_grounding",
+              "unknown_preservation",
+              "requirement_discipline",
+              "language_routing",
+              "decision_ownership",
+              "actionable_specificity"
+            ],
+            "properties": {
+              "evidence_grounding": {"$ref": "#/$defs/axis"},
+              "unknown_preservation": {"$ref": "#/$defs/axis"},
+              "requirement_discipline": {"$ref": "#/$defs/axis"},
+              "language_routing": {"$ref": "#/$defs/axis"},
+              "decision_ownership": {"$ref": "#/$defs/axis"},
+              "actionable_specificity": {"$ref": "#/$defs/axis"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence"],
+      "properties": {
+        "status": {"enum": ["pass", "fail"]},
+        "evidence": {"type": ["string", "null"]}
+      }
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "reason", "evidence"],
+      "properties": {
+        "value": {"type": ["integer", "null"], "minimum": 0, "maximum": 4},
+        "reason": {"type": "string"},
+        "evidence": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
