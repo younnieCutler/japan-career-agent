@@ -6,6 +6,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -41,8 +42,9 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.metadata.parent.mkdir(parents=True, exist_ok=True)
     started = dt.datetime.now(dt.timezone.utc)
+    codex_binary = shutil.which("codex.cmd") or shutil.which("codex") or "codex.cmd"
     command = [
-        "codex",
+        codex_binary,
         "exec",
         "--ephemeral",
         "--ignore-user-config",
