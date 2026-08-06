@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.16.0] - 2026-08-06
+
+- Added the P2 UX regression rubric with eight independent safety/navigation rules, ten
+  known-good synthetic fixtures, eight known-bad negative controls, and five regression injections.
+- Added deterministic calibration coverage to the canonical check path: all negative controls and
+  injections are detected with zero false positives or false negatives and reproducible results.
+- Added a provider-neutral advisory calibration seam that evaluates captured subject output and
+  records a fixed three-subject by three-judge run matrix, model identity, run conditions, and
+  subject/judge variance without touching canonical state.
+- Documented that the deterministic evaluator is CI-safe while a network-dependent live LLM judge
+  remains advisory until model variance, provider failure, runtime, and cost are calibrated.
+
 ## [1.15.0] - 2026-08-06
 
 - Added the thin `career_agent.py guided` frontend with canonical-state summaries, stable action
