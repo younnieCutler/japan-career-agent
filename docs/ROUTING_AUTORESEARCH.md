@@ -11,7 +11,8 @@
 | --- | --- |
 | `scripts/routing_eval.py` | Frozen evaluator: fixture schema, gate classification, anti-gaming checks, aggregate report, CLI |
 | `scripts/test_routing_eval.py` | Evaluator contract tests — digest freeze, schema strictness, candidate discrimination, reproducibility |
-| `scripts/routing_autoresearch.py` | Experiment runner: mutation-surface enforcement, lexicographic gates, KEEP/DISCARD/CRASH/INVALID, append-only log |
+| `scripts/routing_autoresearch.py` | Experiment runner: mutation-surface enforcement, lexicographic gates, verdict classification, append-only log |
+| `scripts/test_routing_autoresearch.py` | Runner contract tests — subset gates, judging-file pinning, log schema, verdict statuses |
 | `skills/career-agent/tests/fixtures/routing_eval_v1_dev.yml` | Development set, 26 fixtures (visible to a research agent) |
 | `skills/career-agent/tests/fixtures/routing_eval_v1_holdout.yml` | Frozen holdout, 56 fixtures (aggregate-only results) |
 | `docs/routing-autoresearch-results.tsv` | Append-only experiment log |
@@ -22,23 +23,38 @@
 Decisions the PRD left to implementation, or where implementation showed the PRD text needed a
 concrete reading:
 
-1. **Gate 1 is monotone against the current best, not absolute zero.** The PRD says critical
+1. **Gate 1 is a subset test against the current best, not absolute zero.** The PRD says critical
    failures must be 0. The baseline has 4 (the negation cases the benchmark was written to expose),
    so an absolute rule deadlocks the loop: no single-hypothesis candidate can clear all four at
    once, which is exactly the multi-hypothesis change Gate 5 forbids. The runner therefore
-   DISCARDs any candidate whose critical count rises above the best, and zero remains the target
-   the benchmark is designed around. **Gate 0 stays absolute** — the baseline has 0 philosophy
-   failures, so demanding 0 costs nothing and is the stronger contract.
+   DISCARDs any candidate that produces a critical failure the best did not have, and zero remains
+   the target the benchmark is designed around. **Gate 0 stays absolute** — the baseline has 0
+   philosophy failures, so demanding 0 costs nothing and is the stronger contract.
+
+   Subset, not count. A count comparison passes a candidate that fixes one critical failure and
+   introduces a different one — the number is unchanged and a new way to break the contract has
+   shipped. E-3 below is that exact candidate, and a count gate would have kept it. Gate 4 uses
+   the same subset test for the same reason. The comparison runs over hashed fixture ids so the
+   log can support it without carrying back the per-fixture holdout detail the evaluator withholds.
 2. **Gate 0 for routing is `explicit_intent` + `stage_mutated`.** Those are the two decision-
    philosophy violations a routing candidate can actually commit: inventing an intent the user
    never stated, and moving the lifecycle stage to make a route fire. The rest of the PRD's Gate 0
    list is structurally unreachable from the mutation surface.
-3. **Fixture and evaluator immutability is enforced twice**, by different mechanisms, because
-   either alone has a hole: a digest pinned in `test_routing_eval.py` (catches an edit at any time,
-   including uncommitted), and a digest comparison against the baseline row in the runner (catches
-   an edit mid-experiment even if the test is not run).
+3. **Every file that decides a verdict is pinned, including the runner.** The evaluator, the
+   runner, and both contract-test files are digested into each results row and compared on the
+   next run; a candidate that edits any of them is INVALID. The path exemption in `HARNESS_PATHS`
+   is not the protection — it exists so the harness's own files did not read as an unrelated
+   production change before they were committed. Fixtures are pinned twice, by different
+   mechanisms, because either alone has a hole: a digest in `test_routing_eval.py` catches an edit
+   at any time including uncommitted, and the runner's comparison catches one mid-experiment even
+   if the test is never run.
 4. **Gate 6 does not require zero critical failures.** Blocking an unrelated improvement on
    pre-existing failures is the same deadlock as (1). Gate 6 is the canonical matrix, as written.
+   A candidate that has not cleared it is recorded as `provisional_keep`, never `keep`. Provisional
+   candidates still advance the loop — running the full matrix per candidate is the CI cost PRD §17
+   separates out — but the log never lets an unverified candidate read as a promotable one.
+   A Gate 6 failure that the candidate demonstrably did not cause (untracked local tooling failing
+   the whole-tree lint) is `infra_error` per PRD §10, and does not become the next reference.
 5. **Holdout isolation is by output shape, not by access control.** `report()` withholds
    per-fixture holdout detail unless `reveal=True`, which the runner never passes. The files are
    readable on disk — an agent that chooses to open them is out of contract, not out of reach.
@@ -46,8 +62,15 @@ concrete reading:
 6. **`--on-discard revert` is opt-in, not the default.** Automatic `git checkout` of the mutation
    surface is destructive when the tree holds an uncommitted KEEP. The autonomous loop should pass
    it; a human iterating should not.
+7. **Gate 7 is implemented as a term-count tie-break.** PRD §9 ranks fewer changed production
+   lines first, but changed LOC is measured against each candidate's own base commit and so does
+   not compare across rows. The routing term count is absolute and does compare. Without this gate
+   the first candidate to reach a score keeps it even when a strictly smaller change routes
+   identically — E-4 is that case.
 
-## Baseline measurement
+## Measurements
+
+The benchmark's own starting point, before any candidate:
 
 ```
 dev      22/26 correct,  2 critical
@@ -56,44 +79,65 @@ philosophy failures 0   gaming failures 0   routing terms 219
 python 3.13.5 on Darwin
 ```
 
-Zero fallback failures at baseline: the current lexicon under-captures rather than over-captures,
-which is the right direction to start research from.
+Zero fallback failures at baseline: the lexicon under-captures rather than over-captures, which is
+the right direction to start research from.
+
+Two candidates were kept, for a net +2 held-out and +1 routing term:
+
+| | held-out | terms |
+| --- | --- | --- |
+| baseline | 43/56 | 219 |
+| E-1 `market_salary` | 44/56 | 222 |
+| E-4 `interview_followup` | 45/56 | 220 |
+
+The log restarts whenever a judging file changes, since a baseline row recorded against a
+different evaluator or runner cannot be compared to. `docs/routing-autoresearch-results.tsv` holds
+the run against the harness as merged.
 
 ## Verdict verification
 
-All four runner outcomes were exercised against the real subject:
+Every runner outcome was exercised against the real subject, not a mock:
 
 | Outcome | How it was produced | Result |
 | --- | --- | --- |
-| KEEP | E-1: three plain market-rate synonyms in `market_salary` | held-out 43 → 44, focused checks green |
-| DISCARD | E-2: `interview_manner` broadened to bare `面接`/`interview`/`면접` | held-out 44 → 41, critical 4 → 9, stopped at Gate 1 |
-| INVALID | appended a comment line to the frozen holdout | rejected on fixture digest before any gate was read |
-| INVALID | edited `scripts/run_all_checks.py` during a candidate run | rejected on mutation surface |
-| CRASH | malformed `routing.yml` | reported as CRASH, not DISCARD |
+| `provisional_keep` | E-1: three plain market-rate synonyms in `market_salary` | held-out 43 → 44, focused checks green |
+| `discard` | E-2: `interview_manner` broadened to bare `面接`/`interview`/`면접` | held-out 44 → 41, stopped at Gate 1 |
+| `discard` | E-3: fixed two negation criticals, introduced two over-capture criticals | **critical count unchanged at 4**, stopped at Gate 1 on the subset test |
+| `provisional_keep` | E-4: three `お礼` compounds collapsed into the bare form | held-out 44 → 45 with three fewer terms |
+| `infra_error` | E-4 re-run with `--promote` on a polluted tree | Gate 6 unjudgeable, correctly not attributed to the candidate |
+| `INVALID` | a comment line appended to the frozen holdout | rejected on fixture digest before any gate was read |
+| `INVALID` | `scripts/run_all_checks.py` edited during a candidate run | rejected on mutation surface |
+| `CRASH` | malformed `routing.yml` | reported as CRASH, not DISCARD |
 
 E-2 is the PRD §12 scenario in miniature: a candidate cannot buy back a safety regression with
-accuracy, and here it did not even have accuracy to trade.
+accuracy, and here it did not even have accuracy to trade. **E-3 is the one that matters** — its
+critical failure count is identical to the baseline's, so the count comparison this runner
+originally used would have kept it while it shipped two new contract violations.
 
 ## Gate 6 status
 
-E-1 is committed (+2 LOC, +3 terms in `skills/career-agent/references/routing.yml`) and shipped in
-release `1.19.0`. 55 of the 58 canonical checks pass on the resulting clean tree. The three that do
-not fail for reasons outside this work, on a developer machine only:
+Both kept candidates are recorded as `provisional_keep`: the canonical matrix cannot be judged on
+the authoring machine, so Gate 6 is decided by CI on this branch, not locally.
 
-- `ruff` reports 8 errors, all inside an untracked local Claude plugin directory
-  (`.agents/skills/caveman-compress/`).
-- `release integrity` and its SBOM sibling call `build_release._assert_clean()`, which runs
-  `git status --porcelain --untracked-files=all` and refuses any output at all — the same untracked
-  plugin directory.
+Four of the 59 canonical checks fail here and nowhere else, all tracing to one untracked local
+Claude plugin directory (`.agents/skills/`):
 
-Neither exists in a clean CI checkout, so Gate 6 is expected to pass there. Re-verify on CI rather
-than treating this local result as the promotion evidence.
+- `ruff` lints the whole tree, including untracked directories, and reports 8 errors inside it.
+- `release integrity` and the two SBOM checks call `build_release._assert_clean()`, which runs
+  `git status --porcelain --untracked-files=all` and refuses any output at all.
+
+Neither exists in a clean checkout. The runner classifies this as `infra_error` rather than
+DISCARD, precisely so the log does not record a false verdict about a candidate that passed every
+gate it could be judged on. **CI green on this branch is the Gate 6 evidence; the local run is not.**
 
 ## Known limits
 
-- **The demo run is not a blind research run.** The benchmark author read holdout failures once to
-  validate labels, so E-1/E-2 demonstrate the runner's mechanics, not the loop's blind research
-  capability. Phase 4 is the first run where that claim can be made.
+- **This is not yet a blind research run.** The benchmark author read holdout failures once to
+  validate labels, so E-1 through E-4 demonstrate the runner's mechanics, not the loop's blind
+  research capability. Phase 4 is the first run where that claim can be made.
+- **No agent context capsule yet.** A research agent currently has to rediscover the routing
+  surface on every trial. Phase 4 needs a `program.md` plus a routing context capsule before an
+  autonomous run is affordable; this PR ships the harness, not the loop's operating instructions.
 - **Bootstrap self-reference.** The harness lists its own files in `HARNESS_PATHS` so that before
   it was committed they did not read as an unrelated production change. `scripts/run_all_checks.py`
   is deliberately *not* in that list — a candidate that could edit it could delete a check to pass
@@ -108,6 +152,8 @@ than treating this local result as the promotion evidence.
 
 1. Phase 3: grow the holdout to 150–300 cases per PRD §7.3, as `routing-eval-v2` if any label in v1
    turns out wrong — v1 is frozen.
-2. Phase 4: the first autonomous run. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
+2. Write `program.md` and a routing context capsule, so a research agent does not re-explore the
+   repository once per trial.
+3. Phase 4: the first autonomous run. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
    remaining critical failures are all negation/precedence, which may be an SR-5 architectural
    signal rather than a lexicon one.
