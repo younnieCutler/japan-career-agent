@@ -23,10 +23,7 @@ ALLOW_FILES = {
     ROOT / "scripts" / "check_policy.py",
     ROOT / "scripts" / "policy_patterns.py",
 }
-# `.worktrees` holds gitignored checkouts of other branches. Their copies of the two allowlisted
-# legacy files are not active content, and scanning them makes the check fail for a reason that has
-# nothing to do with the working branch.
-SKIP_PARTS = {"__pycache__", ".git", ".pytest_cache", "data", "career-docs", ".agents", ".claude", ".worktrees"}
+SKIP_PARTS = {"__pycache__", ".git", ".pytest_cache", "data", "career-docs", ".agents", ".claude"}
 
 # These are output-shaped claims, not ordinary discussion of the policy. Historical examples
 # remain isolated in the two explicit legacy files above.
