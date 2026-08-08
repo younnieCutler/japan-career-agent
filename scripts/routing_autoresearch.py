@@ -232,7 +232,9 @@ def main() -> int:
     rows = read_rows()
     best = current_best(rows)
     commit = head_commit()
-    dirty = bool(git("status", "--porcelain"))
+    # Scoped to the mutation surface: the run itself always dirties the results log, and a flag
+    # that is set on every row tells a future replay nothing.
+    dirty = bool(git("status", "--porcelain", "--", *MUTABLE))
 
     if arguments.baseline or best is None:
         result = routing_eval.report()

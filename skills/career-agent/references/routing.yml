@@ -16,7 +16,7 @@ message_context:
   - id: market_salary
     skill: tenshoku-strategy
     reference: references/market-positioning-2025-2026.md
-    terms: ["市場年収", "market salary", "salary benchmark", "시장 연봉", "연봉 시세"]
+    terms: ["市場年収", "相場", "market salary", "salary benchmark", "market rate", "시장 연봉", "연봉 시세", "시세"]
   - id: written_conditions
     skill: tenshoku-strategy
     reference: references/roudou-joken-review.md
