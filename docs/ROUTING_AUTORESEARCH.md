@@ -3,7 +3,7 @@
 **Date:** 2026-08-08
 **Source:** Routing Autoresearch PRD (approved, no open questions)
 **Benchmark:** `routing-eval-v1`
-**Baseline commit:** `f69f9eb`
+**Baseline commit:** `4b75b4a` (the harness commit; routing behaviour unchanged from `f69f9eb`)
 
 ## What shipped
 
@@ -74,32 +74,40 @@ All four runner outcomes were exercised against the real subject:
 E-2 is the PRD §12 scenario in miniature: a candidate cannot buy back a safety regression with
 accuracy, and here it did not even have accuracy to trade.
 
-## Current tree state
+## Gate 6 status
 
-E-1 is applied to `skills/career-agent/references/routing.yml` (+2 LOC, +3 terms) and logged as
-KEEP. It has **not** passed Gate 6: `scripts/run_all_checks.py` includes a release-integrity check
-that requires a clean working tree, so promotion has to happen on a committed candidate. Every
-other canonical check passes with the harness in place.
+E-1 is committed (+2 LOC, +3 terms in `skills/career-agent/references/routing.yml`) and shipped in
+release `1.19.0`. 55 of the 58 canonical checks pass on the resulting clean tree. The three that do
+not fail for reasons outside this work, on a developer machine only:
+
+- `ruff` reports 8 errors, all inside an untracked local Claude plugin directory
+  (`.agents/skills/caveman-compress/`).
+- `release integrity` and its SBOM sibling call `build_release._assert_clean()`, which runs
+  `git status --porcelain --untracked-files=all` and refuses any output at all — the same untracked
+  plugin directory.
+
+Neither exists in a clean CI checkout, so Gate 6 is expected to pass there. Re-verify on CI rather
+than treating this local result as the promotion evidence.
 
 ## Known limits
 
 - **The demo run is not a blind research run.** The benchmark author read holdout failures once to
   validate labels, so E-1/E-2 demonstrate the runner's mechanics, not the loop's blind research
   capability. Phase 4 is the first run where that claim can be made.
-- **Bootstrap self-reference.** Until the harness is committed, its own files are listed in
-  `HARNESS_PATHS` so they do not read as an unrelated production change. `scripts/run_all_checks.py`
+- **Bootstrap self-reference.** The harness lists its own files in `HARNESS_PATHS` so that before
+  it was committed they did not read as an unrelated production change. `scripts/run_all_checks.py`
   is deliberately *not* in that list — a candidate that could edit it could delete a check to pass
-  Gate 6 — which means registering the benchmark in the matrix has to land in the same commit as
-  the harness, not during an experiment.
+  Gate 6 — so registering the benchmark in the matrix had to land in the harness commit, not during
+  an experiment. Now that the harness is committed the list is belt-and-braces; the digest
+  comparison against the baseline row is what actually holds.
 - **`routing.py` is inside the mutation surface but no experiment has used it.** The PRD wants
   `routing.py` changes gated to an explicit experiment class; today the runner allows it and only
   the LOC budget constrains it.
 
 ## Next
 
-1. Commit the harness so the loop has a clean base, then re-record the baseline against that commit.
-2. Phase 3: grow the holdout to 150–300 cases per PRD §7.3, as `routing-eval-v2` if any label in v1
+1. Phase 3: grow the holdout to 150–300 cases per PRD §7.3, as `routing-eval-v2` if any label in v1
    turns out wrong — v1 is frozen.
-3. Phase 4: the first autonomous run. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
+2. Phase 4: the first autonomous run. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
    remaining critical failures are all negation/precedence, which may be an SR-5 architectural
    signal rather than a lexicon one.
