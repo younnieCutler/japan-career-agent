@@ -134,6 +134,18 @@ def changed_paths(base: str) -> list[str]:
     )
 
 
+def local_pollution() -> list[str]:
+    """Untracked files the candidate did not create, which the canonical matrix still lints.
+
+    These are the scratch paths `changed_paths()` filters out — local plugin and editor state that
+    exists on a developer machine and not in a CI checkout. They cannot be attributed to a
+    candidate, so a Gate 6 failure while they are present is not evidence against it.
+    """
+    entries = git("status", "--porcelain", "--untracked-files=all").splitlines()
+    paths = [line[3:].strip() for line in entries if line.startswith("??")]
+    return [path for path in paths if any(part in _SCRATCH_DIRECTORIES for part in Path(path).parts)]
+
+
 def changed_loc(base: str) -> int:
     total = 0
     for line in git("diff", "--numstat", base, "--", *MUTABLE).splitlines():
@@ -424,11 +436,18 @@ def main() -> int:
     status = "discard" if reasons else "provisional_keep"
     if status == "provisional_keep" and arguments.promote:
         print("canonical checks:")
-        if run_checks((("run_all_checks", ("scripts/run_all_checks.py",)),)):
+        if not run_checks((("run_all_checks", ("scripts/run_all_checks.py",)),)):
+            status = "keep"
+        elif local_pollution():
+            # PRD §10: a failure the candidate did not cause is an infra_error, not a DISCARD.
+            # The canonical matrix lints and release-checks the whole tree, so untracked local
+            # tooling fails it on a developer machine and passes in CI. Recording that as DISCARD
+            # would put a false verdict in an append-only log.
+            status = "infra_error"
+            reasons.append("gate 6 could not be judged: untracked local files outside the repository")
+        else:
             status = "discard"
             reasons.append("gate 6: canonical repository checks failed")
-        else:
-            status = "keep"
 
     append_row(
         {
@@ -464,6 +483,13 @@ def main() -> int:
         if status == "provisional_keep":
             print("  gate 6 not run — re-run with --promote before treating this as promotable")
         return 0
+
+    if status == "infra_error":
+        print("INFRA_ERROR  " + "; ".join(reasons))
+        for path in local_pollution():
+            print(f"  untracked: {path}")
+        print("  gates 0-5 passed; re-run --promote in a clean checkout to decide gate 6")
+        return 1
 
     print("DISCARD  " + "; ".join(reasons))
     if arguments.on_discard == "revert":

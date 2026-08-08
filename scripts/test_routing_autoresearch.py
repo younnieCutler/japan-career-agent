@@ -143,6 +143,21 @@ class StatusTests(unittest.TestCase):
     def test_no_rows_means_no_best(self) -> None:
         self.assertIsNone(runner.current_best([]))
 
+    def test_an_infra_error_never_becomes_the_thing_to_beat(self) -> None:
+        # Gates 0-5 passed, but Gate 6 could not be judged. An incomplete verdict must not be
+        # promoted to the reference the next candidate is measured against; re-run it instead.
+        rows = [
+            {"status": "baseline", "heldout_correct": "44"},
+            {"status": "infra_error", "heldout_correct": "45"},
+        ]
+        self.assertEqual(runner.current_best(rows)["heldout_correct"], "44")
+        self.assertNotIn("infra_error", runner.BEST_STATUSES)
+
+    def test_local_pollution_only_reports_scratch_paths(self) -> None:
+        for path in runner.local_pollution():
+            with self.subTest(path=path):
+                self.assertTrue(any(part in runner._SCRATCH_DIRECTORIES for part in Path(path).parts))
+
 
 if __name__ == "__main__":
     result = unittest.main(exit=False)
