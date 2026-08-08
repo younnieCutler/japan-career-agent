@@ -7,7 +7,7 @@ track:
   # "卒" alone is deliberately absent: infer_track() is substring matching, so it would classify
   # 既卒 and 第二新卒 as shinsotsu. The "27卒" case is handled by routing.py's bounded
   # graduation_signal() regex instead.
-  shinsotsu: ["新卒", "신졸", "학チカ", "学チカ", "졸업", "graduat", "new grad", "new graduate", "spi3", "学生", "就活", "취활"]
+  shinsotsu: ["新卒", "신졸", "학チカ", "학チ카", "学チカ", "졸업", "graduat", "new grad", "spi3", "学生", "就活", "취활"]
   chuto: ["中途", "중途", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
 
 # First matching entry selects one reference for a chuto message. Keep phrases specific:
@@ -16,7 +16,7 @@ message_context:
   - id: market_salary
     skill: tenshoku-strategy
     reference: references/market-positioning-2025-2026.md
-    terms: ["市場年収", "相場", "market salary", "salary benchmark", "market rate", "시장 연봉", "연봉 시세", "시세"]
+    terms: ["市場年収", "相場", "market salary", "salary benchmark", "market rate", "시장 연봉", "시세"]
   - id: written_conditions
     skill: tenshoku-strategy
     reference: references/roudou-joken-review.md
@@ -60,15 +60,15 @@ stage_alias:
   - alias: self
     terms: ["자기분석", "自己分析", "self-analysis", "career direction", "work style", "values"]
   - alias: documents
-    terms: ["자소서", "가쿠치카", "학チ카", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "resume", "cv", "cover letter", "personal statement", "entry sheet", "es"]
+    terms: ["자소서", "가쿠치카", "학チ카", "학チカ", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "resume", "cv", "cover letter", "personal statement", "entry sheet", "es"]
   - alias: research
     terms: ["企業研究", "기업 연구", "company research", "research companies", "company study", "job research"]
   - alias: interview
-    terms: ["면접", "面接", "interview", "interview prep"]
+    terms: ["면접", "面接", "interview"]
   - alias: offer
     terms: ["내정", "内定", "job offer", "offer meeting"]
   - alias: exit
-    terms: ["퇴직", "입사", "退職", "入社", "resign", "resignation", "joining", "onboarding", "start date"]
+    terms: ["퇴직", "입사", "退職", "入社", "resign", "joining", "onboarding", "start date"]
   # Applying and reviewing a posting are different intents. "応募/지원" is the application workflow
   # (chuto 応募・書類選考 → matching-simulator); a bare 求人/JD is an evidence review of that posting
   # against the user's own history (chuto 職務経歴書・自己PR → job-seeker-agent). apply sits after
@@ -106,8 +106,8 @@ flow_phase:
     - id: application
       terms: ["지원", "応募", "서류", "書類", "apply", "application", "applied", "screening", "documents"]
     - id: interview
-      terms: ["면접", "面接", "interview", "interview prep"]
+      terms: ["면접", "面接", "interview"]
     - id: offer
       terms: ["오퍼", "연봉", "内定", "オファー", "条件", "offer", "salary", "compensation", "conditions"]
     - id: exit_onboarding
-      terms: ["퇴직", "입사", "退職", "入社", "resign", "resignation", "joining", "onboarding", "start date"]
+      terms: ["퇴직", "입사", "退職", "入社", "resign", "joining", "onboarding", "start date"]
