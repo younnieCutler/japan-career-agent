@@ -58,6 +58,16 @@ class BenchmarkFreezeTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(digest(path), FROZEN_DIGESTS[name])
 
+    def test_the_digest_survives_a_windows_checkout(self) -> None:
+        # A Windows checkout with core.autocrlf rewrites LF to CRLF on disk. That changes the
+        # bytes and not the benchmark, so hashing raw bytes made the pin above fail on Windows
+        # only — the frozen digest has to be a content identity, not a byte identity.
+        source = FIXTURE_PATHS["dev"].read_bytes()
+        with tempfile.TemporaryDirectory() as directory:
+            crlf = Path(directory) / "crlf.yml"
+            crlf.write_bytes(source.replace(b"\n", b"\r\n"))
+            self.assertEqual(digest(crlf), FROZEN_DIGESTS["dev"])
+
     def test_every_fixture_category_axis_is_represented(self) -> None:
         covered = {
             category

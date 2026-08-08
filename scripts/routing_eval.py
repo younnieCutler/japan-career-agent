@@ -302,7 +302,13 @@ def routing_term_count() -> int:
 
 
 def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    """A content identity for a text file, stable across platforms.
+
+    Line endings are normalized before hashing: a Windows checkout with `core.autocrlf` rewrites
+    LF to CRLF on disk, which changes every byte in the file and none of the benchmark. Hashing
+    raw bytes made the frozen-digest pin fail on Windows and only on Windows.
+    """
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:16]
 
 
 def report(*, reveal: bool = False) -> dict[str, Any]:
