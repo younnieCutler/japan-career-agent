@@ -52,9 +52,9 @@ codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 
 The repository version can be ahead of the stable marketplace channel while a release is being
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
-follows `main`. Therefore source metadata at `1.18.1` and a stable marketplace ref of `v1.17.2`
-are intentional until the release workflow publishes `v1.18.1` and the stable metadata update is
-merged.
+follows `main`. Source metadata `1.18.1` and the stable marketplace ref `v1.18.1` currently match,
+because the release workflow published that tag from this commit. The gap reopens on the next
+behavior change, and closes again when the following tag is published and this ref is updated.
 
 ### Local fallback
 
