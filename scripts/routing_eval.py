@@ -30,13 +30,22 @@ CAREER_ROOT = ROOT / "skills" / "career-agent"
 SKILLS_ROOT = ROOT / "skills"
 FIXTURE_DIR = CAREER_ROOT / "tests" / "fixtures"
 
-BENCHMARK_VERSION = "routing-eval-v1"
 EVALUATOR_VERSION = 1
 
-FIXTURE_PATHS = {
-    "dev": FIXTURE_DIR / "routing_eval_v1_dev.yml",
-    "holdout": FIXTURE_DIR / "routing_eval_v1_holdout.yml",
+# A frozen benchmark is never edited; a corrected or extended one is a new version, and the old
+# one stays readable so its recorded results remain reproducible.
+BENCHMARKS = {
+    "routing-eval-v1": {
+        "dev": FIXTURE_DIR / "routing_eval_v1_dev.yml",
+        "holdout": FIXTURE_DIR / "routing_eval_v1_holdout.yml",
+    },
+    "routing-eval-v2": {
+        "dev": FIXTURE_DIR / "routing_eval_v2_dev.yml",
+        "holdout": FIXTURE_DIR / "routing_eval_v2_holdout.yml",
+    },
 }
+BENCHMARK_VERSION = "routing-eval-v2"
+FIXTURE_PATHS = BENCHMARKS[BENCHMARK_VERSION]
 
 # The production surface a candidate is allowed to mutate. Everything the evaluator reads to make
 # a judgement lives outside it.
@@ -117,7 +126,7 @@ def _string_list(value: Any, where: str) -> tuple[str, ...]:
     return tuple(value)
 
 
-def load_fixtures(path: Path) -> tuple[Fixture, ...]:
+def load_fixtures(path: Path, benchmark: str = BENCHMARK_VERSION) -> tuple[Fixture, ...]:
     """Parse and strictly validate one benchmark file.
 
     Strict rather than lenient on purpose: an unknown key is how an expectation silently stops
@@ -126,8 +135,8 @@ def load_fixtures(path: Path) -> tuple[Fixture, ...]:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     _require(isinstance(data, dict), f"{path.name}: expected a mapping")
     _require(
-        data.get("benchmark_version") == BENCHMARK_VERSION,
-        f"{path.name}: benchmark_version must be {BENCHMARK_VERSION}",
+        data.get("benchmark_version") == benchmark,
+        f"{path.name}: benchmark_version must be {benchmark}",
     )
     raw = data.get("fixtures")
     _require(isinstance(raw, list) and bool(raw), f"{path.name}: fixtures must be a non-empty list")
@@ -323,15 +332,17 @@ def fingerprint(fixture_id: str) -> str:
     return hashlib.sha256(fixture_id.encode("utf-8")).hexdigest()[:8]
 
 
-def report(*, reveal: bool = False) -> dict[str, Any]:
+def report(*, reveal: bool = False, benchmark: str = BENCHMARK_VERSION) -> dict[str, Any]:
     """The full deterministic benchmark result for the current working tree."""
+    _require(benchmark in BENCHMARKS, f"unknown benchmark: {benchmark}")
+    fixture_paths = BENCHMARKS[benchmark]
     routing = _import_subject()
     sets: dict[str, Any] = {}
     all_fixtures: list[Fixture] = []
     critical_ids: list[str] = []
     fallback_ids: list[str] = []
-    for name, path in FIXTURE_PATHS.items():
-        fixtures = load_fixtures(path)
+    for name, path in fixture_paths.items():
+        fixtures = load_fixtures(path, benchmark)
         all_fixtures.extend(fixtures)
         results = {fixture.fixture_id: evaluate_fixture(fixture, routing) for fixture in fixtures}
         critical = sum(any(item.critical for item in failures) for failures in results.values())
@@ -365,7 +376,7 @@ def report(*, reveal: bool = False) -> dict[str, Any]:
 
     gaming = gaming_failures(tuple(all_fixtures))
     return {
-        "benchmark": BENCHMARK_VERSION,
+        "benchmark": benchmark,
         "evaluator_version": EVALUATOR_VERSION,
         "dev": sets["dev"],
         "holdout": sets["holdout"],
@@ -379,7 +390,7 @@ def report(*, reveal: bool = False) -> dict[str, Any]:
             "python": platform.python_version(),
             "os": platform.system(),
             "evaluator": digest(Path(__file__)),
-            "fixtures": {name: digest(path) for name, path in FIXTURE_PATHS.items()},
+            "fixtures": {name: digest(path) for name, path in fixture_paths.items()},
             "subject": {path.name: digest(path) for path in SUBJECT_PATHS},
         },
     }
@@ -394,9 +405,15 @@ def main() -> int:
         "autoresearch runner must never pass it.",
     )
     parser.add_argument("--json", action="store_true", help="Print the full report as JSON.")
+    parser.add_argument(
+        "--benchmark",
+        default=BENCHMARK_VERSION,
+        choices=sorted(BENCHMARKS),
+        help="Which frozen benchmark to score against.",
+    )
     arguments = parser.parse_args()
 
-    result = report(reveal=arguments.reveal_holdout)
+    result = report(reveal=arguments.reveal_holdout, benchmark=arguments.benchmark)
     if arguments.json:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0

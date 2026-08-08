@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.21.0] - 2026-08-08
+
+- Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
+  26. v1 stays readable and digest-pinned so its recorded results remain reproducible.
+- Rebalance the benchmark's languages. v1 was 66% Japanese, so a Korean or English regression was
+  largely invisible; v2 is 76/43/41 across Japanese, Korean, and English, enforced by a test.
+- Double the axes that carry the safety contract rather than inflating uniformly — negation,
+  unmatched, generic interview and research, ambiguity, and both track boundaries.
+- Scope the experiment log to one benchmark version: a v1 best counts 56 cases and a v2 best
+  counts 134, so comparing a candidate across versions is meaningless rather than merely noisy.
+
 ## [1.20.0] - 2026-08-08
 
 - Add the Routing Autoresearch agent program: the loop protocol, the mutation surface, the gate

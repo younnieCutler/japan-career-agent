@@ -94,7 +94,11 @@ JUDGING_FILES = {
 HARNESS_PATHS = frozenset(
     {
         *(path.relative_to(ROOT).as_posix() for paths in JUDGING_FILES.values() for path in paths),
-        *(path.relative_to(ROOT).as_posix() for path in routing_eval.FIXTURE_PATHS.values()),
+        *(
+            path.relative_to(ROOT).as_posix()
+            for paths in routing_eval.BENCHMARKS.values()
+            for path in paths.values()
+        ),
         RESULTS.relative_to(ROOT).as_posix(),
     }
 )
@@ -187,15 +191,19 @@ def assert_schema(header: tuple[str, ...]) -> None:
 BEST_STATUSES = frozenset({"baseline", "provisional_keep", "keep"})
 
 
-def current_best(rows: list[dict[str, str]]) -> dict[str, str] | None:
+def current_best(rows: list[dict[str, str]], benchmark: str | None = None) -> dict[str, str] | None:
     """The last row that became the thing to beat — a baseline, or a KEEP that replaced it.
+
+    Scoped to one benchmark version. A v1 row counts 56 held-out cases and a v2 row counts a
+    different number over a different corpus; comparing a candidate's score against the other
+    version's best is not a weaker comparison, it is a meaningless one.
 
     `provisional_keep` counts: the research loop advances on focused checks alone by design, and
     requiring the full matrix per candidate is the CI cost PRD §17 separates out. The status keeps
     the distinction visible in the log.
     """
     for row in reversed(rows):
-        if row["status"] in BEST_STATUSES:
+        if row["status"] in BEST_STATUSES and (benchmark is None or row.get("benchmark") == benchmark):
             return row
     return None
 
@@ -312,6 +320,12 @@ def main() -> int:
     parser.add_argument("-m", "--description", default="", help="What this candidate changed and why.")
     parser.add_argument("--baseline", action="store_true", help="Record this tree as the new baseline.")
     parser.add_argument("--promote", action="store_true", help="Run the full canonical matrix on KEEP.")
+    parser.add_argument(
+        "--benchmark",
+        default=routing_eval.BENCHMARK_VERSION,
+        choices=sorted(routing_eval.BENCHMARKS),
+        help="Which frozen benchmark to score against. Results are only compared within one version.",
+    )
     parser.add_argument("--loc-budget", type=int, default=DEFAULT_LOC_BUDGET)
     parser.add_argument("--term-budget", type=int, default=DEFAULT_TERM_BUDGET)
     parser.add_argument(
@@ -326,14 +340,14 @@ def main() -> int:
         parser.error("-m/--description is required for a candidate run")
 
     rows = read_rows()
-    best = current_best(rows)
+    best = current_best(rows, arguments.benchmark)
     commit = head_commit()
     # Scoped to the mutation surface: the run itself always dirties the results log, and a flag
     # that is set on every row tells a future replay nothing.
     dirty = bool(git("status", "--porcelain", "--", *MUTABLE))
 
     if arguments.baseline or best is None:
-        result = routing_eval.report()
+        result = routing_eval.report(benchmark=arguments.benchmark)
         holdout = result["holdout"]
         _print_identity(result, commit, dirty)
         append_row(
@@ -363,7 +377,7 @@ def main() -> int:
 
     base_commit = best["commit"]
     try:
-        result = routing_eval.report()
+        result = routing_eval.report(benchmark=arguments.benchmark)
     except Exception as exc:  # noqa: BLE001 — a subject that will not load is CRASH, not DISCARD
         print(f"CRASH: {type(exc).__name__}: {exc}")
         return 1

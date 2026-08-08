@@ -314,6 +314,25 @@ class StatusTests(unittest.TestCase):
     def test_no_rows_means_no_best(self) -> None:
         self.assertIsNone(runner.current_best([]))
 
+    def test_a_best_from_another_benchmark_version_is_not_the_thing_to_beat(self) -> None:
+        # v1 counts 56 held-out cases over one corpus and v2 counts 134 over another. Comparing a
+        # candidate's score against the other version's best is not weaker, it is meaningless —
+        # and it would read as a large improvement or regression for no reason.
+        rows = [
+            {"status": "baseline", "benchmark": "routing-eval-v1", "heldout_correct": "45"},
+            {"status": "baseline", "benchmark": "routing-eval-v2", "heldout_correct": "108"},
+        ]
+        self.assertEqual(runner.current_best(rows, "routing-eval-v1")["heldout_correct"], "45")
+        self.assertEqual(runner.current_best(rows, "routing-eval-v2")["heldout_correct"], "108")
+        self.assertIsNone(runner.current_best(rows, "routing-eval-v3"))
+
+    def test_every_benchmark_version_is_runnable(self) -> None:
+        for version in routing_eval.BENCHMARKS:
+            with self.subTest(version=version):
+                result = routing_eval.report(benchmark=version)
+                self.assertEqual(result["benchmark"], version)
+                self.assertGreater(result["holdout"]["total"], 0)
+
     def test_an_infra_error_never_becomes_the_thing_to_beat(self) -> None:
         # Gates 0-5 passed, but Gate 6 could not be judged. An incomplete verdict must not be
         # promoted to the reference the next candidate is measured against; re-run it instead.
