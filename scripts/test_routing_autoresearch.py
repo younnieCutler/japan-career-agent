@@ -12,6 +12,7 @@ import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -152,11 +153,36 @@ class WindowsCheckoutTests(unittest.TestCase):
                 with self.subTest(file=path.name, line=number):
                     self.assertIsNone(offender.search(line), f"{path.name}:{number}: pass encoding=")
 
-    def test_the_results_log_is_written_with_one_line_ending_everywhere(self) -> None:
-        """csv on Windows appends \\r\\n unless both newline="" and lineterminator are set."""
+    def test_the_log_writer_emits_one_line_ending_on_every_platform(self) -> None:
+        """csv appends \\r\\n on Windows unless both newline="" and lineterminator are set.
+
+        What is on disk after a checkout is git's business — a tracked text file arrives CRLF on
+        Windows and that is not a defect. What the writer produces is this runner's business, and
+        it must be the same everywhere or the log's line endings depend on who ran the experiment.
+        """
+        row = {column: "x" for column in runner.COLUMNS}
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "results.tsv"
+            with mock.patch.object(runner, "RESULTS", target):
+                runner.append_row(row)
+                runner.append_row(row)
+                rows = runner.read_rows()
+            self.assertNotIn(b"\r", target.read_bytes())
+        self.assertEqual(len(rows), 2)
+
+    def test_the_log_reader_accepts_a_crlf_checkout(self) -> None:
+        """The other half: on Windows the log the reader opens will have CRLF endings."""
         if not runner.RESULTS.is_file():
             self.skipTest("no results log in this tree")
-        self.assertNotIn(b"\r", runner.RESULTS.read_bytes())
+        source = runner.RESULTS.read_bytes().replace(b"\r\n", b"\n")
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "results.tsv"
+            target.write_bytes(source.replace(b"\n", b"\r\n"))
+            with mock.patch.object(runner, "RESULTS", target):
+                crlf_rows = runner.read_rows()
+                crlf_best = runner.current_best(crlf_rows)
+        self.assertEqual(crlf_rows, runner.read_rows())
+        self.assertEqual(crlf_best, runner.current_best(runner.read_rows()))
 
 
 class JudgingFileTests(unittest.TestCase):
