@@ -1,6 +1,8 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -59,6 +61,86 @@ class EnglishRoutingTests(unittest.TestCase):
         for message, expected in cases:
             with self.subTest(message=message):
                 self.assertEqual(career_agent.flow_phase_for(message, "chuto", {}, {}, reference), expected)
+
+    def test_chuto_messages_select_one_tenshoku_reference(self) -> None:
+        skills_root = ROOT / "skills"
+        cases = (
+            ("年収交渉をしたいが、まだオファーはありません", "references/nenshu-koushou.md"),
+            ("書面のオファーと口頭説明が矛盾しています", "references/roudou-joken-review.md"),
+            ("面接のお礼を送りたいが、話題のメモがありません", "references/mensetsu-follow.md"),
+            ("退職したいが就業規則の予告期間は不明です", "references/enman-taishoku.md"),
+            ("市場年収を知りたいが情報が古いです", "references/market-positioning-2025-2026.md"),
+            ("入社手続きだけ確認したいです", "references/nyusha-teichaku.md"),
+            ("面接マナーと入室方法を確認したいです", "references/mensetsu-manner.md"),
+            ("退職理由を面接向けに整理したいです", "references/taishoku-riyu-reframing.md"),
+            ("内定への回答期限を確認したいです", "references/naitei-taiou.md"),
+            ("選考状況を一覧で追跡したいです", "references/senko-tracking.md"),
+        )
+        for message, reference in cases:
+            with self.subTest(message=message):
+                context = career_agent.skill_context(
+                    skills_root, career_agent.stage_for(message, "chuto"), message, "chuto"
+                )
+                self.assertEqual(context["skill"], "tenshoku-strategy")
+                self.assertEqual(context["references"], [reference])
+                self.assertTrue((skills_root / context["skill"] / reference).is_file())
+
+    def test_message_context_precedence_is_ordered(self) -> None:
+        skills_root = ROOT / "skills"
+        cases = (
+            ("市場年収を調べてから年収交渉したい", "references/market-positioning-2025-2026.md"),
+            ("書面の労働条件とオファー面談の説明が矛盾する", "references/roudou-joken-review.md"),
+            ("面接マナーより先に面接のお礼を送りたい", "references/mensetsu-follow.md"),
+            ("退職理由を整理してから円満退職したい", "references/taishoku-riyu-reframing.md"),
+        )
+        for message, reference in cases:
+            with self.subTest(message=message):
+                context = career_agent.skill_context(
+                    skills_root, career_agent.stage_for(message, "chuto"), message, "chuto"
+                )
+                self.assertEqual(context["references"], [reference])
+
+    def test_message_context_preserves_existing_fallbacks_and_track_boundary(self) -> None:
+        skills_root = ROOT / "skills"
+        offer_stage = "内定・条件交渉"
+        old_call = career_agent.skill_context(skills_root, offer_stage)
+        self.assertEqual(old_call["references"], ["references/naitei-taiou.md"])
+        self.assertEqual(
+            career_agent.skill_context(skills_root, offer_stage, "次に何をすればよいですか", "chuto"),
+            old_call,
+        )
+        cases = (
+            ("面接の回答内容を準備したい", "面接", "chuto", "job-seeker-agent"),
+            ("企業研究を進めたい", "業界研究・企業研究", "chuto", "kigyou-bunseki"),
+            ("職務経歴書を直したい", "職務経歴書・自己PR", "chuto", "job-seeker-agent"),
+            ("年収交渉をしたい", "内々定・内定・入社準備", "shinsotsu", "job-seeker-agent"),
+        )
+        for message, stage, track, skill in cases:
+            with self.subTest(message=message, track=track):
+                self.assertEqual(
+                    career_agent.skill_context(skills_root, stage, message, track)["skill"], skill
+                )
+
+    def test_message_context_reference_shape_is_validated(self) -> None:
+        valid_prefix = (
+            "track:\n  shinsotsu: [new grad]\n  chuto: [mid-career]\n"
+            "stage_alias:\n  - alias: chuto\n    terms: [mid-career]\n"
+            "flow_phase:\n  shinsotsu: []\n  chuto: []\n"
+        )
+        malformed = (
+            "message_context: {}\n",
+            "message_context:\n  - reference: references/a.md\n    terms: [salary]\n",
+            "message_context:\n  - skill: tenshoku-strategy\n    terms: [salary]\n",
+            "message_context:\n  - skill: tenshoku-strategy\n    reference: references/a.md\n    terms: salary\n",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            routing_reference = Path(tempdir) / "routing.yml"
+            for suffix in malformed:
+                with self.subTest(suffix=suffix):
+                    routing_reference.write_text(valid_prefix + suffix, encoding="utf-8")
+                    with patch("routing.ROUTING_REFERENCE", routing_reference):
+                        with self.assertRaises(career_agent.CareerError):
+                            career_agent.load_routing()
 
 
 class OnboardingSignalTests(unittest.TestCase):

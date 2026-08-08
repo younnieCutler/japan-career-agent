@@ -279,6 +279,23 @@ class CareerAgentTests(unittest.TestCase):
         self.assertTrue((self.vault / "02-state" / "events.jsonl").exists())
         self.assertTrue((self.vault / "02-state" / "career-state.toml").exists())
 
+    def test_chat_persists_the_message_routed_skill_context_it_returns(self) -> None:
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        proposed = output(run(
+            self.vault,
+            "run",
+            "--mode",
+            "chat",
+            "--message",
+            "書面のオファーと口頭説明が矛盾しています",
+        ))
+        trajectory = read_jsonl(self.vault / "02-state" / "trajectories.jsonl")[-1]
+        self.assertEqual(
+            proposed["skill"]["references"],
+            ["references/roudou-joken-review.md"],
+        )
+        self.assertEqual(trajectory["act"]["skill"], proposed["skill"])
+
     def test_numeric_claim_without_evidence_is_rejected(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "売上を30%改善した"))

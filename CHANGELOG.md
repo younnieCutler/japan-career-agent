@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.1] - 2026-08-08
+
+- Route ten specific chuto execution topics to exactly one existing `tenshoku-strategy` reference
+  while preserving lifecycle routing and generic stage fallbacks.
+- Reuse the same selected skill context in the chat response and persisted trajectory.
+- Record the narrow D-1 experiment and defer or cut the other four-skill evolution candidates.
+
 ## [1.18.0] - 2026-08-08
 
 - Onboard a new Career Agent Vault progressively: confirm the track, the shinsotsu graduation year,

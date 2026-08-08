@@ -153,6 +153,7 @@ def run_chat(
     personal = select_personal_context(read_jsonl(home.events), stage, as_of)
     event = make_event(message, track, stage, flow_phase)
     approval_action = approval_action_for(message)
+    selected_skill = skill_context(skills_root, stage, message, track)
     proposal = {
         "id": f"proposal-{uuid.uuid4().hex[:12]}",
         "kind": "event",
@@ -167,7 +168,7 @@ def run_chat(
         "mode": "chat",
         "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
         "plan": {"track": track, "stage": stage, "flow_phase": flow_phase, "goal": "route and propose a grounded event", "next_action": approval_action},
-        "act": {"proposal_id": proposal["id"], "skill": skill_context(skills_root, stage), "context_count": len(context), "personal_fact_count": len(personal["facts"])},
+        "act": {"proposal_id": proposal["id"], "skill": selected_skill, "context_count": len(context), "personal_fact_count": len(personal["facts"])},
         "verify": {"event_schema": "valid", "context_is_metadata_only": True, "external_side_effect": False},
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
         "persist": {"proposal_id": proposal["id"]},
@@ -177,7 +178,7 @@ def run_chat(
         home.append_trajectory(trajectory)
     # The signal, not the write. Reaching a real domain task is what ends onboarding, but the
     # profile belongs to the runtime orchestration layer, so this module only reports it.
-    result = {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "personal_context": personal, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
+    result = {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": selected_skill, "context": context, "personal_context": personal, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
     if onboarding:
         result["onboarding_completed"] = True
     return result
