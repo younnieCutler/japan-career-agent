@@ -118,6 +118,57 @@ The results log restarts whenever a judging file changes, since a baseline row r
 different evaluator or runner cannot be compared to, and rows are never compared across benchmark
 versions.
 
+## Phase 4: the first autonomous run
+
+Run by a session with no knowledge of how this benchmark was built — the separation the harness
+needs to mean anything, since validating labels requires seeing which fixtures fail and a
+benchmark author is therefore permanently contaminated for their own benchmark.
+
+Six experiments, three kept:
+
+| Hypothesis | Kind | Verdict |
+| --- | --- | --- |
+| `salary_negotiation`: four paraphrase terms | guessed phrasing | discard (tie, terms up) |
+| `market_salary`: 연봉 시세 collapsed into the bare 시세 | structural | keep (220 → 219) |
+| 학チカ / 학チ카 symmetrised across track and documents | structural | keep (108 → 109) |
+| `interview_manner`: KO 면접 복장 | guessed phrasing | discard (tie, terms up) |
+| `onboarding`: KO 입사 서류 | guessed phrasing | discard (tie, terms up) |
+| Five subsumed compounds removed | structural | keep (221 → 216) |
+
+**Held-out 108/134 → 109/134, routing terms 220 → 216.** One case on 134 is a weak accuracy
+result and should not be read as more; the substantive outcomes are that the lexicon got smaller
+while getting no worse, which is the PRD §26 definition of success, and that the retired v1
+benchmark moves 45/56 → 46/56 on the same change, so the gains are not specific to the corpus they
+were measured against.
+
+### What the run actually established
+
+**Hypotheses derived from the lexicon's own structure beat hypotheses that guess at user
+phrasing, 3/3 against 0/3.** A guessed term has to land on a specific unseen utterance; a
+structural one — a redundant compound, a spelling carried in one list and not its sibling — is
+read off the artefact and is right or wrong before it is scored. A next run should start by
+scanning the lexicon, not by imagining sentences.
+
+**Negation is not a lexicon problem.** Five critical failures remain and all are negation. The run
+did not attempt them, correctly: first-match phrase routing cannot see that a keyword is present
+and its intent negated. This is stop rule SR-5, reached with evidence rather than assumption, and
+it belongs in a different experiment class.
+
+The run stopped at SR-3 and SR-5 rather than SR-2 — three keeps in six experiments is not a
+no-improvement streak, but the remaining axes need either a mechanism change or term enumeration
+that would exceed the complexity budget.
+
+### Defects the run exposed in the harness
+
+- **An already-recorded `provisional_keep` cannot be promoted.** `--promote` has to be attached to
+  the run that creates the improvement; re-running afterwards compares the candidate against its
+  own row, ties, and DISCARDs. The log therefore carries a `discard` row that is an artefact of
+  this gap and not a regression.
+- **The results log has no subject digest.** Evaluator, runner, contract, and fixture digests are
+  recorded, but not `routing.yml` and `routing.py` — the very files being scored. That is a PRD §16
+  identity gap, and it is why the runner cannot tell "the same candidate, promoted later" from "a
+  new candidate that happens to tie".
+
 ## Verdict verification
 
 Every runner outcome was exercised against the real subject, not a mock:
@@ -179,8 +230,13 @@ gate it could be judged on. **CI green on this branch is the Gate 6 evidence; th
 
 ## Next
 
-1. Phase 4: the first autonomous run. **It must not be run by whoever authored v2.** Validating
-   labels requires seeing which fixtures fail, so the benchmark author is permanently contaminated
-   for that benchmark; the separation has to be structural, not a promise. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
+1. Add a `subject_digest` column and a promotion path, so a `provisional_keep` can clear Gate 6
+   later instead of only at the moment it is created.
+2. Fold the run's finding into `docs/routing-autoresearch-program.md`: start from a lexicon scan,
+   not from imagined phrasings. Refresh that file for v2 while doing so — it still quotes v1's
+   numbers and does not mention `--benchmark`, which is exactly the drift its own tests were meant
+   to catch and do not.
+3. A negation experiment class, if it is worth one. It is a mechanism change, not a lexicon
+   change, and the PRD keeps those in separate tracks. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
    remaining critical failures are all negation/precedence, which may be an SR-5 architectural
    signal rather than a lexicon one.
