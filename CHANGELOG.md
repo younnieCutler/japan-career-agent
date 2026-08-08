@@ -7,7 +7,9 @@
 - Read a stated graduation year (`27卒`) back into the question with the `setup` command that would
   record it, instead of writing an unapproved career fact.
 - Separate applying to a posting from reviewing one: `応募`/`지원`/`apply` routes to the application
-  workflow, while a bare `求人`/`공고`/`JD` routes to job-seeker-agent evidence review.
+  workflow, while a bare `求人`/`공고`/`JD` routes to job-seeker-agent evidence review. A message
+  that names a more specific task alongside `応募` (interview, company research, offer, or exit) now
+  resolves as that task, not as a bare application.
 - Route "I don't know what to do" to self-analysis without treating it as a recommendation, and only
   when the message names no more specific task.
 - Classify `第二新卒` as a `chuto` mid-career hire. It contains `新卒` as a substring and was being

@@ -106,6 +106,23 @@ class OnboardingSignalTests(unittest.TestCase):
         self.assertEqual(career_agent.stage_for("このJDと私の経験を比較したい", "chuto"), "職務経歴書・自己PR")
         self.assertEqual(career_agent.stage_for("이 공고에 지원하고 싶어", "shinsotsu"), "ES・履歴書")
 
+    def test_a_more_specific_task_named_alongside_apply_wins(self) -> None:
+        # "応募" alone is the application workflow, but a message that names interview, research,
+        # offer, or exit work alongside it is asking about that more specific task, not a bare
+        # application. apply must lose to every one of those, and only win against a bare JD.
+        cases = (
+            ("応募面接", "interview"),
+            ("지원 면접 준비", "interview"),
+            ("application interview", "interview"),
+            ("応募して企業研究もしたい", "research"),
+            ("応募と内定条件", "offer"),
+            ("応募して退職準備をしたい", "exit"),
+            ("この求人に応募できるか見たい", "apply"),
+        )
+        for message, expected in cases:
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.explicit_stage_alias(message), expected)
+
     def test_short_ascii_terms_still_need_an_ascii_boundary(self) -> None:
         self.assertTrue(career_agent.term_present("jd", "このjdと私の経験"))
         self.assertFalse(career_agent.term_present("jd", "jda platform"))

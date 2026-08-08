@@ -210,6 +210,11 @@ Existing Vaults are unaffected. Their profile already records `active` or `confi
 the previous routing behaviour and are never asked to onboard again, and a Vault with an existing
 stage keeps its workflow even if the status is set back to `onboarding` by hand.
 
+This priority is scoped to the Vault's own `career-state.toml`. `run --mode chat` takes no
+`--workspace` and never reads `data/pipeline.yml`, so an active pipeline company has no effect on
+what a chat turn does — that priority is a session-start concern, handled before career-agent chat
+is ever invoked (see `_shared/agent_context/onboarding.md`'s CWD probe), not inside this CLI.
+
 `references/japan-career-flow.toml` separates work stages from time-based flow phases. Its dates and
 official sources are reviewed manually each year; raw YouTube subtitles and personal answer examples
 are never loaded as shared runtime rules.

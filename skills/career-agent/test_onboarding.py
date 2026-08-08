@@ -139,7 +139,8 @@ class OnboardingTests(unittest.TestCase):
         self.assertNotIn("question", result)
 
     # Scenario 8 -- an existing workflow outranks a re-declared onboarding status.
-    def test_existing_workflow_keeps_priority_over_onboarding(self) -> None:
+    # Scenario 8 (chat-level scope only -- see the module docstring boundary note below).
+    def test_existing_vault_state_keeps_priority_over_a_re_declared_onboarding_status(self) -> None:
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
         first = self.chat("転職の面接を準備したい")
         output(run(self.vault, "approve", first["proposal"]["id"], "--evidence", "転職の面接を準備したい"))
@@ -149,6 +150,36 @@ class OnboardingTests(unittest.TestCase):
         self.assertNotIn("question", result)
         self.assertEqual(result["stage"], "面接")
         self.assertIsNotNone(result.get("proposal"))
+
+    def test_chat_has_no_workspace_input_and_cannot_see_data_pipeline_yml(self) -> None:
+        """Documents a real scope boundary, not a gap: `run --mode chat` takes no `--workspace`.
+
+        The PRD's "an active pipeline company outranks onboarding" rule is enforced at session
+        start (`_shared/agent_context/onboarding.md`'s CWD probe), before career-agent chat is ever
+        invoked -- not inside this CLI. An active `data/pipeline.yml` company sitting right next to
+        a fresh onboarding Vault has no effect on what chat does, because chat has nothing that
+        would let it look.
+        """
+        self.set_profile(track="chuto", career_status="onboarding")
+        pipeline = self.workdir / "data" / "pipeline.yml"
+        pipeline.parent.mkdir(parents=True)
+        pipeline.write_text(
+            "companies:\n"
+            "- name: Aozora Systems (Synthetic)\n"
+            "  slug: aozora-systems-synthetic\n"
+            "  stage: 4\n"
+            "  closed: false\n"
+            "  history: []\n"
+            "updated: null\n",
+            encoding="utf-8",
+        )
+        parser = run(self.vault, "run", "--help")
+        self.assertNotIn("--workspace", parser.stdout)
+
+        result = self.chat("売上を30%改善した")
+        # No intent signal, no stage, career_status onboarding: the gate still fires. A workspace
+        # sitting on disk changes nothing about this answer.
+        self.assertTrue(result["needs_confirmation"])
 
     # Scenario 9 -- the question follows the latest message language; enums stay canonical.
     def test_intent_question_follows_the_latest_message_language(self) -> None:

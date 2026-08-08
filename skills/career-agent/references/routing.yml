@@ -17,14 +17,6 @@ stage_alias:
     terms: ["자기분석", "自己分析", "self-analysis", "career direction", "work style", "values"]
   - alias: documents
     terms: ["자소서", "가쿠치카", "학チ카", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "resume", "cv", "cover letter", "personal statement", "entry sheet", "es"]
-  # Applying and reviewing a posting are different intents. "応募/지원" is the application workflow
-  # (chuto 応募・書類選考 → matching-simulator); a bare 求人/JD is an evidence review of that posting
-  # against the user's own history (chuto 職務経歴書・自己PR → job-seeker-agent). The apply group
-  # comes first so "この求人に応募できるか" resolves as an application, not as a document review.
-  - alias: apply
-    terms: ["応募", "응모", "지원", "apply for", "apply to", "application"]
-  - alias: documents
-    terms: ["求人", "공고", "구인", "jd", "job description", "job posting", "job ad"]
   - alias: research
     terms: ["企業研究", "기업 연구", "company research", "research companies", "company study", "job research"]
   - alias: interview
@@ -33,6 +25,17 @@ stage_alias:
     terms: ["내정", "内定", "job offer", "offer meeting"]
   - alias: exit
     terms: ["퇴직", "입사", "退職", "入社", "resign", "resignation", "joining", "onboarding", "start date"]
+  # Applying and reviewing a posting are different intents. "応募/지원" is the application workflow
+  # (chuto 応募・書類選考 → matching-simulator); a bare 求人/JD is an evidence review of that posting
+  # against the user's own history (chuto 職務経歴書・自己PR → job-seeker-agent). apply sits after
+  # every other specific-task group (documents, research, interview, offer, exit): a message naming
+  # one of those alongside "応募" means that more specific task, not a bare application. It still
+  # comes before the bare-JD documents group below, so "この求人に応募できるか" resolves as an
+  # application rather than a document review.
+  - alias: apply
+    terms: ["応募", "응모", "지원", "apply for", "apply to", "application"]
+  - alias: documents
+    terms: ["求人", "공고", "구인", "jd", "job description", "job posting", "job ad"]
   - alias: chuto
     terms: ["転職", "중途", "career change", "mid-career"]
   - alias: shinsotsu
