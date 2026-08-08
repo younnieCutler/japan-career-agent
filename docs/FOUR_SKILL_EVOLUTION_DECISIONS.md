@@ -62,7 +62,7 @@ failure in a mistakes log and no direct-subject evaluator, another instruction e
 | User-visible benefit | A specific chuto request now loads one relevant execution reference instead of a broad stage default, without changing lifecycle stage or `flow_phase`. |
 | Complexity and risk | One ordered phrase list can miss unlisted synonyms or match a phrase used in negation. Terms are deliberately specific, routing is chuto-only, and a miss falls back to the existing stage context. Selected paths are constrained beneath the skill directory. |
 | Attempted experiments | Numbered experiment **D-1** only; details below. No target skill, schema, dependency, or shared evaluator change. |
-| Final state | **ACCEPT narrowly; KEEP pending clean-tree full verification.** The behavior evaluator is green, but final KEEP belongs to the clean committed tree. |
+| Final state | **ACCEPT narrowly; KEEP.** The behavior evaluator is green and the clean committed tree passed all 56 canonical checks. |
 
 ## Shared evaluator harness: CUT
 
@@ -146,9 +146,9 @@ OK (skipped=1)
 The skip is the existing Windows-only test. D-1 therefore meets its focused behavior gate. Attempts
 D-2 through D-8 were intentionally not attempted: the stop rule says to stop after the first numbered
 treatment that passes the frozen behavior evaluator, rather than add more aliases, abstractions,
-schema, dependencies, target-skill edits, or a shared harness. Final KEEP remains pending the root
-review and a clean-HEAD canonical run because the release-integrity check intentionally rejects any
-dirty worktree.
+schema, dependencies, target-skill edits, or a shared harness. Final KEEP was confirmed by the root
+review and the clean-HEAD canonical run; the release-integrity check intentionally rejects any dirty
+worktree, so that gate could only close after the commit.
 
 ## Regressions and unresolved weaknesses
 
@@ -162,27 +162,34 @@ dirty worktree.
   selection, not a lifecycle transition or user action.
 - A selected configured reference fails closed if it escapes or is missing from its skill directory.
 - A/B still lack attributable direct-subject evaluators. C remains intentionally unchanged.
-- The stable marketplace tag/ref was not changed; source version metadata and SBOM moved to 1.17.3
+- The stable marketplace tag/ref was not changed; source version metadata and SBOM moved to 1.18.1
   for the behavior change.
 
 ## Verification status
 
-- Baseline supplied for starting `main`: all 56 canonical repository checks passed.
+- Baseline supplied for starting `main` (`72a87e8`): all 56 canonical repository checks passed.
 - Changed tree focused command: 49 tests passed, with 1 existing Windows-only skip.
 - Changed dirty tree canonical command: ruff through SBOM tests passed. The runner then stopped only
   at `scripts/test_release_integrity.py` with
   `ReleaseBuildError: release requires a clean working tree`; that test calls
   `git status --porcelain` and is structurally unavailable before commit. No bypass or temporary
   commit was used.
-- Final 56/56 result: pending root review, commit, and rerun on clean HEAD. Root owns updating the
-  final KEEP state after that run.
+- First clean-HEAD run at the starting SHA: `All 56 repository checks passed`.
+- Rebase onto the current `main` (`08b7f41`, after PRs #52 and #54): eight conflicts, all in version
+  metadata except `skills/career-agent/proposals.py`. `routing.py`, `references/routing.yml`, and
+  `test_routing.py` merged without conflict. The proposals conflict was textual only — both sides
+  edited the same return statement — and was resolved by keeping the onboarding result structure
+  from `main` and reading the routed context from `selected_skill`.
+- Final canonical run on the rebased clean HEAD: `All 57 repository checks passed` (the count grew
+  with `main`), and the focused command reports 56 tests with the same single Windows-only skip.
+  D-1 is therefore **KEEP**.
 
 ## Branch, commit, and PR state
 
-- Branch: `agent/four-skill-evolution-8x`.
+- Branch: `agent/four-skill-evolution-8x`, rebased onto `main` at `08b7f41`.
 - Starting HEAD: `72a87e8760ab1630aa5f3130596a099ea6cec911`.
-- Implementation commit: pending root review; this experiment did not commit.
-- Push and PR: not created.
+- Implementation commit: `0171bdd`, root-reviewed and root-authored.
+- Push and PR: pushed to `origin`; PR opened against `main`.
 - Merge: never automatic; no merge was attempted.
 
 ## Completed work
@@ -190,14 +197,15 @@ dirty worktree.
 - D-1 implementation and frozen regression coverage.
 - Response/persisted context equality check.
 - Candidate and harness decisions with owning layers and evaluator prerequisites.
-- Version 1.17.3 metadata, changelog, current-release docs, and regenerated deterministic SBOM.
+- Version 1.18.1 metadata, changelog, current-release docs, and regenerated deterministic SBOM.
 - Focused GREEN and dirty-tree canonical verification up to the clean-tree release gate.
+- Root review, commit `0171bdd`, rebase onto current `main`, clean-HEAD 57/57 canonical run, and the
+  PR against `main`.
 
 ## Recommended remaining work
 
-1. Root reviews the diff and decision evidence.
-2. Root commits the approved tree, runs all 56 checks from clean HEAD, and records final KEEP or revert.
-3. Only if the clean run passes, proceed with the normal human-controlled release/PR flow; never
-   auto-merge.
-4. Separately, create a stable direct-subject evaluator before reconsidering A, and a registered
+1. Human review and merge of the PR. Merge is never automatic.
+2. Publish `v1.18.1` through the release workflow, then update the stable marketplace ref in a
+   separate change; the ref still points at `v1.17.2`.
+3. Separately, create a stable direct-subject evaluator before reconsidering A, and a registered
    callable adapter before reconsidering B. Do not revive C without a repeated contrary failure.
