@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.22.0] - 2026-08-08
+
+- Match 학チカ and 학チ카 everywhere. The two spellings of one word were split across the track and
+  document lexicons, so a message using either reached only one of them.
+- Drop four terms that a bare form already in the same list subsumes — 연봉 시세, new graduate,
+  interview prep, and resignation — across seven sites. Behaviour is unchanged by substring
+  matching; the lexicon is 216 terms rather than 220.
+- Held-out routing correctness 108/134 to 109/134 on `routing-eval-v2`, and 45/56 to 46/56 on the
+  retired v1 benchmark, from the first autonomous research run.
+
 ## [1.21.0] - 2026-08-08
 
 - Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
