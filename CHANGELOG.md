@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.19.0] - 2026-08-08
+
+- Add the `routing-eval-v1` frozen benchmark for Career Agent message routing: 26 development and
+  56 held-out fixtures across direct intent, paraphrase, JA/KO/EN, negation, mixed intent,
+  precedence, ambiguity, non-capture, and both track boundaries.
+- Add the Routing Autoresearch runner, which scores one candidate against that benchmark and
+  returns KEEP, DISCARD, CRASH, or INVALID without a human judging each result. The mutation
+  surface is `references/routing.yml` and `routing.py`; a diff that reaches outside it, or an
+  evaluator or fixture digest that differs from the baseline, is rejected before any gate is read.
+- Gate the loop lexicographically — decision philosophy, safety and non-capture, focused
+  regressions, held-out accuracy, fallback preservation, complexity, canonical matrix — so routing
+  accuracy can never offset a contract violation.
+- Pin every file that decides a verdict — evaluator, runner, and both contract-test files — into
+  each results row, so a candidate cannot rewrite the logic that scores it.
+- Compare critical and fallback failures as sets rather than counts: a candidate that fixes one
+  failure and introduces a different one is a DISCARD even though the count is unchanged.
+- Separate `provisional_keep` from `keep`, and classify a Gate 6 failure the candidate did not
+  cause as `infra_error`, so the append-only log never records a verdict it did not earn.
+- Route the plain market-rate wordings 相場 / market rate / 시세 to the market-positioning
+  reference, the first improvement the loop produced (held-out 43/56 → 44/56).
+- Match the bare お礼 in place of three compounds of it, the second (held-out 44/56 → 45/56 with
+  three fewer routing terms).
+
 ## [1.18.1] - 2026-08-08
 
 - Route ten specific chuto execution topics to exactly one existing `tenshoku-strategy` reference

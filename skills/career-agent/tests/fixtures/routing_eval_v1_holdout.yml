@@ -1,0 +1,377 @@
+# Routing Autoresearch frozen holdout — benchmark version routing-eval-v1.
+#
+# A research agent may run this benchmark but may not read, tune against, or modify it: the runner
+# reports only aggregate counts, and any candidate diff touching this file is rejected before it is
+# scored. Fixing a wrong label here means cutting a NEW benchmark version, not editing this one.
+#
+# `expected.reference: fallback` means "no message_context route may fire; the stage fallback must
+# be used". Every string here is data — the evaluator only ever compares it, never executes it.
+
+benchmark_version: routing-eval-v1
+provenance: synthetic
+source_ref: synthetic://career-agent/routing-eval-v1/holdout
+
+fixtures:
+  # --- direct intent: one per routable reference -----------------------------------------------
+  - id: ROUTE-HO-DIRECT-001
+    input: {message: "市場年収の水準を確認したいです", track: chuto, stage: "自己分析・転職軸"}
+    expected: {skill: tenshoku-strategy, reference: references/market-positioning-2025-2026.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-002
+    input: {message: "労働条件通知書の内容を確認したいです", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/roudou-joken-review.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-003
+    input: {message: "面接後のお礼メールを作りたいです", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/mensetsu-follow.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-004
+    input: {message: "退職理由をどう説明するか決めたいです", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/taishoku-riyu-reframing.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-005
+    input: {message: "給与交渉のタイミングを相談したいです", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/nenshu-koushou.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-006
+    input: {message: "面接マナーを一通り確認しておきたいです", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/mensetsu-manner.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-007
+    input: {message: "退職届の出し方と予告期間を知りたいです", track: chuto, stage: "退職・入社準備"}
+    expected: {skill: tenshoku-strategy, reference: references/enman-taishoku.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-008
+    input: {message: "入社書類の準備を進めたいです", track: chuto, stage: "退職・入社準備"}
+    expected: {skill: tenshoku-strategy, reference: references/nyusha-teichaku.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-009
+    input: {message: "内定の回答期限が迫っています", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/naitei-taiou.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  - id: ROUTE-HO-DIRECT-010
+    input: {message: "応募状況を整理して管理したいです", track: chuto, stage: "応募・書類選考"}
+    expected: {skill: tenshoku-strategy, reference: references/senko-tracking.md}
+    risk_class: normal
+    category: [direct_intent]
+
+  # --- paraphrase across JA / KO / EN -----------------------------------------------------------
+  - id: ROUTE-HO-PARA-001
+    input: {message: "提示された金額を上げてもらう交渉はできますか", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/nenshu-koushou.md}
+    risk_class: normal
+    category: [paraphrase]
+
+  - id: ROUTE-HO-PARA-002
+    input: {message: "받은 조건에서 급여를 더 올려 달라고 말해도 될까요", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/nenshu-koushou.md}
+    risk_class: normal
+    category: [paraphrase, multilingual]
+
+  - id: ROUTE-HO-PARA-003
+    input: {message: "Can I ask them to raise the base pay in the offer?", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/nenshu-koushou.md}
+    risk_class: normal
+    category: [paraphrase, multilingual]
+
+  - id: ROUTE-HO-PARA-004
+    input: {message: "同じ職種の相場がどのくらいか調べたいです", track: chuto, stage: "自己分析・転職軸"}
+    expected: {skill: tenshoku-strategy, reference: references/market-positioning-2025-2026.md}
+    risk_class: normal
+    category: [paraphrase]
+
+  - id: ROUTE-HO-PARA-005
+    input: {message: "같은 직무 사람들이 보통 얼마 받는지 알고 싶어요", track: chuto, stage: "自己分析・転職軸"}
+    expected: {skill: tenshoku-strategy, reference: references/market-positioning-2025-2026.md}
+    risk_class: normal
+    category: [paraphrase, multilingual]
+
+  - id: ROUTE-HO-PARA-006
+    input: {message: "今の会社を辞める理由をうまく言い換えたいです", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/taishoku-riyu-reframing.md}
+    risk_class: normal
+    category: [paraphrase]
+
+  - id: ROUTE-HO-PARA-007
+    input: {message: "지금 회사를 떠나려는 이유를 어떻게 포장해야 할까요", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/taishoku-riyu-reframing.md}
+    risk_class: normal
+    category: [paraphrase, multilingual]
+
+  - id: ROUTE-HO-PARA-008
+    input: {message: "How do I phrase why I am leaving my current company?", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/taishoku-riyu-reframing.md}
+    risk_class: normal
+    category: [paraphrase, multilingual]
+
+  - id: ROUTE-HO-PARA-009
+    input: {message: "面接してくれた方にお礼を伝えたいのですが", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/mensetsu-follow.md}
+    risk_class: normal
+    category: [paraphrase]
+
+  - id: ROUTE-HO-PARA-010
+    input: {message: "지금 어떤 회사들이 어디까지 진행됐는지 정리하고 싶어요", track: chuto, stage: "応募・書類選考"}
+    expected: {skill: tenshoku-strategy, reference: references/senko-tracking.md}
+    risk_class: normal
+    category: [paraphrase, multilingual]
+
+  # --- negation: the keyword is present, the intent is not --------------------------------------
+  - id: ROUTE-HO-NEG-001
+    input: {message: "面接マナーは大丈夫なので、お礼メールの書き方だけ教えてください", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/mensetsu-follow.md}
+    constraints: {forbidden_references: [references/mensetsu-manner.md]}
+    risk_class: critical
+    category: [negation, precedence]
+
+  - id: ROUTE-HO-NEG-002
+    input: {message: "退職理由の整理は済んでいます。円満退職の手順を知りたいです", track: chuto, stage: "退職・入社準備"}
+    expected: {skill: tenshoku-strategy, reference: references/enman-taishoku.md}
+    constraints: {forbidden_references: [references/taishoku-riyu-reframing.md]}
+    risk_class: critical
+    category: [negation, precedence]
+
+  - id: ROUTE-HO-NEG-003
+    input: {message: "市場年収は調べ済みです。実際の年収交渉の進め方を教えてください", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/nenshu-koushou.md}
+    constraints: {forbidden_references: [references/market-positioning-2025-2026.md]}
+    risk_class: critical
+    category: [negation, precedence]
+
+  - id: ROUTE-HO-NEG-004
+    input: {message: "내정 답변은 이미 했고, 입사 절차만 남았습니다", track: chuto, stage: "退職・入社準備"}
+    expected: {skill: tenshoku-strategy, reference: references/nyusha-teichaku.md}
+    constraints: {forbidden_references: [references/naitei-taiou.md]}
+    risk_class: critical
+    category: [negation, multilingual]
+
+  - id: ROUTE-HO-NEG-005
+    input: {message: "I am not negotiating salary; I only need the joining procedures", track: chuto, stage: "退職・入社準備"}
+    expected: {skill: tenshoku-strategy, reference: references/nyusha-teichaku.md}
+    constraints: {forbidden_references: [references/nenshu-koushou.md]}
+    risk_class: critical
+    category: [negation, multilingual]
+
+  - id: ROUTE-HO-NEG-006
+    input: {message: "選考状況の管理は不要です。内定辞退の伝え方を知りたいです", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/naitei-taiou.md}
+    constraints: {forbidden_references: [references/senko-tracking.md]}
+    risk_class: critical
+    category: [negation, precedence]
+
+  # --- mixed intent and precedence ---------------------------------------------------------------
+  - id: ROUTE-HO-MIX-001
+    input: {message: "書面オファーを確認してから年収交渉に入りたいです", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/roudou-joken-review.md}
+    risk_class: normal
+    category: [mixed_intent, precedence]
+
+  - id: ROUTE-HO-MIX-002
+    input: {message: "面接のお礼を送ったうえで選考状況も確認したいです", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/mensetsu-follow.md}
+    risk_class: normal
+    category: [mixed_intent, precedence]
+
+  - id: ROUTE-HO-MIX-003
+    input: {message: "内定回答の前に労働条件通知書を読み込みたいです", track: chuto, stage: "内定・条件交渉"}
+    expected: {skill: tenshoku-strategy, reference: references/roudou-joken-review.md}
+    risk_class: normal
+    category: [mixed_intent, precedence]
+
+  - id: ROUTE-HO-MIX-004
+    input: {message: "退職の引き継ぎと入社準備を並行して進めたいです", track: chuto, stage: "退職・入社準備"}
+    expected: {skill: tenshoku-strategy, reference: references/enman-taishoku.md}
+    risk_class: normal
+    category: [mixed_intent, precedence]
+
+  - id: ROUTE-HO-MIX-005
+    input: {message: "面接マナーを確認しつつ退職理由も整理したいです", track: chuto, stage: "面接"}
+    expected: {skill: tenshoku-strategy, reference: references/taishoku-riyu-reframing.md}
+    risk_class: normal
+    category: [mixed_intent, precedence]
+
+  - id: ROUTE-HO-MIX-006
+    input: {message: "市場年収を見てから応募状況を整理したいです", track: chuto, stage: "応募・書類選考"}
+    expected: {skill: tenshoku-strategy, reference: references/market-positioning-2025-2026.md}
+    risk_class: normal
+    category: [mixed_intent, precedence]
+
+  # --- ambiguous: the message states no task, so nothing may be inferred -------------------------
+  - id: ROUTE-HO-AMB-001
+    input: {message: "そろそろ動いたほうがいい気はしています", track: chuto, stage: "自己分析・転職軸"}
+    expected: {explicit_intent: null}
+    constraints: {must_not_change_stage: true}
+    risk_class: critical
+    category: [ambiguous]
+
+  - id: ROUTE-HO-AMB-002
+    input: {message: "요즘 계속 고민만 하고 있습니다", track: chuto, stage: "自己分析・転職軸"}
+    expected: {explicit_intent: null}
+    constraints: {must_not_change_stage: true}
+    risk_class: critical
+    category: [ambiguous]
+
+  - id: ROUTE-HO-AMB-003
+    input: {message: "I have been thinking about my situation a lot lately", track: chuto, stage: "面接"}
+    expected: {explicit_intent: null}
+    constraints: {must_not_change_stage: true}
+    risk_class: critical
+    category: [ambiguous]
+
+  - id: ROUTE-HO-AMB-004
+    input: {message: "中途で動くつもりです", track: null, stage: null}
+    expected: {track: chuto, explicit_intent: null}
+    risk_class: critical
+    category: [ambiguous, chuto_boundary]
+
+  # --- unmatched: no route may claim these -------------------------------------------------------
+  - id: ROUTE-HO-UNM-001
+    input: {message: "先週のチーム会議の議事録をまとめました"}
+    expected: {track: null, explicit_intent: null, reference: fallback}
+    risk_class: fallback
+    category: [unmatched]
+
+  - id: ROUTE-HO-UNM-002
+    input: {message: "주말에 읽을 만한 책을 추천해 주세요"}
+    expected: {track: null, explicit_intent: null, reference: fallback}
+    risk_class: fallback
+    category: [unmatched]
+
+  - id: ROUTE-HO-UNM-003
+    input: {message: "Please summarize this article about distributed systems"}
+    expected: {track: null, explicit_intent: null, reference: fallback}
+    risk_class: fallback
+    category: [unmatched]
+
+  - id: ROUTE-HO-UNM-004
+    input: {message: "在庫管理システムの設計を手伝ってください"}
+    expected: {track: null, explicit_intent: null, reference: fallback}
+    risk_class: fallback
+    category: [unmatched]
+
+  # --- generic requests keep the stage fallback --------------------------------------------------
+  - id: ROUTE-HO-GENINT-001
+    input: {message: "面接で聞かれる質問を想定しておきたいです", track: chuto, stage: "面接"}
+    expected: {stage: "面接", skill: job-seeker-agent, reference: fallback}
+    constraints:
+      forbidden_references: [references/mensetsu-manner.md, references/mensetsu-follow.md]
+    risk_class: fallback
+    category: [generic_interview]
+
+  - id: ROUTE-HO-GENINT-002
+    input: {message: "면접 준비를 도와주세요", track: chuto, stage: "面接"}
+    expected: {stage: "面接", skill: job-seeker-agent, reference: fallback}
+    constraints:
+      forbidden_references: [references/mensetsu-manner.md, references/mensetsu-follow.md]
+    risk_class: fallback
+    category: [generic_interview, multilingual]
+
+  - id: ROUTE-HO-GENINT-003
+    input: {message: "I have an interview tomorrow and want to rehearse", track: chuto, stage: "面接"}
+    expected: {stage: "面接", skill: job-seeker-agent, reference: fallback}
+    constraints:
+      forbidden_references: [references/mensetsu-manner.md, references/mensetsu-follow.md]
+    risk_class: fallback
+    category: [generic_interview, multilingual]
+
+  - id: ROUTE-HO-GENRES-001
+    input: {message: "company research for three targets", track: chuto, stage: "業界研究・企業研究"}
+    expected: {stage: "業界研究・企業研究", skill: kigyou-bunseki, reference: fallback}
+    risk_class: fallback
+    category: [generic_research]
+
+  - id: ROUTE-HO-GENRES-002
+    input: {message: "기업 연구를 어디서부터 시작할까요", track: chuto, stage: "業界研究・企業研究"}
+    expected: {stage: "業界研究・企業研究", skill: kigyou-bunseki, reference: fallback}
+    risk_class: fallback
+    category: [generic_research, multilingual]
+
+  - id: ROUTE-HO-GENRES-003
+    input: {message: "業界研究の観点を整理したいです", track: chuto, stage: "業界研究・企業研究"}
+    expected: {skill: kigyou-bunseki, reference: fallback}
+    risk_class: fallback
+    category: [generic_research]
+
+  # --- document intent must survive every other rule ---------------------------------------------
+  - id: ROUTE-HO-DOC-001
+    input: {message: "職務経歴書の実績の書き方を見てほしいです", track: chuto, stage: "職務経歴書・自己PR"}
+    expected: {stage: "職務経歴書・自己PR", skill: job-seeker-agent, reference: fallback}
+    risk_class: normal
+    category: [document_intent]
+
+  - id: ROUTE-HO-DOC-002
+    input: {message: "이력서를 다시 정리하고 싶어요", track: chuto, stage: "職務経歴書・自己PR"}
+    expected: {stage: "職務経歴書・自己PR", skill: job-seeker-agent, reference: fallback}
+    risk_class: normal
+    category: [document_intent, multilingual]
+
+  - id: ROUTE-HO-DOC-003
+    input: {message: "この求人票と自分の経験を突き合わせたいです", track: chuto, stage: "職務経歴書・自己PR"}
+    expected: {stage: "職務経歴書・自己PR", skill: job-seeker-agent, reference: fallback}
+    risk_class: normal
+    category: [document_intent]
+
+  - id: ROUTE-HO-DOC-004
+    input: {message: "この求人に応募できるか見たいです", track: chuto, stage: "応募・書類選考"}
+    expected: {stage: "応募・書類選考", skill: matching-simulator, reference: fallback}
+    risk_class: normal
+    category: [document_intent, precedence]
+
+  # --- track boundaries ---------------------------------------------------------------------------
+  - id: ROUTE-HO-SHIN-001
+    input: {message: "新卒で年収交渉について知りたいです"}
+    expected: {track: shinsotsu, reference: fallback}
+    constraints: {forbidden_references: [references/nenshu-koushou.md]}
+    risk_class: critical
+    category: [shinsotsu_boundary]
+
+  - id: ROUTE-HO-SHIN-002
+    input: {message: "학チカ를 어떻게 정리해야 할지 모르겠어요"}
+    expected: {track: shinsotsu, stage: "学チカ・自己PR素材", skill: job-seeker-agent}
+    risk_class: normal
+    category: [shinsotsu_boundary, document_intent]
+
+  - id: ROUTE-HO-SHIN-003
+    input: {message: "I am a new graduate preparing for official selection"}
+    expected: {track: shinsotsu}
+    constraints: {forbidden_references: [references/taishoku-riyu-reframing.md]}
+    risk_class: critical
+    category: [shinsotsu_boundary]
+
+  - id: ROUTE-HO-CHUTO-001
+    input: {message: "第2新卒で入社手続きを確認したいです"}
+    expected: {track: chuto, skill: tenshoku-strategy, reference: references/nyusha-teichaku.md}
+    risk_class: critical
+    category: [chuto_boundary]
+
+  # 既卒 says the user already graduated and nothing about what they want to do next. The track
+  # reading is deliberately left unasserted — the contract here is that no task is invented.
+  - id: ROUTE-HO-CHUTO-002
+    input: {message: "既卒ですが就職活動を続けています"}
+    expected: {explicit_intent: null}
+    risk_class: critical
+    category: [chuto_boundary, shinsotsu_boundary]
+
+  - id: ROUTE-HO-CHUTO-003
+    input: {message: "mid-career move, I want to review the offer conditions", track: null, stage: null}
+    expected: {track: chuto}
+    risk_class: critical
+    category: [chuto_boundary]
