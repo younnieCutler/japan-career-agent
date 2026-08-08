@@ -146,7 +146,26 @@ def read_rows() -> list[dict[str, str]]:
     if not RESULTS.is_file():
         return []
     with RESULTS.open(encoding="utf-8", newline="") as handle:
-        return [row for row in csv.DictReader(handle, delimiter="\t") if row.get("status")]
+        reader = csv.DictReader(handle, delimiter="\t")
+        assert_schema(tuple(reader.fieldnames or ()))
+        return [row for row in reader if row.get("status")]
+
+
+def assert_schema(header: tuple[str, ...]) -> None:
+    """Refuse to read or extend a log whose header is not the current column set.
+
+    Appending new columns under an old header silently misaligns every field — the baseline commit
+    is read out of the wrong column, and the runner then reports a mutation-surface violation that
+    has nothing to do with the candidate. A schema change means a new log file, not a wider row.
+    """
+    if header != COLUMNS:
+        missing = [column for column in COLUMNS if column not in header]
+        extra = [column for column in header if column not in COLUMNS]
+        raise ExperimentError(
+            f"{RESULTS.relative_to(ROOT)} was written with a different column set "
+            f"(missing {missing or 'none'}, unexpected {extra or 'none'}). Start a new log file; "
+            "an append-only record cannot change schema in place."
+        )
 
 
 BEST_STATUSES = frozenset({"baseline", "provisional_keep", "keep"})
@@ -168,6 +187,9 @@ def current_best(rows: list[dict[str, str]]) -> dict[str, str] | None:
 def append_row(row: dict[str, Any]) -> None:
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
     exists = RESULTS.is_file()
+    if exists:
+        with RESULTS.open(encoding="utf-8", newline="") as handle:
+            assert_schema(tuple(next(csv.reader(handle, delimiter="\t"), [])))
     with RESULTS.open("a", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS, delimiter="\t", lineterminator="\n")
         if not exists:

@@ -91,6 +91,28 @@ class JudgingFileTests(unittest.TestCase):
                 self.assertIn(column, str(caught.exception))
 
 
+class LogSchemaTests(unittest.TestCase):
+    def test_the_current_header_is_accepted(self) -> None:
+        runner.assert_schema(runner.COLUMNS)
+
+    def test_an_older_header_is_refused_rather_than_silently_misread(self) -> None:
+        # This is how the log actually broke: columns were added, the existing file kept its old
+        # header, and every appended field landed under the wrong name — the runner then read the
+        # baseline commit out of a neighbouring column and blamed the candidate for it.
+        older = tuple(column for column in runner.COLUMNS if column != "critical_fingerprint")
+        with self.assertRaises(runner.ExperimentError) as caught:
+            runner.assert_schema(older)
+        self.assertIn("critical_fingerprint", str(caught.exception))
+
+    def test_a_reordered_header_is_refused(self) -> None:
+        with self.assertRaises(runner.ExperimentError):
+            runner.assert_schema(tuple(reversed(runner.COLUMNS)))
+
+    def test_the_tracked_log_matches_the_current_schema(self) -> None:
+        if runner.RESULTS.is_file():
+            runner.read_rows()
+
+
 class StatusTests(unittest.TestCase):
     def test_a_provisional_keep_still_becomes_the_thing_to_beat(self) -> None:
         rows = [
