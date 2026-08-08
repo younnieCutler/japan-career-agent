@@ -52,9 +52,9 @@ codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 
 リリース準備中は、リポジトリのバージョンが stable marketplace チャンネルより先に進む
 ことがあります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを
-参照し、`main` は追跡しません。そのため、ソースメタデータが `1.18.1` で stable
-marketplace ref が `v1.17.2` になっている状態は意図したものです。リリース workflow が
-`v1.18.1` を公開し、stable メタデータの変更がマージされた後に ref も更新されます。
+参照し、`main` は追跡しません。現在はリリース workflow がこの commit から `v1.18.1` を
+公開したため、ソースメタデータ `1.18.1` と stable marketplace ref `v1.18.1` が一致して
+います。次の挙動変更で再び差が開き、次のタグ公開と ref 更新で再び一致します。
 
 ### ローカル fallback
 

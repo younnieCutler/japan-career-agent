@@ -52,9 +52,9 @@ codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 
 릴리스를 준비하는 동안 저장소의 버전이 stable marketplace 채널보다 앞설 수 있습니다.
 stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지
-않습니다. 따라서 소스 메타데이터가 `1.18.1`이고 stable marketplace ref가 `v1.17.2`인
-상태는 의도된 것입니다. 릴리스 workflow가 `v1.18.1`를 발행하고 stable 메타데이터 변경이
-병합되면 ref도 갱신됩니다.
+않습니다. 지금은 릴리스 workflow가 이 commit에서 `v1.18.1`을 발행했으므로 소스 메타데이터
+`1.18.1`과 stable marketplace ref `v1.18.1`이 일치합니다. 다음 동작 변경에서 다시 차이가
+생기고, 다음 태그가 발행되고 ref가 갱신되면 다시 일치합니다.
 
 ### 로컬 fallback
 
