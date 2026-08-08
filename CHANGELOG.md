@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.0] - 2026-08-08
+
+- Add the Routing Autoresearch agent program: the loop protocol, the mutation surface, the gate
+  order, and a capsule describing how the routing subject resolves a message. It replaces roughly
+  90 KB of source reading per trial with 7.5 KB, and its factual claims are checked against the
+  runner so it cannot drift into confidently describing a harness that no longer exists.
+
 ## [1.19.0] - 2026-08-08
 
 - Add the `routing-eval-v1` frozen benchmark for Career Agent message routing: 26 development and

@@ -8,9 +8,12 @@ is recorded but never checked, would let a candidate through that should have be
 
 from __future__ import annotations
 
+import re
 import sys
+import tempfile
 import unittest
-from pathlib import Path
+from unittest import mock
+from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -50,6 +53,136 @@ class FingerprintTests(unittest.TestCase):
     def test_fingerprints_are_stable_and_distinct(self) -> None:
         self.assertEqual(routing_eval.fingerprint("ROUTE-X-001"), routing_eval.fingerprint("ROUTE-X-001"))
         self.assertNotEqual(routing_eval.fingerprint("ROUTE-X-001"), routing_eval.fingerprint("ROUTE-X-002"))
+
+
+def _harness_files() -> list[Path]:
+    """Every file the harness reads to produce or judge a result.
+
+    Derived from the runner's own declarations rather than listed here, so a file added to the
+    harness is covered by the portability checks below without anyone remembering to add it.
+    """
+    return sorted(
+        {
+            *(path for group in runner.JUDGING_FILES.values() for path in group),
+            *routing_eval.FIXTURE_PATHS.values(),
+            *routing_eval.SUBJECT_PATHS,
+        }
+    )
+
+
+class WindowsCheckoutTests(unittest.TestCase):
+    """The harness is authored on macOS and runs in CI on Windows.
+
+    Three Windows-only defects reached CI before these existed, and all three were the same
+    mistake in different clothes: assuming the authoring platform's convention. Byte-hashing a
+    file that `core.autocrlf` rewrites, and comparing native-separator paths against git output
+    that is always POSIX. Neither is visible locally, so both need a check that simulates the
+    difference rather than a reviewer who remembers to think about it.
+
+    These iterate over the harness's declared file lists, so they cover new files automatically.
+    """
+
+    def test_every_digested_file_hashes_the_same_under_crlf(self) -> None:
+        files = _harness_files()
+        self.assertGreaterEqual(len(files), 6)
+        with tempfile.TemporaryDirectory() as directory:
+            for source in files:
+                lf = source.read_bytes().replace(b"\r\n", b"\n")
+                copy = Path(directory) / f"{source.name}.crlf"
+                copy.write_bytes(lf.replace(b"\n", b"\r\n"))
+                with self.subTest(file=source.name):
+                    self.assertIn(b"\r\n", copy.read_bytes())
+                    self.assertEqual(routing_eval.digest(copy), routing_eval.digest(source))
+
+    def test_the_benchmark_parses_identically_under_crlf(self) -> None:
+        """A digest that survives CRLF is not enough if the parsed fixtures differ."""
+        with tempfile.TemporaryDirectory() as directory:
+            for name, source in routing_eval.FIXTURE_PATHS.items():
+                lf = source.read_bytes().replace(b"\r\n", b"\n")
+                copy = Path(directory) / f"{name}.yml"
+                copy.write_bytes(lf.replace(b"\n", b"\r\n"))
+                with self.subTest(name=name):
+                    self.assertEqual(routing_eval.load_fixtures(copy), routing_eval.load_fixtures(source))
+
+    def test_no_path_set_uses_a_native_separator(self) -> None:
+        for name, paths in (("MUTABLE", runner.MUTABLE), ("HARNESS_PATHS", runner.HARNESS_PATHS)):
+            for path in paths:
+                with self.subTest(name=name, path=path):
+                    self.assertNotIn("\\", path)
+                    self.assertEqual(path, PurePosixPath(path).as_posix())
+
+    def test_the_mutation_surface_matches_what_git_would_report(self) -> None:
+        tracked = set(runner.git("ls-files").splitlines())
+        for path in runner.MUTABLE:
+            with self.subTest(path=path):
+                self.assertIn(path, tracked)
+
+    def test_every_harness_path_is_declared_relative_to_the_repository(self) -> None:
+        for path in _harness_files():
+            with self.subTest(path=path.name):
+                self.assertTrue(path.is_absolute())
+                self.assertTrue(path.is_file())
+                path.relative_to(runner.ROOT)  # raises if the harness reaches outside the repo
+
+    def test_no_module_stringifies_a_relative_path(self) -> None:
+        """The separator defect cannot be caught by running on POSIX, so ban its shape instead.
+
+        Wrapping a `relative_to()` result in `str()` yields backslashes on Windows and forward
+        slashes here, and those strings are compared against git output that is POSIX everywhere.
+        Running the code locally proves nothing; the only local signal is the expression itself.
+        Use `.as_posix()`.
+        """
+        offender = re.compile(r"str\([^()]*\.relative_to\(")
+        for path in _harness_files():
+            if path.suffix != ".py":
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                with self.subTest(file=path.name, line=number):
+                    self.assertIsNone(offender.search(line), f"{path.name}:{number}: use .as_posix()")
+
+    def test_every_text_read_declares_its_encoding(self) -> None:
+        """Windows defaults to the locale codepage, and every fixture here is JA/KO text."""
+        # Lines that already declare an encoding are skipped, so anything still matching is bare.
+        offender = re.compile(r"(?<![.\w])open\(|\.read_text\(|\.write_text\(")
+        for path in _harness_files():
+            if path.suffix != ".py":
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if "encoding=" in line or line.lstrip().startswith("#"):
+                    continue
+                with self.subTest(file=path.name, line=number):
+                    self.assertIsNone(offender.search(line), f"{path.name}:{number}: pass encoding=")
+
+    def test_the_log_writer_emits_one_line_ending_on_every_platform(self) -> None:
+        """csv appends \\r\\n on Windows unless both newline="" and lineterminator are set.
+
+        What is on disk after a checkout is git's business — a tracked text file arrives CRLF on
+        Windows and that is not a defect. What the writer produces is this runner's business, and
+        it must be the same everywhere or the log's line endings depend on who ran the experiment.
+        """
+        row = {column: "x" for column in runner.COLUMNS}
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "results.tsv"
+            with mock.patch.object(runner, "RESULTS", target):
+                runner.append_row(row)
+                runner.append_row(row)
+                rows = runner.read_rows()
+            self.assertNotIn(b"\r", target.read_bytes())
+        self.assertEqual(len(rows), 2)
+
+    def test_the_log_reader_accepts_a_crlf_checkout(self) -> None:
+        """The other half: on Windows the log the reader opens will have CRLF endings."""
+        if not runner.RESULTS.is_file():
+            self.skipTest("no results log in this tree")
+        source = runner.RESULTS.read_bytes().replace(b"\r\n", b"\n")
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "results.tsv"
+            target.write_bytes(source.replace(b"\n", b"\r\n"))
+            with mock.patch.object(runner, "RESULTS", target):
+                crlf_rows = runner.read_rows()
+                crlf_best = runner.current_best(crlf_rows)
+        self.assertEqual(crlf_rows, runner.read_rows())
+        self.assertEqual(crlf_best, runner.current_best(runner.read_rows()))
 
 
 class JudgingFileTests(unittest.TestCase):
@@ -103,6 +236,44 @@ class SimplicityTieBreakTests(unittest.TestCase):
             with self.subTest(compound=compound):
                 self.assertTrue(subject.term_present("お礼", compound.lower()))
         self.assertTrue(subject.term_present("お礼", lowered))
+
+
+class ProgramTests(unittest.TestCase):
+    """The research program is the agent's whole picture of the harness, so it must stay true.
+
+    A capsule that has drifted is worse than none: the agent trusts it instead of reading the
+    code, so a stale budget or a renamed path becomes a wrong action rather than a lookup miss.
+    """
+
+    PROGRAM = runner.ROOT / "docs" / "routing-autoresearch-program.md"
+
+    def setUp(self) -> None:
+        self.text = self.PROGRAM.read_text(encoding="utf-8")
+
+    def test_it_names_the_real_mutation_surface_and_nothing_else(self) -> None:
+        for path in runner.MUTABLE:
+            with self.subTest(path=path):
+                self.assertIn(path, self.text)
+        self.assertIn("routing-autoresearch-results.tsv", runner.RESULTS.name)
+        for group in runner.JUDGING_FILES.values():
+            for path in group:
+                relative = path.relative_to(runner.ROOT).as_posix()
+                with self.subTest(path=relative):
+                    self.assertNotIn(f"edit {relative}", self.text)
+
+    def test_the_quoted_budgets_match_the_runner(self) -> None:
+        self.assertIn(f"{runner.DEFAULT_LOC_BUDGET} changed production lines", self.text)
+        self.assertIn(f"{runner.DEFAULT_TERM_BUDGET} added routing terms", self.text)
+
+    def test_every_verdict_the_runner_can_emit_is_documented(self) -> None:
+        for verdict in ("provisional_keep", "discard", "infra_error", "INVALID", "CRASH"):
+            with self.subTest(verdict=verdict):
+                self.assertIn(verdict, self.text)
+
+    def test_it_stays_a_capsule(self) -> None:
+        # It exists to replace ~90 KB of source reading per trial. Past roughly 10 KB it stops
+        # paying for itself and the agent may as well read the code.
+        self.assertLess(len(self.text.encode("utf-8")), 10_000)
 
 
 class LogSchemaTests(unittest.TestCase):
