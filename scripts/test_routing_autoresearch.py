@@ -8,7 +8,9 @@ is recorded but never checked, would let a candidate through that should have be
 
 from __future__ import annotations
 
+import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path, PurePosixPath
 
@@ -52,13 +54,54 @@ class FingerprintTests(unittest.TestCase):
         self.assertNotEqual(routing_eval.fingerprint("ROUTE-X-001"), routing_eval.fingerprint("ROUTE-X-002"))
 
 
-class PathComparisonTests(unittest.TestCase):
-    """Path sets are compared against git output, which is POSIX on every platform.
+def _harness_files() -> list[Path]:
+    """Every file the harness reads to produce or judge a result.
 
-    Using the native separator here is invisible on macOS and Linux and breaks Windows completely:
-    a legitimately edited routing.yml stops matching its own entry, so the path check reads it as
-    an unrelated production change and every candidate comes back INVALID.
+    Derived from the runner's own declarations rather than listed here, so a file added to the
+    harness is covered by the portability checks below without anyone remembering to add it.
     """
+    return sorted(
+        {
+            *(path for group in runner.JUDGING_FILES.values() for path in group),
+            *routing_eval.FIXTURE_PATHS.values(),
+            *routing_eval.SUBJECT_PATHS,
+        }
+    )
+
+
+class WindowsCheckoutTests(unittest.TestCase):
+    """The harness is authored on macOS and runs in CI on Windows.
+
+    Three Windows-only defects reached CI before these existed, and all three were the same
+    mistake in different clothes: assuming the authoring platform's convention. Byte-hashing a
+    file that `core.autocrlf` rewrites, and comparing native-separator paths against git output
+    that is always POSIX. Neither is visible locally, so both need a check that simulates the
+    difference rather than a reviewer who remembers to think about it.
+
+    These iterate over the harness's declared file lists, so they cover new files automatically.
+    """
+
+    def test_every_digested_file_hashes_the_same_under_crlf(self) -> None:
+        files = _harness_files()
+        self.assertGreaterEqual(len(files), 6)
+        with tempfile.TemporaryDirectory() as directory:
+            for source in files:
+                lf = source.read_bytes().replace(b"\r\n", b"\n")
+                copy = Path(directory) / f"{source.name}.crlf"
+                copy.write_bytes(lf.replace(b"\n", b"\r\n"))
+                with self.subTest(file=source.name):
+                    self.assertIn(b"\r\n", copy.read_bytes())
+                    self.assertEqual(routing_eval.digest(copy), routing_eval.digest(source))
+
+    def test_the_benchmark_parses_identically_under_crlf(self) -> None:
+        """A digest that survives CRLF is not enough if the parsed fixtures differ."""
+        with tempfile.TemporaryDirectory() as directory:
+            for name, source in routing_eval.FIXTURE_PATHS.items():
+                lf = source.read_bytes().replace(b"\r\n", b"\n")
+                copy = Path(directory) / f"{name}.yml"
+                copy.write_bytes(lf.replace(b"\n", b"\r\n"))
+                with self.subTest(name=name):
+                    self.assertEqual(routing_eval.load_fixtures(copy), routing_eval.load_fixtures(source))
 
     def test_no_path_set_uses_a_native_separator(self) -> None:
         for name, paths in (("MUTABLE", runner.MUTABLE), ("HARNESS_PATHS", runner.HARNESS_PATHS)):
@@ -72,6 +115,48 @@ class PathComparisonTests(unittest.TestCase):
         for path in runner.MUTABLE:
             with self.subTest(path=path):
                 self.assertIn(path, tracked)
+
+    def test_every_harness_path_is_declared_relative_to_the_repository(self) -> None:
+        for path in _harness_files():
+            with self.subTest(path=path.name):
+                self.assertTrue(path.is_absolute())
+                self.assertTrue(path.is_file())
+                path.relative_to(runner.ROOT)  # raises if the harness reaches outside the repo
+
+    def test_no_module_stringifies_a_relative_path(self) -> None:
+        """The separator defect cannot be caught by running on POSIX, so ban its shape instead.
+
+        Wrapping a `relative_to()` result in `str()` yields backslashes on Windows and forward
+        slashes here, and those strings are compared against git output that is POSIX everywhere.
+        Running the code locally proves nothing; the only local signal is the expression itself.
+        Use `.as_posix()`.
+        """
+        offender = re.compile(r"str\([^()]*\.relative_to\(")
+        for path in _harness_files():
+            if path.suffix != ".py":
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                with self.subTest(file=path.name, line=number):
+                    self.assertIsNone(offender.search(line), f"{path.name}:{number}: use .as_posix()")
+
+    def test_every_text_read_declares_its_encoding(self) -> None:
+        """Windows defaults to the locale codepage, and every fixture here is JA/KO text."""
+        # Lines that already declare an encoding are skipped, so anything still matching is bare.
+        offender = re.compile(r"(?<![.\w])open\(|\.read_text\(|\.write_text\(")
+        for path in _harness_files():
+            if path.suffix != ".py":
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if "encoding=" in line or line.lstrip().startswith("#"):
+                    continue
+                with self.subTest(file=path.name, line=number):
+                    self.assertIsNone(offender.search(line), f"{path.name}:{number}: pass encoding=")
+
+    def test_the_results_log_is_written_with_one_line_ending_everywhere(self) -> None:
+        """csv on Windows appends \\r\\n unless both newline="" and lineterminator are set."""
+        if not runner.RESULTS.is_file():
+            self.skipTest("no results log in this tree")
+        self.assertNotIn(b"\r", runner.RESULTS.read_bytes())
 
 
 class JudgingFileTests(unittest.TestCase):
