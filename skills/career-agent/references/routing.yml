@@ -24,7 +24,7 @@ message_context:
   - id: interview_followup
     skill: tenshoku-strategy
     reference: references/mensetsu-follow.md
-    terms: ["面接のお礼", "面接後のお礼", "お礼メール", "interview follow-up", "thank-you email", "면접 감사"]
+    terms: ["お礼", "interview follow-up", "thank-you email", "면접 감사"]
   - id: resignation_reason
     skill: tenshoku-strategy
     reference: references/taishoku-riyu-reframing.md
