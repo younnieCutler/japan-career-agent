@@ -105,6 +105,43 @@ class SimplicityTieBreakTests(unittest.TestCase):
         self.assertTrue(subject.term_present("お礼", lowered))
 
 
+class ProgramTests(unittest.TestCase):
+    """The research program is the agent's whole picture of the harness, so it must stay true.
+
+    A capsule that has drifted is worse than none: the agent trusts it instead of reading the
+    code, so a stale budget or a renamed path becomes a wrong action rather than a lookup miss.
+    """
+
+    PROGRAM = runner.ROOT / "docs" / "routing-autoresearch-program.md"
+
+    def setUp(self) -> None:
+        self.text = self.PROGRAM.read_text(encoding="utf-8")
+
+    def test_it_names_the_real_mutation_surface_and_nothing_else(self) -> None:
+        for path in runner.MUTABLE:
+            with self.subTest(path=path):
+                self.assertIn(path, self.text)
+        for group in runner.JUDGING_FILES.values():
+            for path in group:
+                relative = str(path.relative_to(runner.ROOT))
+                with self.subTest(path=relative):
+                    self.assertNotIn(f"edit {relative}", self.text)
+
+    def test_the_quoted_budgets_match_the_runner(self) -> None:
+        self.assertIn(f"{runner.DEFAULT_LOC_BUDGET} changed production lines", self.text)
+        self.assertIn(f"{runner.DEFAULT_TERM_BUDGET} added routing terms", self.text)
+
+    def test_every_verdict_the_runner_can_emit_is_documented(self) -> None:
+        for verdict in ("provisional_keep", "discard", "infra_error", "INVALID", "CRASH"):
+            with self.subTest(verdict=verdict):
+                self.assertIn(verdict, self.text)
+
+    def test_it_stays_a_capsule(self) -> None:
+        # It exists to replace ~90 KB of source reading per trial. Past roughly 10 KB it stops
+        # paying for itself and the agent may as well read the code.
+        self.assertLess(len(self.text.encode("utf-8")), 10_000)
+
+
 class LogSchemaTests(unittest.TestCase):
     def test_the_current_header_is_accepted(self) -> None:
         runner.assert_schema(runner.COLUMNS)

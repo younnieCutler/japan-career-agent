@@ -15,6 +15,7 @@
 | `scripts/test_routing_autoresearch.py` | Runner contract tests — subset gates, judging-file pinning, log schema, verdict statuses |
 | `skills/career-agent/tests/fixtures/routing_eval_v1_dev.yml` | Development set, 26 fixtures (visible to a research agent) |
 | `skills/career-agent/tests/fixtures/routing_eval_v1_holdout.yml` | Frozen holdout, 56 fixtures (aggregate-only results) |
+| `docs/routing-autoresearch-program.md` | The research agent's operating instructions and subject capsule |
 | `docs/routing-autoresearch-results.tsv` | Append-only experiment log |
 | `scripts/run_all_checks.py` | Registers `routing benchmark contract` in the canonical matrix |
 
@@ -140,9 +141,9 @@ gate it could be judged on. **CI green on this branch is the Gate 6 evidence; th
 - **This is not yet a blind research run.** The benchmark author read holdout failures once to
   validate labels, so E-1 through E-4 demonstrate the runner's mechanics, not the loop's blind
   research capability. Phase 4 is the first run where that claim can be made.
-- **No agent context capsule yet.** A research agent currently has to rediscover the routing
-  surface on every trial. Phase 4 needs a `program.md` plus a routing context capsule before an
-  autonomous run is affordable; this PR ships the harness, not the loop's operating instructions.
+- **The context capsule is untested against a real agent.** `docs/routing-autoresearch-program.md`
+  is written to be sufficient on its own, and its factual claims are checked against the runner,
+  but whether an agent can actually run a trial from it alone is only known once one does.
 - **Bootstrap self-reference.** The harness lists its own files in `HARNESS_PATHS` so that before
   it was committed they did not read as an unrelated production change. `scripts/run_all_checks.py`
   is deliberately *not* in that list — a candidate that could edit it could delete a check to pass
@@ -156,9 +157,7 @@ gate it could be judged on. **CI green on this branch is the Gate 6 evidence; th
 ## Next
 
 1. Phase 3: grow the holdout to 150–300 cases per PRD §7.3, as `routing-eval-v2` if any label in v1
-   turns out wrong — v1 is frozen.
-2. Write `program.md` and a routing context capsule, so a research agent does not re-explore the
-   repository once per trial.
-3. Phase 4: the first autonomous run. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
+   turns out wrong — v1 is frozen. Whoever writes v2 should not be whoever runs Phase 4 against it.
+2. Phase 4: the first autonomous run. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
    remaining critical failures are all negation/precedence, which may be an SR-5 architectural
    signal rather than a lexicon one.
