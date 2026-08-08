@@ -91,6 +91,20 @@ class JudgingFileTests(unittest.TestCase):
                 self.assertIn(column, str(caught.exception))
 
 
+class SimplicityTieBreakTests(unittest.TestCase):
+    """Gate 7: equal routing behaviour, fewer terms, is an improvement — not a DISCARD."""
+
+    def test_the_bare_form_subsumes_its_own_compounds(self) -> None:
+        # The tie-break is only sound when the simpler lexicon really does route identically.
+        # Every compound the collapse removed still matches through the bare term.
+        subject = routing_eval._import_subject()
+        lowered = "面接後のお礼メールを送りたい"
+        for compound in ("面接のお礼", "面接後のお礼", "お礼メール"):
+            with self.subTest(compound=compound):
+                self.assertTrue(subject.term_present("お礼", compound.lower()))
+        self.assertTrue(subject.term_present("お礼", lowered))
+
+
 class LogSchemaTests(unittest.TestCase):
     def test_the_current_header_is_accepted(self) -> None:
         runner.assert_schema(runner.COLUMNS)

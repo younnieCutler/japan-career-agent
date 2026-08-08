@@ -392,9 +392,19 @@ def main() -> int:
         regression_failures = len(failed)
         if failed:
             reasons.append(f"gate 2: {', '.join(failed)}")
-        elif holdout["correct"] <= int(best["heldout_correct"]):
+        elif holdout["correct"] < int(best["heldout_correct"]):
             reasons.append(
-                f"gate 3: holdout {holdout['correct']} does not beat best {best['heldout_correct']}"
+                f"gate 3: holdout {holdout['correct']} is below best {best['heldout_correct']}"
+            )
+        # Gate 7. Equal behaviour is not automatically a DISCARD: PRD §9 prefers the simpler of two
+        # candidates that route identically, and without this the first candidate to reach a score
+        # holds it even when a strictly smaller one exists. `routing_terms` is the comparable
+        # signal — `changed_loc` is measured against each candidate's own base commit, so it does
+        # not compare across rows.
+        elif holdout["correct"] == int(best["heldout_correct"]) and terms >= int(best["routing_terms"]):
+            reasons.append(
+                f"gate 3/7: holdout {holdout['correct']} ties best {best['heldout_correct']} "
+                f"and {terms} routing terms is not simpler than {best['routing_terms']}"
             )
         elif new_fallback:
             reasons.append(
@@ -444,7 +454,13 @@ def main() -> int:
     )
 
     if status in {"keep", "provisional_keep"}:
-        print(f"{status.upper()}  {best['heldout_correct']} -> {holdout['correct']} held-out correct")
+        if holdout["correct"] == int(best["heldout_correct"]):
+            print(
+                f"{status.upper()}  held-out unchanged at {holdout['correct']}, "
+                f"simpler: {best['routing_terms']} -> {terms} routing terms"
+            )
+        else:
+            print(f"{status.upper()}  {best['heldout_correct']} -> {holdout['correct']} held-out correct")
         if status == "provisional_keep":
             print("  gate 6 not run — re-run with --promote before treating this as promotable")
         return 0
