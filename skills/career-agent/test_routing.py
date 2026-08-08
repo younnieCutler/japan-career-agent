@@ -83,6 +83,15 @@ class OnboardingSignalTests(unittest.TestCase):
         self.assertEqual(career_agent.infer_track("就活を始めたい"), "shinsotsu")
         self.assertIsNone(career_agent.infer_track("売上を30%改善した"))
 
+    def test_second_new_graduate_is_a_mid_career_hire(self) -> None:
+        # 第二新卒 contains 新卒 as a substring but describes someone already working.
+        for message in ("第二新卒で転職したい", "第二新卒です", "第2新卒"):
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.infer_track(message), "chuto")
+        self.assertEqual(career_agent.stage_for("第二新卒で職務経歴書を作りたい", "chuto"), "職務経歴書・自己PR")
+        # The plain term must keep working.
+        self.assertEqual(career_agent.infer_track("新卒で就活を始めたい"), "shinsotsu")
+
     def test_explicit_stage_alias_ignores_track_only_signals(self) -> None:
         # "I am job hunting mid-career" says which track, not which task.
         self.assertIsNone(career_agent.explicit_stage_alias("일본에서 이직 준비를 시작하고 싶어"))

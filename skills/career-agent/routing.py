@@ -55,6 +55,17 @@ _GRADUATION_PATTERNS = (
 )
 
 
+# 第二新卒 is a 中途 hire, not a new graduate, but it contains 新卒 as a substring and every keyword
+# lookup here is substring matching. Rewriting it to 中途 before any lookup keeps the lexicon honest
+# without adding a negative-term mechanism that every future group would have to know about.
+_SECOND_NEW_GRADUATE = re.compile(r"第\s*[二2]\s*新卒")
+
+
+def normalized_message(message: str) -> str:
+    """Lowercased message with expressions that read as their own opposite rewritten."""
+    return _SECOND_NEW_GRADUATE.sub("中途", message.lower())
+
+
 def term_present(term: str, lowered: str) -> bool:
     if term in _WORD_BOUNDARY_TERMS:
         # The boundary is ASCII letters/digits, not `\b`. `\b` treats CJK as word characters, so
@@ -94,7 +105,7 @@ def graduation_signal(message: str) -> int | None:
 def infer_track(message: str, requested: str | None = None) -> str | None:
     if requested in TRACKS:
         return requested
-    lowered = message.lower()
+    lowered = normalized_message(message)
     if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["shinsotsu"]):
         return "shinsotsu"
     if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["chuto"]):
@@ -109,7 +120,7 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
 
 def matched_stage_alias(message: str, *, skip_track_aliases: bool = False) -> str | None:
     """The first stage alias whose terms appear in the message, in reference order."""
-    lowered = message.lower()
+    lowered = normalized_message(message)
     for group in ROUTING["stage_alias"]:
         alias = str(group["alias"])
         if skip_track_aliases and alias in _TRACK_ONLY_ALIASES:
