@@ -116,8 +116,13 @@ originally used would have kept it while it shipped two new contract violations.
 
 ## Gate 6 status
 
-Both kept candidates are recorded as `provisional_keep`: the canonical matrix cannot be judged on
-the authoring machine, so Gate 6 is decided by CI on this branch, not locally.
+**Passed.** The canonical matrix ran green on Ubuntu 3.11, Ubuntu 3.13, and Windows 3.11 for the
+merged head of this work. Both candidates cleared it.
+
+The log still records them as `provisional_keep`, and that is correct rather than stale: the
+runner writes what it could verify at the moment it ran, and it could not run Gate 6 on the
+authoring machine. Rewriting the row after the fact would defeat the point of an append-only
+record. CI is the Gate 6 authority here.
 
 Four of the 59 canonical checks fail here and nowhere else, all tracing to one untracked local
 Claude plugin directory (`.agents/skills/`):
