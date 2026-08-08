@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-08
 **Source:** Routing Autoresearch PRD (approved, no open questions)
-**Benchmark:** `routing-eval-v1`
+**Benchmark:** `routing-eval-v2` (v1 retired, still readable and pinned)
 **Baseline commit:** `4b75b4a` (the harness commit; routing behaviour unchanged from `f69f9eb`)
 
 ## What shipped
@@ -13,8 +13,9 @@
 | `scripts/test_routing_eval.py` | Evaluator contract tests — digest freeze, schema strictness, candidate discrimination, reproducibility |
 | `scripts/routing_autoresearch.py` | Experiment runner: mutation-surface enforcement, lexicographic gates, verdict classification, append-only log |
 | `scripts/test_routing_autoresearch.py` | Runner contract tests — subset gates, judging-file pinning, log schema, verdict statuses |
-| `skills/career-agent/tests/fixtures/routing_eval_v1_dev.yml` | Development set, 26 fixtures (visible to a research agent) |
-| `skills/career-agent/tests/fixtures/routing_eval_v1_holdout.yml` | Frozen holdout, 56 fixtures (aggregate-only results) |
+| `skills/career-agent/tests/fixtures/routing_eval_v2_dev.yml` | Development set, 26 fixtures (visible to a research agent) |
+| `skills/career-agent/tests/fixtures/routing_eval_v2_holdout.yml` | Frozen holdout, 134 fixtures (aggregate-only results) |
+| `skills/career-agent/tests/fixtures/routing_eval_v1_*.yml` | Retired benchmark, kept readable so its recorded results stay reproducible |
 | `docs/routing-autoresearch-program.md` | The research agent's operating instructions and subject capsule |
 | `docs/routing-autoresearch-results.tsv` | Append-only experiment log |
 | `scripts/run_all_checks.py` | Registers `routing benchmark contract` in the canonical matrix |
@@ -71,19 +72,7 @@ concrete reading:
 
 ## Measurements
 
-The benchmark's own starting point, before any candidate:
-
-```
-dev      22/26 correct,  2 critical
-holdout  43/56 correct,  2 critical, 0 fallback
-philosophy failures 0   gaming failures 0   routing terms 219
-python 3.13.5 on Darwin
-```
-
-Zero fallback failures at baseline: the lexicon under-captures rather than over-captures, which is
-the right direction to start research from.
-
-Two candidates were kept, for a net +2 held-out and +1 routing term:
+`routing-eval-v1`, and the two candidates the loop produced against it:
 
 | | held-out | terms |
 | --- | --- | --- |
@@ -91,9 +80,43 @@ Two candidates were kept, for a net +2 held-out and +1 routing term:
 | E-1 `market_salary` | 44/56 | 222 |
 | E-4 `interview_followup` | 45/56 | 220 |
 
-The log restarts whenever a judging file changes, since a baseline row recorded against a
-different evaluator or runner cannot be compared to. `docs/routing-autoresearch-results.tsv` holds
-the run against the harness as merged.
+`routing-eval-v2` starting point, on the production lexicon those two candidates produced:
+
+```
+dev      22/26 correct,   2 critical
+holdout 108/134 correct,  5 critical, 1 fallback
+philosophy failures 0   gaming failures 0   routing terms 220
+```
+
+### Why v2 exists
+
+v1 was 66% Japanese, so a Korean or English regression was largely invisible and a Korean or
+English improvement barely moved the score. Its non-capture axes were also thin — six unmatched
+cases and four generic-research cases were the entire anti-gaming floor.
+
+v2 does not inflate uniformly. It brings the three languages to rough parity and thickens the axes
+that carry the safety contract:
+
+| | v1 | v2 |
+| --- | --- | --- |
+| held-out cases | 56 | 134 |
+| Japanese / Korean / English | 54 / 15 / 13 | 76 / 43 / 41 |
+| negation | 8 | 16 |
+| unmatched | 6 | 12 |
+| generic interview / research | 6 / 4 | 10 / 8 |
+| ambiguous | 6 | 12 |
+| shinsotsu / chuto boundary | 6 / 6 | 12 / 10 |
+
+The five critical failures at the v2 baseline are all negation, the same shape as v1's, now with
+Korean and English instances. The single fallback failure is a Korean over-capture: `지원할` in
+"지원할 회사들을 조사하는 방법" matches the `apply` alias by substring, and the research alias has
+no Korean term for 조사.
+
+A language-balance test enforces the parity so it cannot silently drift back.
+
+The results log restarts whenever a judging file changes, since a baseline row recorded against a
+different evaluator or runner cannot be compared to, and rows are never compared across benchmark
+versions.
 
 ## Verdict verification
 
@@ -156,8 +179,8 @@ gate it could be judged on. **CI green on this branch is the Gate 6 evidence; th
 
 ## Next
 
-1. Phase 3: grow the holdout to 150–300 cases per PRD §7.3, as `routing-eval-v2` if any label in v1
-   turns out wrong — v1 is frozen. Whoever writes v2 should not be whoever runs Phase 4 against it.
-2. Phase 4: the first autonomous run. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
+1. Phase 4: the first autonomous run. **It must not be run by whoever authored v2.** Validating
+   labels requires seeing which fixtures fail, so the benchmark author is permanently contaminated
+   for that benchmark; the separation has to be structural, not a promise. Stop rules SR-2 (`N = 20`) and SR-5 apply; the four
    remaining critical failures are all negation/precedence, which may be an SR-5 architectural
    signal rather than a lexicon one.

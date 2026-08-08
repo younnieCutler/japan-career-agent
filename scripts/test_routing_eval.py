@@ -9,6 +9,7 @@ produce the same numbers.
 
 from __future__ import annotations
 
+import re
 import sys
 import tempfile
 import unittest
@@ -27,16 +28,19 @@ from routing_eval import (  # noqa: E402
     report,
 )
 
-# The frozen benchmark. Changing a fixture must break this test — a research candidate editing the
-# corpus it is scored on is the failure mode this pin exists to catch. A deliberate benchmark
-# change means a new benchmark_version, and updating these values in the same commit.
+# Every frozen benchmark, including retired ones. Changing a fixture must break this test — a
+# research candidate editing the corpus it is scored on is the failure mode this pin exists to
+# catch. A deliberate benchmark change means a new benchmark_version and a new entry here, never
+# an edit to an existing one: v1's recorded results are only reproducible while v1 is untouched.
 FROZEN_DIGESTS = {
-    "dev": "e74e9d70ced1d91f",
-    "holdout": "4190a5fb71c7bdf6",
+    ("routing-eval-v1", "dev"): "e74e9d70ced1d91f",
+    ("routing-eval-v1", "holdout"): "4190a5fb71c7bdf6",
+    ("routing-eval-v2", "dev"): "0d6432e3d89492c9",
+    ("routing-eval-v2", "holdout"): "bdf97d5436c297ab",
 }
 
 VALID_FIXTURE = """
-benchmark_version: routing-eval-v1
+benchmark_version: routing-eval-v2
 fixtures:
   - id: ROUTE-T-001
     input: {message: "年収交渉の進め方", track: chuto, stage: "内定・条件交渉"}
@@ -53,10 +57,21 @@ def _write(directory: str, body: str) -> Path:
 
 
 class BenchmarkFreezeTests(unittest.TestCase):
-    def test_fixture_files_match_the_frozen_digests(self) -> None:
-        for name, path in FIXTURE_PATHS.items():
+    def test_every_benchmark_version_matches_its_frozen_digests(self) -> None:
+        recorded = {
+            (version, name) for version, paths in routing_eval.BENCHMARKS.items() for name in paths
+        }
+        self.assertEqual(recorded, set(FROZEN_DIGESTS))
+        for version, paths in routing_eval.BENCHMARKS.items():
+            for name, path in paths.items():
+                with self.subTest(version=version, name=name):
+                    self.assertEqual(digest(path), FROZEN_DIGESTS[(version, name)])
+
+    def test_a_retired_benchmark_still_loads(self) -> None:
+        """v1's recorded results stay reproducible only while v1 parses under its own version."""
+        for name, path in routing_eval.BENCHMARKS["routing-eval-v1"].items():
             with self.subTest(name=name):
-                self.assertEqual(digest(path), FROZEN_DIGESTS[name])
+                self.assertTrue(load_fixtures(path, "routing-eval-v1"))
 
     def test_the_digest_survives_a_windows_checkout(self) -> None:
         # A Windows checkout with core.autocrlf rewrites LF to CRLF on disk. That changes the
@@ -70,8 +85,9 @@ class BenchmarkFreezeTests(unittest.TestCase):
             lf.write_bytes(source)
             crlf.write_bytes(source.replace(b"\n", b"\r\n"))
             self.assertNotEqual(lf.read_bytes(), crlf.read_bytes())
-            self.assertEqual(digest(lf), FROZEN_DIGESTS["dev"])
-            self.assertEqual(digest(crlf), FROZEN_DIGESTS["dev"])
+            expected = FROZEN_DIGESTS[(routing_eval.BENCHMARK_VERSION, "dev")]
+            self.assertEqual(digest(lf), expected)
+            self.assertEqual(digest(crlf), expected)
 
     def test_every_fixture_category_axis_is_represented(self) -> None:
         covered = {
@@ -81,6 +97,18 @@ class BenchmarkFreezeTests(unittest.TestCase):
             for category in fixture.categories
         }
         self.assertEqual(covered, routing_eval.CATEGORIES)
+
+    def test_the_current_benchmark_is_not_dominated_by_one_language(self) -> None:
+        """v1 was 66% Japanese, so a Korean or English regression was largely invisible."""
+        fixtures = [f for path in FIXTURE_PATHS.values() for f in load_fixtures(path)]
+        korean = re.compile(r"[\uac00-\ud7a3]")
+        japanese = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
+        counts = {"ko": 0, "ja": 0, "en": 0}
+        for fixture in fixtures:
+            key = "ko" if korean.search(fixture.message) else "ja" if japanese.search(fixture.message) else "en"
+            counts[key] += 1
+        self.assertGreaterEqual(min(counts.values()), len(fixtures) // 5, counts)
+        self.assertLessEqual(max(counts.values()), len(fixtures) // 2, counts)
 
     def test_both_sets_carry_critical_and_fallback_fixtures(self) -> None:
         for name, path in FIXTURE_PATHS.items():
@@ -97,14 +125,14 @@ class SchemaTests(unittest.TestCase):
 
     def test_malformed_fixtures_are_rejected(self) -> None:
         malformed = (
-            VALID_FIXTURE.replace("benchmark_version: routing-eval-v1", "benchmark_version: v9"),
+            VALID_FIXTURE.replace("benchmark_version: routing-eval-v2", "benchmark_version: v9"),
             VALID_FIXTURE.replace("risk_class: normal", "risk_class: cosmetic"),
             VALID_FIXTURE.replace("category: [direct_intent]", "category: [made_up_axis]"),
             VALID_FIXTURE.replace("category: [direct_intent]", "category: []"),
             VALID_FIXTURE.replace("    risk_class: normal\n", "    surprise_key: true\n"),
             VALID_FIXTURE.replace("expected: {skill", "expected: {made_up"),
             VALID_FIXTURE + VALID_FIXTURE.split("fixtures:")[1],
-            "benchmark_version: routing-eval-v1\nfixtures: []\n",
+            "benchmark_version: routing-eval-v2\nfixtures: []\n",
         )
         with tempfile.TemporaryDirectory() as directory:
             for body in malformed:
