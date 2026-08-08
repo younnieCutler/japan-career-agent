@@ -10,6 +10,50 @@ track:
   shinsotsu: ["新卒", "신졸", "학チカ", "学チカ", "졸업", "graduat", "new grad", "new graduate", "spi3", "学生", "就活", "취활"]
   chuto: ["中途", "중途", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
 
+# First matching entry selects one reference for a chuto message. Keep phrases specific:
+# generic interview, research, and document requests continue to use the stage fallback below.
+message_context:
+  - id: market_salary
+    skill: tenshoku-strategy
+    reference: references/market-positioning-2025-2026.md
+    terms: ["市場年収", "market salary", "salary benchmark", "시장 연봉", "연봉 시세"]
+  - id: written_conditions
+    skill: tenshoku-strategy
+    reference: references/roudou-joken-review.md
+    terms: ["労働条件通知書", "書面の労働条件", "書面のオファー", "書面オファー", "書面と口頭の条件", "written offer", "written conditions", "offer contradiction", "근로조건통지서", "서면 오퍼"]
+  - id: interview_followup
+    skill: tenshoku-strategy
+    reference: references/mensetsu-follow.md
+    terms: ["面接のお礼", "面接後のお礼", "お礼メール", "interview follow-up", "thank-you email", "면접 감사"]
+  - id: resignation_reason
+    skill: tenshoku-strategy
+    reference: references/taishoku-riyu-reframing.md
+    terms: ["退職理由", "転職理由", "reason for leaving", "reason for resignation", "퇴직 사유", "이직 사유"]
+  - id: salary_negotiation
+    skill: tenshoku-strategy
+    reference: references/nenshu-koushou.md
+    terms: ["年収交渉", "給与交渉", "salary negotiation", "negotiate salary", "연봉 협상"]
+  - id: interview_manner
+    skill: tenshoku-strategy
+    reference: references/mensetsu-manner.md
+    terms: ["面接マナー", "面接の入室", "面接の服装", "interview etiquette", "interview attire", "면접 매너"]
+  - id: graceful_resignation
+    skill: tenshoku-strategy
+    reference: references/enman-taishoku.md
+    terms: ["円満退職", "予告期間", "退職届", "退職の引き継ぎ", "notice period", "handover plan", "퇴사 통보 기간", "인수인계"]
+  - id: onboarding
+    skill: tenshoku-strategy
+    reference: references/nyusha-teichaku.md
+    terms: ["入社手続き", "入社書類", "入社準備", "onboarding paperwork", "joining procedures", "입사 절차"]
+  - id: offer_handling
+    skill: tenshoku-strategy
+    reference: references/naitei-taiou.md
+    terms: ["オファー面談", "内定への回答", "内定回答", "内定の回答期限", "内定辞退", "offer deadline", "offer response", "오퍼 답변", "내정 답변"]
+  - id: application_tracking
+    skill: tenshoku-strategy
+    reference: references/senko-tracking.md
+    terms: ["選考状況", "応募状況", "選考管理", "application tracking", "application status", "지원 현황", "전형 현황"]
+
 # Order matters: stage_for() returns on the first alias whose terms match, so earlier groups
 # outrank later ones when a message contains keywords from more than one group.
 stage_alias:

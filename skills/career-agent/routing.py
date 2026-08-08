@@ -26,7 +26,23 @@ def load_routing() -> dict[str, Any]:
     import yaml
 
     data = yaml.safe_load(ROUTING_REFERENCE.read_text(encoding="utf-8")) or {}
-    if not data.get("track") or not data.get("stage_alias") or not data.get("flow_phase"):
+    routes = data.get("message_context")
+    if (
+        not data.get("track")
+        or not data.get("stage_alias")
+        or not data.get("flow_phase")
+        or not isinstance(routes, list)
+        or not routes
+        or any(
+            not isinstance(route, dict)
+            or not isinstance(route.get("skill"), str)
+            or not isinstance(route.get("reference"), str)
+            or not isinstance(route.get("terms"), list)
+            or not route["terms"]
+            or any(not isinstance(term, str) or not term for term in route["terms"])
+            for route in routes
+        )
+    ):
         raise CareerError(f"invalid routing reference: {ROUTING_REFERENCE}")
     return data
 
@@ -164,8 +180,20 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
     return candidates[0]
 
 
-def skill_context(skills_root: Path, stage: str) -> dict[str, Any]:
-    skill_name = SKILL_BY_STAGE.get(stage)
+def skill_context(
+    skills_root: Path,
+    stage: str,
+    message: str | None = None,
+    track: str | None = None,
+) -> dict[str, Any]:
+    route = None
+    if message and track == "chuto":
+        lowered = message.lower()
+        route = next((
+            item for item in ROUTING["message_context"]
+            if any(term_present(term.lower(), lowered) for term in item["terms"])
+        ), None)
+    skill_name = route["skill"] if route else SKILL_BY_STAGE.get(stage)
     if not skill_name:
         return {}
     skill_path = skills_root / skill_name / "SKILL.md"
@@ -176,10 +204,21 @@ def skill_context(skills_root: Path, stage: str) -> dict[str, Any]:
     match = re.search(r"^description:\s*>\s*\n(.*?)(?=^---\s*$)", text, re.M | re.S)
     if match:
         description = " ".join(line.strip() for line in match.group(1).splitlines()).strip()
-    references = [
-        name for name in REFERENCE_BY_STAGE.get(stage, ())
-        if (skill_path.parent / name).exists()
-    ]
+    if route:
+        reference = route["reference"]
+        reference_path = (skill_path.parent / reference).resolve()
+        try:
+            reference_path.relative_to(skill_path.parent.resolve())
+        except ValueError as exc:
+            raise CareerError(f"invalid message context reference: {reference}") from exc
+        if not reference_path.is_file():
+            raise CareerError(f"message context reference not found: {reference_path}")
+        references = [reference]
+    else:
+        references = [
+            name for name in REFERENCE_BY_STAGE.get(stage, ())
+            if (skill_path.parent / name).exists()
+        ]
     return {
         "skill": skill_name,
         "available": True,

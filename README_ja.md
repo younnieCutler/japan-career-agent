@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
-現在のリリース: `1.18.0`。
+現在のリリース: `1.18.1`。
 
 日本での就職・転職に向けた local-first の evidence-based なキャリア意思決定支援です。Claude Code と Codex で使う plugin/skill の集合で、ローカルで動く Career Agent runtime が求職者と採用側の workflow を扱います。
 
@@ -52,9 +52,9 @@ codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 
 リリース準備中は、リポジトリのバージョンが stable marketplace チャンネルより先に進む
 ことがあります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを
-参照し、`main` は追跡しません。そのため、ソースメタデータが `1.17.2` で stable
-marketplace ref が `v1.17.1` になっている状態は意図したものです。リリース workflow が
-`v1.17.2` を公開し、stable メタデータの変更がマージされた後に ref も更新されます。
+参照し、`main` は追跡しません。そのため、ソースメタデータが `1.18.1` で stable
+marketplace ref が `v1.17.2` になっている状態は意図したものです。リリース workflow が
+`v1.18.1` を公開し、stable メタデータの変更がマージされた後に ref も更新されます。
 
 ### ローカル fallback
 
