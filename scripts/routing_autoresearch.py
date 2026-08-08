@@ -48,7 +48,10 @@ COLUMNS = (
     "routing_terms",
     "evaluator_digest",
     "runner_digest",
+    "contract_digest",
     "fixture_digest",
+    "critical_fingerprint",
+    "fallback_fingerprint",
     "status",
     "description",
 )
@@ -56,6 +59,7 @@ COLUMNS = (
 # Gate 2. Kept to seconds: the full matrix runs once, on promotion, not once per candidate.
 FOCUSED_CHECKS = (
     ("routing eval contract", ("scripts/test_routing_eval.py",)),
+    ("routing runner contract", ("scripts/test_routing_autoresearch.py",)),
     ("career-agent routing", ("skills/career-agent/test_routing.py",)),
     ("career-agent onboarding", ("skills/career-agent/test_onboarding.py",)),
     ("career-agent UX contract", ("skills/career-agent/test_ux.py",)),
@@ -68,14 +72,24 @@ DEFAULT_TERM_BUDGET = 12
 
 MUTABLE = tuple(str(path.relative_to(ROOT)) for path in routing_eval.SUBJECT_PATHS)
 
-# The harness itself. Listed explicitly so that before it is committed its files do not read as an
-# unrelated production change, and after it is committed an edit to any of them still fails the
-# digest comparison below. Both directions are covered; neither depends on the other.
+# Every file that decides a verdict. Each one is digested into the results row and compared
+# against the baseline on the next run, so editing any of them makes the candidate INVALID —
+# including this runner, which owns the gate logic itself.
+JUDGING_FILES = {
+    "evaluator_digest": (ROOT / "scripts" / "routing_eval.py",),
+    "runner_digest": (Path(__file__).resolve(),),
+    "contract_digest": (
+        ROOT / "scripts" / "test_routing_eval.py",
+        ROOT / "scripts" / "test_routing_autoresearch.py",
+    ),
+}
+
+# The harness's own paths. Listed so that before it was committed its files did not read as an
+# unrelated production change. The path exemption is not the protection — the digest comparison
+# above is; a candidate that edits any judging file is rejected whether or not its path is here.
 HARNESS_PATHS = frozenset(
     {
-        "scripts/routing_eval.py",
-        "scripts/test_routing_eval.py",
-        "scripts/routing_autoresearch.py",
+        *(str(path.relative_to(ROOT)) for paths in JUDGING_FILES.values() for path in paths),
         *(str(path.relative_to(ROOT)) for path in routing_eval.FIXTURE_PATHS.values()),
         str(RESULTS.relative_to(ROOT)),
     }
@@ -135,10 +149,18 @@ def read_rows() -> list[dict[str, str]]:
         return [row for row in csv.DictReader(handle, delimiter="\t") if row.get("status")]
 
 
+BEST_STATUSES = frozenset({"baseline", "provisional_keep", "keep"})
+
+
 def current_best(rows: list[dict[str, str]]) -> dict[str, str] | None:
-    """The last row that became the thing to beat — a baseline, or a KEEP that replaced it."""
+    """The last row that became the thing to beat — a baseline, or a KEEP that replaced it.
+
+    `provisional_keep` counts: the research loop advances on focused checks alone by design, and
+    requiring the full matrix per candidate is the CI cost PRD §17 separates out. The status keeps
+    the distinction visible in the log.
+    """
     for row in reversed(rows):
-        if row["status"] in {"baseline", "keep"}:
+        if row["status"] in BEST_STATUSES:
             return row
     return None
 
@@ -170,18 +192,38 @@ def run_checks(checks: tuple[tuple[str, tuple[str, ...]], ...]) -> list[str]:
     return failed
 
 
-def harness_digests(result: dict[str, Any]) -> tuple[str, str]:
+def harness_digests(result: dict[str, Any]) -> dict[str, str]:
+    """The identity of every file that decides a verdict, plus the benchmark itself."""
     identity = result["identity"]
-    fixtures = "+".join(identity["fixtures"][name] for name in sorted(identity["fixtures"]))
-    return identity["evaluator"], fixtures
+    digests = {
+        column: "+".join(routing_eval.digest(path) for path in paths)
+        for column, paths in JUDGING_FILES.items()
+    }
+    digests["fixture_digest"] = "+".join(
+        identity["fixtures"][name] for name in sorted(identity["fixtures"])
+    )
+    return digests
 
 
-def enforce_mutation_surface(base: str, result: dict[str, Any], best: dict[str, str]) -> None:
-    """A candidate that edits the evaluator, the benchmark, or unrelated production is invalid.
+def new_failures(candidate: str, best: str) -> list[str]:
+    """Fingerprints present in the candidate and absent from the best.
 
-    This runs before any gate is read on purpose. A candidate that could reach the fixtures is not
-    a worse candidate — it is an unscoreable one, and printing a number for it would be a lie.
+    A count comparison passes a candidate that fixes one critical failure and introduces a
+    different one — the number is unchanged and a new way to break the contract has shipped. The
+    gate has to be a subset test, not an inequality.
     """
+    return sorted(set(candidate.split()) - set(best.split()))
+
+
+_DIGEST_REASONS = {
+    "evaluator_digest": "an evaluator change requires a new benchmark version, not a candidate",
+    "runner_digest": "the runner owns the gate logic; a candidate may not rewrite how it is scored",
+    "contract_digest": "the contract tests pin the frozen benchmark; a candidate may not relax them",
+    "fixture_digest": "cut a new benchmark version instead of editing a frozen one",
+}
+
+
+def enforce_paths(base: str) -> None:
     illegal = [
         path for path in changed_paths(base) if path not in MUTABLE and path not in HARNESS_PATHS
     ]
@@ -191,17 +233,32 @@ def enforce_mutation_surface(base: str, result: dict[str, Any], best: dict[str, 
             + "\n  ".join(illegal)
             + f"\nallowed: {', '.join(MUTABLE)}"
         )
-    evaluator, fixtures = harness_digests(result)
-    if best.get("evaluator_digest") and evaluator != best["evaluator_digest"]:
-        raise ExperimentError(
-            f"evaluator changed since the baseline ({best['evaluator_digest']} -> {evaluator}); "
-            "an evaluator change requires a new benchmark version, not a candidate"
-        )
-    if best.get("fixture_digest") and fixtures != best["fixture_digest"]:
-        raise ExperimentError(
-            f"benchmark fixtures changed since the baseline ({best['fixture_digest']} -> {fixtures}); "
-            "cut a new benchmark version instead of editing a frozen one"
-        )
+
+
+def enforce_judging_files(result: dict[str, Any], best: dict[str, str]) -> None:
+    """Every file that decides a verdict must be byte-for-byte what the baseline was scored with.
+
+    The path check above cannot carry this on its own: the harness's own files are exempt there so
+    that they did not read as an unrelated production change before they were committed. This is
+    what actually stops a candidate from rewriting the gate logic that judges it.
+    """
+    for column, value in harness_digests(result).items():
+        recorded = best.get(column)
+        if recorded and value != recorded:
+            raise ExperimentError(
+                f"{column} changed since the baseline ({recorded} -> {value}); {_DIGEST_REASONS[column]}"
+            )
+
+
+def enforce_mutation_surface(base: str, result: dict[str, Any], best: dict[str, str]) -> None:
+    """A candidate that edits a judging file, the benchmark, or unrelated production is invalid.
+
+    This runs before any gate is read on purpose. A candidate that could reach the fixtures — or
+    the gate logic in this file — is not a worse candidate, it is an unscoreable one, and printing
+    a number for it would be a lie.
+    """
+    enforce_paths(base)
+    enforce_judging_files(result, best)
 
 
 def _print_identity(result: dict[str, Any], commit: str, dirty: bool) -> None:
@@ -239,7 +296,6 @@ def main() -> int:
     if arguments.baseline or best is None:
         result = routing_eval.report()
         holdout = result["holdout"]
-        evaluator_digest, fixture_digest = harness_digests(result)
         _print_identity(result, commit, dirty)
         append_row(
             {
@@ -256,9 +312,9 @@ def main() -> int:
                 "fallback_failures": holdout["fallback_failures"],
                 "changed_loc": 0,
                 "routing_terms": result["routing_terms"],
-                "evaluator_digest": evaluator_digest,
-                "runner_digest": routing_eval.digest(Path(__file__)),
-                "fixture_digest": fixture_digest,
+                **harness_digests(result),
+                "critical_fingerprint": result["critical_fingerprint"],
+                "fallback_fingerprint": result["fallback_fingerprint"],
                 "status": "baseline",
                 "description": arguments.description or "baseline",
             }
@@ -292,16 +348,18 @@ def main() -> int:
 
     reasons: list[str] = []
     regression_failures = 0
+    new_critical = new_failures(result["critical_fingerprint"], best.get("critical_fingerprint", ""))
+    new_fallback = new_failures(result["fallback_fingerprint"], best.get("fallback_fingerprint", ""))
     # Gate 0 is absolute: no candidate may invent an intent or move the stage, and the baseline
-    # does neither. Gate 1 is monotone against the current best instead — the benchmark starts
-    # with known critical failures, and demanding all of them disappear in one candidate would
-    # force exactly the multi-hypothesis change Gate 5 exists to prevent. Zero is still required
-    # Zero remains the target the benchmark is designed around, not a promotion precondition:
-    # blocking an unrelated improvement on pre-existing failures is the same deadlock.
+    # does neither. Gate 1 is a subset test against the current best rather than absolute zero —
+    # the benchmark starts with known critical failures, and demanding all of them disappear in
+    # one candidate would force exactly the multi-hypothesis change Gate 5 exists to prevent.
+    # Subset, not count: a candidate that trades one critical failure for a different one leaves
+    # the number unchanged while shipping a new way to break the contract.
     if philosophy:
         reasons.append(f"gate 0: {philosophy} decision-philosophy failures")
-    elif critical > int(best["critical_failures"]):
-        reasons.append(f"gate 1: critical failures {critical} > best {best['critical_failures']}")
+    elif new_critical:
+        reasons.append(f"gate 1: {len(new_critical)} critical failure(s) the best candidate did not have")
     elif result["gaming_failures"]:
         reasons.append(f"gate 1: {result['gaming_failures']} anti-gaming failures")
         for problem in result["gaming_detail"]:
@@ -316,9 +374,9 @@ def main() -> int:
             reasons.append(
                 f"gate 3: holdout {holdout['correct']} does not beat best {best['heldout_correct']}"
             )
-        elif holdout["fallback_failures"] > int(best["fallback_failures"]):
+        elif new_fallback:
             reasons.append(
-                f"gate 4: fallback failures {holdout['fallback_failures']} > {best['fallback_failures']}"
+                f"gate 4: {len(new_fallback)} fallback failure(s) the best candidate did not have"
             )
         elif loc > arguments.loc_budget:
             reasons.append(f"gate 5: changed LOC {loc} > budget {arguments.loc_budget}")
@@ -327,12 +385,18 @@ def main() -> int:
                 f"gate 5: +{terms - int(best['routing_terms'])} routing terms > budget {arguments.term_budget}"
             )
 
-    status = "discard" if reasons else "keep"
-    if status == "keep" and arguments.promote:
+    # Only a candidate that has cleared Gate 6 is a `keep`. Without --promote it becomes the next
+    # thing to beat — that is the point of separating the fast loop from the full matrix (PRD §17)
+    # — but it is recorded as `provisional_keep` so nothing downstream mistakes an unverified
+    # candidate for a promotable one.
+    status = "discard" if reasons else "provisional_keep"
+    if status == "provisional_keep" and arguments.promote:
         print("canonical checks:")
         if run_checks((("run_all_checks", ("scripts/run_all_checks.py",)),)):
             status = "discard"
             reasons.append("gate 6: canonical repository checks failed")
+        else:
+            status = "keep"
 
     append_row(
         {
@@ -349,16 +413,18 @@ def main() -> int:
             "fallback_failures": holdout["fallback_failures"],
             "changed_loc": loc,
             "routing_terms": terms,
-            "evaluator_digest": harness_digests(result)[0],
-            "runner_digest": routing_eval.digest(Path(__file__)),
-            "fixture_digest": harness_digests(result)[1],
+            **harness_digests(result),
+            "critical_fingerprint": result["critical_fingerprint"],
+            "fallback_fingerprint": result["fallback_fingerprint"],
             "status": status,
             "description": arguments.description,
         }
     )
 
-    if status == "keep":
-        print(f"KEEP  {best['heldout_correct']} -> {holdout['correct']} held-out correct")
+    if status in {"keep", "provisional_keep"}:
+        print(f"{status.upper()}  {best['heldout_correct']} -> {holdout['correct']} held-out correct")
+        if status == "provisional_keep":
+            print("  gate 6 not run — re-run with --promote before treating this as promotable")
         return 0
 
     print("DISCARD  " + "; ".join(reasons))

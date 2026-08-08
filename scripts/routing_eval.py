@@ -311,11 +311,25 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:16]
 
 
+def fingerprint(fixture_id: str) -> str:
+    """A stable, non-reversing handle for one failing fixture.
+
+    The runner has to answer "is this a failure the best candidate already had, or a new one?",
+    which a count cannot answer: trading one critical failure for a different one leaves the count
+    unchanged. It needs failure identity — but printing holdout fixture ids into a log the research
+    agent reads would hand back exactly the per-fixture holdout detail `report()` withholds. A
+    hashed id supports the set comparison and carries nothing back.
+    """
+    return hashlib.sha256(fixture_id.encode("utf-8")).hexdigest()[:8]
+
+
 def report(*, reveal: bool = False) -> dict[str, Any]:
     """The full deterministic benchmark result for the current working tree."""
     routing = _import_subject()
     sets: dict[str, Any] = {}
     all_fixtures: list[Fixture] = []
+    critical_ids: list[str] = []
+    fallback_ids: list[str] = []
     for name, path in FIXTURE_PATHS.items():
         fixtures = load_fixtures(path)
         all_fixtures.extend(fixtures)
@@ -323,6 +337,14 @@ def report(*, reveal: bool = False) -> dict[str, Any]:
         critical = sum(any(item.critical for item in failures) for failures in results.values())
         fallback = sum(
             bool(results[fixture.fixture_id]) for fixture in fixtures if fixture.risk_class == "fallback"
+        )
+        critical_ids.extend(
+            fixture_id for fixture_id, failures in results.items() if any(item.critical for item in failures)
+        )
+        fallback_ids.extend(
+            fixture.fixture_id
+            for fixture in fixtures
+            if fixture.risk_class == "fallback" and results[fixture.fixture_id]
         )
         summary: dict[str, Any] = {
             "total": len(fixtures),
@@ -350,6 +372,9 @@ def report(*, reveal: bool = False) -> dict[str, Any]:
         "gaming_failures": len(gaming),
         "gaming_detail": list(gaming),
         "routing_terms": routing_term_count(),
+        # Failure identity across both sets, for the runner's subset gates.
+        "critical_fingerprint": " ".join(sorted(fingerprint(item) for item in critical_ids)),
+        "fallback_fingerprint": " ".join(sorted(fingerprint(item) for item in fallback_ids)),
         "identity": {
             "python": platform.python_version(),
             "os": platform.system(),
