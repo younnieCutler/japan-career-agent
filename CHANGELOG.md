@@ -19,6 +19,12 @@
 - Show onboarding progress and an `Unknown` target role in guided output instead of reporting
   onboarding as a setup failure.
 
+## [1.17.3] - 2026-08-08
+
+- Skip `.worktrees` (gitignored `git worktree add` checkouts) in `scripts/check_policy.py`. A local
+  worktree of another branch carries its own copy of the two files this repo already allowlists for
+  historical content, and the scanner was failing on those copies.
+
 ## [1.17.2] - 2026-08-06
 
 - Make the stable Codex marketplace channel resolve to the immutable `v1.17.1` tag.
