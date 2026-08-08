@@ -70,7 +70,11 @@ FOCUSED_CHECKS = (
 DEFAULT_LOC_BUDGET = 25
 DEFAULT_TERM_BUDGET = 12
 
-MUTABLE = tuple(str(path.relative_to(ROOT)) for path in routing_eval.SUBJECT_PATHS)
+# POSIX separators, always. These are compared against `git diff --name-only`, which emits forward
+# slashes on every platform. Using the native separator made every Windows candidate INVALID: a
+# legitimately edited `skills/career-agent/references/routing.yml` did not match the backslashed
+# entry, so the path check read it as an unrelated production change.
+MUTABLE = tuple(path.relative_to(ROOT).as_posix() for path in routing_eval.SUBJECT_PATHS)
 
 # Every file that decides a verdict. Each one is digested into the results row and compared
 # against the baseline on the next run, so editing any of them makes the candidate INVALID —
@@ -89,9 +93,9 @@ JUDGING_FILES = {
 # above is; a candidate that edits any judging file is rejected whether or not its path is here.
 HARNESS_PATHS = frozenset(
     {
-        *(str(path.relative_to(ROOT)) for paths in JUDGING_FILES.values() for path in paths),
-        *(str(path.relative_to(ROOT)) for path in routing_eval.FIXTURE_PATHS.values()),
-        str(RESULTS.relative_to(ROOT)),
+        *(path.relative_to(ROOT).as_posix() for paths in JUDGING_FILES.values() for path in paths),
+        *(path.relative_to(ROOT).as_posix() for path in routing_eval.FIXTURE_PATHS.values()),
+        RESULTS.relative_to(ROOT).as_posix(),
     }
 )
 
@@ -280,7 +284,8 @@ def enforce_judging_files(result: dict[str, Any], best: dict[str, str]) -> None:
         recorded = best.get(column)
         if recorded and value != recorded:
             raise ExperimentError(
-                f"{column} changed since the baseline ({recorded} -> {value}); {_DIGEST_REASONS[column]}"
+                f"{column} changed since the baseline ({recorded} -> {value}); {_DIGEST_REASONS[column]}. "
+                "If you are the operator and changed this deliberately, re-run with --baseline first."
             )
 
 

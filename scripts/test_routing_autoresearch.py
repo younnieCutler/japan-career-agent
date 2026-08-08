@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sys
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -50,6 +50,28 @@ class FingerprintTests(unittest.TestCase):
     def test_fingerprints_are_stable_and_distinct(self) -> None:
         self.assertEqual(routing_eval.fingerprint("ROUTE-X-001"), routing_eval.fingerprint("ROUTE-X-001"))
         self.assertNotEqual(routing_eval.fingerprint("ROUTE-X-001"), routing_eval.fingerprint("ROUTE-X-002"))
+
+
+class PathComparisonTests(unittest.TestCase):
+    """Path sets are compared against git output, which is POSIX on every platform.
+
+    Using the native separator here is invisible on macOS and Linux and breaks Windows completely:
+    a legitimately edited routing.yml stops matching its own entry, so the path check reads it as
+    an unrelated production change and every candidate comes back INVALID.
+    """
+
+    def test_no_path_set_uses_a_native_separator(self) -> None:
+        for name, paths in (("MUTABLE", runner.MUTABLE), ("HARNESS_PATHS", runner.HARNESS_PATHS)):
+            for path in paths:
+                with self.subTest(name=name, path=path):
+                    self.assertNotIn("\\", path)
+                    self.assertEqual(path, PurePosixPath(path).as_posix())
+
+    def test_the_mutation_surface_matches_what_git_would_report(self) -> None:
+        tracked = set(runner.git("ls-files").splitlines())
+        for path in runner.MUTABLE:
+            with self.subTest(path=path):
+                self.assertIn(path, tracked)
 
 
 class JudgingFileTests(unittest.TestCase):
@@ -121,9 +143,10 @@ class ProgramTests(unittest.TestCase):
         for path in runner.MUTABLE:
             with self.subTest(path=path):
                 self.assertIn(path, self.text)
+        self.assertIn("routing-autoresearch-results.tsv", runner.RESULTS.name)
         for group in runner.JUDGING_FILES.values():
             for path in group:
-                relative = str(path.relative_to(runner.ROOT))
+                relative = path.relative_to(runner.ROOT).as_posix()
                 with self.subTest(path=relative):
                     self.assertNotIn(f"edit {relative}", self.text)
 
