@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
 sys.path.insert(0, str(SCRIPT.parent))
-from guided import build_summary, derive_actions, resolve_choice  # noqa: E402
+from guided import build_summary, derive_actions, render_human, resolve_choice  # noqa: E402
 
 
 def run(vault: Path, *args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -207,6 +207,45 @@ class GuidedFrontendTests(unittest.TestCase):
                     self.assertFalse(guided["state_changed"])
                     self.assertFalse(guided.get("write_performed", False))
                     self.assertEqual(guided["ux"]["reason"]["code"], reason_code)
+
+
+class OnboardingDisplayTests(unittest.TestCase):
+    def summary(self, **profile: object) -> dict:
+        return build_summary(
+            initialized=True,
+            vault="/tmp/vault",
+            profile={"track": "chuto", **profile},
+            state={},
+            workspace={"path": "/tmp/work", "exists": True},
+        )
+
+    def test_onboarding_is_reported_separately_from_setup(self) -> None:
+        onboarding = self.summary(career_status="onboarding")
+        self.assertTrue(onboarding["onboarding"])
+        # Onboarding is normal use, not a broken install: setup stays complete and unblocked.
+        self.assertTrue(onboarding["setup_complete"])
+        self.assertNotIn("setup", onboarding["major_blockers"])
+        self.assertFalse(self.summary(career_status="active")["onboarding"])
+
+    def test_human_output_shows_onboarding_and_an_unknown_target_role(self) -> None:
+        result = {
+            "guided": {
+                "state": "ready",
+                "summary": self.summary(career_status="onboarding"),
+                "available_actions": [],
+            },
+            "ux": {"language": "en"},
+        }
+        human = render_human(result)
+        self.assertIn("Onboarding: in progress", human)
+        self.assertIn("Target role: not confirmed yet (Unknown)", human)
+
+        confirmed = dict(result)
+        confirmed["guided"] = dict(result["guided"])
+        confirmed["guided"]["summary"] = self.summary(career_status="active", target_role="Data Engineer")
+        done = render_human(confirmed)
+        self.assertIn("Onboarding: complete", done)
+        self.assertIn("Target role: Data Engineer", done)
 
 
 if __name__ == "__main__":

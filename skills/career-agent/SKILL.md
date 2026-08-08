@@ -97,7 +97,8 @@ company's `stage` where it moved it. Use it to recover a damaged state file, not
 `correct` actively reacts to `verify` at three points: an `approve` failure is logged (not silently
 dropped) and escalated to the user; `discover` drops individually-corrupted postings and keeps the rest
 of the batch instead of one bad item aborting everything (a fully-corrupted batch still safe-stops); and
-a `chat` safe-stop (ambiguous track, missing shinsotsu graduation year) flags itself once it repeats 3+
+a `chat` safe-stop (ambiguous track, missing shinsotsu graduation year, unresolved onboarding intent)
+flags itself once it repeats 3+
 times in a row, instead of asking the identical question forever.
 Other trajectory sites (`heartbeat`, `index`) still record `correct` as inert bookkeeping — no active
 recovery happens there.
@@ -189,6 +190,30 @@ The runtime uses the request language for response metadata (`ko`, `ja`, or `en`
 career terms in the source text, and pauses when track intent is not explicit rather than inventing
 facts. External search, login, CAPTCHA, application submission, email, and messaging are outside
 this first local adapter.
+
+## Progressive onboarding
+
+A new Vault starts at `career_status = "onboarding"`, and `chat` then confirms three things before
+it routes: the track, the graduation year when the track is `shinsotsu`, and the task the user
+actually wants to start. Each unresolved one is a safe-stop question, never a guess. A message that
+states a graduation year (`27卒`) has that year read back inside the question together with the
+`setup --graduation-year <YYYY>` command; the runtime does not write it, because the user's wording
+is not their approval. `target_role` is never an onboarding blocker and stays `Unknown` until the
+user supplies it.
+
+Once a turn reaches a real stage, `career_status` becomes `active`. That is a lifecycle statement
+that the user chose a valid workflow, not a claim that anything was verified: the proposal the turn
+created is still a `draft`, and the status stays `active` whether or not that proposal is ever
+approved. Approval still governs every career fact.
+
+Existing Vaults are unaffected. Their profile already records `active` or `confirmed`, so they keep
+the previous routing behaviour and are never asked to onboard again, and a Vault with an existing
+stage keeps its workflow even if the status is set back to `onboarding` by hand.
+
+This priority is scoped to the Vault's own `career-state.toml`. `run --mode chat` takes no
+`--workspace` and never reads `data/pipeline.yml`, so an active pipeline company has no effect on
+what a chat turn does — that priority is a session-start concern, handled before career-agent chat
+is ever invoked (see `_shared/agent_context/onboarding.md`'s CWD probe), not inside this CLI.
 
 `references/japan-career-flow.toml` separates work stages from time-based flow phases. Its dates and
 official sources are reviewed manually each year; raw YouTube subtitles and personal answer examples

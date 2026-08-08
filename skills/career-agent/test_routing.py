@@ -61,5 +61,73 @@ class EnglishRoutingTests(unittest.TestCase):
                 self.assertEqual(career_agent.flow_phase_for(message, "chuto", {}, {}, reference), expected)
 
 
+class OnboardingSignalTests(unittest.TestCase):
+    def test_graduation_signal_reads_only_a_stated_year(self) -> None:
+        for message, expected in (
+            ("27卒で就活を始めたい", 2027),
+            ("2027卒です", 2027),
+            ("2027年卒", 2027),
+            ("2027년 졸업 예정", 2027),
+            ("class of 2027", 2027),
+            # A year is a claim about the future; someone who already graduated has not made it.
+            ("既卒です", None),
+            ("第二新卒で転職したい", None),
+            ("1999卒", None),
+            ("売上を30%改善した", None),
+        ):
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.graduation_signal(message), expected)
+
+    def test_stated_graduation_year_implies_the_shinsotsu_track(self) -> None:
+        self.assertEqual(career_agent.infer_track("27卒です"), "shinsotsu")
+        self.assertEqual(career_agent.infer_track("就活を始めたい"), "shinsotsu")
+        self.assertIsNone(career_agent.infer_track("売上を30%改善した"))
+
+    def test_second_new_graduate_is_a_mid_career_hire(self) -> None:
+        # 第二新卒 contains 新卒 as a substring but describes someone already working.
+        for message in ("第二新卒で転職したい", "第二新卒です", "第2新卒"):
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.infer_track(message), "chuto")
+        self.assertEqual(career_agent.stage_for("第二新卒で職務経歴書を作りたい", "chuto"), "職務経歴書・自己PR")
+        # The plain term must keep working.
+        self.assertEqual(career_agent.infer_track("新卒で就活を始めたい"), "shinsotsu")
+
+    def test_explicit_stage_alias_ignores_track_only_signals(self) -> None:
+        # "I am job hunting mid-career" says which track, not which task.
+        self.assertIsNone(career_agent.explicit_stage_alias("일본에서 이직 준비를 시작하고 싶어"))
+        self.assertIsNone(career_agent.explicit_stage_alias("売上を30%改善した"))
+        self.assertEqual(career_agent.explicit_stage_alias("職務経歴書を整理したい"), "documents")
+        self.assertEqual(career_agent.explicit_stage_alias("무슨 직무를 해야 할지 모르겠어"), "self")
+        # A specific task outranks the fall-through direction group.
+        self.assertEqual(career_agent.explicit_stage_alias("면접 준비를 어떻게 할지 모르겠어"), "interview")
+
+    def test_applying_and_reviewing_a_posting_are_separate_stages(self) -> None:
+        self.assertEqual(career_agent.stage_for("この求人に応募できるか見たい", "chuto"), "応募・書類選考")
+        self.assertEqual(career_agent.stage_for("このJDと私の経験を比較したい", "chuto"), "職務経歴書・自己PR")
+        self.assertEqual(career_agent.stage_for("이 공고에 지원하고 싶어", "shinsotsu"), "ES・履歴書")
+
+    def test_a_more_specific_task_named_alongside_apply_wins(self) -> None:
+        # "応募" alone is the application workflow, but a message that names interview, research,
+        # offer, or exit work alongside it is asking about that more specific task, not a bare
+        # application. apply must lose to every one of those, and only win against a bare JD.
+        cases = (
+            ("応募面接", "interview"),
+            ("지원 면접 준비", "interview"),
+            ("application interview", "interview"),
+            ("応募して企業研究もしたい", "research"),
+            ("応募と内定条件", "offer"),
+            ("応募して退職準備をしたい", "exit"),
+            ("この求人に応募できるか見たい", "apply"),
+        )
+        for message, expected in cases:
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.explicit_stage_alias(message), expected)
+
+    def test_short_ascii_terms_still_need_an_ascii_boundary(self) -> None:
+        self.assertTrue(career_agent.term_present("jd", "このjdと私の経験"))
+        self.assertFalse(career_agent.term_present("jd", "jda platform"))
+        self.assertFalse(career_agent.term_present("es", "research"))
+
+
 if __name__ == "__main__":
     unittest.main()

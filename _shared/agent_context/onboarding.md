@@ -22,3 +22,24 @@ If both candidate profile and company profiles are missing, ask where the user i
 
 When unsure, recommend direction first and documents second. If a candidate profile exists, tell
 the user which file was loaded, ask whether it is current, and route from the user's stated stage.
+
+## Career Agent Vault side
+
+When `CAREER_VAULT` is set, the Vault runs the same routing as a progressive sequence instead of a
+questionnaire. A new Vault starts at `career_status = "onboarding"`, and `chat` confirms only:
+
+1. track (`shinsotsu` or `chuto`) when the message does not state it,
+2. `graduation_year` when the track is `shinsotsu`,
+3. the task the user wants to start, when the message names none.
+
+Each missing one is a question, never an inferred value. A stated `27卒` is read back for the user
+to confirm with `setup --graduation-year 2027`; it is not written for them. `target_role` is not a
+blocker and stays `Unknown`. Reaching a real stage moves `career_status` to `active`, which records
+that a workflow was chosen and not that anything was verified. An existing Vault that already has a
+`stage` keeps its workflow and is never re-onboarded, even if `career_status` is set back to
+`onboarding` by hand.
+
+The active-pipeline priority above is a separate layer: it is decided by the CWD probe before
+`CAREER_VAULT` chat is ever invoked, not by the Vault runtime. `career_agent.py run --mode chat`
+takes no `--workspace` and never reads `data/pipeline.yml`, so a pipeline sitting on disk has no
+effect on what a chat turn does by itself.

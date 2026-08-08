@@ -58,12 +58,15 @@ from routing import (  # noqa: E402
     ROUTING,
     ROUTING_REFERENCE,
     _WORD_BOUNDARY_TERMS,
+    explicit_stage_alias,
     flow_phase_for,
     flow_phase_ids,
+    graduation_signal,
     infer_track,
     language_for,
     load_flow_reference,
     load_routing,
+    matched_stage_alias,
     skill_context,
     stage_for,
     term_present,
@@ -184,11 +187,14 @@ _ROUTING_COMPATIBILITY_EXPORTS = (
     ROUTING,
     ROUTING_REFERENCE,
     _WORD_BOUNDARY_TERMS,
+    explicit_stage_alias,
     flow_phase_for,
     flow_phase_ids,
+    graduation_signal,
     infer_track,
     language_for,
     load_routing,
+    matched_stage_alias,
     skill_context,
     stage_for,
     term_present,
@@ -389,6 +395,26 @@ def setup(
         "needs_input": needs_input,
         "next": next_command,
     }
+
+
+def complete_onboarding(home: CareerVault, result: Mapping[str, Any]) -> None:
+    """Move `career_status` from `onboarding` to `active` once a turn reached a real domain task.
+
+    `active` is a lifecycle statement ("the user picked a valid workflow"), not a claim that
+    anything was verified: the proposal it came from is still a `draft` awaiting approval, and it
+    stays `active` whether or not that approval ever happens. Approval governs career facts; this
+    governs which questions the runtime still needs to ask.
+
+    Nothing else in the profile is touched, and re-running it is a no-op, so a failure here costs a
+    repeated onboarding question at worst and never a lost fact.
+    """
+    if not result.get("onboarding_completed"):
+        return
+    profile = home.load_profile()
+    if str(profile.get("career_status") or "") != "onboarding":
+        return
+    profile["career_status"] = "active"
+    write_toml(home.profile, profile)
 
 
 def decode_utf8(payload: bytes, *, source: str) -> str:
@@ -1002,6 +1028,7 @@ def run_guided(
                 track,
                 as_of,
             )
+            complete_onboarding(home, action_result)
         elif resolved == "restore_state":
             selected_version = version
             if not selected_version:
@@ -1511,6 +1538,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                 if not message:
                     raise CareerError("chat requires --message or stdin")
                 result = run_chat(home, skills_root, message, args.track, args.as_of)
+                complete_onboarding(home, result)
             elif args.mode == "heartbeat":
                 result = run_heartbeat(home)
             else:

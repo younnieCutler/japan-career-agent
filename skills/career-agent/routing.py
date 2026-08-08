@@ -37,12 +37,41 @@ ROUTING = load_routing()
 # (e.g. "es" — meant to catch the ES/entry-sheet abbreviation — also matches inside "research",
 # "yes", "best"). Everything else, including intentional stems like "graduat", still matches as a
 # substring.
-_WORD_BOUNDARY_TERMS = {"es"}
+_WORD_BOUNDARY_TERMS = {"es", "jd"}
+
+# Alias groups that only say which track the user is on. They are a legitimate stage fallback, but
+# they are not a statement about what the user wants to do next, so onboarding must not read them
+# as a resolved intent.
+_TRACK_ONLY_ALIASES = {"chuto", "shinsotsu"}
+
+# "27卒" / "2027卒" / "2027年卒" / "class of 2027". The lookbehinds keep 既卒 and 第二新卒 out: those
+# describe someone who already graduated, and reading a graduation year out of them would invent a
+# fact the message never stated.
+_GRADUATION_PATTERNS = (
+    re.compile(r"(?<!第二新)(?<!既)(?<!\d)(\d{2}|\d{4})\s*年?卒"),
+    re.compile(r"(\d{4})\s*(?:년\s*졸업|년도\s*졸업)"),
+    re.compile(r"class of\s*(\d{4})", re.I),
+    re.compile(r"(\d{4})\s*graduat", re.I),
+)
+
+
+# 第二新卒 is a 中途 hire, not a new graduate, but it contains 新卒 as a substring and every keyword
+# lookup here is substring matching. Rewriting it to 中途 before any lookup keeps the lexicon honest
+# without adding a negative-term mechanism that every future group would have to know about.
+_SECOND_NEW_GRADUATE = re.compile(r"第\s*[二2]\s*新卒")
+
+
+def normalized_message(message: str) -> str:
+    """Lowercased message with expressions that read as their own opposite rewritten."""
+    return _SECOND_NEW_GRADUATE.sub("中途", message.lower())
 
 
 def term_present(term: str, lowered: str) -> bool:
     if term in _WORD_BOUNDARY_TERMS:
-        return re.search(rf"\b{re.escape(term)}\b", lowered) is not None
+        # The boundary is ASCII letters/digits, not `\b`. `\b` treats CJK as word characters, so
+        # "このJDと" would count as one word and the term would never match inside a Japanese or
+        # Korean sentence, which is exactly where these abbreviations show up.
+        return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", lowered) is not None
     return term in lowered
 
 
@@ -55,23 +84,66 @@ def language_for(message: str) -> str:
     return "en"
 
 
+def graduation_signal(message: str) -> int | None:
+    """The graduation year a message states outright, or None.
+
+    This is a reading of what the user wrote, never a stored fact: the caller may only put it in a
+    question for the user to confirm. A year outside 2000-2099 is treated as no signal rather than
+    guessed at.
+    """
+    for pattern in _GRADUATION_PATTERNS:
+        match = pattern.search(message)
+        if not match:
+            continue
+        digits = match.group(1)
+        year = 2000 + int(digits) if len(digits) == 2 else int(digits)
+        if 2000 <= year <= 2099:
+            return year
+    return None
+
+
 def infer_track(message: str, requested: str | None = None) -> str | None:
     if requested in TRACKS:
         return requested
-    lowered = message.lower()
+    lowered = normalized_message(message)
     if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["shinsotsu"]):
         return "shinsotsu"
     if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["chuto"]):
         return "chuto"
+    # "27卒" states a graduation year and nothing else, but only a new graduate describes
+    # themselves that way. The lexicon cannot carry it: a bare "卒" substring would swallow
+    # 既卒 and 第二新卒 too.
+    if graduation_signal(message) is not None:
+        return "shinsotsu"
     return None
 
 
-def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
-    lowered = message.lower()
+def matched_stage_alias(message: str, *, skip_track_aliases: bool = False) -> str | None:
+    """The first stage alias whose terms appear in the message, in reference order."""
+    lowered = normalized_message(message)
     for group in ROUTING["stage_alias"]:
-        alias = group["alias"]
-        if not any(term_present(term.lower(), lowered) for term in group["terms"]):
+        alias = str(group["alias"])
+        if skip_track_aliases and alias in _TRACK_ONLY_ALIASES:
             continue
+        if any(term_present(term.lower(), lowered) for term in group["terms"]):
+            return alias
+    return None
+
+
+def explicit_stage_alias(message: str) -> str | None:
+    """The intent this message states outright, or None when it states none.
+
+    `stage_for()` always returns a stage, falling back to the current or first stage, so it cannot
+    answer "did the user actually say what they want?". Onboarding needs that question answered
+    before it decides whether to route or ask. Track aliases are excluded: "이직 준비 중" resolves
+    the track and says nothing about the next task.
+    """
+    return matched_stage_alias(message, skip_track_aliases=True)
+
+
+def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
+    alias = matched_stage_alias(message)
+    if alias is not None:
         if alias == "chuto":
             track = "chuto"
         if alias == "shinsotsu":
@@ -81,6 +153,7 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
             "self": candidates[0],
             "documents": candidates[1],
             "research": candidates[2],
+            "apply": candidates[3],
             "interview": candidates[4 if track == "chuto" else 5],
             "offer": candidates[5 if track == "chuto" else 6],
             "exit": candidates[6],

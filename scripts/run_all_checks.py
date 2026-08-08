@@ -50,6 +50,7 @@ CHECKS = (
     ("career-agent fact promotion", (PYTHON, "skills/career-agent/test_fact_promotion.py")),
     ("career-agent durability", (PYTHON, "skills/career-agent/test_state_durability.py")),
     ("career-agent routing", (PYTHON, "skills/career-agent/test_routing.py")),
+    ("career-agent onboarding", (PYTHON, "skills/career-agent/test_onboarding.py")),
     ("matching v3", (PYTHON, "_shared/test_matching_v3.py")),
     ("legacy self-test", (PYTHON, "_shared/legacy_experimental.py", "--self-test")),
     ("legacy calibration", (PYTHON, "scripts/legacy_calibrate.py", "--legacy-experimental")),
