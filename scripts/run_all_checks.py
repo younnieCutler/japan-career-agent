@@ -24,6 +24,8 @@ CHECKS = (
     ("manifest consistency", (PYTHON, "scripts/check_manifest_consistency.py")),
     ("README consistency", (PYTHON, "scripts/check_readme_consistency.py")),
     ("release consistency", (PYTHON, "scripts/check_release_consistency.py")),
+    ("schema contract", (PYTHON, "scripts/check_schema_contract.py")),
+    ("schema contract tests", (PYTHON, "scripts/test_schema_contract.py")),
     ("dependency lock", (PYTHON, "scripts/check_dependency_lock.py")),
     ("dependency lock tests", (PYTHON, "scripts/test_dependency_lock.py")),
     ("SBOM", (PYTHON, "scripts/build_sbom.py", "--check")),

@@ -6,7 +6,96 @@ The dictionaries remain the serialized on-disk contract used by the existing Car
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any, TypedDict
+
+
+class ProposalKind(StrEnum):
+    EVENT = "event"
+    CAREER_CONTEXT = "career_context"
+    HEARTBEAT = "heartbeat"
+    POSTING_CANDIDATES = "posting_candidates"
+
+
+class ProposalStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class UXState(StrEnum):
+    READY = "ready"
+    NEEDS_CONFIRMATION = "needs_confirmation"
+    REVIEW = "review"
+    BLOCKED = "blocked"
+    COMPLETED = "completed"
+
+
+class DecisionStatus(StrEnum):
+    PROCEED = "proceed"
+    REVIEW = "review"
+    CONFLICT = "conflict"
+
+
+class ApprovalStage(StrEnum):
+    PREPARED = "prepared"
+    LEDGER_WRITTEN = "ledger_written"
+    STATE_WRITTEN = "state_written"
+    PROJECTION_WRITTEN = "projection_written"
+    COMMITTED = "committed"
+
+
+@dataclass(frozen=True)
+class ApprovalTransactionRecord:
+    """Typed in-memory boundary for the single-slot approval journal."""
+
+    transaction_id: str
+    proposal_id: str
+    proposal_kind: str
+    event: dict[str, Any]
+    event_fingerprint: str
+    workspace: str | None
+    created_at: str
+    stage: ApprovalStage
+    state_version: str | None = None
+    pipeline: str | None = None
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "ApprovalTransactionRecord":
+        try:
+            return cls(
+                transaction_id=str(value["transaction_id"]),
+                proposal_id=str(value["proposal_id"]),
+                proposal_kind=str(value.get("proposal_kind") or "event"),
+                event=dict(value["event"]),
+                event_fingerprint=str(value["event_fingerprint"]),
+                workspace=str(value["workspace"]) if value.get("workspace") else None,
+                created_at=str(value["created_at"]),
+                stage=ApprovalStage(str(value["stage"])),
+                state_version=str(value["state_version"]) if value.get("state_version") else None,
+                pipeline=str(value["pipeline"]) if value.get("pipeline") else None,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("invalid approval transaction record") from exc
+
+    def to_dict(self) -> dict[str, Any]:
+        value: dict[str, Any] = {
+            "version": 1,
+            "transaction_id": self.transaction_id,
+            "proposal_id": self.proposal_id,
+            "proposal_kind": self.proposal_kind,
+            "event": self.event,
+            "event_fingerprint": self.event_fingerprint,
+            "workspace": self.workspace,
+            "created_at": self.created_at,
+            "stage": self.stage.value,
+        }
+        if self.state_version:
+            value["state_version"] = self.state_version
+        if self.pipeline:
+            value["pipeline"] = self.pipeline
+        return value
 
 
 TRACKS = {"shinsotsu", "chuto"}
@@ -213,10 +302,12 @@ class RoutingResult(TypedDict, total=False):
 class LifecycleResult(TypedDict, total=False):
     approved: bool
     applied: bool
+    recovered: bool
     event: Event
     proposal: Proposal
     version: str
     pipeline: str
+    message: str
 
 
 class ErrorResult(TypedDict, total=False):

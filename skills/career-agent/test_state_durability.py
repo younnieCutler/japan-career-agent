@@ -76,6 +76,13 @@ class StateDurabilityTests(unittest.TestCase):
         self.assertEqual(path.read_text(encoding="utf-8"), '{"old":true}\n')
         self.assert_no_temp_files(self.root)
 
+    def test_jsonl_append_flushes_and_fsyncs_the_ledger_record(self) -> None:
+        path = self.root / "events.jsonl"
+        with patch.object(career_agent.os, "fsync") as fsync:
+            career_agent.append_jsonl(path, {"id": "evt-1"})
+        fsync.assert_called_once()
+        self.assertEqual(path.read_text(encoding="utf-8"), '{"id":"evt-1"}\n')
+
     def test_state_retry_leaves_valid_source_of_truth_and_refreshes_cache(self) -> None:
         home = career_agent.CareerVault(self.root / "vault")
         home.ensure_runtime()

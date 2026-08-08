@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
-Current release: `1.17.1`.
+Current release: `1.17.2`.
 
 Local-first, evidence-based career decision support for Japanese job search. This is a Claude Code and Codex plugin/skill suite with a local Career Agent runtime for job seekers and hiring teams.
 
@@ -47,6 +47,14 @@ claude plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
 codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
 codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 ```
+
+### Release channels
+
+The repository version can be ahead of the stable marketplace channel while a release is being
+prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
+follows `main`. Therefore source metadata at `1.17.2` and a stable marketplace ref of `v1.17.1`
+are intentional until the release workflow publishes `v1.17.2` and the stable metadata update is
+merged.
 
 ### Local fallback
 
