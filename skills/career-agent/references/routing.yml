@@ -4,7 +4,10 @@
 # copy, and vice versa) was exactly this kind of drift across duplicated keyword lists.
 
 track:
-  shinsotsu: ["新卒", "신졸", "학チカ", "学チカ", "졸업", "graduat", "new grad", "new graduate", "spi3", "学生"]
+  # "卒" alone is deliberately absent: infer_track() is substring matching, so it would classify
+  # 既卒 and 第二新卒 as shinsotsu. The "27卒" case is handled by routing.py's bounded
+  # graduation_signal() regex instead.
+  shinsotsu: ["新卒", "신졸", "학チカ", "学チカ", "졸업", "graduat", "new grad", "new graduate", "spi3", "学生", "就活", "취활"]
   chuto: ["中途", "중途", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
 
 # Order matters: stage_for() returns on the first alias whose terms match, so earlier groups
@@ -14,6 +17,14 @@ stage_alias:
     terms: ["자기분석", "自己分析", "self-analysis", "career direction", "work style", "values"]
   - alias: documents
     terms: ["자소서", "가쿠치카", "학チ카", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "resume", "cv", "cover letter", "personal statement", "entry sheet", "es"]
+  # Applying and reviewing a posting are different intents. "応募/지원" is the application workflow
+  # (chuto 応募・書類選考 → matching-simulator); a bare 求人/JD is an evidence review of that posting
+  # against the user's own history (chuto 職務経歴書・自己PR → job-seeker-agent). The apply group
+  # comes first so "この求人に応募できるか" resolves as an application, not as a document review.
+  - alias: apply
+    terms: ["応募", "응모", "지원", "apply for", "apply to", "application"]
+  - alias: documents
+    terms: ["求人", "공고", "구인", "jd", "job description", "job posting", "job ad"]
   - alias: research
     terms: ["企業研究", "기업 연구", "company research", "research companies", "company study", "job research"]
   - alias: interview
@@ -26,6 +37,10 @@ stage_alias:
     terms: ["転職", "중途", "career change", "mid-career"]
   - alias: shinsotsu
     terms: ["신졸", "新卒", "new graduate", "graduating soon"]
+  # Last on purpose: "I don't know how to prepare for the interview" must stay an interview
+  # request. Only a message with no more specific signal falls through to direction work.
+  - alias: self
+    terms: ["모르겠", "分からない", "わからない", "何がしたい", "何をしたい", "not sure what", "don't know what", "no idea what"]
 
 # Order matters here too: flow_phase_for() returns on the first phase whose terms match.
 flow_phase:

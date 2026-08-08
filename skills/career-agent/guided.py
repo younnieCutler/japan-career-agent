@@ -78,6 +78,7 @@ def build_summary(
     if track == "shinsotsu" and not isinstance(graduation_year, int):
         setup_complete = False
 
+    career_status = profile.get("career_status", state.get("career_status", "active"))
     workspace_exists = workspace.get("exists") is True
     pipeline_count = _int(workspace.get("company_count"))
     open_actions = state.get("open_actions") if isinstance(state.get("open_actions"), list) else []
@@ -96,7 +97,10 @@ def build_summary(
         "initialized": initialized,
         "vault": vault,
         "track": track,
-        "career_status": profile.get("career_status", state.get("career_status", "active")),
+        "career_status": career_status,
+        # Onboarding is a stage of normal use, not a broken setup, so it is reported on its own
+        # instead of being folded into `setup_complete` or `major_blockers`.
+        "onboarding": career_status == "onboarding",
         "target_role": profile.get("target_role"),
         "language": normalize_language(profile.get("language")),
         "setup_complete": setup_complete,
@@ -300,6 +304,8 @@ def render_human(result: Mapping[str, Any]) -> str:
     language = normalize_language(ux.get("language") or summary.get("language"))
     lines = [text(language, "summary.guided_title"), f"{text(language, 'section.state')}: {state_label(language, guided.get('state', 'ready'))}", f"{text(language, 'section.current_state')}:"]
     lines.append(f"- {text(language, 'section.track')}: {summary.get('track') or text(language, 'guided.track_unset')}")
+    lines.append(f"- {text(language, 'section.onboarding')}: {text(language, 'guided.onboarding_active' if summary.get('onboarding') else 'guided.onboarding_done')}")
+    lines.append(f"- {text(language, 'section.target_role')}: {summary.get('target_role') or text(language, 'guided.target_role_unset')}")
     lines.append(f"- {text(language, 'section.setup')}: {text(language, 'guided.setup_complete' if summary.get('setup_complete') else 'guided.setup_required')}")
     workspace = summary.get("workspace") if isinstance(summary.get("workspace"), Mapping) else {}
     lines.append(f"- {text(language, 'section.workspace')}: {workspace.get('path') or text(language, 'guided.workspace_unresolved')}")

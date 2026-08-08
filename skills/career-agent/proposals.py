@@ -20,7 +20,16 @@ from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, SHINSOTSU_STAGES, TRA
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from private_store import PrivateHome, resolve_document  # noqa: E402
-from routing import flow_phase_for, infer_track, language_for, load_flow_reference, skill_context, stage_for  # noqa: E402
+from routing import (  # noqa: E402
+    explicit_stage_alias,
+    flow_phase_for,
+    graduation_signal,
+    infer_track,
+    language_for,
+    load_flow_reference,
+    skill_context,
+    stage_for,
+)
 from validation import validate_career_context, validate_event  # noqa: E402
 from vault import CareerVault, select_context, utc_now  # noqa: E402
 from localization import text  # noqa: E402
@@ -96,9 +105,45 @@ def run_chat(
             }
         )
         question = text(language_for(message), "chat.graduation_question")
+        # A stated year is read back for confirmation, never written. "27卒" is the user's own
+        # wording, but turning it into profile.graduation_year here would record a career fact the
+        # user never approved, so the runtime hands them the command that does it.
+        stated_year = graduation_signal(message)
+        if stated_year is not None:
+            question += " " + text(
+                language_for(message),
+                "chat.graduation_hint",
+                year=stated_year,
+                command=f"setup --graduation-year {stated_year}",
+            )
         if retry_count >= 2:
             question += f" {text(language_for(message), 'chat.graduation_retry')}"
         return {"mode": "chat", "language": language_for(message), "track": track, "needs_confirmation": True, "question": question, "saved": str(home.trajectories)}
+    onboarding = str(profile.get("career_status") or "") == "onboarding"
+    # The third onboarding gate. A user still onboarding has no routed history to fall back on, so
+    # `stage_for()`'s default would silently pick self-analysis for them; asking is the honest move.
+    # Everyone else keeps the existing behaviour exactly, including that default.
+    if onboarding and not state.get("stage") and explicit_stage_alias(message) is None:
+        goal = "resolve current intent before routing"
+        retry_count = count_consecutive_safe_stops(home, goal)
+        home.append_trajectory(
+            {
+                "id": f"traj-{uuid.uuid4().hex[:12]}",
+                "created_at": utc_now(),
+                "mode": "chat",
+                "observe": {"track": track, "stage": state.get("stage"), "career_status": "onboarding", "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
+                "plan": {"goal": goal},
+                "act": {"proposal": None},
+                "verify": {"intent": "unresolved", "safe_stop": True, "external_side_effect": False},
+                "correct": {"retry_count": retry_count, "needs_user_confirmation": True},
+                "persist": {"trajectory_only": True},
+            }
+        )
+        language = language_for(message)
+        question = f"{text(language, 'chat.intent_question')} {text(language, 'chat.intent_options')}"
+        if retry_count >= 2:
+            question += f" {text(language, 'chat.intent_retry')}"
+        return {"mode": "chat", "language": language, "track": track, "needs_confirmation": True, "question": question, "saved": str(home.trajectories)}
     stage = stage_for(message, track, state.get("stage"))
     reference = load_flow_reference()
     flow_phase = flow_phase_for(message, track, state, profile, reference)
@@ -130,7 +175,12 @@ def run_chat(
     with vault_lock(home):
         home.add_proposal(proposal)
         home.append_trajectory(trajectory)
-    return {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "personal_context": personal, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
+    # The signal, not the write. Reaching a real domain task is what ends onboarding, but the
+    # profile belongs to the runtime orchestration layer, so this module only reports it.
+    result = {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": skill_context(skills_root, stage), "context": context, "personal_context": personal, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
+    if onboarding:
+        result["onboarding_completed"] = True
+    return result
 
 
 def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:

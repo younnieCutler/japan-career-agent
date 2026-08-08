@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.18.0] - 2026-08-08
+
+- Onboard a new Career Agent Vault progressively: confirm the track, the shinsotsu graduation year,
+  and the task the user wants to start, then route to the existing domain skill for that task.
+- Read a stated graduation year (`27卒`) back into the question with the `setup` command that would
+  record it, instead of writing an unapproved career fact.
+- Separate applying to a posting from reviewing one: `応募`/`지원`/`apply` routes to the application
+  workflow, while a bare `求人`/`공고`/`JD` routes to job-seeker-agent evidence review.
+- Route "I don't know what to do" to self-analysis without treating it as a recommendation, and only
+  when the message names no more specific task.
+- End onboarding when a turn reaches a real stage (`career_status` becomes `active`). Existing
+  Vaults keep their recorded status and previous routing behaviour.
+- Show onboarding progress and an `Unknown` target role in guided output instead of reporting
+  onboarding as a setup failure.
+
 ## [1.17.2] - 2026-08-06
 
 - Make the stable Codex marketplace channel resolve to the immutable `v1.17.1` tag.
