@@ -14,13 +14,10 @@ if str(_SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(_SHARED_ROOT))
 import pipeline_store  # noqa: E402
 
-from models import PIPELINE_STAGE, WORK_EVENT_TYPE, CareerError  # noqa: E402
+from models import CAREER_MODES, PIPELINE_STAGE, WORK_EVENT_TYPE, CareerError  # noqa: E402
 
 
 _LEGAL_ENTITY_MARKERS = ("株式会社", "有限会社", "合同会社", "(株)")
-# Stages where a move is already decided and underway rather than being looked for. Reaching one
-# of these is not a claim about search intent, so it does not depend on the job-search flag.
-TRANSITION_STAGES = frozenset({"内定・条件交渉", "退職・入社準備", "内々定・内定・入社準備"})
 
 
 def _canonical_company_name(name: str) -> str:
@@ -81,19 +78,25 @@ def upsert_pipeline_entry(
     return path
 
 
-def next_career_mode(event: dict[str, Any], job_search: str) -> str:
-    """The career mode a routed event implies, without ever inferring an active search.
+def next_career_mode(event: dict[str, Any], job_search: str, current: str | None) -> str | None:
+    """The career mode an event moves to, or None to leave it exactly where it was.
 
-    `active_search` is the only mode that asserts something about what the user intends, so it is
-    the only one that requires them to have said it. With job search off the same event lands on
-    `opportunity_review`: reading a JD, comparing offers, or answering a recruiter can then never
-    promote someone into a search they never declared.
+    Only an intent the user actually stated moves this. An earlier version derived the mode from
+    the event's type and stage, and derivation produced two wrong answers: recording a work note
+    while at 面接 with a search underway reset the mode to `maintenance`, and routine document
+    upkeep with job search off became `opportunity_review` when no opportunity existed at all.
+
+    So `career_mode` is carried on the event by the chat turn that read the user's words, and is
+    absent whenever they stated no workflow intent. `active_search` additionally requires the
+    declared `job_search`; without it the mode stays put rather than being promoted, because
+    reading a posting is not the same as deciding to look.
     """
-    if event.get("type") == WORK_EVENT_TYPE:
-        return "maintenance"
-    if event.get("stage") in TRANSITION_STAGES:
-        return "transition"
-    return "active_search" if job_search == "on" else "opportunity_review"
+    stated = event.get("career_mode")
+    if stated not in CAREER_MODES:
+        return None
+    if stated == "active_search" and job_search != "on":
+        return None
+    return stated if stated != current else None
 
 
 def clamp_career_mode(state: dict[str, Any], job_search: str) -> dict[str, Any]:
@@ -113,16 +116,15 @@ def apply_event_to_state(
 ) -> dict[str, Any]:
     next_state = dict(state)
     # A work event and a career-context event both record something without moving the user
-    # through the hiring flow, so neither touches track, stage, or flow_phase. A work event does
-    # set the mode: recording what happened at the current job is maintenance by definition.
-    if event.get("type") == WORK_EVENT_TYPE:
-        next_state["career_mode"] = "maintenance"
+    # through the hiring flow, so neither touches track, stage, flow_phase, or the mode. Someone
+    # at 面接 with a search underway who writes down what they did at work today is still at 面接
+    # and still searching.
+    if event.get("type") in {WORK_EVENT_TYPE, "career_context"}:
         next_state["last_event_id"] = event["id"]
         return next_state
-    if event.get("type") == "career_context":
-        next_state["last_event_id"] = event["id"]
-        return next_state
-    next_state["career_mode"] = next_career_mode(event, job_search)
+    mode = next_career_mode(event, job_search, state.get("career_mode"))
+    if mode is not None:
+        next_state["career_mode"] = mode
     next_state["track"] = event["track"]
     next_state["stage"] = event["stage"]
     next_state["flow_phase"] = event["flow_phase"]

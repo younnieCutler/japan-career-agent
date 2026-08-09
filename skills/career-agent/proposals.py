@@ -21,6 +21,7 @@ from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from private_store import PrivateHome, resolve_document  # noqa: E402
 from routing import (  # noqa: E402
+    active_search_intent,
     explicit_stage_alias,
     flow_phase_for,
     graduation_signal,
@@ -74,6 +75,24 @@ def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
     return event
 
 
+def stated_career_mode(message: str) -> str | None:
+    """The workflow intent the message states outright, or None when it states none.
+
+    This is the only place the user's own words are available, so it is where the mode is decided.
+    Silence means None, and the projector then leaves the mode where it was: routine document work
+    or interview prep says nothing about whether an opportunity is being weighed.
+
+    `active_search` is recorded when stated, but the projector still refuses it unless the user has
+    separately declared `job_search on`. Saying "I want to apply" is not the same as switching the
+    flag, and only the flag may do that.
+    """
+    if active_search_intent(message):
+        return "active_search"
+    if opportunity_review_intent(message):
+        return "opportunity_review"
+    return None
+
+
 def make_event(message: str, track: str, stage: str, flow_phase: str, *, status: str = "draft") -> dict[str, Any]:
     event_id = f"evt-{uuid.uuid4().hex[:12]}"
     language = language_for(message)
@@ -93,6 +112,9 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
         "deadline": None,
         "status": status,
     }
+    mode = stated_career_mode(message)
+    if mode is not None:
+        event["career_mode"] = mode
     validate_event(event)
     return event
 

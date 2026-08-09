@@ -83,6 +83,7 @@ from routing import (  # noqa: E402
     term_present,
 )
 from proposals import (  # noqa: E402
+    stated_career_mode,
     approval_action_for,
     list_proposals,
     make_event,
@@ -93,6 +94,7 @@ from proposals import (  # noqa: E402
     run_chat,
 )
 from lifecycle import (  # noqa: E402
+    review_work_event,
     approve as _lifecycle_approve,
     count_consecutive_safe_stops,
     record_failed_attempt,
@@ -170,6 +172,7 @@ from guided import (  # noqa: E402
 )
 
 _PROPOSAL_COMPATIBILITY_EXPORTS = (
+    stated_career_mode,
     approval_action_for,
     list_proposals,
     make_event,
@@ -399,6 +402,14 @@ def set_profile_axis(home: CareerVault, field: str, value: str) -> dict[str, Any
             f"{field} must be one of: {', '.join(sorted(allowed))}",
             code="INVALID_INPUT",
         )
+    # PERSIST-005: this reads the profile, writes it, then reads and may rewrite canonical state.
+    # A concurrent approve doing its own read-modify-write would otherwise interleave and one of
+    # the two would silently lose its change.
+    with vault_lock(home):
+        return _set_profile_axis_locked(home, field, normalized)
+
+
+def _set_profile_axis_locked(home: CareerVault, field: str, normalized: str) -> dict[str, Any]:
     profile = home.load_profile()
     previous = profile.get(field)
     profile[field] = normalized
@@ -776,8 +787,10 @@ def work_events(
     stops being one rule and becomes several that drift. Reading is all this does: nothing here
     writes, and the caller receives a copy.
 
-    `as_of` filters by the day the work happened, inclusive, so a mapping run is reproducible
-    rather than dependent on when it was run.
+    `as_of` filters by the UTC day the work happened, inclusive, so a mapping run is reproducible
+    rather than dependent on when it was run. It is a UTC date because `occurred_at` is a UTC
+    instant; a local calendar boundary would compare two different things and silently drop an
+    event the user recorded minutes ago.
     """
     rows = [row for row in read_jsonl(home.events) if row.get("type") == WORK_EVENT_TYPE]
     if confirmed_only:
@@ -859,7 +872,7 @@ def _requires_approval_recovery(args: argparse.Namespace) -> bool:
     if args.command in {
         "setup", "guided", "approve", "restore-state", "index",
         "propose-fact", "propose-context",
-        "set-job-search", "set-employment-status",
+        "set-job-search", "set-employment-status", "review-work-event",
     }:
         return True
     if args.command == "doctor":
@@ -1364,8 +1377,31 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="only user-confirmed events; drafts are proposals, not evidence",
     )
-    add_as_of_argument(work_events_parser)
+    # This boundary is UTC, not the local date `add_as_of_argument` uses. `occurred_at` is stored
+    # in UTC, and comparing its day against a local calendar day drops an event the user just
+    # recorded: west of UTC an evening capture lands on tomorrow's UTC day, which a local `today`
+    # boundary then filters out. The fact projection keeps the local default because it compares
+    # against plain `YYYY-MM-DD` fact dates that carry no timezone at all.
+    work_events_parser.add_argument(
+        "--as-of", default=utc_now()[:10], metavar="YYYY-MM-DD",
+        help="include work that occurred on or before this UTC date; defaults to today in UTC",
+    )
     add_output_format(work_events_parser)
+    review_parser = subparsers.add_parser(
+        "review-work-event",
+        help="fill the structured fields of a pending work event before it is confirmed",
+    )
+    add_vault_argument(review_parser)
+    review_parser.add_argument("proposal_id")
+    review_parser.add_argument(
+        "--json", dest="work_event_json", required=True,
+        help="work_event fields as a JSON object; '-' reads stdin",
+    )
+    review_parser.add_argument(
+        "--replace", action="store_true",
+        help="replace the payload instead of merging, e.g. to clear a field back to Unknown",
+    )
+    add_output_format(review_parser)
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)
     add_workspace_argument(status_parser)
@@ -1637,6 +1673,13 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = set_profile_axis(home, "employment_status", args.value)
             elif args.command == "doctor":
                 result = doctor(home, fix=args.fix, workspace=args.workspace)
+            elif args.command == "review-work-event":
+                raw = sys.stdin.read() if args.work_event_json == "-" else args.work_event_json
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError as exc:
+                    raise CareerError(f"--json must be valid JSON: {exc}", code="INVALID_INPUT") from exc
+                result = review_work_event(home, args.proposal_id, payload, replace=args.replace)
             elif args.command == "work-events":
                 result = work_events(
                     home, confirmed_only=args.confirmed_only, as_of=args.as_of,

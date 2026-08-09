@@ -19,6 +19,12 @@ sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
 import career_agent  # noqa: E402
 
 
+# Seeded rows use a fixed past instant so the query tests never depend on the day, the timezone,
+# or the clock of the machine running them.
+PAST_DAY = "2026-08-01"
+PAST = f"{PAST_DAY}T09:00:00Z"
+
+
 def work_event_record(**overrides):
     """A minimal valid work event: no track, no stage, nothing invented."""
     event = {
@@ -27,7 +33,7 @@ def work_event_record(**overrides):
         "stage": None,
         "flow_phase": None,
         "type": career_agent.WORK_EVENT_TYPE,
-        "occurred_at": "2026-08-10T09:00:00Z",
+        "occurred_at": PAST,
         "title": "배치 장애 원인 파악",
         "summary": "운영팀과 알림 조건을 바꾸고 runbook을 수정했다.",
         "evidence": [],
@@ -214,21 +220,38 @@ class QueryContractTests(unittest.TestCase):
 
     def test_only_work_events_are_returned(self) -> None:
         self.seed(
-            work_event_record(id="evt-a", status="confirmed", evidence=["JIRA-1"]),
-            {"id": "evt-b", "type": "user_report", "status": "confirmed", "occurred_at": "2026-08-01T00:00:00Z"},
+            work_event_record(id="evt-a", occurred_at=PAST, status="confirmed", evidence=["JIRA-1"]),
+            {"id": "evt-b", "type": "user_report", "status": "confirmed", "occurred_at": PAST},
         )
-        result = self.query()
+        result = self.query("--as-of", PAST_DAY)
         self.assertEqual([row["id"] for row in result["work_events"]], ["evt-a"])
 
     def test_confirmed_excludes_drafts_and_superseded(self) -> None:
         self.seed(
-            work_event_record(id="evt-draft", status="draft"),
-            work_event_record(id="evt-old", status="superseded", evidence=["JIRA-1"]),
-            work_event_record(id="evt-now", status="confirmed", evidence=["JIRA-2"]),
+            work_event_record(id="evt-draft", occurred_at=PAST, status="draft"),
+            work_event_record(id="evt-old", occurred_at=PAST, status="superseded", evidence=["JIRA-1"]),
+            work_event_record(id="evt-now", occurred_at=PAST, status="confirmed", evidence=["JIRA-2"]),
         )
-        self.assertEqual(self.query()["count"], 3)
-        confirmed = self.query("--confirmed")
+        self.assertEqual(self.query("--as-of", PAST_DAY)["count"], 3)
+        confirmed = self.query("--confirmed", "--as-of", PAST_DAY)
         self.assertEqual([row["id"] for row in confirmed["work_events"]], ["evt-now"])
+
+    def test_the_default_boundary_is_the_utc_date(self) -> None:
+        # The regression CI caught. `occurred_at` is a UTC instant; the default boundary used to be
+        # the local calendar day, and the two disagree for the hours after UTC midnight. West of
+        # UTC that means an event the user just recorded carries tomorrow's UTC day and their own
+        # query drops it. Asserting the default directly pins the decision at every hour — a
+        # behavioural test would only fail during the window where the dates actually diverge.
+        default = career_agent.build_parser().parse_args(
+            ["work-events", "--vault", str(self.vault)]
+        ).as_of
+        self.assertEqual(default, career_agent.utc_now()[:10])
+
+    def test_an_event_recorded_now_is_visible(self) -> None:
+        self.seed(work_event_record(id="evt-now", occurred_at=career_agent.utc_now(),
+                                    status="confirmed", evidence=["JIRA-1"]))
+        self.assertEqual([row["id"] for row in self.query()["work_events"]], ["evt-now"])
+        self.assertEqual([row["id"] for row in self.query("--confirmed")["work_events"]], ["evt-now"])
 
     def test_as_of_includes_the_boundary_day(self) -> None:
         self.seed(
@@ -260,6 +283,115 @@ class QueryContractTests(unittest.TestCase):
         before = path.read_bytes()
         self.query("--confirmed", "--as-of", "2026-08-10")
         self.assertEqual(path.read_bytes(), before)
+
+
+class ReviewMutationTests(unittest.TestCase):
+    """Capture is one sentence, so the structure has to be fillable before confirmation.
+
+    Without this path the payload stayed `{}` from capture through confirmation and the JD
+    requirement mapping, which reads `individual_contribution` and the rest, had nothing to read.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.vault = str(Path(self._tmp.name) / "vault")
+        self.cli("setup", "--vault", self.vault, "--track", "chuto")
+        self.proposal = self.cli(
+            "run", "--mode", "chat", "--vault", self.vault, "--message", "업무일지 남겨줘"
+        )["proposal"]["id"]
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def cli(self, *args: str) -> dict:
+        # Expected blockers are reported as JSON on stderr with exit 2, as every other command
+        # here does; only the stream differs from the success path.
+        completed = subprocess.run(
+            [sys.executable, str(CLI), *args], capture_output=True, text=True, encoding="utf-8",
+        )
+        if completed.returncode not in (0, 2):
+            raise AssertionError(f"{args}\n{completed.stdout}\n{completed.stderr}")
+        return json.loads(completed.stdout or completed.stderr)
+
+    def review(self, payload: dict, *extra: str) -> dict:
+        return self.cli(
+            "review-work-event", self.proposal, "--vault", self.vault,
+            "--json", json.dumps(payload, ensure_ascii=False), *extra,
+        )
+
+    def confirmed_payload(self) -> dict:
+        self.cli("approve", self.proposal, "--vault", self.vault, "--evidence", "JIRA-1")
+        rows = self.cli("work-events", "--vault", self.vault, "--confirmed")["work_events"]
+        return rows[0]["work_event"]
+
+    def test_capture_starts_empty(self) -> None:
+        rows = self.cli("proposals", "--vault", self.vault, "--id", self.proposal)
+        self.assertEqual(rows["proposal"]["event"]["work_event"], {})
+
+    def test_fields_reach_the_confirmed_event(self) -> None:
+        self.review({
+            "role": "운영 담당",
+            "direct_actions": ["원인 로그 추적"],
+            "individual_contribution": "알림 조건 재설계를 직접 수행",
+            "team_result": "대응 절차가 팀 표준이 됨",
+        })
+        payload = self.confirmed_payload()
+        self.assertEqual(payload["individual_contribution"], "알림 조건 재설계를 직접 수행")
+        self.assertEqual(payload["team_result"], "대응 절차가 팀 표준이 됨")
+        self.assertEqual(payload["direct_actions"], ["원인 로그 추적"])
+
+    def test_a_review_can_happen_over_several_turns(self) -> None:
+        self.review({"role": "운영 담당"})
+        result = self.review({"learning": ["배치 실패는 조용히 지나간다"]})
+        self.assertEqual(result["filled"], ["learning", "role"])
+
+    def test_replace_can_clear_a_field_back_to_unknown(self) -> None:
+        self.review({"role": "운영 담당", "team_result": "잘못 적은 값"})
+        result = self.review({"role": "운영 담당"}, "--replace")
+        self.assertEqual(result["filled"], ["role"])
+        self.assertNotIn("team_result", result["work_event"])
+
+    def test_an_unknown_field_is_refused(self) -> None:
+        result = self.review({"metric": ["30% 감소"]})
+        self.assertFalse(result.get("ok", False))
+        self.assertIn("metric", result["error"])
+
+    def test_the_merged_result_is_what_gets_validated(self) -> None:
+        # A patch that is fine alone can still be invalid once combined, so the check runs on the
+        # stored shape rather than on the incoming keys.
+        self.review({"confidentiality": {"contains_confidential": False}})
+        result = self.review({"confidentiality": {"contains_confidential": True}})
+        self.assertFalse(result.get("ok", False))
+        self.assertIn("external_use", result["error"])
+
+    def test_a_metric_without_evidence_still_cannot_be_confirmed(self) -> None:
+        self.review({"metrics": ["야간 장애 30% 감소"]})
+        approved = self.cli("approve", self.proposal, "--vault", self.vault, "--evidence", "JIRA-1")
+        self.assertFalse(approved.get("ok", False))
+        self.assertIn("numeric claim", approved["error"])
+
+    def test_a_confirmed_event_is_not_editable(self) -> None:
+        self.cli("approve", self.proposal, "--vault", self.vault, "--evidence", "JIRA-1")
+        result = self.review({"role": "고쳐치기"})
+        self.assertFalse(result.get("ok", False))
+        self.assertEqual(result["error_code"], "PROPOSAL_NOT_PENDING")
+
+    def test_a_routed_event_is_not_a_work_event(self) -> None:
+        other = self.cli(
+            "run", "--mode", "chat", "--vault", self.vault, "--message", "면접 준비 도와줘"
+        )["proposal"]["id"]
+        result = self.cli(
+            "review-work-event", other, "--vault", self.vault, "--json", '{"role": "x"}',
+        )
+        self.assertFalse(result.get("ok", False))
+        self.assertIn("not a work event", result["error"])
+
+    def test_malformed_json_is_refused(self) -> None:
+        result = self.cli(
+            "review-work-event", self.proposal, "--vault", self.vault, "--json", "{not json",
+        )
+        self.assertFalse(result.get("ok", False))
+        self.assertEqual(result["error_code"], "INVALID_INPUT")
 
 
 if __name__ == "__main__":

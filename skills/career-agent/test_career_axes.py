@@ -83,34 +83,66 @@ class ProfileAxisTests(unittest.TestCase):
         self.assertTrue(any("profile.job_search" in error for error in diagnosis["errors"]))
 
 
+class StatedCareerModeTests(unittest.TestCase):
+    """The mode comes from what the user said, which only the chat turn can read."""
+
+    def test_an_opportunity_review_message_states_one(self) -> None:
+        self.assertEqual(
+            career_agent.stated_career_mode("헤드헌터가 보낸 건데 괜찮은 자리인지 봐줘"),
+            "opportunity_review",
+        )
+
+    def test_an_explicit_declaration_states_active_search(self) -> None:
+        self.assertEqual(
+            career_agent.stated_career_mode("이제 진짜 이직 준비 시작할래"), "active_search"
+        )
+
+    def test_routine_work_states_nothing(self) -> None:
+        for message in ("이력서 정리해줘", "면접 준비 도와줘", "자기분석 도와줘", "この会社を調べたい"):
+            with self.subTest(message=message):
+                self.assertIsNone(career_agent.stated_career_mode(message))
+
+    def test_a_negated_declaration_states_nothing(self) -> None:
+        self.assertIsNone(career_agent.stated_career_mode("이직 준비 시작할 생각은 없어요"))
+
+    def test_an_ambiguous_posting_question_states_nothing(self) -> None:
+        # "この求人に応募できるか見てほしい" is a question about eligibility, not a declaration and
+        # not a recruiter approach. Silence leaves the mode where it was, which is the safe answer
+        # in both directions: it neither invents an opportunity nor cancels a search in progress.
+        self.assertIsNone(career_agent.stated_career_mode("この求人に応募できるか見てほしい"))
+
+
 class CareerModeProjectionTests(unittest.TestCase):
-    """`next_career_mode` is the whole escalation rule, so it is tested directly."""
+    """`next_career_mode` returns None for "leave it alone", which is the common answer."""
 
-    def test_a_work_event_is_always_maintenance(self) -> None:
+    def test_an_event_stating_no_intent_moves_nothing(self) -> None:
+        for stage in ("職務経歴書・自己PR", "応募・書類選考", "面接", "内定・条件交渉"):
+            with self.subTest(stage=stage):
+                event = {"type": "event", "stage": stage}
+                self.assertIsNone(career_agent.next_career_mode(event, "off", "maintenance"))
+                self.assertIsNone(career_agent.next_career_mode(event, "on", "active_search"))
+
+    def test_a_work_event_never_carries_a_mode(self) -> None:
+        # It cannot state one: `make_work_event` does not set the field at all.
         work = {"type": career_agent.WORK_EVENT_TYPE, "stage": None}
-        self.assertEqual(career_agent.next_career_mode(work, "off"), "maintenance")
-        self.assertEqual(career_agent.next_career_mode(work, "on"), "maintenance")
+        self.assertIsNone(career_agent.next_career_mode(work, "on", "active_search"))
 
-    def test_reviewing_an_opportunity_with_search_off_stays_opportunity_review(self) -> None:
-        event = {"type": "event", "stage": "業界研究・企業研究"}
-        self.assertEqual(career_agent.next_career_mode(event, "off"), "opportunity_review")
+    def test_a_stated_opportunity_review_is_applied(self) -> None:
+        event = {"type": "event", "stage": "業界研究・企業研究", "career_mode": "opportunity_review"}
+        self.assertEqual(career_agent.next_career_mode(event, "off", "maintenance"), "opportunity_review")
 
-    def test_repeated_document_work_with_search_off_never_becomes_active_search(self) -> None:
-        for stage in ("職務経歴書・自己PR", "応募・書類選考", "面接"):
-            with self.subTest(stage=stage):
-                event = {"type": "event", "stage": stage}
-                self.assertEqual(career_agent.next_career_mode(event, "off"), "opportunity_review")
+    def test_active_search_requires_the_declared_flag(self) -> None:
+        event = {"type": "event", "stage": "応募・書類選考", "career_mode": "active_search"}
+        self.assertIsNone(career_agent.next_career_mode(event, "off", "maintenance"))
+        self.assertEqual(career_agent.next_career_mode(event, "on", "maintenance"), "active_search")
 
-    def test_active_search_requires_the_declared_intent(self) -> None:
-        event = {"type": "event", "stage": "応募・書類選考"}
-        self.assertEqual(career_agent.next_career_mode(event, "on"), "active_search")
+    def test_a_mode_already_in_effect_is_not_rewritten(self) -> None:
+        event = {"type": "event", "stage": "業界研究・企業研究", "career_mode": "opportunity_review"}
+        self.assertIsNone(career_agent.next_career_mode(event, "off", "opportunity_review"))
 
-    def test_a_decided_move_is_a_transition_regardless_of_the_flag(self) -> None:
-        for stage in ("内定・条件交渉", "退職・入社準備", "内々定・内定・入社準備"):
-            with self.subTest(stage=stage):
-                event = {"type": "event", "stage": stage}
-                self.assertEqual(career_agent.next_career_mode(event, "off"), "transition")
-                self.assertEqual(career_agent.next_career_mode(event, "on"), "transition")
+    def test_a_value_outside_the_vocabulary_is_ignored(self) -> None:
+        event = {"type": "event", "stage": "面接", "career_mode": "looking_around"}
+        self.assertIsNone(career_agent.next_career_mode(event, "on", "maintenance"))
 
 
 class ProjectorTests(unittest.TestCase):
@@ -120,8 +152,13 @@ class ProjectorTests(unittest.TestCase):
     def test_a_new_state_rests_in_maintenance(self) -> None:
         self.assertEqual(self.base_state()["career_mode"], "maintenance")
 
-    def test_a_work_event_moves_no_route(self) -> None:
-        state = dict(self.base_state(), track="chuto", stage="面接", flow_phase="interview")
+    def test_a_work_event_moves_neither_the_route_nor_the_mode(self) -> None:
+        # A user at 面接 with a search underway who writes down what they did at work today is
+        # still at 面接 and still searching.
+        state = dict(
+            self.base_state(),
+            track="chuto", stage="面接", flow_phase="interview", career_mode="active_search",
+        )
         event = {
             "id": "evt-1",
             "type": career_agent.WORK_EVENT_TYPE,
@@ -133,10 +170,10 @@ class ProjectorTests(unittest.TestCase):
         self.assertEqual(projected["track"], "chuto")
         self.assertEqual(projected["stage"], "面接")
         self.assertEqual(projected["flow_phase"], "interview")
+        self.assertEqual(projected["career_mode"], "active_search")
         self.assertEqual(projected["last_event_id"], "evt-1")
-        self.assertEqual(projected["career_mode"], "maintenance")
 
-    def test_the_projector_defaults_to_not_searching(self) -> None:
+    def test_a_routed_event_stating_no_intent_leaves_the_mode_alone(self) -> None:
         event = {
             "id": "evt-2",
             "type": "event",
@@ -145,7 +182,8 @@ class ProjectorTests(unittest.TestCase):
             "flow_phase": "application",
         }
         projected = career_agent.apply_event_to_state(self.base_state(), event)
-        self.assertEqual(projected["career_mode"], "opportunity_review")
+        self.assertEqual(projected["career_mode"], "maintenance")
+        self.assertEqual(projected["stage"], "応募・書類選考")
 
 
 class IntentIsUserOwnedTests(unittest.TestCase):
@@ -196,7 +234,7 @@ class IntentIsUserOwnedTests(unittest.TestCase):
         self.assertEqual(career_agent.employment_status_of(profile), "employed")
 
     def test_an_approved_event_lands_in_opportunity_review_not_active_search(self) -> None:
-        proposed = self.chat("この求人に応募できるか見てほしい")
+        proposed = self.chat("ヘッドハンターから連絡が来たのですが見てほしいだけです")
         run_cli(
             "approve",
             proposed["proposal"]["id"],
@@ -207,9 +245,30 @@ class IntentIsUserOwnedTests(unittest.TestCase):
         )
         self.assertEqual(self.home.load_state()["career_mode"], "opportunity_review")
 
-    def test_the_same_event_reaches_active_search_once_the_user_declares_it(self) -> None:
+    def test_a_recruiter_review_stays_a_review_even_mid_search(self) -> None:
+        # The message decides, not the flag. Reading what a headhunter sent is a review whether or
+        # not a search is underway, so it must not be recorded as active search.
         run_cli("set-job-search", "on", "--vault", self.vault)
-        proposed = self.chat("この求人に応募できるか見てほしい")
+        proposed = self.chat("ヘッドハンターから連絡が来たのですが見てほしいだけです")
+        run_cli(
+            "approve", proposed["proposal"]["id"], "--vault", self.vault,
+            "--evidence", "https://example.invalid/posting",
+        )
+        self.assertEqual(self.home.load_state()["career_mode"], "opportunity_review")
+
+    def test_a_declaration_reaches_active_search_only_with_the_flag(self) -> None:
+        stated = "이제 진짜 이직 준비 시작할래. 지원해보고 싶어"
+        proposed = self.chat(stated)
+        run_cli(
+            "approve", proposed["proposal"]["id"], "--vault", self.vault,
+            "--evidence", "https://example.invalid/a",
+        )
+        # Saying it is not switching it. The flag has exactly one write path.
+        self.assertNotEqual(self.home.load_state()["career_mode"], "active_search")
+        self.assertEqual(career_agent.job_search_of(self.home.load_profile()), "off")
+
+        run_cli("set-job-search", "on", "--vault", self.vault)
+        proposed = self.chat(stated)
         run_cli(
             "approve",
             proposed["proposal"]["id"],
@@ -222,7 +281,7 @@ class IntentIsUserOwnedTests(unittest.TestCase):
 
     def test_turning_search_off_preserves_the_event_history(self) -> None:
         run_cli("set-job-search", "on", "--vault", self.vault)
-        proposed = self.chat("この求人に応募できるか見てほしい")
+        proposed = self.chat("ヘッドハンターから連絡が来たのですが見てほしいだけです")
         run_cli(
             "approve",
             proposed["proposal"]["id"],

@@ -90,6 +90,20 @@ Prefer these, in order:
 
 Never ask all twelve fields. A record with four filled fields and eight Unknowns is a good record.
 
+Write what the user confirms back onto the pending proposal:
+
+```bash
+python skills/career-agent/career_agent.py review-work-event [proposal-id] \
+  --vault "$CAREER_VAULT" \
+  --json '{"role": "...", "direct_actions": ["..."], "individual_contribution": "..."}'
+```
+
+Keys merge, so a review can run over several turns. `--replace` sets the whole payload, which is
+how a field is corrected back to Unknown. Only pending proposals accept this: a confirmed event is
+history, and history is corrected by recording a superseding event, not by editing the record.
+
+Record only what the user said. An unanswered field stays absent, which reads as Unknown.
+
 ### STEP 4 — Confirm
 
 ```bash
@@ -98,7 +112,8 @@ python skills/career-agent/career_agent.py approve [proposal-id] --vault "$CAREE
 ```
 
 Confirmation requires evidence, and any number appearing in the title, summary, or `metrics` must
-appear in that evidence or the runtime refuses the confirmation. This is deliberate: a metric
+appear in that evidence or the runtime refuses the confirmation — including a number added during
+STEP 3. This is deliberate: a metric
 nobody can point at is the single most damaging thing to carry into a 職務経歴書.
 
 Drafts stay drafts. They are proposals the user has not verified and are never quoted downstream

@@ -304,6 +304,9 @@ class Event(TypedDict, total=False):
     compensation: int | float
     currency: str
     work_event: dict[str, Any]
+    # The workflow intent the user stated in the turn that produced this event, when they stated
+    # one. Absent is the normal case and means "leave the mode where it is".
+    career_mode: str
 
 
 class Proposal(TypedDict, total=False):

@@ -19,8 +19,24 @@
 - Stop asking for a track before a maintenance request. An employed user who is not looking has no
   answer to 新卒/中途; the question returns when a request actually needs one. An opportunity-review
   message now counts as a stated intent at the third onboarding gate.
+- Add `review-work-event`, the path that fills a captured work event's structured fields before it
+  is confirmed. Capture is one sentence by design and approval only ever accepted evidence,
+  deadline, company, compensation, currency, and next_action, so without this the payload stayed
+  empty from capture through confirmation and the requirement mapping had nothing to read. Keys
+  merge across turns, `--replace` clears a field back to Unknown, and pending is the only editable
+  state: a confirmed event is corrected by recording a superseding one.
+- Move `career_mode` off inference. It was derived from an event's type and stage, which produced
+  two wrong answers: writing a work note while at 面接 with a search underway reset the mode to
+  `maintenance`, and routine document upkeep with job search off became `opportunity_review` when
+  no opportunity existed. The mode is now carried by the chat turn that read the user's words, is
+  absent when they stated no workflow intent, and leaves the stored value alone in that case.
 - Add `work-events [--confirmed] [--as-of]` as the read contract downstream skills use. Drafts and
-  superseded records are excluded in one place instead of separately in every consumer.
+  superseded records are excluded in one place instead of separately in every consumer. Its
+  boundary is a UTC date because `occurred_at` is a UTC instant; the previous local-date default
+  dropped an event the user had just recorded in the hours after UTC midnight.
+- Take the vault lock in `set-job-search` and `set-employment-status`. Both read the profile, write
+  it, and may rewrite canonical state, which PERSIST-005 requires to be serialized against a
+  concurrent approval.
 - Add three intent lexicons — maintenance, opportunity review, and active search with a negation
   veto — beside the four existing routing tables, which are unchanged.
 - Add `routing-eval-v3`: every v2 fixture plus 39 for the intent surface, 33 dev and 166 held out.

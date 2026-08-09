@@ -8,6 +8,7 @@ from typing import Any
 
 from models import (
     CAREER_CONTEXT_FIELDS,
+    CAREER_MODES,
     EVENT_STATUSES,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
@@ -177,6 +178,9 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
                 "a fact-bearing event must be draft or confirmed; superseded is derived from "
                 "another fact's supersedes link"
             )
+    if "career_mode" in event and event["career_mode"] is not None:
+        if event["career_mode"] not in CAREER_MODES:
+            raise CareerError(f"event.career_mode must be one of: {', '.join(sorted(CAREER_MODES))}")
     if "work_event" in event and event["work_event"] is not None:
         validate_work_event(event["work_event"])
     if "company" in event and event["company"] is not None:
