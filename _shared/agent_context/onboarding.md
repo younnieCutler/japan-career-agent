@@ -39,6 +39,18 @@ that a workflow was chosen and not that anything was verified. An existing Vault
 `stage` keeps its workflow and is never re-onboarded, even if `career_status` is set back to
 `onboarding` by hand.
 
+A career-maintenance request skips the track question entirely: an employed user who is not looking
+belongs to no hiring market, so `track` stays `null` and the work event is captured without one.
+The question returns the moment a request actually needs a track. An opportunity-review message
+counts as a stated intent for the third gate — it names a task as clearly as 面接 does, it just is
+not a stage.
+
+`employment_status` and `job_search` are the user's own declaration, default `unknown` and `off`,
+and are written only by `set-employment-status` and `set-job-search`. A message such as "재직 중"
+or "이직 생각 없어요" is read back as the command that would record it, exactly as a stated
+graduation year is. Nothing infers `employed` from "not looking", and no JD review, recruiter
+message, approved event, or match run may turn job search on.
+
 The active-pipeline priority above is a separate layer: it is decided by the CWD probe before
 `CAREER_VAULT` chat is ever invoked, not by the Vault runtime. `career_agent.py run --mode chat`
 takes no `--workspace` and never reads `data/pipeline.yml`, so a pipeline sitting on disk has no

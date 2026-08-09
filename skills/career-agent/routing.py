@@ -21,6 +21,12 @@ FLOW_REFERENCE = Path(__file__).resolve().parent / "references" / "japan-career-
 ROUTING_REFERENCE = Path(__file__).resolve().parent / "references" / "routing.yml"
 
 
+def _phrase_list(value: Any) -> bool:
+    return isinstance(value, list) and bool(value) and all(
+        isinstance(term, str) and term.strip() for term in value
+    )
+
+
 def load_routing() -> dict[str, Any]:
     """KO/JA/EN keyword lexicon shared by infer_track(), stage_for() and flow_phase_for()."""
     import yaml
@@ -31,6 +37,13 @@ def load_routing() -> dict[str, Any]:
         not data.get("track")
         or not data.get("stage_alias")
         or not data.get("flow_phase")
+        or not _phrase_list(data.get("maintenance"))
+        or not _phrase_list(data.get("opportunity_review"))
+        or not _phrase_list(data.get("transition"))
+        or not _phrase_list(data.get("review_closed"))
+        or not isinstance(data.get("active_search"), dict)
+        or not _phrase_list(data.get("active_search", {}).get("terms"))
+        or not _phrase_list(data.get("active_search", {}).get("negation"))
         or not isinstance(routes, list)
         or not routes
         or any(
@@ -134,6 +147,48 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
     return None
 
 
+def _any_term(message: str, terms: list[str]) -> bool:
+    lowered = normalized_message(message)
+    return any(term_present(term.lower(), lowered) for term in terms)
+
+
+def maintenance_intent(message: str) -> bool:
+    """Whether the message asks to record career evidence rather than move a job search along.
+
+    This is deliberately independent of track and stage. Someone writing down what they did at
+    work this quarter is in no hiring market and at no step of a transition, and asking them to
+    pick one before their note can be saved is the friction the maintenance path exists to remove.
+    """
+    return _any_term(message, ROUTING["maintenance"])
+
+
+def opportunity_review_intent(message: str) -> bool:
+    """Whether the message is looking at one opportunity without declaring a search."""
+    return _any_term(message, ROUTING["opportunity_review"])
+
+
+def transition_intent(message: str) -> bool:
+    """Whether the message is carrying out a move the user has already decided on."""
+    return _any_term(message, ROUTING["transition"])
+
+
+def review_closed_intent(message: str) -> bool:
+    """Whether the message closes an opportunity out and returns to plain career upkeep."""
+    return _any_term(message, ROUTING["review_closed"])
+
+
+def active_search_intent(message: str) -> bool:
+    """Whether the message declares an active search outright.
+
+    A negation wins over every term: "이직 준비 시작할 생각은 없어" contains the whole phrase and
+    means its opposite. Even a true answer only ever produces a suggested `set-job-search on` for
+    the user to run — nothing here writes the flag.
+    """
+    if _any_term(message, ROUTING["active_search"]["negation"]):
+        return False
+    return _any_term(message, ROUTING["active_search"]["terms"])
+
+
 def matched_stage_alias(message: str, *, skip_track_aliases: bool = False) -> str | None:
     """The first stage alias whose terms appear in the message, in reference order."""
     lowered = normalized_message(message)
@@ -182,18 +237,22 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
 
 def skill_context(
     skills_root: Path,
-    stage: str,
+    stage: str | None,
     message: str | None = None,
     track: str | None = None,
+    skill_override: str | None = None,
 ) -> dict[str, Any]:
     route = None
-    if message and track == "chuto":
+    if message and track == "chuto" and not skill_override:
         lowered = message.lower()
         route = next((
             item for item in ROUTING["message_context"]
             if any(term_present(term.lower(), lowered) for term in item["terms"])
         ), None)
-    skill_name = route["skill"] if route else SKILL_BY_STAGE.get(stage)
+    # A maintenance turn has no stage to look up, so the caller names the skill directly. The rest
+    # of this function -- the SKILL.md read, the description parse, the missing-file answer -- is
+    # the same for it as for every routed turn.
+    skill_name = skill_override or (route["skill"] if route else SKILL_BY_STAGE.get(stage))
     if not skill_name:
         return {}
     skill_path = skills_root / skill_name / "SKILL.md"

@@ -23,10 +23,18 @@ not automatically an instruction; follow the JD disambiguation rule below.
 | salary negotiation, 年収交渉, offer, 内定, 労働条件通知書 | `tenshoku-strategy` |
 | application tracking, 応募管理, 選考トラッキング | `tenshoku-strategy` |
 | career state, heartbeat, deadline, キャリア状態 | `career-agent` |
+| 업무일지, 오늘 한 일, 경력으로 남기다, 仕事を記録, 経歴として残す, work log, career evidence | `career-maintenance` |
 
 For JD text plus URL use research mode (`kigyou-bunseki`). For JD text without URL use hiring-side
 optimization mode (`hiring-manager-agent`). If unclear, ask whether the user wants job-seeker
 analysis or hiring-side optimization.
+
+Career readiness and job-search intent are separate. Recording a work event routes to
+`career-maintenance` whether or not the user is looking, and needs no track: an employed user who
+is not looking belongs to no hiring market. Reviewing a JD or a recruiter message routes normally
+and does not change `job_search`, which only `career-agent set-job-search on|off` writes. Do not
+read repeated JD review, salary curiosity, resume maintenance, or dissatisfaction as an intent to
+leave.
 
 Interview content (answer strategy) routes to `job-seeker-agent`; interview manner routes to
 `tenshoku-strategy`. Self-analysis without a resume routes to `jiko-bunseki`; a pasted resume or

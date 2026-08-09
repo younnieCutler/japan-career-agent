@@ -30,12 +30,13 @@ from models import (
     DOCUMENT_EVIDENCE_PREFIX,
     ProposalKind,
     ProposalStatus,
+    WORK_EVENT_TYPE,
     document_evidence_ids,
 )
 from personal_timeline import derive_intervals, facts_from_events
 from persistence import append_jsonl, read_json, read_jsonl, write_json
 from private_store import PrivateHome, resolve_private_home, resolve_document
-from validation import validate_event
+from validation import validate_event, validate_work_event
 from vault import CareerVault, utc_now
 
 
@@ -316,6 +317,74 @@ def recover_pending(
             raise
         except Exception as exc:
             raise _recovery_error("approval transaction replay failed", error=str(exc)) from exc
+
+
+def _merge_work_event(stored: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Merge a review patch into the stored payload, one level deeper for `confidentiality`.
+
+    Everything else replaces wholesale: a corrected `direct_actions` list means that list, not the
+    old one with additions. `confidentiality` is the exception because its two keys answer
+    different questions and are naturally answered at different times — the material is flagged
+    when the note is captured, and whether it may leave is decided after review. A shallow merge
+    would let `{"external_use": "blocked"}` drop `contains_confidential: true` and quietly turn a
+    flagged record into an unflagged one, which is the wrong direction to fail in.
+    """
+    merged = {**stored, **patch}
+    old = stored.get("confidentiality")
+    new = patch.get("confidentiality")
+    if isinstance(old, dict) and isinstance(new, dict):
+        merged["confidentiality"] = {**old, **new}
+    return merged
+
+
+def review_work_event(
+    home: CareerVault, proposal_id: str, payload: dict[str, Any], *, replace: bool = False,
+) -> dict[str, Any]:
+    """Fill the structured fields of a pending work event, before it is confirmed.
+
+    Capture is one sentence on purpose, so the structure has to arrive afterwards — and the
+    approval path only ever accepted evidence, deadline, company, compensation, currency, and
+    next_action. Without this the payload stayed `{}` from capture through confirmation, and the
+    downstream requirement mapping, which reads `individual_contribution` and the rest, had
+    nothing to read.
+
+    Pending only. Once an event is confirmed it is history, and history is corrected by recording
+    a superseding event rather than by editing the record. Keys merge by default so a review can
+    happen over several turns; `replace` is there for the case where a whole field was wrong,
+    including clearing one back to Unknown.
+    """
+    with vault_lock(home):
+        proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
+        if not proposal:
+            raise CareerError(f"proposal not found: {proposal_id}", code="PROPOSAL_NOT_FOUND")
+        if proposal.get("status") != ProposalStatus.PENDING:
+            raise CareerError(
+                f"proposal is not pending: {proposal_id}; a confirmed event is corrected by "
+                "recording a superseding one",
+                code="PROPOSAL_NOT_PENDING",
+            )
+        event = dict(proposal.get("event") or {})
+        if event.get("type") != WORK_EVENT_TYPE:
+            raise CareerError(
+                f"proposal {proposal_id} is not a work event", code="INVALID_INPUT",
+            )
+        if not isinstance(payload, dict):
+            raise CareerError("work event payload must be an object", code="INVALID_INPUT")
+        merged = payload if replace else _merge_work_event(event.get("work_event") or {}, payload)
+        # Validate the merged result, not the patch: a payload that is fine alone can still be
+        # rejected once combined, and what gets stored is what has to hold.
+        validate_work_event(merged)
+        event["work_event"] = merged
+        validate_event(event)
+        updated = home.replace_proposal(proposal_id, event=event)
+    return {
+        "mode": "review-work-event",
+        "vault": str(home.path),
+        "proposal": {"id": updated["id"], "status": updated["status"]},
+        "work_event": merged,
+        "filled": sorted(key for key, value in merged.items() if value not in (None, [], {})),
+        "ok": True,
+    }
 
 
 def approve(

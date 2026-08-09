@@ -114,6 +114,19 @@ FACT_CATEGORIES = {
     "portfolio",
 }
 CAREER_STATUSES = {"active", "confirmed", "onboarding"}
+# The event type that records something that happened at the job the user already has. It is a
+# type on the existing ledger rather than a second store: the approval gate, the idempotent
+# append, supersession, and the numeric-claim rule below all apply to it unchanged.
+WORK_EVENT_TYPE = "work_event"
+# Career readiness and job-search intent are separate concepts, so they are separate axes.
+# `employment_status` and `job_search` are the user's own declaration and live in the profile;
+# only the dedicated `set-employment-status` / `set-job-search` commands write them. Every other
+# code path reads them. `career_mode` is projected from events by apply_event_to_state().
+EMPLOYMENT_STATUSES = {"employed", "unemployed", "student", "other", "unknown"}
+JOB_SEARCH_STATES = {"off", "on"}
+CAREER_MODES = {"maintenance", "opportunity_review", "active_search", "transition"}
+# A work event's confidentiality review answers "may this leave the vault", not "is this true".
+EXTERNAL_USE_STATES = {"allowed", "blocked", "unknown"}
 VAULT_DIRECTORIES = (
     "00-control",
     "01-capture",
@@ -144,6 +157,27 @@ def document_evidence_ids(evidence: Any) -> list[str]:
         if document_id and document_id not in seen:
             seen.append(document_id)
     return seen
+def job_search_of(profile: dict[str, Any]) -> str:
+    """The user's declared job-search intent, `off` until they say otherwise.
+
+    A missing or unreadable key is `off`, never `on`: an absent declaration is not permission to
+    treat someone as actively job hunting. Every reader goes through here so the profile and the
+    projector cannot disagree about what a blank field means.
+    """
+    value = str(profile.get("job_search") or "").strip().lower()
+    return value if value in JOB_SEARCH_STATES else "off"
+
+
+def employment_status_of(profile: dict[str, Any]) -> str:
+    """The user's declared employment status; missing stays `unknown`, never an inferred value.
+
+    This is the user's current declaration. The dated `employment` facts on the event ledger are a
+    separate history with their own supersession, and the two are never merged.
+    """
+    value = str(profile.get("employment_status") or "").strip().lower()
+    return value if value in EMPLOYMENT_STATUSES else "unknown"
+
+
 CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")
 SHINSOTSU_STAGES = (
     "自己分析・就活軸",
@@ -252,9 +286,11 @@ class CareerError(ValueError):
 
 class Event(TypedDict, total=False):
     id: str
-    track: str
-    stage: str
-    flow_phase: str
+    # None only for WORK_EVENT_TYPE: a work event records what happened at the current job, which
+    # belongs to no hiring-market track and no transition stage. validate_event() enforces that.
+    track: str | None
+    stage: str | None
+    flow_phase: str | None
     type: str
     occurred_at: str
     title: str
@@ -267,6 +303,10 @@ class Event(TypedDict, total=False):
     company: str
     compensation: int | float
     currency: str
+    work_event: dict[str, Any]
+    # The workflow intent the user stated in the turn that produced this event, when they stated
+    # one. Absent is the normal case and means "leave the mode where it is".
+    career_mode: str
 
 
 class Proposal(TypedDict, total=False):
@@ -285,6 +325,7 @@ class CareerState(TypedDict, total=False):
     stage: str | None
     flow_phase: str | None
     career_status: str
+    career_mode: str
     open_actions: list[dict[str, Any]]
     deadlines: list[dict[str, Any]]
     last_event_id: str | None
@@ -333,6 +374,9 @@ def default_state() -> CareerState:
         "stage": None,
         "flow_phase": None,
         "career_status": "active",
+        # Maintenance is the resting state: a user keeps career evidence current whether or not
+        # they are looking. Nothing here implies an intention to leave.
+        "career_mode": "maintenance",
         "open_actions": [],
         "deadlines": [],
         "last_event_id": None,

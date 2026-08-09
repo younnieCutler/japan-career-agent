@@ -250,5 +250,83 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(self.career_status(), "active")
 
 
+class MaintenanceOnboardingTests(unittest.TestCase):
+    """Career maintenance must not be gated behind a hiring-market question.
+
+    Someone employed and not looking has no answer to "new graduate or mid-career?", and asking it
+    before they can write down what they did at work is the friction this path removes.
+    """
+
+    def setUp(self) -> None:
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.vault = Path(self.tempdir.name) / "career-vault"
+        (Path(self.tempdir.name) / "work").mkdir()
+        output(run(self.vault, "init"))
+
+    def tearDown(self) -> None:
+        self.tempdir.cleanup()
+
+    @property
+    def profile_path(self) -> Path:
+        return self.vault / "00-control" / "career-profile.toml"
+
+    def set_profile(self, **values: str | int) -> None:
+        lines = [f"{key} = {json.dumps(value, ensure_ascii=False)}" for key, value in values.items()]
+        self.profile_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def profile(self) -> dict:
+        with self.profile_path.open("rb") as stream:
+            return tomllib.load(stream)
+
+    def career_status(self) -> str:
+        return str(self.profile().get("career_status") or "")
+
+    def chat(self, message: str, *args: str) -> dict:
+        return output(run(self.vault, "run", "--mode", "chat", "--message", message, *args))
+
+    def test_a_maintenance_request_routes_without_a_track(self) -> None:
+        result = self.chat("오늘 한 일 기록해줘")
+        self.assertIsNone(result.get("needs_confirmation"))
+        self.assertIsNone(result["track"])
+        self.assertIsNone(result["stage"])
+        self.assertEqual(result["career_mode"], "maintenance")
+        self.assertEqual(result["proposal"]["event"]["type"], "work_event")
+
+    def test_maintenance_works_in_japanese_and_english_too(self) -> None:
+        for message in ("今日やった仕事を記録して", "Add this to my work log"):
+            with self.subTest(message=message):
+                result = self.chat(message)
+                self.assertIsNone(result.get("needs_confirmation"))
+                self.assertIsNone(result["track"])
+
+    def test_the_track_question_still_blocks_everything_else(self) -> None:
+        result = self.chat("면접 준비 도와줘")
+        self.assertTrue(result["needs_confirmation"])
+        self.assertIn("shinsotsu", result["question"])
+
+    def test_recording_evidence_ends_onboarding_without_choosing_a_track(self) -> None:
+        self.chat("업무일지 남겨줘")
+        self.assertEqual(self.career_status(), "active")
+        self.assertIsNone(self.profile().get("track"))
+
+    def test_the_track_is_asked_for_once_a_request_actually_needs_one(self) -> None:
+        self.chat("업무일지 남겨줘")
+        result = self.chat("면접 준비 도와줘")
+        self.assertTrue(result["needs_confirmation"])
+
+    def test_an_opportunity_review_counts_as_a_stated_intent(self) -> None:
+        # The third gate asks "which task?" when no stage alias appears. A recruiter message names
+        # a task as clearly as 면접 does; it just is not a stage.
+        self.set_profile(career_status="onboarding", track="chuto")
+        result = self.chat("헤드헌터가 보낸 건데 괜찮은 포지션인지만 봐줘")
+        self.assertIsNone(result.get("needs_confirmation"))
+        self.assertEqual(self.career_status(), "active")
+
+    def test_a_vague_message_still_reaches_the_intent_question(self) -> None:
+        self.set_profile(career_status="onboarding", track="chuto")
+        result = self.chat("음")
+        self.assertTrue(result["needs_confirmation"])
+
+
 if __name__ == "__main__":
     unittest.main()

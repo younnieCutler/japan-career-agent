@@ -194,7 +194,7 @@ def profile_template() -> str:
     # A brand new vault starts in `onboarding`, so the first chat turns ask for track, graduation
     # year, and the task the user actually wants before routing. Only new vaults are affected: an
     # existing profile already holds its own value and is never rewritten by this template.
-    return """# Fill the values before running chat. Do not put raw resumes or transcripts here.\n# track = \"shinsotsu\"  # shinsotsu or chuto\n# graduation_year = 2027  # required for shinsotsu (university or graduate school)\n# target_role = \"LLMOps Engineer\"\ncareer_status = \"onboarding\"  # active, confirmed, or onboarding\nlanguage = \"ko\"\n"""
+    return """# Fill the values before running chat. Do not put raw resumes or transcripts here.\n# track = \"shinsotsu\"  # shinsotsu or chuto; stays unset while only career maintenance is used\n# graduation_year = 2027  # required for shinsotsu (university or graduate school)\n# target_role = \"LLMOps Engineer\"\ncareer_status = \"onboarding\"  # active, confirmed, or onboarding\n# Career readiness and job-search intent are separate. Both fields below are the user's own\n# declaration: only `set-employment-status` and `set-job-search` write them, and nothing infers\n# them from a JD review, a recruiter message, or a recorded work event.\nemployment_status = \"unknown\"  # employed, unemployed, student, other, or unknown\njob_search = \"off\"  # off or on\nlanguage = \"ko\"\n"""
 
 
 def policy_template() -> str:

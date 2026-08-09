@@ -37,10 +37,12 @@ FROZEN_DIGESTS = {
     ("routing-eval-v1", "holdout"): "4190a5fb71c7bdf6",
     ("routing-eval-v2", "dev"): "0d6432e3d89492c9",
     ("routing-eval-v2", "holdout"): "bdf97d5436c297ab",
+    ("routing-eval-v3", "dev"): "326546e80644ab6f",
+    ("routing-eval-v3", "holdout"): "7dce28c875bbd38d",
 }
 
 VALID_FIXTURE = """
-benchmark_version: routing-eval-v2
+benchmark_version: routing-eval-v3
 fixtures:
   - id: ROUTE-T-001
     input: {message: "年収交渉の進め方", track: chuto, stage: "内定・条件交渉"}
@@ -125,14 +127,14 @@ class SchemaTests(unittest.TestCase):
 
     def test_malformed_fixtures_are_rejected(self) -> None:
         malformed = (
-            VALID_FIXTURE.replace("benchmark_version: routing-eval-v2", "benchmark_version: v9"),
+            VALID_FIXTURE.replace("benchmark_version: routing-eval-v3", "benchmark_version: v9"),
             VALID_FIXTURE.replace("risk_class: normal", "risk_class: cosmetic"),
             VALID_FIXTURE.replace("category: [direct_intent]", "category: [made_up_axis]"),
             VALID_FIXTURE.replace("category: [direct_intent]", "category: []"),
             VALID_FIXTURE.replace("    risk_class: normal\n", "    surprise_key: true\n"),
             VALID_FIXTURE.replace("expected: {skill", "expected: {made_up"),
             VALID_FIXTURE + VALID_FIXTURE.split("fixtures:")[1],
-            "benchmark_version: routing-eval-v2\nfixtures: []\n",
+            "benchmark_version: routing-eval-v3\nfixtures: []\n",
         )
         with tempfile.TemporaryDirectory() as directory:
             for body in malformed:

@@ -1,5 +1,68 @@
 # Changelog
 
+## [1.23.0] - 2026-08-10
+
+- Separate career readiness from job-search intent. `employment_status` and `job_search` are the
+  user's own declaration in the profile, written only by `set-employment-status` and
+  `set-job-search`; `career_mode` is projected from events and cannot reach `active_search` while
+  job search is off. No JD review, recruiter message, approved event, or match run can turn job
+  search on — the single write path makes that structural rather than a rule to remember.
+- Add `career-maintenance`: capture what happened at the current job as reusable evidence while
+  employed. It is a prompt skill only; capture, approval, and the append-only ledger are the
+  existing `career-agent` runtime.
+- Add the `work_event` event type as an extension of the existing event contract rather than a
+  second store. `track`, `stage`, and `flow_phase` may be null for it alone: work at the job someone
+  already has belongs to no hiring market and to no transition step, and inventing one would move
+  their routed state. `individual_contribution` and `team_result` stay separate fields, and the
+  existing numeric-claim rule now covers `work_event.metrics`, so a metric with no evidence behind
+  it cannot be confirmed.
+- Stop asking for a track before a maintenance request. An employed user who is not looking has no
+  answer to 新卒/中途; the question returns when a request actually needs one. An opportunity-review
+  message now counts as a stated intent at the third onboarding gate.
+- Add `review-work-event`, the path that fills a captured work event's structured fields before it
+  is confirmed. Capture is one sentence by design and approval only ever accepted evidence,
+  deadline, company, compensation, currency, and next_action, so without this the payload stayed
+  empty from capture through confirmation and the requirement mapping had nothing to read. Keys
+  merge across turns, `--replace` clears a field back to Unknown, and pending is the only editable
+  state: a confirmed event is corrected by recording a superseding one.
+- Move `career_mode` off inference. It was derived from an event's type and stage, which produced
+  two wrong answers: writing a work note while at 面接 with a search underway reset the mode to
+  `maintenance`, and routine document upkeep with job search off became `opportunity_review` when
+  no opportunity existed. The mode is now carried by the chat turn that read the user's words, is
+  absent when they stated no workflow intent, and leaves the stored value alone in that case.
+- Add `work-events [--confirmed] [--as-of]` as the read contract downstream skills use. Drafts and
+  superseded records are excluded in one place instead of separately in every consumer. Its
+  boundary is a UTC date because `occurred_at` is a UTC instant; the previous local-date default
+  dropped an event the user had just recorded in the hours after UTC midnight. Note what
+  `occurred_at` is: capture time, not when the work happened. A `work_date` on the payload is
+  the fix for recency and is not in this change.
+- Take the vault lock in `set-job-search` and `set-employment-status`. Both read the profile, write
+  it, and may rewrite canonical state, which PERSIST-005 requires to be serialized against a
+  concurrent approval.
+- Add five intent lexicons — maintenance, opportunity review, active search with a negation veto,
+  a decided transition, and closing a review out — beside the four existing routing tables, which
+  are unchanged.
+- Give `maintenance` a way back. It is the resting state, but work events deliberately do not move
+  the mode, so one recruiter message left `opportunity_review` standing indefinitely. Declining an
+  opportunity in the user's own words returns the mode to `maintenance`, and closing outranks
+  reviewing so "헤드헌터가 보냈는데 안 할래" reads as the decision it is.
+- Deep-merge `confidentiality` in `review-work-event`. Its two keys are answered at different
+  times — the material is flagged at capture, whether it may leave is decided after review — so a
+  shallow merge let a second patch drop `contains_confidential: true` and quietly unflag a
+  confidential record. Every other field still replaces wholesale.
+- Give `career_mode`'s fourth value, `transition`, a stated signal of its own so the vocabulary has
+  no unreachable member: resignation and joining phrases that mean the move is decided. The bare
+  stems are deliberately absent, so 退職理由 — an interview question about a past move — does not
+  fire it. Unlike `active_search` it does not depend on the job-search flag; someone resigning has
+  decided whether or not they ever declared a search.
+- Add `routing-eval-v3`: every v2 fixture plus 57 for the intent surface, 36 dev and 182 held out.
+  v1 and v2 stay digest-pinned so their recorded results remain reproducible. Evaluator version 2
+  is additive; a fixture naming no intent scores exactly as before.
+- Add per-company evidence selection to `data/pipeline.yml` (`primary_experience_ids`,
+  `supporting_experience_ids`, `unknown_requirements`) at schema 2.4. A JD changes selection,
+  ordering, and presentation angle; the event ledger is append-only and is never edited to fit a
+  posting. The user's three axes are not copied per company.
+
 ## [1.22.0] - 2026-08-08
 
 - Match 학チカ and 학チ카 everywhere. The two spellings of one word were split across the track and

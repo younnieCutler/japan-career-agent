@@ -8,10 +8,13 @@ from typing import Any
 
 from models import (
     CAREER_CONTEXT_FIELDS,
+    CAREER_MODES,
     EVENT_STATUSES,
+    EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
     REQUIRED_EVENT_FIELDS,
     TRACKS,
+    WORK_EVENT_TYPE,
     CareerError,
     as_text,
 )
@@ -133,11 +136,21 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
     missing = [field for field in REQUIRED_EVENT_FIELDS if field not in event]
     if missing:
         raise CareerError(f"event missing fields: {', '.join(missing)}")
-    if event["track"] not in TRACKS:
+    # A work event records what happened at the job the user already has. It belongs to no hiring
+    # market and to no step of a transition, so demanding a track and a stage would force an
+    # invented answer -- and the invented stage would then move the user's routed state. Null is
+    # the honest value, and only this type may use it.
+    unrouted = event.get("type") == WORK_EVENT_TYPE
+    if not (unrouted and event["track"] is None) and event["track"] not in TRACKS:
         raise CareerError("event.track must be shinsotsu or chuto")
     if event["status"] not in EVENT_STATUSES:
         raise CareerError("event.status must be draft, confirmed, or superseded")
-    for field in ("id", "stage", "flow_phase", "type", "title", "summary", "source"):
+    for field in ("id", "type", "title", "summary", "source"):
+        if not isinstance(event[field], str) or not event[field].strip():
+            raise CareerError(f"event.{field} must be a non-empty string")
+    for field in ("stage", "flow_phase"):
+        if unrouted and event[field] is None:
+            continue
         if not isinstance(event[field], str) or not event[field].strip():
             raise CareerError(f"event.{field} must be a non-empty string")
     if not isinstance(event["evidence"], list):
@@ -165,6 +178,11 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
                 "a fact-bearing event must be draft or confirmed; superseded is derived from "
                 "another fact's supersedes link"
             )
+    if "career_mode" in event and event["career_mode"] is not None:
+        if event["career_mode"] not in CAREER_MODES:
+            raise CareerError(f"event.career_mode must be one of: {', '.join(sorted(CAREER_MODES))}")
+    if "work_event" in event and event["work_event"] is not None:
+        validate_work_event(event["work_event"])
     if "company" in event and event["company"] is not None:
         if not isinstance(event["company"], str) or not event["company"].strip():
             raise CareerError("event.company must be a non-empty string")
@@ -175,15 +193,101 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
         if not isinstance(event["currency"], str) or not event["currency"].strip():
             raise CareerError("event.currency must be a non-empty string")
     if for_confirmation or event["status"] == "confirmed":
+        claim_text = claim_surface(event)
         if not event["evidence"]:
-            if NUMERIC_CLAIM.search(event["summary"] + " " + event["title"]):
+            if NUMERIC_CLAIM.search(claim_text):
                 raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
             raise CareerError("confirmed events require evidence; unsupported claims stay drafts")
-        claims = NUMERIC_CLAIM.findall(event["summary"] + " " + event["title"])
+        claims = NUMERIC_CLAIM.findall(claim_text)
         evidence_text = as_text(event["evidence"])
         evidence_claims = set(NUMERIC_CLAIM.findall(evidence_text))
         if claims and not all(claim in evidence_claims for claim in claims):
             raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
+
+
+WORK_EVENT_TEXT_FIELDS = ("role", "scope", "problem", "individual_contribution", "team_result")
+WORK_EVENT_LIST_FIELDS = (
+    "direct_actions",
+    "stakeholder_coordination",
+    "reporting",
+    "metrics",
+    "improvements",
+    "learning",
+)
+
+
+def claim_surface(event: dict[str, Any]) -> str:
+    """Every part of an event that can make a numeric claim, as one string.
+
+    `work_event.metrics` is where a work event puts its numbers, so leaving it out of the
+    confirmation check would let "30% 감소" become confirmed history with no evidence behind it --
+    the exact thing the title/summary check already prevents everywhere else.
+    """
+    surface = [str(event.get("summary") or ""), str(event.get("title") or "")]
+    work_event = event.get("work_event")
+    if isinstance(work_event, dict):
+        surface.extend(str(item) for item in work_event.get("metrics") or [])
+    return " ".join(surface)
+
+
+def validate_work_event(work_event: Any) -> None:
+    """Validate the optional work-event payload a `work_event` type may carry.
+
+    Every field is optional: a work note captured in one sentence is worth keeping, and an absent
+    field is `Unknown` rather than a prompt to guess. Two things are refused outright. An unknown
+    key is an error instead of an ignored typo, because a misspelled `metric` would otherwise drop
+    the user's numbers and read as Unknown afterwards. And a payload flagged as containing
+    confidential material must state its `external_use`, since the whole point of the flag is that
+    "not decided yet" and "safe to send" cannot look the same.
+
+    `individual_contribution` and `team_result` are separate keys and stay that way. Nothing here
+    or downstream copies one into the other.
+    """
+    if not isinstance(work_event, dict):
+        raise CareerError("event.work_event must be an object or null")
+    known = set(WORK_EVENT_TEXT_FIELDS) | set(WORK_EVENT_LIST_FIELDS) | {"confidentiality"}
+    unknown = sorted(set(work_event) - known)
+    if unknown:
+        raise CareerError(f"event.work_event has unknown fields: {', '.join(unknown)}")
+    for field in WORK_EVENT_TEXT_FIELDS:
+        value = work_event.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise CareerError(f"event.work_event.{field} must be a non-empty string or null")
+    for field in WORK_EVENT_LIST_FIELDS:
+        if work_event.get(field) is None:
+            continue
+        if string_list_from(work_event, field) is None:
+            raise CareerError(f"event.work_event.{field} must be a list of non-empty strings")
+    confidentiality = work_event.get("confidentiality")
+    if confidentiality is None:
+        return
+    if not isinstance(confidentiality, dict):
+        raise CareerError("event.work_event.confidentiality must be an object or null")
+    unknown = sorted(set(confidentiality) - {"contains_confidential", "external_use"})
+    if unknown:
+        raise CareerError(
+            f"event.work_event.confidentiality has unknown fields: {', '.join(unknown)}"
+        )
+    contains = confidentiality.get("contains_confidential", False)
+    if not isinstance(contains, bool):
+        raise CareerError(
+            "event.work_event.confidentiality.contains_confidential must be true or false"
+        )
+    external_use = confidentiality.get("external_use")
+    if external_use is None:
+        if contains:
+            raise CareerError(
+                "event.work_event.confidentiality.external_use is required once "
+                "contains_confidential is true; use \"unknown\" when it has not been reviewed"
+            )
+        return
+    if external_use not in EXTERNAL_USE_STATES:
+        raise CareerError(
+            "event.work_event.confidentiality.external_use must be one of: "
+            f"{', '.join(sorted(EXTERNAL_USE_STATES))}"
+        )
 
 
 def validate_fact(fact: Any) -> None:

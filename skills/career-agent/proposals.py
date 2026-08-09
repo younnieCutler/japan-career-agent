@@ -16,19 +16,24 @@ import self_analysis_profile  # noqa: E402
 from schema_contract import validate_new_write  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
-from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, CareerError  # noqa: E402
+from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from private_store import PrivateHome, resolve_document  # noqa: E402
 from routing import (  # noqa: E402
+    active_search_intent,
     explicit_stage_alias,
     flow_phase_for,
     graduation_signal,
     infer_track,
     language_for,
     load_flow_reference,
+    maintenance_intent,
+    opportunity_review_intent,
+    review_closed_intent,
     skill_context,
     stage_for,
+    transition_intent,
 )
 from validation import validate_career_context, validate_event  # noqa: E402
 from vault import CareerVault, select_context, utc_now  # noqa: E402
@@ -37,6 +42,68 @@ from localization import text  # noqa: E402
 
 def approval_action_for(message: str) -> str:
     return text(language_for(message), "event.approval_instruction")
+
+
+MAINTENANCE_SKILL = "career-maintenance"
+
+
+def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
+    """Propose a work event: what happened at the current job, with no route attached.
+
+    `track`, `stage` and `flow_phase` are null on purpose. Filling them would mean choosing a
+    hiring market and a transition step on the user's behalf, and the projector would then move
+    their routed state because they wrote down what they did at work today.
+
+    The structured payload stays empty here. Capture is one sentence; the fields are filled during
+    review, by the user, and anything they do not say stays Unknown.
+    """
+    event = {
+        "id": f"evt-{uuid.uuid4().hex[:12]}",
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "type": WORK_EVENT_TYPE,
+        "occurred_at": utc_now(),
+        "title": text(language_for(message), "event.title"),
+        "summary": message.strip(),
+        "evidence": [],
+        "source": "user_message",
+        "next_action": None,
+        "deadline": None,
+        "status": status,
+        "work_event": {},
+    }
+    validate_event(event)
+    return event
+
+
+def stated_career_mode(message: str) -> str | None:
+    """The workflow intent the message states outright, or None when it states none.
+
+    This is the only place the user's own words are available, so it is where the mode is decided.
+    Silence means None, and the projector then leaves the mode where it was: routine document work
+    or interview prep says nothing about whether an opportunity is being weighed.
+
+    `active_search` is recorded when stated, but the projector still refuses it unless the user has
+    separately declared `job_search on`. Saying "I want to apply" is not the same as switching the
+    flag, and only the flag may do that.
+    """
+    # Ordered by how much each one settles. A decided move outranks a declaration of intent to
+    # look, which outranks weighing one opportunity: "퇴사 통보하고 입사 준비" is not a search.
+    #
+    # Closing sits above reviewing so that "헤드헌터 JD 봤는데 별로네, 안 할래" reads as the decision
+    # it is rather than as one more review. Without it `maintenance` is a resting state with no
+    # way back: work events deliberately do not move the mode, so one recruiter message would
+    # leave `opportunity_review` standing indefinitely.
+    if transition_intent(message):
+        return "transition"
+    if review_closed_intent(message):
+        return "maintenance"
+    if active_search_intent(message):
+        return "active_search"
+    if opportunity_review_intent(message):
+        return "opportunity_review"
+    return None
 
 
 def make_event(message: str, track: str, stage: str, flow_phase: str, *, status: str = "draft") -> dict[str, Any]:
@@ -58,8 +125,78 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
         "deadline": None,
         "status": status,
     }
+    mode = stated_career_mode(message)
+    if mode is not None:
+        event["career_mode"] = mode
     validate_event(event)
     return event
+
+
+def _propose_work_event(
+    home: CareerVault,
+    skills_root: Path,
+    message: str,
+    recent_events: list[dict[str, Any]],
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    """Propose a work event without resolving a track, a stage, or a flow phase.
+
+    Everything else is the ordinary path: the same proposal record, the same approval gate, the
+    same append-only ledger. Only the routing questions are skipped, because a work event has no
+    route to resolve.
+    """
+    event = make_work_event(message)
+    language = language_for(message)
+    proposal = {
+        "id": f"proposal-{uuid.uuid4().hex[:12]}",
+        "kind": "event",
+        "status": "pending",
+        "created_at": utc_now(),
+        "next_action": approval_action_for(message),
+        "event": event,
+    }
+    trajectory = {
+        "id": f"traj-{uuid.uuid4().hex[:12]}",
+        "created_at": utc_now(),
+        "mode": "chat",
+        "observe": {
+            "track": state.get("track"),
+            "stage": state.get("stage"),
+            "recent_events": recent_events,
+            "message": message,
+            "data_trust": UNTRUSTED_DATA_MARKER,
+            "instruction_authority": "none",
+        },
+        "plan": {"goal": "capture a work event as reusable career evidence", "moves_career_mode": False},
+        "act": {"proposal_id": proposal["id"], "skill": MAINTENANCE_SKILL},
+        "verify": {"event_schema": "valid", "route_resolved": False, "external_side_effect": False},
+        "correct": {"retry_count": 0, "needs_user_confirmation": True},
+        "persist": {"proposal_id": proposal["id"]},
+    }
+    with vault_lock(home):
+        home.add_proposal(proposal)
+        home.append_trajectory(trajectory)
+    result = {
+        "mode": "chat",
+        "language": language,
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        # The mode the user is already in, not a claim that this turn set it. Recording work does
+        # not move the mode, so reporting "maintenance" here would be wrong for anyone mid-search.
+        "career_mode": state.get("career_mode"),
+        "skill": skill_context(skills_root, None, skill_override=MAINTENANCE_SKILL),
+        "context": [],
+        "personal_context": select_personal_context(recent_events, None, str(event["occurred_at"])[:10]),
+        "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
+        "proposal": proposal,
+        "saved": str(home.proposals),
+    }
+    # Recording career evidence is a workflow the user chose, so onboarding ends here too. It
+    # still says nothing about a track: that question waits until a request actually needs one.
+    if str(home.load_profile().get("career_status") or "") == "onboarding":
+        result["onboarding_completed"] = True
+    return result
 
 
 def run_chat(
@@ -68,6 +205,12 @@ def run_chat(
     state = home.load_state()
     profile = home.load_profile()
     recent_events = read_jsonl(home.events)[-5:]
+    # Checked before the track gate on purpose. Career readiness does not depend on job-search
+    # intent, so someone recording what they did at work must not be stopped at "new graduate or
+    # mid-career?" -- a question their request never raised and that has no answer while they are
+    # simply doing their job.
+    if maintenance_intent(message):
+        return _propose_work_event(home, skills_root, message, recent_events, state)
     track = infer_track(message, requested_track) or state.get("track") or profile.get("track")
     if not track:
         goal = "resolve track before routing"
@@ -123,7 +266,18 @@ def run_chat(
     # The third onboarding gate. A user still onboarding has no routed history to fall back on, so
     # `stage_for()`'s default would silently pick self-analysis for them; asking is the honest move.
     # Everyone else keeps the existing behaviour exactly, including that default.
-    if onboarding and not state.get("stage") and explicit_stage_alias(message) is None:
+    #
+    # "이 JD 한번 봐줘" states an intent as clearly as "면접 준비" does, it just is not a stage. Asking
+    # "which task?" after it would be asking a question the user already answered. Reviewing a
+    # posting and carrying out a resignation both name a task; declaring a search does not —
+    # "이직 준비 시작할래" could mean self-analysis, documents, research, or interviews, so that
+    # question still has to be asked.
+    intent_stated = (
+        explicit_stage_alias(message) is not None
+        or opportunity_review_intent(message)
+        or transition_intent(message)
+    )
+    if onboarding and not state.get("stage") and not intent_stated:
         goal = "resolve current intent before routing"
         retry_count = count_consecutive_safe_stops(home, goal)
         home.append_trajectory(

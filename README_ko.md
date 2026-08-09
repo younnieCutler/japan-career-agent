@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
-현재 릴리스: `1.22.0`.
+현재 릴리스: `1.23.0`.
 
 일본 취업·이직을 위한 local-first evidence-based 커리어 의사결정 도구입니다. Claude Code와 Codex에서 쓰는 plugin/skill 모음이며, 로컬 Career Agent runtime으로 구직자와 채용 측 workflow를 지원합니다.
 
@@ -81,6 +81,7 @@ git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
 
 | 필요한 것 | 사용자 관점의 작업 | Skill |
 |---|---|---|
+| 경력 기록 유지하기 | 이직 의사와 무관하게, 지금 회사에서 한 일을 재사용 가능한 근거로 남깁니다 | `career-maintenance` |
 | 방향 찾기 | work-style reflection을 하고 커리어 방향 가설을 정리합니다 | `jiko-bunseki` |
 | 서류 준비 | 실제로 말한 근거를 바탕으로 이력서, 職務経歴書, 자기PR, candidate profile을 다룹니다 | `job-seeker-agent` |
 | 직무와 기업 읽기 | JD 요건과 기업·공고 출처를 구분해 관찰 내용으로 정리합니다 | `hiring-manager-agent`, `kigyou-bunseki` |

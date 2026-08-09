@@ -30,7 +30,14 @@ CAREER_ROOT = ROOT / "skills" / "career-agent"
 SKILLS_ROOT = ROOT / "skills"
 FIXTURE_DIR = CAREER_ROOT / "tests" / "fixtures"
 
-EVALUATOR_VERSION = 1
+# 2 adds the intent assertions: maintenance, opportunity review, active search, a decided
+# transition, and closing a review out. It is additive — a fixture naming none of them is scored
+# exactly as version 1 scored it, which keeps v1 and v2 results comparable across the change.
+#
+# These assert the lexicons, which are independent term matchers. Which one wins when a sentence
+# matches two of them is `stated_career_mode`'s job, and that lives outside the subject surface,
+# so precedence is unit-tested rather than benchmarked.
+EVALUATOR_VERSION = 2
 
 # A frozen benchmark is never edited; a corrected or extended one is a new version, and the old
 # one stays readable so its recorded results remain reproducible.
@@ -43,8 +50,15 @@ BENCHMARKS = {
         "dev": FIXTURE_DIR / "routing_eval_v2_dev.yml",
         "holdout": FIXTURE_DIR / "routing_eval_v2_holdout.yml",
     },
+    # v3 adds the intent lexicons that decide maintenance, opportunity review, and an explicitly
+    # declared search. v2 is untouched so its recorded results in
+    # docs/routing-autoresearch-results.tsv stay reproducible and comparable.
+    "routing-eval-v3": {
+        "dev": FIXTURE_DIR / "routing_eval_v3_dev.yml",
+        "holdout": FIXTURE_DIR / "routing_eval_v3_holdout.yml",
+    },
 }
-BENCHMARK_VERSION = "routing-eval-v2"
+BENCHMARK_VERSION = "routing-eval-v3"
 FIXTURE_PATHS = BENCHMARKS[BENCHMARK_VERSION]
 
 # The production surface a candidate is allowed to mutate. Everything the evaluator reads to make
@@ -72,7 +86,27 @@ CATEGORIES = frozenset({
     "shinsotsu_boundary",
     "chuto_boundary",
 })
-_EXPECTED_KEYS = frozenset({"track", "stage", "skill", "reference", "explicit_intent"})
+_EXPECTED_KEYS = frozenset({
+    "track",
+    "stage",
+    "skill",
+    "reference",
+    "explicit_intent",
+    "maintenance_intent",
+    "opportunity_review_intent",
+    "active_search_intent",
+    "transition_intent",
+    "review_closed_intent",
+})
+# Reading one of these wrong changes what the product does about the user's intent, not merely
+# which reference it opens, so every one of them is critical whatever the fixture's risk class.
+_INTENT_ASSERTIONS = (
+    ("maintenance_intent", "maintenance_intent"),
+    ("opportunity_review_intent", "opportunity_review_intent"),
+    ("active_search_intent", "active_search_intent"),
+    ("transition_intent", "transition_intent"),
+    ("review_closed_intent", "review_closed_intent"),
+)
 _INPUT_KEYS = frozenset({"message", "track", "stage"})
 _CONSTRAINT_KEYS = frozenset({"forbidden_references", "must_not_change_stage"})
 _FIXTURE_KEYS = frozenset({"id", "input", "expected", "constraints", "risk_class", "category"})
@@ -264,6 +298,16 @@ def evaluate_fixture(fixture: Fixture, routing: Any) -> tuple[Failure, ...]:
             f"expected {fixture.expected['explicit_intent']!r}, got {intent!r}",
             critical=True,
         )
+    for key, function_name in _INTENT_ASSERTIONS:
+        if key not in fixture.expected:
+            continue
+        try:
+            observed = bool(getattr(routing, function_name)(fixture.message))
+        except Exception as exc:  # noqa: BLE001 — a missing or broken intent rule is a crash
+            fail("subject_crash", f"{function_name}: {type(exc).__name__}: {exc}", critical=True)
+            continue
+        if observed is not bool(fixture.expected[key]):
+            fail(key, f"expected {fixture.expected[key]!r}, got {observed!r}", critical=True)
     if "stage" in fixture.expected and stage != fixture.expected["stage"]:
         fail("stage", f"expected {fixture.expected['stage']!r}, got {stage!r}", critical=critical_by_class)
     if "skill" in fixture.expected and skill != fixture.expected["skill"]:
@@ -307,6 +351,14 @@ def routing_term_count() -> int:
     total += sum(len(route["terms"]) for route in data["message_context"])
     total += sum(len(group["terms"]) for group in data["stage_alias"])
     total += sum(len(signal["terms"]) for phases in data["flow_phase"].values() for signal in phases)
+    # The intent tables count too. A table left out of the complexity signal is where a candidate
+    # would put the phrases it did not want counted.
+    total += len(data.get("maintenance") or [])
+    total += len(data.get("opportunity_review") or [])
+    total += len(data.get("transition") or [])
+    total += len(data.get("review_closed") or [])
+    active_search = data.get("active_search") or {}
+    total += len(active_search.get("terms") or []) + len(active_search.get("negation") or [])
     return total
 
 
