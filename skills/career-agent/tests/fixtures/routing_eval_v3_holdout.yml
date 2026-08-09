@@ -1128,3 +1128,77 @@ fixtures:
       opportunity_review_intent: true
     risk_class: critical
     category: [mixed_intent]
+
+  - id: ROUTE-V3HO-INTTRAN-001
+    input:
+      message: "퇴사 통보하고 인수인계 준비해야 해"
+    expected:
+      transition_intent: true
+      active_search_intent: false
+    risk_class: critical
+    category: [direct_intent]
+  - id: ROUTE-V3HO-INTTRAN-002
+    input:
+      message: "사직서는 언제 내는 게 좋을까요"
+    expected:
+      transition_intent: true
+    risk_class: critical
+    category: [paraphrase]
+  - id: ROUTE-V3HO-INTTRAN-003
+    input:
+      message: "입사 절차 서류가 뭐가 필요한가요"
+    expected:
+      transition_intent: true
+    risk_class: critical
+    category: [direct_intent]
+  - id: ROUTE-V3HO-INTTRAN-004
+    input:
+      message: "退職届はいつ出せばよいですか"
+    expected:
+      transition_intent: true
+    risk_class: critical
+    category: [multilingual]
+  - id: ROUTE-V3HO-INTTRAN-005
+    input:
+      message: "入社手続きの書類を確認したいです"
+    expected:
+      transition_intent: true
+    risk_class: critical
+    category: [multilingual]
+  - id: ROUTE-V3HO-INTTRAN-006
+    input:
+      message: "I need to plan the handover before my notice period ends"
+    expected:
+      transition_intent: true
+    risk_class: critical
+    category: [multilingual]
+  - id: ROUTE-V3HO-INTTRAN-101
+    input:
+      message: "면접에서 퇴직 이유 물어보면 어떻게 답하지"
+    expected:
+      transition_intent: false
+    risk_class: critical
+    category: [negation]
+  - id: ROUTE-V3HO-INTTRAN-102
+    input:
+      message: "退職理由をどう伝えるか相談したいです"
+    expected:
+      transition_intent: false
+    risk_class: critical
+    category: [negation, multilingual]
+  - id: ROUTE-V3HO-INTTRAN-103
+    input:
+      message: "이직 준비 시작하려고요"
+    expected:
+      transition_intent: false
+      active_search_intent: true
+    risk_class: critical
+    category: [precedence]
+  - id: ROUTE-V3HO-INTTRAN-104
+    input:
+      message: "업무일지 남겨줘"
+    expected:
+      transition_intent: false
+      maintenance_intent: true
+    risk_class: critical
+    category: [precedence]

@@ -78,6 +78,7 @@ OWNED_SYMBOLS = {
     "maintenance_intent": "routing",
     "opportunity_review_intent": "routing",
     "active_search_intent": "routing",
+    "transition_intent": "routing",
     "run_chat": "proposals",
     "stated_career_mode": "proposals",
     "propose_career_context": "proposals",

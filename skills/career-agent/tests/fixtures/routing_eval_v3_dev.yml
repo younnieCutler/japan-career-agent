@@ -373,3 +373,19 @@ fixtures:
       maintenance_intent: false
     risk_class: critical
     category: [direct_intent]
+
+  - id: ROUTE-V3DEV-INTTRAN-001
+    input:
+      message: "円満退職の進め方を教えてください"
+    expected:
+      transition_intent: true
+      active_search_intent: false
+    risk_class: critical
+    category: [direct_intent, multilingual]
+  - id: ROUTE-V3DEV-INTTRAN-002
+    input:
+      message: "面接で退職理由を聞かれたらどう答えますか"
+    expected:
+      transition_intent: false
+    risk_class: critical
+    category: [negation, multilingual]

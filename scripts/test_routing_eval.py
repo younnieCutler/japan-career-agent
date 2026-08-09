@@ -37,8 +37,8 @@ FROZEN_DIGESTS = {
     ("routing-eval-v1", "holdout"): "4190a5fb71c7bdf6",
     ("routing-eval-v2", "dev"): "0d6432e3d89492c9",
     ("routing-eval-v2", "holdout"): "bdf97d5436c297ab",
-    ("routing-eval-v3", "dev"): "05b5659a71780dd8",
-    ("routing-eval-v3", "holdout"): "8b2704af5b21fc82",
+    ("routing-eval-v3", "dev"): "8c6748be2af86a84",
+    ("routing-eval-v3", "holdout"): "1af53d0ac7d03c44",
 }
 
 VALID_FIXTURE = """

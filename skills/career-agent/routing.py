@@ -39,6 +39,7 @@ def load_routing() -> dict[str, Any]:
         or not data.get("flow_phase")
         or not _phrase_list(data.get("maintenance"))
         or not _phrase_list(data.get("opportunity_review"))
+        or not _phrase_list(data.get("transition"))
         or not isinstance(data.get("active_search"), dict)
         or not _phrase_list(data.get("active_search", {}).get("terms"))
         or not _phrase_list(data.get("active_search", {}).get("negation"))
@@ -163,6 +164,11 @@ def maintenance_intent(message: str) -> bool:
 def opportunity_review_intent(message: str) -> bool:
     """Whether the message is looking at one opportunity without declaring a search."""
     return _any_term(message, ROUTING["opportunity_review"])
+
+
+def transition_intent(message: str) -> bool:
+    """Whether the message is carrying out a move the user has already decided on."""
+    return _any_term(message, ROUTING["transition"])
 
 
 def active_search_intent(message: str) -> bool:

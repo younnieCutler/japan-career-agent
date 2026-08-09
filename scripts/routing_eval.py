@@ -30,7 +30,8 @@ CAREER_ROOT = ROOT / "skills" / "career-agent"
 SKILLS_ROOT = ROOT / "skills"
 FIXTURE_DIR = CAREER_ROOT / "tests" / "fixtures"
 
-# 2 adds the three intent assertions (maintenance, opportunity review, active search). It is
+# 2 adds the four intent assertions (maintenance, opportunity review, active search, and a
+# decided transition). It is
 # additive: a fixture that names none of them is scored exactly as version 1 scored it, which is
 # what keeps v1 and v2 results comparable across the change.
 EVALUATOR_VERSION = 2
@@ -91,6 +92,7 @@ _EXPECTED_KEYS = frozenset({
     "maintenance_intent",
     "opportunity_review_intent",
     "active_search_intent",
+    "transition_intent",
 })
 # Reading one of these wrong changes what the product does about the user's intent, not merely
 # which reference it opens, so every one of them is critical whatever the fixture's risk class.
@@ -98,6 +100,7 @@ _INTENT_ASSERTIONS = (
     ("maintenance_intent", "maintenance_intent"),
     ("opportunity_review_intent", "opportunity_review_intent"),
     ("active_search_intent", "active_search_intent"),
+    ("transition_intent", "transition_intent"),
 )
 _INPUT_KEYS = frozenset({"message", "track", "stage"})
 _CONSTRAINT_KEYS = frozenset({"forbidden_references", "must_not_change_stage"})
@@ -347,6 +350,7 @@ def routing_term_count() -> int:
     # would put the phrases it did not want counted.
     total += len(data.get("maintenance") or [])
     total += len(data.get("opportunity_review") or [])
+    total += len(data.get("transition") or [])
     active_search = data.get("active_search") or {}
     total += len(active_search.get("terms") or []) + len(active_search.get("negation") or [])
     return total

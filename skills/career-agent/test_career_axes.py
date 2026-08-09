@@ -105,6 +105,23 @@ class StatedCareerModeTests(unittest.TestCase):
     def test_a_negated_declaration_states_nothing(self) -> None:
         self.assertIsNone(career_agent.stated_career_mode("이직 준비 시작할 생각은 없어요"))
 
+    def test_a_decided_move_states_transition(self) -> None:
+        for message in ("퇴사 통보하고 인수인계 준비해야 해", "円満退職の進め方", "入社手続きの書類"):
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.stated_career_mode(message), "transition")
+
+    def test_an_interview_question_about_leaving_is_not_a_decided_move(self) -> None:
+        # 退職理由 is a question asked at an interview about a past move, not a move underway. The
+        # bare stems are deliberately absent from the lexicon so this cannot fire.
+        for message in ("면접에서 퇴직 이유 물어보면 어떻게 답하지", "退職理由を聞かれたらどう答えますか"):
+            with self.subTest(message=message):
+                self.assertIsNone(career_agent.stated_career_mode(message))
+
+    def test_a_decided_move_outranks_a_search_declaration(self) -> None:
+        self.assertEqual(
+            career_agent.stated_career_mode("퇴사 통보하고 입사 준비도 해야 해"), "transition"
+        )
+
     def test_an_ambiguous_posting_question_states_nothing(self) -> None:
         # "この求人に応募できるか見てほしい" is a question about eligibility, not a declaration and
         # not a recruiter approach. Silence leaves the mode where it was, which is the safe answer
@@ -139,6 +156,13 @@ class CareerModeProjectionTests(unittest.TestCase):
     def test_a_mode_already_in_effect_is_not_rewritten(self) -> None:
         event = {"type": "event", "stage": "業界研究・企業研究", "career_mode": "opportunity_review"}
         self.assertIsNone(career_agent.next_career_mode(event, "off", "opportunity_review"))
+
+    def test_a_transition_does_not_depend_on_the_search_flag(self) -> None:
+        # Someone resigning has decided, whether or not they ever declared a search — an internal
+        # move or leaving without a next job are both real.
+        event = {"type": "event", "stage": "退職・入社準備", "career_mode": "transition"}
+        self.assertEqual(career_agent.next_career_mode(event, "off", "maintenance"), "transition")
+        self.assertEqual(career_agent.next_career_mode(event, "on", "active_search"), "transition")
 
     def test_a_value_outside_the_vocabulary_is_ignored(self) -> None:
         event = {"type": "event", "stage": "面接", "career_mode": "looking_around"}

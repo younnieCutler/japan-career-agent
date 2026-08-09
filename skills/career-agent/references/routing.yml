@@ -147,6 +147,27 @@ opportunity_review:
   - "just review this"
   - "is this a good position"
 
+# A move that is already decided and is being carried out. Phrases only, and specific ones:
+# 退職理由 is an interview question about a past move and must not fire here, which is why the
+# bare stems 退職 / 入社 / 퇴직 are absent. Unlike active_search this does not depend on the
+# job-search flag — someone resigning has decided regardless of whether they were ever "looking".
+transition:
+  - "퇴사 통보"
+  - "퇴직서"
+  - "사직서"
+  - "인수인계"
+  - "입사 절차"
+  - "입사 준비"
+  - "退職届"
+  - "円満退職"
+  - "退職の引き継ぎ"
+  - "入社手続き"
+  - "入社書類"
+  - "resignation letter"
+  - "notice period"
+  - "handover plan"
+  - "onboarding paperwork"
+
 # Declaring an active search. The runtime only ever reads this back as a suggested
 # `set-job-search on`; nothing here writes the flag.
 active_search:

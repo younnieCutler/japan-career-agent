@@ -32,6 +32,7 @@ from routing import (  # noqa: E402
     opportunity_review_intent,
     skill_context,
     stage_for,
+    transition_intent,
 )
 from validation import validate_career_context, validate_event  # noqa: E402
 from vault import CareerVault, select_context, utc_now  # noqa: E402
@@ -86,6 +87,10 @@ def stated_career_mode(message: str) -> str | None:
     separately declared `job_search on`. Saying "I want to apply" is not the same as switching the
     flag, and only the flag may do that.
     """
+    # Ordered by how much each one settles. A decided move outranks a declaration of intent to
+    # look, which outranks weighing one opportunity: "퇴사 통보하고 입사 준비" is not a search.
+    if transition_intent(message):
+        return "transition"
     if active_search_intent(message):
         return "active_search"
     if opportunity_review_intent(message):
@@ -154,7 +159,7 @@ def _propose_work_event(
             "data_trust": UNTRUSTED_DATA_MARKER,
             "instruction_authority": "none",
         },
-        "plan": {"goal": "capture a work event as reusable career evidence", "career_mode": "maintenance"},
+        "plan": {"goal": "capture a work event as reusable career evidence", "moves_career_mode": False},
         "act": {"proposal_id": proposal["id"], "skill": MAINTENANCE_SKILL},
         "verify": {"event_schema": "valid", "route_resolved": False, "external_side_effect": False},
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
@@ -169,7 +174,9 @@ def _propose_work_event(
         "track": None,
         "stage": None,
         "flow_phase": None,
-        "career_mode": "maintenance",
+        # The mode the user is already in, not a claim that this turn set it. Recording work does
+        # not move the mode, so reporting "maintenance" here would be wrong for anyone mid-search.
+        "career_mode": state.get("career_mode"),
         "skill": skill_context(skills_root, None, skill_override=MAINTENANCE_SKILL),
         "context": [],
         "personal_context": select_personal_context(recent_events, None, str(event["occurred_at"])[:10]),
@@ -253,8 +260,15 @@ def run_chat(
     # Everyone else keeps the existing behaviour exactly, including that default.
     #
     # "이 JD 한번 봐줘" states an intent as clearly as "면접 준비" does, it just is not a stage. Asking
-    # "which task?" after it would be asking a question the user already answered.
-    intent_stated = explicit_stage_alias(message) is not None or opportunity_review_intent(message)
+    # "which task?" after it would be asking a question the user already answered. Reviewing a
+    # posting and carrying out a resignation both name a task; declaring a search does not —
+    # "이직 준비 시작할래" could mean self-analysis, documents, research, or interviews, so that
+    # question still has to be asked.
+    intent_stated = (
+        explicit_stage_alias(message) is not None
+        or opportunity_review_intent(message)
+        or transition_intent(message)
+    )
     if onboarding and not state.get("stage") and not intent_stated:
         goal = "resolve current intent before routing"
         retry_count = count_consecutive_safe_stops(home, goal)

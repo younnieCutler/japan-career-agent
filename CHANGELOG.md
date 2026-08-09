@@ -37,9 +37,14 @@
 - Take the vault lock in `set-job-search` and `set-employment-status`. Both read the profile, write
   it, and may rewrite canonical state, which PERSIST-005 requires to be serialized against a
   concurrent approval.
-- Add three intent lexicons — maintenance, opportunity review, and active search with a negation
-  veto — beside the four existing routing tables, which are unchanged.
-- Add `routing-eval-v3`: every v2 fixture plus 39 for the intent surface, 33 dev and 166 held out.
+- Add four intent lexicons — maintenance, opportunity review, active search with a negation veto,
+  and a decided transition — beside the four existing routing tables, which are unchanged.
+- Give `career_mode`'s fourth value, `transition`, a stated signal of its own so the vocabulary has
+  no unreachable member: resignation and joining phrases that mean the move is decided. The bare
+  stems are deliberately absent, so 退職理由 — an interview question about a past move — does not
+  fire it. Unlike `active_search` it does not depend on the job-search flag; someone resigning has
+  decided whether or not they ever declared a search.
+- Add `routing-eval-v3`: every v2 fixture plus 51 for the intent surface, 35 dev and 176 held out.
   v1 and v2 stay digest-pinned so their recorded results remain reproducible. Evaluator version 2
   is additive; a fixture naming no intent scores exactly as before.
 - Add per-company evidence selection to `data/pipeline.yml` (`primary_experience_ids`,

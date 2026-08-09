@@ -23,8 +23,8 @@ approval-gated `career-agent` events.
 Career readiness and job-search intent live on separate axes with separate write paths.
 `employment_status` and `job_search` are the user's declaration in `00-control/career-profile.toml`
 and are written only by `set-employment-status` and `set-job-search`; every other path reads them.
-`career_mode` is projected from events by `apply_event_to_state` and cannot reach `active_search`
-while `job_search` is off. None of the three is copied into `data/pipeline.yml`: they belong to the
+`career_mode` is projected from events by `apply_event_to_state`, moves only when the user stated a
+workflow intent, and cannot reach `active_search` while `job_search` is off. None of the three is copied into `data/pipeline.yml`: they belong to the
 person, and a per-company copy would drift.
 
 A JD's evidence selection is the opposite — per company, because it differs per JD. It is stored on
