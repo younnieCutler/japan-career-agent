@@ -12,6 +12,8 @@ from models import (
     EVENT_STATUSES,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
+    PROJECT_EVENT_TYPE,
+    PROJECT_STATUSES,
     REQUIRED_EVENT_FIELDS,
     TRACKS,
     WORK_EVENT_TYPE,
@@ -136,11 +138,11 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
     missing = [field for field in REQUIRED_EVENT_FIELDS if field not in event]
     if missing:
         raise CareerError(f"event missing fields: {', '.join(missing)}")
-    # A work event records what happened at the job the user already has. It belongs to no hiring
-    # market and to no step of a transition, so demanding a track and a stage would force an
-    # invented answer -- and the invented stage would then move the user's routed state. Null is
-    # the honest value, and only this type may use it.
-    unrouted = event.get("type") == WORK_EVENT_TYPE
+    # A work event records what happened at the job the user already has, and a project records
+    # the context it happened in. Neither belongs to a hiring market or to a step of a transition,
+    # so demanding a track and a stage would force an invented answer -- and the invented stage
+    # would then move the user's routed state. Null is the honest value for these two types.
+    unrouted = event.get("type") in {WORK_EVENT_TYPE, PROJECT_EVENT_TYPE}
     if not (unrouted and event["track"] is None) and event["track"] not in TRACKS:
         raise CareerError("event.track must be shinsotsu or chuto")
     if event["status"] not in EVENT_STATUSES:
@@ -183,6 +185,10 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
             raise CareerError(f"event.career_mode must be one of: {', '.join(sorted(CAREER_MODES))}")
     if "work_event" in event and event["work_event"] is not None:
         validate_work_event(event["work_event"])
+    if event.get("type") == PROJECT_EVENT_TYPE and event.get("project") is None:
+        raise CareerError("a project event must carry event.project")
+    if "project" in event and event["project"] is not None:
+        validate_project(event["project"])
     if "company" in event and event["company"] is not None:
         if not isinstance(event["company"], str) or not event["company"].strip():
             raise CareerError("event.company must be a non-empty string")
@@ -205,6 +211,10 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
             raise CareerError("numeric claim is not present in evidence; event cannot be confirmed")
 
 
+# `YYYY-MM` or `YYYY-MM-DD`. Month precision is a real answer, not a degraded one: "지난 6월"
+# states a month, and demanding a day would invent the part the user did not say.
+MONTH_OR_DAY = re.compile(r"^\d{4}-\d{2}(?:-\d{2})?$")
+
 WORK_EVENT_TEXT_FIELDS = ("role", "scope", "problem", "individual_contribution", "team_result")
 WORK_EVENT_LIST_FIELDS = (
     "direct_actions",
@@ -214,6 +224,64 @@ WORK_EVENT_LIST_FIELDS = (
     "improvements",
     "learning",
 )
+
+
+def month_or_day(value: Any, field: str) -> str | None:
+    """A real calendar month or day, or None when absent. Never widened, never guessed."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not MONTH_OR_DAY.match(value):
+        raise CareerError(f"{field} must be YYYY-MM or YYYY-MM-DD")
+    probe = value if len(value) == 10 else f"{value}-01"
+    try:
+        dt.date.fromisoformat(probe)
+    except ValueError:
+        raise CareerError(f"{field} must be a real calendar date") from None
+    return value
+
+
+def validate_project(project: Any) -> None:
+    """Validate the payload a `project` event carries.
+
+    Only `title` is required. A project exists to give work events somewhere to hang, and
+    demanding a role, a period, and a summary before the user can name it would make creating one
+    the very form this workflow avoids. Everything else fills in later, or stays Unknown.
+
+    `id` is present on every event about a project, including the first: it is the key the
+    projection groups by, and without it two events about one project read as two projects.
+    """
+    if not isinstance(project, dict):
+        raise CareerError("event.project must be an object")
+    known = {"id", "title", "role", "scope", "summary", "status", "period"}
+    unknown = sorted(set(project) - known)
+    if unknown:
+        raise CareerError(f"event.project has unknown fields: {', '.join(unknown)}")
+    for field in ("id", "title"):
+        if not isinstance(project.get(field), str) or not project[field].strip():
+            raise CareerError(f"event.project.{field} must be a non-empty string")
+    for field in ("role", "scope", "summary"):
+        value = project.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise CareerError(f"event.project.{field} must be a non-empty string or null")
+    status = project.get("status")
+    if status is not None and status not in PROJECT_STATUSES:
+        raise CareerError(
+            f"event.project.status must be one of: {', '.join(sorted(PROJECT_STATUSES))}"
+        )
+    period = project.get("period")
+    if period is None:
+        return
+    if not isinstance(period, dict):
+        raise CareerError("event.project.period must be an object or null")
+    unknown = sorted(set(period) - {"from", "to"})
+    if unknown:
+        raise CareerError(f"event.project.period has unknown fields: {', '.join(unknown)}")
+    start = month_or_day(period.get("from"), "event.project.period.from")
+    end = month_or_day(period.get("to"), "event.project.period.to")
+    if start and end and end < start:
+        raise CareerError("event.project.period.to is before period.from")
 
 
 def claim_surface(event: dict[str, Any]) -> str:
@@ -245,10 +313,30 @@ def validate_work_event(work_event: Any) -> None:
     """
     if not isinstance(work_event, dict):
         raise CareerError("event.work_event must be an object or null")
-    known = set(WORK_EVENT_TEXT_FIELDS) | set(WORK_EVENT_LIST_FIELDS) | {"confidentiality"}
+    known = set(WORK_EVENT_TEXT_FIELDS) | set(WORK_EVENT_LIST_FIELDS) | {
+        "confidentiality", "primary_project_id", "related_project_ids", "work_date",
+    }
     unknown = sorted(set(work_event) - known)
     if unknown:
         raise CareerError(f"event.work_event has unknown fields: {', '.join(unknown)}")
+    # Project links are references, never copies. One canonical work event is pointed at by every
+    # project it belongs to, so changing a link cannot change what happened.
+    primary = work_event.get("primary_project_id")
+    if primary is not None and (not isinstance(primary, str) or not primary.strip()):
+        raise CareerError("event.work_event.primary_project_id must be a project id or null")
+    related = work_event.get("related_project_ids")
+    if related is not None:
+        if string_list_from(work_event, "related_project_ids") is None:
+            raise CareerError("event.work_event.related_project_ids must be a list of project ids")
+        if primary is not None and primary in related:
+            raise CareerError(
+                "event.work_event.primary_project_id must not repeat in related_project_ids"
+            )
+        if len(set(related)) != len(related):
+            raise CareerError("event.work_event.related_project_ids must not repeat a project")
+    # When the work actually happened, which is not when it was written down. Absent stays
+    # Unknown: a note captured today about last June says June only if the user said June.
+    month_or_day(work_event.get("work_date"), "event.work_event.work_date")
     for field in WORK_EVENT_TEXT_FIELDS:
         value = work_event.get(field)
         if value is None:

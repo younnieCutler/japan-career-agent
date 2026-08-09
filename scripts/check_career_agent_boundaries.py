@@ -92,6 +92,13 @@ OWNED_SYMBOLS = {
     "apply_event_to_state": "projection",
     "next_career_mode": "projection",
     "clamp_career_mode": "projection",
+    "projects_from_events": "projection",
+    "project_timeline": "projection",
+    "work_event_project_ids": "projection",
+    "work_event_date": "projection",
+    "make_project_event": "proposals",
+    "validate_project": "validation",
+    "month_or_day": "validation",
 }
 
 

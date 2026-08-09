@@ -14,7 +14,13 @@ if str(_SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(_SHARED_ROOT))
 import pipeline_store  # noqa: E402
 
-from models import CAREER_MODES, PIPELINE_STAGE, WORK_EVENT_TYPE, CareerError  # noqa: E402
+from models import (  # noqa: E402
+    CAREER_MODES,
+    PIPELINE_STAGE,
+    PROJECT_EVENT_TYPE,
+    WORK_EVENT_TYPE,
+    CareerError,
+)
 
 
 _LEGAL_ENTITY_MARKERS = ("株式会社", "有限会社", "合同会社", "(株)")
@@ -78,6 +84,91 @@ def upsert_pipeline_entry(
     return path
 
 
+PROJECT_FIELDS = ("title", "role", "scope", "summary", "status", "period")
+
+
+def projects_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """The current state of every project, projected from confirmed project events.
+
+    Grouped by `project.id` and accumulated in ledger order: a later event's non-null fields win,
+    and the fields it leaves out keep what an earlier one said. That matches how the record is
+    actually filled -- a project is named in one turn, given a role in another, and closed in a
+    third -- without needing a supersession link, because the ledger already is the history.
+
+    Confirmed only. A draft project is a proposal the user has not agreed to yet, and nothing
+    should be filed under a project that does not exist for them.
+    """
+    projects: dict[str, dict[str, Any]] = {}
+    for event in events:
+        if event.get("type") != PROJECT_EVENT_TYPE or event.get("status") != "confirmed":
+            continue
+        payload = event.get("project")
+        if not isinstance(payload, dict) or not payload.get("id"):
+            continue
+        project_id = str(payload["id"])
+        current = projects.setdefault(
+            project_id, {"id": project_id, "first_seen": event.get("occurred_at")}
+        )
+        for field in PROJECT_FIELDS:
+            if payload.get(field) is not None:
+                current[field] = payload[field]
+        current["updated_at"] = event.get("occurred_at")
+    for record in projects.values():
+        record.setdefault("status", "unknown")
+    return projects
+
+
+def work_event_project_ids(event: dict[str, Any]) -> list[str]:
+    """Every project a work event points at, primary first, without duplicates."""
+    payload = event.get("work_event")
+    if not isinstance(payload, dict):
+        return []
+    ids: list[str] = []
+    primary = payload.get("primary_project_id")
+    if isinstance(primary, str) and primary.strip():
+        ids.append(primary)
+    for related in payload.get("related_project_ids") or []:
+        if isinstance(related, str) and related.strip() and related not in ids:
+            ids.append(related)
+    return ids
+
+
+def work_event_date(event: dict[str, Any]) -> str:
+    """When the work happened, falling back to when it was captured.
+
+    `work_date` is what the user said; `occurred_at` is when they said it. Recency should prefer
+    the first and may only use the second because a note with no stated date has nothing better --
+    not because the two mean the same thing.
+    """
+    payload = event.get("work_event")
+    if isinstance(payload, dict) and payload.get("work_date"):
+        return str(payload["work_date"])
+    return str(event.get("occurred_at") or "")[:10]
+
+
+def project_timeline(events: list[dict[str, Any]], project_id: str) -> list[dict[str, Any]]:
+    """One project's confirmed work events in time order.
+
+    References, not copies. The timeline is a view over the canonical ledger, so a work event that
+    belongs to three projects appears in three timelines and still exists once.
+    """
+    entries = [
+        {
+            "event_id": event["id"],
+            "date": work_event_date(event),
+            "dated": bool((event.get("work_event") or {}).get("work_date")),
+            "title": event.get("title"),
+            "summary": event.get("summary"),
+            "primary": (event.get("work_event") or {}).get("primary_project_id") == project_id,
+        }
+        for event in events
+        if event.get("type") == WORK_EVENT_TYPE
+        and event.get("status") == "confirmed"
+        and project_id in work_event_project_ids(event)
+    ]
+    return sorted(entries, key=lambda entry: (entry["date"], entry["event_id"]))
+
+
 def next_career_mode(event: dict[str, Any], job_search: str, current: str | None) -> str | None:
     """The career mode an event moves to, or None to leave it exactly where it was.
 
@@ -115,11 +206,11 @@ def apply_event_to_state(
     state: dict[str, Any], event: dict[str, Any], *, job_search: str = "off",
 ) -> dict[str, Any]:
     next_state = dict(state)
-    # A work event and a career-context event both record something without moving the user
-    # through the hiring flow, so neither touches track, stage, flow_phase, or the mode. Someone
-    # at 面接 with a search underway who writes down what they did at work today is still at 面接
-    # and still searching.
-    if event.get("type") in {WORK_EVENT_TYPE, "career_context"}:
+    # Work events, project records, and career-context events all record something without
+    # moving the user through the hiring flow, so none touches track, stage, flow_phase, or the
+    # mode. Someone at 面接 with a search underway who writes down what they did at work today
+    # is still at 面接 and still searching.
+    if event.get("type") in {WORK_EVENT_TYPE, PROJECT_EVENT_TYPE, "career_context"}:
         next_state["last_event_id"] = event["id"]
         return next_state
     mode = next_career_mode(event, job_search, state.get("career_mode"))

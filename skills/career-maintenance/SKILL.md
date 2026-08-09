@@ -59,6 +59,44 @@ python skills/career-agent/career_agent.py run --mode chat --vault "$CAREER_VAUL
 
 This creates a pending `work_event` proposal. Nothing is confirmed yet.
 
+### STEP 1b — Attach it to a project, if there is one
+
+A project is the context work happened in. The work event is still the evidence; a project summary
+is never a claim about the person on its own.
+
+```bash
+python skills/career-agent/career_agent.py projects --vault "$CAREER_VAULT"
+```
+
+Then, in order of how much the user has to do:
+
+- **No projects yet** — ask once, lightly: "지금 진행 중인 프로젝트가 있나요?" They may name several.
+  Create them with `add-project "<title>"`; a title is all that is needed. If they say there are
+  none, record the work as general and move on — `link-work-event <id> --none`.
+- **One obvious match** — say which and ask to confirm: "결제 시스템 안정화 프로젝트에 연결할까요?"
+  One question, not a menu.
+- **Several plausible** — show a short numbered list and let them answer with numbers. Several
+  numbers is a valid answer; one work event can belong to more than one project.
+
+```text
+이 업무를 어떤 프로젝트에 연결할까요? (번호로, 복수 가능)
+  1. 결제 시스템 안정화
+  2. 데이터 파이프라인 개편
+  3. 새 프로젝트로 만들기
+  4. 프로젝트 없음 / 공통 업무
+```
+
+```bash
+career_agent.py link-work-event [proposal-id] --vault "$CAREER_VAULT" \
+  --project prj-aaa --related prj-bbb
+```
+
+The event is stored once and referenced by each project. Never record the same work twice to make
+it appear under two projects.
+
+Never block a capture on this. An unanswered project question leaves the link Unknown, which is a
+perfectly good record.
+
 ### STEP 2 — Structure
 
 Restate the note as the fields below, filling only what the note actually said. Every field is
@@ -77,7 +115,12 @@ optional and an unfilled field stays `Unknown`. Never infer one field from anoth
 | `metrics` | numbers the user stated, with the evidence they came from |
 | `improvements` | automation, standardization, documentation, recurrence prevention, handover |
 | `learning` | knowledge, skill, or change in judgment — valid with no measurable impact |
+| `work_date` | when the work happened, `YYYY-MM` or `YYYY-MM-DD`, only if the user said so |
 | `confidentiality` | whether it contains confidential material, and whether it may be used externally |
+
+`work_date` matters because the ledger's `occurred_at` is when the note was written, not when the
+work happened. "지난 6월 결제 migration" captured today is June work — record `2026-06`. A month is
+a complete answer; do not ask for a day the user did not give, and do not guess a date at all.
 
 ### STEP 3 — Review
 
@@ -118,6 +161,37 @@ nobody can point at is the single most damaging thing to carry into a 職務経�
 
 Drafts stay drafts. They are proposals the user has not verified and are never quoted downstream
 as confirmed evidence.
+
+### STEP 4b — Weekly review
+
+When the user asks to look back over the week, show what already accumulated rather than opening a
+retrospective form:
+
+```bash
+python skills/career-agent/career_agent.py weekly-review --vault "$CAREER_VAULT"
+```
+
+Group by project, mark what is confirmed, and name what is still missing:
+
+```text
+이번 주
+
+[결제 시스템 안정화]
+[x] 배치 장애 원인 분석
+[x] 알림 조건 개선
+[ ] 운영팀 조정 내용 — 개인 기여가 아직 Unknown
+
+[프로젝트 없음]
+[x] 문서 정리
+```
+
+Then ask **at most three** questions, taken from `ask_first` in that order: what the user
+personally did, what came of it, where a stated number came from, what changed for the team, what
+they learned. Stop there. A record with four filled fields and eight Unknowns is a good record, and
+chasing every field turns a two-minute review into the form this workflow exists to avoid.
+
+A note captured this week about work from months ago belongs in this week's review — it is the one
+most likely to still need a contribution and a result.
 
 ### STEP 5 — Hand off
 

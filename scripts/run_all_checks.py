@@ -56,6 +56,7 @@ CHECKS = (
     ("career-agent onboarding", (PYTHON, "skills/career-agent/test_onboarding.py")),
     ("career-agent career axes", (PYTHON, "skills/career-agent/test_career_axes.py")),
     ("career-agent work events", (PYTHON, "skills/career-agent/test_work_event.py")),
+    ("career-agent projects", (PYTHON, "skills/career-agent/test_project.py")),
     ("matching v3", (PYTHON, "_shared/test_matching_v3.py")),
     ("legacy self-test", (PYTHON, "_shared/legacy_experimental.py", "--self-test")),
     ("legacy calibration", (PYTHON, "scripts/legacy_calibrate.py", "--legacy-experimental")),
