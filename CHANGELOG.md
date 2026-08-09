@@ -33,18 +33,29 @@
 - Add `work-events [--confirmed] [--as-of]` as the read contract downstream skills use. Drafts and
   superseded records are excluded in one place instead of separately in every consumer. Its
   boundary is a UTC date because `occurred_at` is a UTC instant; the previous local-date default
-  dropped an event the user had just recorded in the hours after UTC midnight.
+  dropped an event the user had just recorded in the hours after UTC midnight. Note what
+  `occurred_at` is: capture time, not when the work happened. A `work_date` on the payload is
+  the fix for recency and is not in this change.
 - Take the vault lock in `set-job-search` and `set-employment-status`. Both read the profile, write
   it, and may rewrite canonical state, which PERSIST-005 requires to be serialized against a
   concurrent approval.
-- Add four intent lexicons — maintenance, opportunity review, active search with a negation veto,
-  and a decided transition — beside the four existing routing tables, which are unchanged.
+- Add five intent lexicons — maintenance, opportunity review, active search with a negation veto,
+  a decided transition, and closing a review out — beside the four existing routing tables, which
+  are unchanged.
+- Give `maintenance` a way back. It is the resting state, but work events deliberately do not move
+  the mode, so one recruiter message left `opportunity_review` standing indefinitely. Declining an
+  opportunity in the user's own words returns the mode to `maintenance`, and closing outranks
+  reviewing so "헤드헌터가 보냈는데 안 할래" reads as the decision it is.
+- Deep-merge `confidentiality` in `review-work-event`. Its two keys are answered at different
+  times — the material is flagged at capture, whether it may leave is decided after review — so a
+  shallow merge let a second patch drop `contains_confidential: true` and quietly unflag a
+  confidential record. Every other field still replaces wholesale.
 - Give `career_mode`'s fourth value, `transition`, a stated signal of its own so the vocabulary has
   no unreachable member: resignation and joining phrases that mean the move is decided. The bare
   stems are deliberately absent, so 退職理由 — an interview question about a past move — does not
   fire it. Unlike `active_search` it does not depend on the job-search flag; someone resigning has
   decided whether or not they ever declared a search.
-- Add `routing-eval-v3`: every v2 fixture plus 51 for the intent surface, 35 dev and 176 held out.
+- Add `routing-eval-v3`: every v2 fixture plus 57 for the intent surface, 36 dev and 182 held out.
   v1 and v2 stay digest-pinned so their recorded results remain reproducible. Evaluator version 2
   is additive; a fixture naming no intent scores exactly as before.
 - Add per-company evidence selection to `data/pipeline.yml` (`primary_experience_ids`,

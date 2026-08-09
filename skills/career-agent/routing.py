@@ -40,6 +40,7 @@ def load_routing() -> dict[str, Any]:
         or not _phrase_list(data.get("maintenance"))
         or not _phrase_list(data.get("opportunity_review"))
         or not _phrase_list(data.get("transition"))
+        or not _phrase_list(data.get("review_closed"))
         or not isinstance(data.get("active_search"), dict)
         or not _phrase_list(data.get("active_search", {}).get("terms"))
         or not _phrase_list(data.get("active_search", {}).get("negation"))
@@ -169,6 +170,11 @@ def opportunity_review_intent(message: str) -> bool:
 def transition_intent(message: str) -> bool:
     """Whether the message is carrying out a move the user has already decided on."""
     return _any_term(message, ROUTING["transition"])
+
+
+def review_closed_intent(message: str) -> bool:
+    """Whether the message closes an opportunity out and returns to plain career upkeep."""
+    return _any_term(message, ROUTING["review_closed"])
 
 
 def active_search_intent(message: str) -> bool:

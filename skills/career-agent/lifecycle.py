@@ -319,6 +319,24 @@ def recover_pending(
             raise _recovery_error("approval transaction replay failed", error=str(exc)) from exc
 
 
+def _merge_work_event(stored: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Merge a review patch into the stored payload, one level deeper for `confidentiality`.
+
+    Everything else replaces wholesale: a corrected `direct_actions` list means that list, not the
+    old one with additions. `confidentiality` is the exception because its two keys answer
+    different questions and are naturally answered at different times — the material is flagged
+    when the note is captured, and whether it may leave is decided after review. A shallow merge
+    would let `{"external_use": "blocked"}` drop `contains_confidential: true` and quietly turn a
+    flagged record into an unflagged one, which is the wrong direction to fail in.
+    """
+    merged = {**stored, **patch}
+    old = stored.get("confidentiality")
+    new = patch.get("confidentiality")
+    if isinstance(old, dict) and isinstance(new, dict):
+        merged["confidentiality"] = {**old, **new}
+    return merged
+
+
 def review_work_event(
     home: CareerVault, proposal_id: str, payload: dict[str, Any], *, replace: bool = False,
 ) -> dict[str, Any]:
@@ -352,7 +370,7 @@ def review_work_event(
             )
         if not isinstance(payload, dict):
             raise CareerError("work event payload must be an object", code="INVALID_INPUT")
-        merged = payload if replace else {**(event.get("work_event") or {}), **payload}
+        merged = payload if replace else _merge_work_event(event.get("work_event") or {}, payload)
         # Validate the merged result, not the patch: a payload that is fine alone can still be
         # rejected once combined, and what gets stored is what has to hold.
         validate_work_event(merged)

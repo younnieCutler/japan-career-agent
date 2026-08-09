@@ -146,6 +146,10 @@ The selection lives per company because the answer differs per JD. The user's ow
 Running this workflow does not start a job search. Reviewing a posting, however many times, does
 not change `job_search`; only `career-agent set-job-search on` does.
 
+When the user decides against a posting, say so plainly and let their words close it out — "이번
+건은 안 할래", "今回は見送ります", "passing on this" return `career_mode` to `maintenance`. Do not
+leave an opportunity open on their behalf.
+
 ## Output contract
 
 Render the independent axes in this order:

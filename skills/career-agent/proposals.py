@@ -30,6 +30,7 @@ from routing import (  # noqa: E402
     load_flow_reference,
     maintenance_intent,
     opportunity_review_intent,
+    review_closed_intent,
     skill_context,
     stage_for,
     transition_intent,
@@ -89,8 +90,15 @@ def stated_career_mode(message: str) -> str | None:
     """
     # Ordered by how much each one settles. A decided move outranks a declaration of intent to
     # look, which outranks weighing one opportunity: "퇴사 통보하고 입사 준비" is not a search.
+    #
+    # Closing sits above reviewing so that "헤드헌터 JD 봤는데 별로네, 안 할래" reads as the decision
+    # it is rather than as one more review. Without it `maintenance` is a resting state with no
+    # way back: work events deliberately do not move the mode, so one recruiter message would
+    # leave `opportunity_review` standing indefinitely.
     if transition_intent(message):
         return "transition"
+    if review_closed_intent(message):
+        return "maintenance"
     if active_search_intent(message):
         return "active_search"
     if opportunity_review_intent(message):

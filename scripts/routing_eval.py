@@ -30,10 +30,13 @@ CAREER_ROOT = ROOT / "skills" / "career-agent"
 SKILLS_ROOT = ROOT / "skills"
 FIXTURE_DIR = CAREER_ROOT / "tests" / "fixtures"
 
-# 2 adds the four intent assertions (maintenance, opportunity review, active search, and a
-# decided transition). It is
-# additive: a fixture that names none of them is scored exactly as version 1 scored it, which is
-# what keeps v1 and v2 results comparable across the change.
+# 2 adds the intent assertions: maintenance, opportunity review, active search, a decided
+# transition, and closing a review out. It is additive — a fixture naming none of them is scored
+# exactly as version 1 scored it, which keeps v1 and v2 results comparable across the change.
+#
+# These assert the lexicons, which are independent term matchers. Which one wins when a sentence
+# matches two of them is `stated_career_mode`'s job, and that lives outside the subject surface,
+# so precedence is unit-tested rather than benchmarked.
 EVALUATOR_VERSION = 2
 
 # A frozen benchmark is never edited; a corrected or extended one is a new version, and the old
@@ -93,6 +96,7 @@ _EXPECTED_KEYS = frozenset({
     "opportunity_review_intent",
     "active_search_intent",
     "transition_intent",
+    "review_closed_intent",
 })
 # Reading one of these wrong changes what the product does about the user's intent, not merely
 # which reference it opens, so every one of them is critical whatever the fixture's risk class.
@@ -101,6 +105,7 @@ _INTENT_ASSERTIONS = (
     ("opportunity_review_intent", "opportunity_review_intent"),
     ("active_search_intent", "active_search_intent"),
     ("transition_intent", "transition_intent"),
+    ("review_closed_intent", "review_closed_intent"),
 )
 _INPUT_KEYS = frozenset({"message", "track", "stage"})
 _CONSTRAINT_KEYS = frozenset({"forbidden_references", "must_not_change_stage"})
@@ -351,6 +356,7 @@ def routing_term_count() -> int:
     total += len(data.get("maintenance") or [])
     total += len(data.get("opportunity_review") or [])
     total += len(data.get("transition") or [])
+    total += len(data.get("review_closed") or [])
     active_search = data.get("active_search") or {}
     total += len(active_search.get("terms") or []) + len(active_search.get("negation") or [])
     return total

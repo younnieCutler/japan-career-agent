@@ -1202,3 +1202,49 @@ fixtures:
       maintenance_intent: true
     risk_class: critical
     category: [precedence]
+
+  - id: ROUTE-V3HO-INTCLOSE-001
+    input:
+      message: "헤드헌터 JD 봤는데 별로네요. 이번 건은 안 할래요"
+    expected:
+      review_closed_intent: true
+      opportunity_review_intent: true
+      maintenance_intent: false
+    risk_class: critical
+    category: [mixed_intent]
+  - id: ROUTE-V3HO-INTCLOSE-002
+    input:
+      message: "검토는 끝났고 지원 안 하기로 했어요"
+    expected:
+      opportunity_review_intent: false
+    risk_class: critical
+    category: [direct_intent]
+  - id: ROUTE-V3HO-INTCLOSE-003
+    input:
+      message: "평소 경력관리로 돌아가고 싶어요"
+    expected:
+      opportunity_review_intent: false
+      maintenance_intent: false
+    risk_class: critical
+    category: [paraphrase]
+  - id: ROUTE-V3HO-INTCLOSE-004
+    input:
+      message: "応募しないことにしました"
+    expected:
+      opportunity_review_intent: false
+    risk_class: critical
+    category: [multilingual]
+  - id: ROUTE-V3HO-INTCLOSE-005
+    input:
+      message: "I am passing on this one, done reviewing"
+    expected:
+      opportunity_review_intent: false
+    risk_class: critical
+    category: [multilingual]
+  - id: ROUTE-V3HO-INTCLOSE-101
+    input:
+      message: "헤드헌터가 보낸 건데 괜찮은 자리인지 봐주세요"
+    expected:
+      opportunity_review_intent: true
+    risk_class: critical
+    category: [precedence]

@@ -71,6 +71,7 @@ from routing import (  # noqa: E402
     flow_phase_for,
     maintenance_intent,
     opportunity_review_intent,
+    review_closed_intent,
     transition_intent,
     flow_phase_ids,
     graduation_signal,
@@ -211,6 +212,7 @@ _ROUTING_COMPATIBILITY_EXPORTS = (
     flow_phase_for,
     maintenance_intent,
     opportunity_review_intent,
+    review_closed_intent,
     transition_intent,
     flow_phase_ids,
     graduation_signal,
@@ -789,10 +791,14 @@ def work_events(
     stops being one rule and becomes several that drift. Reading is all this does: nothing here
     writes, and the caller receives a copy.
 
-    `as_of` filters by the UTC day the work happened, inclusive, so a mapping run is reproducible
-    rather than dependent on when it was run. It is a UTC date because `occurred_at` is a UTC
-    instant; a local calendar boundary would compare two different things and silently drop an
-    event the user recorded minutes ago.
+    `as_of` filters by `occurred_at`, inclusive. Note what that is and is not: `occurred_at` is
+    when the note was *captured*, not when the work happened. Someone writing up a project from
+    last June today gets an event dated today, so this bounds the ledger reproducibly but is not
+    yet a recency signal about the work itself. A `work_date` on the payload is the fix and is not
+    in this change.
+
+    The boundary is a UTC date because `occurred_at` is a UTC instant; a local calendar boundary
+    would compare two different things and silently drop an event recorded minutes ago.
     """
     rows = [row for row in read_jsonl(home.events) if row.get("type") == WORK_EVENT_TYPE]
     if confirmed_only:
@@ -1386,7 +1392,8 @@ def build_parser() -> argparse.ArgumentParser:
     # against plain `YYYY-MM-DD` fact dates that carry no timezone at all.
     work_events_parser.add_argument(
         "--as-of", default=utc_now()[:10], metavar="YYYY-MM-DD",
-        help="include work that occurred on or before this UTC date; defaults to today in UTC",
+        help="include events captured on or before this UTC date; defaults to today in UTC. This "
+             "is capture time, not when the work happened",
     )
     add_output_format(work_events_parser)
     review_parser = subparsers.add_parser(

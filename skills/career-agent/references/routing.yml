@@ -147,6 +147,32 @@ opportunity_review:
   - "just review this"
   - "is this a good position"
 
+# Closing an opportunity out and returning to plain career upkeep. `maintenance` is the resting
+# state, so it needs a way back: without this a single recruiter message left the mode at
+# `opportunity_review` indefinitely, since work events deliberately do not move it.
+# Deliberately not in the `maintenance` table above — that one triggers work-event capture, and
+# "이번 건은 안 할래" is a decision about an opportunity, not something to record as work.
+review_closed:
+  - "이번 건은 안"
+  - "이 회사는 안"
+  - "지원 안 하기로"
+  - "이직 안 하기로"
+  - "이직은 안 하기로"
+  - "검토 끝"
+  - "검토는 끝"
+  - "관심 없어졌"
+  - "평소 경력관리로"
+  - "경력관리로 돌아"
+  - "今回は見送"
+  - "見送ります"
+  - "応募しないことに"
+  - "転職はしないことに"
+  - "検討は終わ"
+  - "not pursuing this"
+  - "passing on this"
+  - "decided not to apply"
+  - "done reviewing"
+
 # A move that is already decided and is being carried out. Phrases only, and specific ones:
 # 退職理由 is an interview question about a past move and must not fire here, which is why the
 # bare stems 退職 / 入社 / 퇴직 are absent. Unlike active_search this does not depend on the

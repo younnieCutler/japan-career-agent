@@ -13,8 +13,8 @@
 | `scripts/test_routing_eval.py` | Evaluator contract tests — digest freeze, schema strictness, candidate discrimination, reproducibility |
 | `scripts/routing_autoresearch.py` | Experiment runner: mutation-surface enforcement, lexicographic gates, verdict classification, append-only log |
 | `scripts/test_routing_autoresearch.py` | Runner contract tests — subset gates, judging-file pinning, log schema, verdict statuses |
-| `skills/career-agent/tests/fixtures/routing_eval_v3_dev.yml` | Development set, 35 fixtures (visible to a research agent) |
-| `skills/career-agent/tests/fixtures/routing_eval_v3_holdout.yml` | Frozen holdout, 176 fixtures (aggregate-only results) |
+| `skills/career-agent/tests/fixtures/routing_eval_v3_dev.yml` | Development set, 36 fixtures (visible to a research agent) |
+| `skills/career-agent/tests/fixtures/routing_eval_v3_holdout.yml` | Frozen holdout, 182 fixtures (aggregate-only results) |
 | `skills/career-agent/tests/fixtures/routing_eval_v1_*.yml`, `routing_eval_v2_*.yml` | Retired benchmarks, kept readable so their recorded results stay reproducible |
 | `docs/routing-autoresearch-program.md` | The research agent's operating instructions and subject capsule |
 | `docs/routing-autoresearch-results.tsv` | Append-only experiment log |
@@ -22,20 +22,20 @@
 
 ## v3: the intent surface (2026-08-10)
 
-v3 carries every v2 fixture, re-identified, and adds 51 fixtures for the four intent lexicons the
+v3 carries every v2 fixture, re-identified, and adds 57 fixtures for the five intent lexicons the
 career-maintenance work introduced: `maintenance`, `opportunity_review`, `active_search` with its
-negation veto, and `transition` for a move already decided. Evaluator version 2 adds the matching
+negation veto, `transition` for a move already decided, and `review_closed` for declining one. Evaluator version 2 adds the matching
 `expected` keys. The addition is purely
 additive — a fixture that names none of them is scored exactly as evaluator version 1 scored it,
 which is what keeps the v1 and v2 rows in `routing-autoresearch-results.tsv` comparable.
 
-All four intent assertions are critical regardless of a fixture's `risk_class`. Reading one wrong
+All five intent assertions are critical regardless of a fixture's `risk_class`. Reading one wrong
 changes what the product concludes about the user's intent, not merely which reference it opens.
 
 `routing_term_count()` now counts the intent tables. A table excluded from the complexity signal is
 exactly where a candidate would put the phrases it did not want counted.
 
-Baseline against v3 for the shipped subject: dev 31/35 (2 critical), holdout 151/176 (5 critical,
+Baseline against v3 for the shipped subject: dev 32/36 (2 critical), holdout 157/182 (5 critical,
 1 fallback) — the same failure set v2 carries, plus zero new ones.
 
 ## Contract decisions taken while implementing

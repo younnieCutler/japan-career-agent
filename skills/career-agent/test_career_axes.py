@@ -122,6 +122,23 @@ class StatedCareerModeTests(unittest.TestCase):
             career_agent.stated_career_mode("퇴사 통보하고 입사 준비도 해야 해"), "transition"
         )
 
+    def test_declining_an_opportunity_returns_to_maintenance(self) -> None:
+        for message in (
+            "헤드헌터 JD 봤는데 별로네. 이번 건은 안 할래",
+            "検討は終わりました。今回は見送ります",
+            "I am passing on this one, done reviewing",
+            "평소 경력관리로 돌아가자",
+        ):
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.stated_career_mode(message), "maintenance")
+
+    def test_closing_outranks_reviewing_in_the_same_sentence(self) -> None:
+        # Without this ordering, "헤드헌터가 보냈는데 안 할래" reads as one more review and the mode
+        # never comes back down.
+        self.assertEqual(
+            career_agent.stated_career_mode("헤드헌터가 보낸 건데 이번 건은 안 할래"), "maintenance"
+        )
+
     def test_an_ambiguous_posting_question_states_nothing(self) -> None:
         # "この求人に応募できるか見てほしい" is a question about eligibility, not a declaration and
         # not a recruiter approach. Silence leaves the mode where it was, which is the safe answer
@@ -268,6 +285,29 @@ class IntentIsUserOwnedTests(unittest.TestCase):
             "https://example.invalid/posting",
         )
         self.assertEqual(self.home.load_state()["career_mode"], "opportunity_review")
+
+    def test_an_opportunity_can_be_closed_out_and_the_mode_comes_back(self) -> None:
+        # `maintenance` is the resting state, so it needs a way back. Work events deliberately do
+        # not move the mode, so without an explicit close one recruiter message would leave
+        # `opportunity_review` standing indefinitely.
+        opened = self.chat("ヘッドハンターから連絡が来たのですが見てほしいだけです")
+        run_cli(
+            "approve", opened["proposal"]["id"], "--vault", self.vault,
+            "--evidence", "https://example.invalid/posting",
+        )
+        self.assertEqual(self.home.load_state()["career_mode"], "opportunity_review")
+
+        # A work note in between must not be what resets it.
+        work = self.chat("업무일지 남겨줘")
+        run_cli("approve", work["proposal"]["id"], "--vault", self.vault, "--evidence", "JIRA-1")
+        self.assertEqual(self.home.load_state()["career_mode"], "opportunity_review")
+
+        closed = self.chat("검토는 끝났고 이번 건은 안 할래")
+        run_cli(
+            "approve", closed["proposal"]["id"], "--vault", self.vault,
+            "--evidence", "https://example.invalid/posting",
+        )
+        self.assertEqual(self.home.load_state()["career_mode"], "maintenance")
 
     def test_a_recruiter_review_stays_a_review_even_mid_search(self) -> None:
         # The message decides, not the flag. Reading what a headhunter sent is a review whether or

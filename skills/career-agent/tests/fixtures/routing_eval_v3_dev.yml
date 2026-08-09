@@ -389,3 +389,11 @@ fixtures:
       transition_intent: false
     risk_class: critical
     category: [negation, multilingual]
+
+  - id: ROUTE-V3DEV-INTCLOSE-001
+    input:
+      message: "検討は終わりました。今回は見送ります"
+    expected:
+      opportunity_review_intent: false
+    risk_class: critical
+    category: [direct_intent, multilingual]

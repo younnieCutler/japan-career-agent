@@ -351,6 +351,32 @@ class ReviewMutationTests(unittest.TestCase):
         self.assertEqual(result["filled"], ["role"])
         self.assertNotIn("team_result", result["work_event"])
 
+    def test_a_confidentiality_patch_does_not_drop_the_flag(self) -> None:
+        # The two keys answer different questions and are answered at different times: the material
+        # is flagged at capture, and whether it may leave is decided after review. A shallow merge
+        # would let the second turn quietly unflag a confidential record.
+        self.review({"confidentiality": {"contains_confidential": True, "external_use": "unknown"}})
+        result = self.review({"confidentiality": {"external_use": "blocked"}})
+        self.assertEqual(
+            result["work_event"]["confidentiality"],
+            {"contains_confidential": True, "external_use": "blocked"},
+        )
+        self.assertEqual(
+            self.confirmed_payload()["confidentiality"],
+            {"contains_confidential": True, "external_use": "blocked"},
+        )
+
+    def test_replace_still_clears_confidentiality_outright(self) -> None:
+        self.review({"confidentiality": {"contains_confidential": True, "external_use": "blocked"}})
+        result = self.review({"role": "운영 담당"}, "--replace")
+        self.assertNotIn("confidentiality", result["work_event"])
+
+    def test_other_fields_still_replace_wholesale(self) -> None:
+        # A corrected list means that list, not the old one with additions.
+        self.review({"direct_actions": ["첫 번째", "잘못 적은 항목"]})
+        result = self.review({"direct_actions": ["첫 번째"]})
+        self.assertEqual(result["work_event"]["direct_actions"], ["첫 번째"])
+
     def test_an_unknown_field_is_refused(self) -> None:
         result = self.review({"metric": ["30% 감소"]})
         self.assertFalse(result.get("ok", False))
