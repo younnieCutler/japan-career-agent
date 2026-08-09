@@ -1020,6 +1020,212 @@ def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | N
     }
 
 
+def evidence_pool(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
+    """Confirmed career evidence, grouped the way a JD is answered: by project, then by event.
+
+    One call instead of three, because the mapping needs both levels at once — a project is what
+    the user leads with, and the work events under it are what makes the claim checkable. Read
+    only. Nothing here can be selected into a JD in a way that edits it.
+
+    Every event carries `recency`, which prefers the stated `work_date` and falls back to capture
+    time. The fallback is named in `dated` so a JD answer can say "recorded in August, work date
+    not stated" instead of implying August work.
+    """
+    boundary = iso_date(as_of, "--as-of") or utc_now()[:10]
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    confirmed = [
+        event
+        for event in events
+        if event.get("type") == WORK_EVENT_TYPE
+        and event.get("status") == "confirmed"
+        and str(event.get("occurred_at") or "")[:10] <= boundary
+    ]
+
+    def summarize(event: dict[str, Any]) -> dict[str, Any]:
+        payload = event.get("work_event") or {}
+        return {
+            "event_id": event["id"],
+            "title": event.get("title"),
+            "summary": event.get("summary"),
+            "recency": work_event_date(event),
+            "dated": bool(payload.get("work_date")),
+            "projects": work_event_project_ids(event),
+            "work_event": payload,
+            "evidence": event.get("evidence") or [],
+        }
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    unattached: list[dict[str, Any]] = []
+    for event in confirmed:
+        row = summarize(event)
+        if not row["projects"]:
+            unattached.append(row)
+        for project_id in row["projects"]:
+            grouped.setdefault(project_id, []).append(row)
+    return {
+        "mode": "evidence-pool",
+        "vault": str(home.path),
+        "as_of": boundary,
+        "projects": [
+            {
+                **record,
+                "work_events": sorted(
+                    grouped.get(project_id, []), key=lambda row: row["recency"], reverse=True
+                ),
+            }
+            for project_id, record in projects.items()
+        ],
+        "unattached_work_events": sorted(unattached, key=lambda row: row["recency"], reverse=True),
+        "confirmed_work_event_count": len(confirmed),
+        # Only confirmed rows are here. A draft is a proposal the user never verified, and a
+        # superseded one was replaced; neither may back a claim made to someone else.
+        "confirmed_only": True,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def maintenance_check(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
+    """Situations worth mentioning, or none.
+
+    Everything here is triggered by something that actually happened in the record, never by a
+    date. "It has been a week, log your work" is an interruption with no information in it; "이
+    프로젝트가 끝난 것 같은데 정리할까요?" is a suggestion the user can act on. If nothing here
+    fires, the honest output is an empty list — say nothing rather than manufacture a nudge.
+
+    Read only, and deliberately so: nothing in maintenance may change `job_search`, the career
+    mode, or any record. It reports; the user decides.
+    """
+    boundary = iso_date(as_of, "--as-of") or utc_now()[:10]
+    week_ago = (dt.date.fromisoformat(boundary) - dt.timedelta(days=7)).isoformat()
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    work = [e for e in events if e.get("type") == WORK_EVENT_TYPE]
+    confirmed = [e for e in work if e.get("status") == "confirmed"]
+    suggestions: list[dict[str, Any]] = []
+
+    per_project: dict[str, int] = {}
+    for event in work:
+        if str(event.get("occurred_at") or "")[:10] >= week_ago:
+            for project_id in work_event_project_ids(event):
+                per_project[project_id] = per_project.get(project_id, 0) + 1
+    for project_id, count in sorted(per_project.items(), key=lambda item: -item[1]):
+        if count >= 3:
+            suggestions.append({
+                "kind": "review_recent_project_activity",
+                "project_id": project_id,
+                "title": projects.get(project_id, {}).get("title"),
+                "count": count,
+                "detail": f"{count} notes this week on this project; a short review would tidy them",
+            })
+
+    for project_id, record in projects.items():
+        if record.get("status") == "completed" and not record.get("summary"):
+            suggestions.append({
+                "kind": "project_ended_without_summary",
+                "project_id": project_id,
+                "title": record.get("title"),
+                "detail": "this project is closed but has no summary yet",
+            })
+
+    missing = [
+        event["id"]
+        for event in confirmed
+        if not (event.get("work_event") or {}).get("individual_contribution")
+    ]
+    if missing:
+        suggestions.append({
+            "kind": "individual_contribution_unknown",
+            "event_ids": missing[:5],
+            "count": len(missing),
+            "detail": "confirmed notes where what the user personally did is still Unknown",
+        })
+
+    flagged = [
+        event["id"]
+        for event in confirmed
+        if ((event.get("work_event") or {}).get("confidentiality") or {}).get("external_use")
+        == "unknown"
+    ]
+    if flagged:
+        suggestions.append({
+            "kind": "external_use_unreviewed",
+            "event_ids": flagged[:5],
+            "count": len(flagged),
+            "detail": "confidential material with external use not yet reviewed; unknown is not permission",
+        })
+
+    return {
+        "mode": "maintenance-check",
+        "vault": str(home.path),
+        "as_of": boundary,
+        "suggestions": suggestions,
+        # Say at most one of these, and only when the turn has room for it. Silence is a valid
+        # and frequent answer.
+        "mention_at_most": 1,
+        "changes_nothing": True,
+        "ok": True,
+    }
+
+
+def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
+    """Independent readiness dimensions. There is no total, and readiness is not intent.
+
+    Each line answers its own question and is reported on its own. Collapsing them into one number
+    would be the composite this repository refuses everywhere else, and it would also be read as
+    "am I ready to leave", which is a different question from whether the record is current.
+    """
+    boundary = iso_date(as_of, "--as-of") or utc_now()[:10]
+    cutoff = (dt.date.fromisoformat(boundary) - dt.timedelta(days=365)).isoformat()
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    confirmed = [
+        e for e in events if e.get("type") == WORK_EVENT_TYPE and e.get("status") == "confirmed"
+    ]
+    recent = [e for e in confirmed if work_event_date(e)[:10] >= cutoff]
+    with_contribution = [
+        e for e in confirmed if (e.get("work_event") or {}).get("individual_contribution")
+    ]
+    with_metrics = [e for e in confirmed if (e.get("work_event") or {}).get("metrics")]
+    needs_review = [
+        e["id"] for e in confirmed
+        if ((e.get("work_event") or {}).get("confidentiality") or {}).get("external_use") == "unknown"
+    ]
+
+    def dimension(subset: list[Any], total: list[Any]) -> str:
+        if not total:
+            return "Unknown"
+        if len(subset) == len(total):
+            return "Confirmed"
+        return "Partial" if subset else "Unknown"
+
+    return {
+        "mode": "readiness",
+        "vault": str(home.path),
+        "as_of": boundary,
+        "dimensions": {
+            "recent_work_evidence": "Confirmed" if recent else ("Stale" if confirmed else "Unknown"),
+            "project_history": dimension(
+                [p for p in projects.values() if p.get("summary")], list(projects.values())
+            ),
+            "individual_contribution": dimension(with_contribution, confirmed),
+            "metrics_evidence": dimension(with_metrics, confirmed),
+        },
+        "counts": {
+            "projects": len(projects),
+            "confirmed_work_events": len(confirmed),
+            "confirmed_in_last_year": len(recent),
+            "external_use_review_required": len(needs_review),
+        },
+        # Readiness says the record is current. It says nothing about wanting to leave.
+        "job_search": job_search_of(home.load_profile()),
+        "no_total_by_design": True,
+        "ok": True,
+    }
+
+
 def _state_projector_for(home: CareerVault):
     """Bind the user's declared job-search intent to the state projector.
 
@@ -1607,6 +1813,21 @@ def build_parser() -> argparse.ArgumentParser:
     add_project_parser.add_argument("--from", dest="period_from", metavar="YYYY-MM[-DD]")
     add_project_parser.add_argument("--to", dest="period_to", metavar="YYYY-MM[-DD]")
     add_output_format(add_project_parser)
+    for name, helptext in (
+        ("maintenance-check", "situations worth mentioning, or none; never a scheduled reminder"),
+        ("readiness", "independent readiness dimensions; there is no total and it is not intent"),
+    ):
+        sub = subparsers.add_parser(name, help=helptext)
+        add_vault_argument(sub)
+        sub.add_argument("--as-of", metavar="YYYY-MM-DD", help="defaults to today in UTC")
+        add_output_format(sub)
+    pool_parser = subparsers.add_parser(
+        "evidence-pool",
+        help="confirmed evidence grouped by project, the read a JD mapping starts from",
+    )
+    add_vault_argument(pool_parser)
+    pool_parser.add_argument("--as-of", metavar="YYYY-MM-DD", help="defaults to today in UTC")
+    add_output_format(pool_parser)
     weekly_parser = subparsers.add_parser(
         "weekly-review", help="this period's work evidence grouped by project, with the gaps worth asking about",
     )
@@ -1934,6 +2155,12 @@ def main(argv: Iterable[str] | None = None) -> int:
                     role=args.role, scope=args.scope, summary=args.summary, status=args.status,
                     period=period if any(period.values()) else None,
                 )
+            elif args.command == "maintenance-check":
+                result = maintenance_check(home, as_of=args.as_of)
+            elif args.command == "readiness":
+                result = readiness(home, as_of=args.as_of)
+            elif args.command == "evidence-pool":
+                result = evidence_pool(home, as_of=args.as_of)
             elif args.command == "weekly-review":
                 result = weekly_review(home, since=args.since, as_of=args.as_of)
             elif args.command == "projects":

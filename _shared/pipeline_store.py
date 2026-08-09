@@ -145,6 +145,7 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         "match_unknowns",
         # The JD's evidence selection. Ids and requirement names, never the events themselves:
         # the canonical record stays in the Career Vault ledger and a selection cannot edit it.
+        "primary_project_ids",
         "primary_experience_ids",
         "supporting_experience_ids",
         "unknown_requirements",

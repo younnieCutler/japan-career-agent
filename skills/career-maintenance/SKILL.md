@@ -205,6 +205,50 @@ python skills/career-agent/career_agent.py work-events --vault "$CAREER_VAULT" -
 `matching-simulator` maps a JD's requirements onto confirmed evidence.
 `mock-interviewer` grounds answers in it. None of them may alter the record.
 
+## Project-end review
+
+When a project closes, offer a short review — and draft it first from what is already confirmed.
+The user has already told you all of this once; making them explain it again from scratch is the
+opposite of why the evidence was recorded.
+
+```bash
+python skills/career-agent/career_agent.py project-timeline <prj-id> --vault "$CAREER_VAULT"
+```
+
+Draft the summary from that timeline, show it, and ask only about what the timeline cannot answer:
+context and purpose, the user's role and scope, the strongest evidence to lead with, and the
+confidentiality state. Save it onto the project:
+
+```bash
+career_agent.py add-project "<title>" --project-id <prj-id> --vault "$CAREER_VAULT" \
+  --summary "..." --status completed --from 2026-04 --to 2026-06
+```
+
+A project summary is a narrative and navigation layer. It is **not** a replacement for the work
+events and never becomes evidence on its own — a claim in a 職務経歴書 is backed by the events,
+not by the summary that introduces them.
+
+## Occasional, situation-triggered check-ins
+
+```bash
+python skills/career-agent/career_agent.py maintenance-check --vault "$CAREER_VAULT"
+```
+
+Run it at the start of a maintenance turn. Mention **at most one** suggestion, and only when the
+turn has room. An empty list is the common answer and means say nothing.
+
+What is worth mentioning is always something that happened in the record:
+
+- several notes piled up on one project this week — offer a two-minute review;
+- a project is closed but has no summary;
+- confirmed notes where what the user personally did is still Unknown;
+- confidential material whose external use has not been reviewed.
+
+What is never worth saying: "오늘도 경력관리를 해보세요", "일주일이 지났으니 기록하세요". There is no
+schedule here and no reminder. A prompt with no information in it is an interruption.
+
+Nothing in this check changes anything — not `job_search`, not the career mode, not a record.
+
 ## Individual contribution and team result
 
 These are separate fields and stay separate. A team outcome is never promoted to a personal one

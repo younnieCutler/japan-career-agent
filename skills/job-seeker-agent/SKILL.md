@@ -48,8 +48,17 @@ with any other field.
 Confirmed work events are the same kind of evidence and load the same way:
 
 ```bash
-python skills/career-agent/career_agent.py work-events --vault "$CAREER_VAULT" --confirmed
+python skills/career-agent/career_agent.py evidence-pool --vault "$CAREER_VAULT"
 ```
+
+That groups confirmed work events under the projects they belong to. When `matching-simulator` has
+already recorded a selection for this company, `data/pipeline.yml` names it —
+`primary_project_ids`, `primary_experience_ids`, `supporting_experience_ids`. Build from those
+rather than choosing again; the user already made that decision.
+
+A project is the story a reader follows; the work events under it are what makes it checkable.
+Write the bullet from the events, and use the project for context and ordering. A project title
+alone supports nothing.
 
 Ask about an experience only when no confirmed event already records it. A user who wrote down
 what they did at the time should not be asked to reconstruct it again years later — that
@@ -67,6 +76,12 @@ Rules for using them in a document:
 - An empty field is Unknown. Ask; do not compose.
 - `contains_confidential: true` requires a confidentiality review before anything recruiter-facing
   is produced from it. `external_use: unknown` is not permission — it means nobody has checked.
+  Propose the abstraction and let the user approve it: a customer's legal name becomes
+  `enterprise customer`, an internal system becomes `internal analytics platform`, a non-public
+  figure comes out entirely. Never send the original because the flag was only `unknown`.
+- `dated: false` on an event means the date is when the note was captured, not when the work
+  happened. Do not present it as a work date, and do not order a career history by it as though
+  it were one.
 
 ## Interaction contract
 

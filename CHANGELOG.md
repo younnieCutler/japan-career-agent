@@ -20,6 +20,25 @@
   contribution and a result.
 - Add `projects`, `project-timeline`, `add-project`, and `link-work-event`. Timelines are views
   over the ledger; no duplicated history is stored.
+- Add `evidence-pool`: confirmed work events grouped under the projects they belong to, which is
+  the read a JD answer starts from. Each row says whether its date was stated or inherited from
+  capture time, so an answer cannot present the day a note was written as the day work happened.
+- Answer a JD with requirements and the evidence behind them first, and primary experience
+  candidates second. No score, no total, no ordering by keyword count — a requirement is
+  supported when recorded behaviour matches what it asks for, not when a word repeats.
+- Add `primary_project_ids` to the per-company selection. A project may be the headline because
+  it is the story a reader follows; the work events under it are what makes it checkable, and a
+  project title alone supports nothing.
+- Add `maintenance-check`: situations worth mentioning, or none. Everything it reports is
+  triggered by something in the record — notes piling up on one project, a closed project with no
+  summary, confirmed work where the personal contribution is still Unknown, confidential material
+  whose external use was never reviewed. There is no schedule and no reminder, at most one thing
+  is meant to be said, and silence is the common answer.
+- Add `readiness`: independent dimensions with no total, and job-search intent reported beside
+  them rather than derived from them. A current record is not a decision to leave.
+- Add project-end review guidance: draft the summary from the project's own confirmed timeline
+  instead of asking the user to explain it again. The summary is a narrative layer and never
+  becomes evidence on its own.
 
 ## [1.23.0] - 2026-08-10
 
