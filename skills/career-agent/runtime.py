@@ -1059,9 +1059,14 @@ def evidence_pool(home: CareerVault, *, as_of: str | None = None) -> dict[str, A
     unattached: list[dict[str, Any]] = []
     for event in confirmed:
         row = summarize(event)
-        if not row["projects"]:
+        # A reference to a project this projection does not know about must not make the evidence
+        # disappear. `link-work-event` already refuses an unknown id, so this should be
+        # unreachable -- but silently dropping confirmed evidence from the view a JD is answered
+        # from is the worst way for that assumption to turn out wrong.
+        known = [project_id for project_id in row["projects"] if project_id in projects]
+        if not known:
             unattached.append(row)
-        for project_id in row["projects"]:
+        for project_id in known:
             grouped.setdefault(project_id, []).append(row)
     return {
         "mode": "evidence-pool",

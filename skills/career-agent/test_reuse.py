@@ -91,6 +91,23 @@ class EvidencePoolTests(VaultCase):
         self.assertTrue(dated["2026-06"])
         self.assertIn(False, dated.values())
 
+    def test_a_dangling_project_reference_does_not_hide_the_evidence(self) -> None:
+        # `link-work-event` refuses an unknown project, so this should be unreachable. Dropping
+        # confirmed evidence out of the view a JD is answered from is the wrong way to find out
+        # otherwise, so it lands in the unattached list instead of vanishing.
+        self.confirm_work("장애 대응")
+        path = Path(self.vault, "02-state", "events.jsonl")
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        for row in rows:
+            if row["type"] == "work_event":
+                row["work_event"]["primary_project_id"] = "prj-vanished"
+        path.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8"
+        )
+        pool = self.cli("evidence-pool", "--vault", self.vault)
+        self.assertEqual(pool["confirmed_work_event_count"], 1)
+        self.assertEqual(len(pool["unattached_work_events"]), 1)
+
     def test_reading_the_pool_does_not_change_the_ledger(self) -> None:
         project_id = self.add_project("결제 시스템 안정화")
         self.confirm_work("배치 장애 원인 분석", project_id)
