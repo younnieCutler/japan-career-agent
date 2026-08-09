@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.23.0] - 2026-08-10
+
+- Separate career readiness from job-search intent. `employment_status` and `job_search` are the
+  user's own declaration in the profile, written only by `set-employment-status` and
+  `set-job-search`; `career_mode` is projected from events and cannot reach `active_search` while
+  job search is off. No JD review, recruiter message, approved event, or match run can turn job
+  search on — the single write path makes that structural rather than a rule to remember.
+- Add `career-maintenance`: capture what happened at the current job as reusable evidence while
+  employed. It is a prompt skill only; capture, approval, and the append-only ledger are the
+  existing `career-agent` runtime.
+- Add the `work_event` event type as an extension of the existing event contract rather than a
+  second store. `track`, `stage`, and `flow_phase` may be null for it alone: work at the job someone
+  already has belongs to no hiring market and to no transition step, and inventing one would move
+  their routed state. `individual_contribution` and `team_result` stay separate fields, and the
+  existing numeric-claim rule now covers `work_event.metrics`, so a metric with no evidence behind
+  it cannot be confirmed.
+- Stop asking for a track before a maintenance request. An employed user who is not looking has no
+  answer to 新卒/中途; the question returns when a request actually needs one. An opportunity-review
+  message now counts as a stated intent at the third onboarding gate.
+- Add `work-events [--confirmed] [--as-of]` as the read contract downstream skills use. Drafts and
+  superseded records are excluded in one place instead of separately in every consumer.
+- Add three intent lexicons — maintenance, opportunity review, and active search with a negation
+  veto — beside the four existing routing tables, which are unchanged.
+- Add `routing-eval-v3`: every v2 fixture plus 39 for the intent surface, 33 dev and 166 held out.
+  v1 and v2 stay digest-pinned so their recorded results remain reproducible. Evaluator version 2
+  is additive; a fixture naming no intent scores exactly as before.
+- Add per-company evidence selection to `data/pipeline.yml` (`primary_experience_ids`,
+  `supporting_experience_ids`, `unknown_requirements`) at schema 2.4. A JD changes selection,
+  ordering, and presentation angle; the event ledger is append-only and is never edited to fit a
+  posting. The user's three axes are not copied per company.
+
 ## [1.22.0] - 2026-08-08
 
 - Match 학チカ and 학チ카 everywhere. The two spellings of one word were split across the track and

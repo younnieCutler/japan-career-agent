@@ -89,6 +89,113 @@ stage_alias:
   - alias: self
     terms: ["모르겠", "分からない", "わからない", "何がしたい", "何をしたい", "not sure what", "don't know what", "no idea what"]
 
+# Career readiness and job-search intent are separate concepts, so they get their own tables.
+# These are read by maintenance_intent(), opportunity_review_intent() and active_search_intent()
+# and never by stage_for() or skill_context(), so the four tables around them keep their exact
+# behaviour.
+#
+# Every entry is a phrase, never a fragment. A bare 経歴 / 記録 / 성과 / 기록 / 이직 would fire
+# inside 職務経歴書, 경력기술서 and half the chuto lexicon — the same substring over-match the
+# header of this file already warns about for 卒.
+
+# Recording what happened at the job the user already has. This says nothing about wanting to
+# leave, and reaching it must never be read as intent to leave.
+maintenance:
+  - "업무일지"
+  - "오늘 한 일"
+  - "오늘 일한"
+  - "업무 기록"
+  - "업무를 기록"
+  - "커리어 기록"
+  - "경력 기록"
+  - "경력으로 남"
+  - "경력으로 쓸"
+  - "경력은 정리"
+  - "경력만 정리"
+  - "경력을 정리"
+  - "성과 정리"
+  - "성과를 정리"
+  - "業務記録"
+  - "業務日誌"
+  - "仕事を記録"
+  - "今日やった仕事"
+  - "経歴として残"
+  - "経歴は更新"
+  - "今期の成果"
+  - "成果を整理"
+  - "work log"
+  - "log my work"
+  - "career evidence"
+  - "keep my work history"
+  - "record what i did"
+  - "save this project as career"
+
+# Looking at one opportunity without starting a search. Reviewing it, however many times, is not
+# evidence of intent — only an explicit `set-job-search on` is.
+opportunity_review:
+  - "헤드헌터"
+  - "헤드헌팅"
+  - "스카우트 제안"
+  - "제안이 왔는데"
+  - "괜찮은 포지션인지"
+  - "괜찮은 자리인지"
+  - "ヘッドハンター"
+  - "スカウト"
+  - "見てほしいだけ"
+  - "recruiter reached out"
+  - "recruiter sent"
+  - "just review this"
+  - "is this a good position"
+
+# Declaring an active search. The runtime only ever reads this back as a suggested
+# `set-job-search on`; nothing here writes the flag.
+active_search:
+  # Checked first and vetoes the terms below. "이직 준비 시작할 생각은 없어" contains the whole
+  # active-search phrase and means its opposite.
+  negation:
+    - "건 아니"
+    - "건 아냐"
+    - "건 아님"
+    - "은 아니"
+    - "는 아니"
+    # Korean negates intent at the end of the sentence, and an adverb slots in freely between the
+    # noun and the negation ("생각은 아직 없어요"). Matching the closing form covers the whole
+    # family without one entry per adverb. Over-vetoing is the safe direction: the worst outcome
+    # is that the user runs `set-job-search on` themselves, which they must do anyway.
+    - "없어"
+    - "없습니다"
+    - "없다"
+    - "없는데"
+    - "없지만"
+    - "없음"
+    - "予定はない"
+    - "予定は無い"
+    - "つもりはない"
+    - "つもりは無い"
+    - "わけではない"
+    - "ではありません"
+    - "ないです"
+    - "not starting"
+    - "not looking"
+    - "no plans to"
+    - "am not job"
+  terms:
+    - "이직 준비 시작"
+    - "이직 준비를 시작"
+    - "본격적으로 이직"
+    - "진짜 이직 준비"
+    - "지원해보고 싶"
+    - "지원하고 싶"
+    - "면접까지 가볼"
+    - "転職活動を始め"
+    - "本気で転職"
+    - "応募したい"
+    - "start job hunting"
+    - "start my job search"
+    - "start looking for a job"
+    - "i want to apply"
+    - "ready to apply"
+
 # Order matters here too: flow_phase_for() returns on the first phase whose terms match.
 flow_phase:
   shinsotsu:

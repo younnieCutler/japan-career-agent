@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
-現在のリリース: `1.22.0`。
+現在のリリース: `1.23.0`。
 
 日本での就職・転職に向けた local-first の evidence-based なキャリア意思決定支援です。Claude Code と Codex で使う plugin/skill の集合で、ローカルで動く Career Agent runtime が求職者と採用側の workflow を扱います。
 
@@ -81,6 +81,7 @@ git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
 
 | 目的 | できること | Skill |
 |---|---|---|
+| 経歴を最新に保つ | 転職の意思に関わらず、今の仕事で起きたことを再利用できる根拠として記録します | `career-maintenance` |
 | 方向を整理する | work-style reflection からキャリアの仮説を整理します | `jiko-bunseki` |
 | 書類を準備する | ユーザーが示した根拠をもとに履歴書、職務経歴書、自己PR、candidate profileを扱います | `job-seeker-agent` |
 | 職務と企業を読む | JDの要件と企業・求人の出典付き観察を分けて整理します | `hiring-manager-agent`, `kigyou-bunseki` |

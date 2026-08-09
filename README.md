@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
-Current release: `1.22.0`.
+Current release: `1.23.0`.
 
 Local-first, evidence-based career decision support for Japanese job search. This is a Claude Code and Codex plugin/skill suite with a local Career Agent runtime for job seekers and hiring teams.
 
@@ -81,6 +81,7 @@ You do not need to learn `proposal_id`, `CAREER_VAULT`, or `data/pipeline.yml` b
 
 | Need | What you can do | Skill |
 |---|---|---|
+| Keep a career record current | Record what happened at work as reusable evidence, whether or not you are job hunting | `career-maintenance` |
 | Find direction | Reflect on work style and explore career hypotheses | `jiko-bunseki` |
 | Prepare documents | Work on a resume, 職務経歴書, self-PR, and candidate profile from stated evidence | `job-seeker-agent` |
 | Read roles and employers | Turn JD requirements and company or posting sources into labelled observations | `hiring-manager-agent`, `kigyou-bunseki` |

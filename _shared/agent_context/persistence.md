@@ -20,5 +20,19 @@ frozen legacy fields.
 deadline, stage, or fit. Rules are read-only to domain skills and are promoted only through
 approval-gated `career-agent` events.
 
+Career readiness and job-search intent live on separate axes with separate write paths.
+`employment_status` and `job_search` are the user's declaration in `00-control/career-profile.toml`
+and are written only by `set-employment-status` and `set-job-search`; every other path reads them.
+`career_mode` is projected from events by `apply_event_to_state` and cannot reach `active_search`
+while `job_search` is off. None of the three is copied into `data/pipeline.yml`: they belong to the
+person, and a per-company copy would drift.
+
+A JD's evidence selection is the opposite — per company, because it differs per JD. It is stored on
+the pipeline entry as `primary_experience_ids`, `supporting_experience_ids`, and
+`unknown_requirements`, and holds only ids and requirement names. The events themselves stay
+append-only in the Vault ledger; a selection changes ordering and presentation, never the record.
+Downstream skills read them through `career-agent work-events --confirmed`, never by parsing the
+ledger.
+
 When loading a profile, identify the file and ask whether it is current. When saving, print and
 verify its absolute path. Existing files require user confirmation before overwrite.

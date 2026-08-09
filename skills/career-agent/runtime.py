@@ -26,11 +26,16 @@ import pipeline_store  # noqa: E402
 
 from models import (  # noqa: E402
     CAREER_CONTEXT_FIELDS,
+    CAREER_MODES,
     CAREER_STATUSES,
     CHUTO_STAGES,
     CONTEXT_KINDS,
+    EMPLOYMENT_STATUSES,
     EVENT_STATUSES,
+    EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
+    JOB_SEARCH_STATES,
+    WORK_EVENT_TYPE,
     PIPELINE_STAGE,
     REFERENCE_BY_STAGE,
     REQUIRED_CONTEXT_METADATA,
@@ -44,6 +49,8 @@ from models import (  # noqa: E402
     CareerError,
     as_text,
     default_state,
+    employment_status_of,
+    job_search_of,
     normalized_state,
 )
 from validation import (  # noqa: E402
@@ -52,14 +59,18 @@ from validation import (  # noqa: E402
     iso_date,
     validate_career_context,
     validate_event,
+    validate_work_event,
 )
 from routing import (  # noqa: E402
     FLOW_REFERENCE,
     ROUTING,
     ROUTING_REFERENCE,
     _WORD_BOUNDARY_TERMS,
+    active_search_intent,
     explicit_stage_alias,
     flow_phase_for,
+    maintenance_intent,
+    opportunity_review_intent,
     flow_phase_ids,
     graduation_signal,
     infer_track,
@@ -92,6 +103,8 @@ from lifecycle import (  # noqa: E402
     vault_lock,
 )
 from projection import (  # noqa: E402
+    clamp_career_mode,
+    next_career_mode,
     _legacy_company_slug,
     apply_event_to_state,
     company_slug,
@@ -175,8 +188,10 @@ _LIFECYCLE_COMPATIBILITY_EXPORTS = (
 _PROJECTION_COMPATIBILITY_EXPORTS = (
     _legacy_company_slug,
     apply_event_to_state,
+    clamp_career_mode,
     company_slug,
     migrate_pipeline_file,
+    next_career_mode,
     pipeline_file,
     upsert_pipeline_entry,
     workspace_path,
@@ -187,8 +202,11 @@ _ROUTING_COMPATIBILITY_EXPORTS = (
     ROUTING,
     ROUTING_REFERENCE,
     _WORD_BOUNDARY_TERMS,
+    active_search_intent,
     explicit_stage_alias,
     flow_phase_for,
+    maintenance_intent,
+    opportunity_review_intent,
     flow_phase_ids,
     graduation_signal,
     infer_track,
@@ -224,10 +242,15 @@ _VAULT_COMPATIBILITY_EXPORTS = (
 # PRs. The tuple is intentionally unused at runtime; it makes the compatibility contract explicit.
 _MODEL_COMPATIBILITY_EXPORTS = (
     CAREER_CONTEXT_FIELDS,
+    CAREER_MODES,
     CAREER_STATUSES,
     CHUTO_STAGES,
     CONTEXT_KINDS,
+    EMPLOYMENT_STATUSES,
     EVENT_STATUSES,
+    EXTERNAL_USE_STATES,
+    JOB_SEARCH_STATES,
+    WORK_EVENT_TYPE,
     PIPELINE_STAGE,
     REFERENCE_BY_STAGE,
     REQUIRED_CONTEXT_METADATA,
@@ -241,9 +264,12 @@ _MODEL_COMPATIBILITY_EXPORTS = (
     CareerError,
     as_text,
     default_state,
+    employment_status_of,
+    job_search_of,
     normalized_state,
     validate_career_context,
     validate_event,
+    validate_work_event,
     DATE_VALUE,
     NUMERIC_CLAIM,
 )
@@ -276,6 +302,21 @@ def doctor(
             warnings.append("profile.track must be shinsotsu or chuto before chat can route")
         if profile.get("career_status", "active") not in CAREER_STATUSES:
             errors.append("profile.career_status must be active, confirmed, or onboarding")
+        # A hand-edited value that is not in the vocabulary is an error, not a silent fallback:
+        # `job_search_of()` would read it as `off`, and a user who typed `yes` deserves to be told
+        # rather than quietly treated as not searching.
+        for field, allowed in PROFILE_AXES.items():
+            declared = profile.get(field)
+            if declared is not None and declared not in allowed:
+                errors.append(f"profile.{field} must be one of: {', '.join(sorted(allowed))}")
+        career_mode = vault.load_state().get("career_mode")
+        if career_mode is not None and career_mode not in CAREER_MODES:
+            errors.append(f"state.career_mode must be one of: {', '.join(sorted(CAREER_MODES))}")
+        if career_mode == "active_search" and job_search_of(profile) == "off":
+            errors.append(
+                "state.career_mode is active_search while profile.job_search is off; "
+                "run set-job-search on to declare the search, or set-job-search off to clear it"
+            )
         if track == "shinsotsu" and not isinstance(profile.get("graduation_year"), int):
             warnings.append("profile.graduation_year is required for shinsotsu")
         if not str(profile.get("target_role") or "").strip():
@@ -332,6 +373,54 @@ def doctor(
 
 
 DEFAULT_VAULT_PATH = Path.home() / ".career-agent-vault"
+
+
+# The user-intent axes and their allowed values. Each one has exactly one write path -- the
+# matching `set-*` command below -- so no amount of career data can move them.
+PROFILE_AXES = {
+    "job_search": JOB_SEARCH_STATES,
+    "employment_status": EMPLOYMENT_STATUSES,
+}
+
+
+def set_profile_axis(home: CareerVault, field: str, value: str) -> dict[str, Any]:
+    """The only write path for a user-intent axis.
+
+    `job_search` and `employment_status` change for real -- employed to unemployed, a search
+    started and then stopped -- so they cannot live behind first-run `setup` alone. They also must
+    never move on their own: routing, an approved event, a JD review, and a match run all read
+    them and none may write them. A dedicated command is what makes that structural instead of a
+    rule somebody has to remember, and it keeps the reason a value changed visible.
+    """
+    allowed = PROFILE_AXES[field]
+    normalized = str(value or "").strip().lower()
+    if normalized not in allowed:
+        raise CareerError(
+            f"{field} must be one of: {', '.join(sorted(allowed))}",
+            code="INVALID_INPUT",
+        )
+    profile = home.load_profile()
+    previous = profile.get(field)
+    profile[field] = normalized
+    write_toml(home.profile, profile)
+    result = {
+        "mode": field,
+        "vault": str(home.path),
+        field: normalized,
+        "previous": previous,
+        "changed": previous != normalized,
+        "ok": True,
+    }
+    # Turning search off must not leave `active_search` standing in the projected state until the
+    # next event happens to correct it. Nothing else is touched: the pipeline, its companies, and
+    # the event ledger are the record of what already happened and stay exactly as they were.
+    if field == "job_search":
+        state = home.load_state()
+        clamped = clamp_career_mode(state, normalized)
+        if clamped != state:
+            result["state_version"] = home.save_state(clamped)
+            result["career_mode"] = clamped["career_mode"]
+    return result
 
 
 def setup(
@@ -677,6 +766,58 @@ def _pipeline_writer_for(home: CareerVault, workspace: str | Path | None = None)
     return pipeline_writer
 
 
+def work_events(
+    home: CareerVault, *, confirmed_only: bool = False, as_of: str | None = None,
+) -> dict[str, Any]:
+    """Read work events out of the ledger. This is the contract downstream skills use.
+
+    Matching a JD against career evidence needs the evidence, and the alternative to a query is
+    every skill parsing `events.jsonl` for itself -- which is how "only confirmed evidence counts"
+    stops being one rule and becomes several that drift. Reading is all this does: nothing here
+    writes, and the caller receives a copy.
+
+    `as_of` filters by the day the work happened, inclusive, so a mapping run is reproducible
+    rather than dependent on when it was run.
+    """
+    rows = [row for row in read_jsonl(home.events) if row.get("type") == WORK_EVENT_TYPE]
+    if confirmed_only:
+        # Confirmed means confirmed: a draft is a proposal the user has not verified, and a
+        # superseded row is history that a later record replaced. Neither may be quoted as current
+        # evidence in a document that goes to someone else.
+        rows = [row for row in rows if row.get("status") == "confirmed"]
+    if as_of:
+        # `occurred_at` is stored in UTC, as everywhere else on the ledger.
+        boundary = iso_date(as_of, "--as-of")
+        rows = [row for row in rows if str(row.get("occurred_at") or "")[:10] <= boundary]
+    return {
+        "mode": "work-events",
+        "vault": str(home.path),
+        "as_of": as_of,
+        "confirmed_only": confirmed_only,
+        "count": len(rows),
+        "work_events": rows,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def _state_projector_for(home: CareerVault):
+    """Bind the user's declared job-search intent to the state projector.
+
+    The profile is the only place that answer lives, and the projector must not go read it: that
+    would make a pure (state, event) function depend on a file. Reading it once here keeps the
+    single write path for `job_search` intact while still letting the projector refuse to promote
+    anyone into `active_search` they never asked for.
+    """
+    job_search = job_search_of(home.load_profile())
+
+    def state_projector(state: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
+        return apply_event_to_state(state, event, job_search=job_search)
+
+    return state_projector
+
+
 def approve(
     home: CareerVault,
     proposal_id: str,
@@ -700,7 +841,7 @@ def approve(
         workspace=workspace,
         next_action=next_action,
         pipeline_writer=_pipeline_writer_for(home, workspace),
-        state_projector=apply_event_to_state,
+        state_projector=_state_projector_for(home),
     )
 
 
@@ -709,7 +850,7 @@ def recover_approval(home: CareerVault, workspace: str | Path | None = None) -> 
     return recover_pending(
         home,
         pipeline_writer=_pipeline_writer_for(home, workspace),
-        state_projector=apply_event_to_state,
+        state_projector=_state_projector_for(home),
     )
 
 
@@ -718,6 +859,7 @@ def _requires_approval_recovery(args: argparse.Namespace) -> bool:
     if args.command in {
         "setup", "guided", "approve", "restore-state", "index",
         "propose-fact", "propose-context",
+        "set-job-search", "set-employment-status",
     }:
         return True
     if args.command == "doctor":
@@ -761,8 +903,18 @@ def status(home: CareerVault, workspace: str | Path | None = None) -> dict[str, 
     )
     return {
         "vault": str(home.path),
-        "profile": {"track": profile.get("track"), "career_status": profile.get("career_status", "active"), "target_role": profile.get("target_role")},
+        "profile": {
+            "track": profile.get("track"),
+            "career_status": profile.get("career_status", "active"),
+            "target_role": profile.get("target_role"),
+            # The two user-declared axes, always shown. Reading them here says what the user
+            # declared; it never changes it, and `career_mode` in `state` below is projected
+            # separately so a disagreement between the two stays visible instead of averaged away.
+            "employment_status": employment_status_of(profile),
+            "job_search": job_search_of(profile),
+        },
         "state": state,
+        "work_event_count": len(work_events(home, confirmed_only=True)["work_events"]),
         "event_count": len(read_jsonl(home.events)),
         "pending_proposals": len(pending_rows),
         "pending_kind": pending_kind,
@@ -1148,6 +1300,14 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--graduation-year", type=int)
     setup_parser.add_argument("--language", default=None)
     add_output_format(setup_parser)
+    for command, field in (("set-job-search", "job_search"), ("set-employment-status", "employment_status")):
+        axis_parser = subparsers.add_parser(
+            command,
+            help=f"set profile.{field}; this is the only command that may change it",
+        )
+        add_vault_argument(axis_parser)
+        axis_parser.add_argument("value", choices=sorted(PROFILE_AXES[field]))
+        add_output_format(axis_parser)
     guided_parser = subparsers.add_parser(
         "guided",
         help="show a canonical-state guided menu; writes require an explicit choice and confirmation",
@@ -1193,6 +1353,19 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--source", help="JSON file for discover; stdin is used when omitted")
     add_as_of_argument(run)
     add_output_format(run)
+    work_events_parser = subparsers.add_parser(
+        "work-events",
+        help="read work events from the ledger; the query downstream skills use for evidence",
+    )
+    add_vault_argument(work_events_parser)
+    work_events_parser.add_argument(
+        "--confirmed",
+        dest="confirmed_only",
+        action="store_true",
+        help="only user-confirmed events; drafts are proposals, not evidence",
+    )
+    add_as_of_argument(work_events_parser)
+    add_output_format(work_events_parser)
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)
     add_workspace_argument(status_parser)
@@ -1458,8 +1631,16 @@ def main(argv: Iterable[str] | None = None) -> int:
             home.require_initialized()
             if _requires_approval_recovery(args):
                 recover_approval(home, workspace=getattr(args, "workspace", None))
-            if args.command == "doctor":
+            if args.command == "set-job-search":
+                result = set_profile_axis(home, "job_search", args.value)
+            elif args.command == "set-employment-status":
+                result = set_profile_axis(home, "employment_status", args.value)
+            elif args.command == "doctor":
                 result = doctor(home, fix=args.fix, workspace=args.workspace)
+            elif args.command == "work-events":
+                result = work_events(
+                    home, confirmed_only=args.confirmed_only, as_of=args.as_of,
+                )
             elif args.command == "status":
                 result = status(home, workspace=args.workspace)
             elif args.command == "proposals":

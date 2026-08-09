@@ -139,7 +139,16 @@ def _validate_fields(fields: dict[str, Any]) -> None:
     status = fields.get("decision_status")
     if status is not None and status not in DECISION_STATUSES:
         raise ValueError(f"decision_status must be one of {sorted(DECISION_STATUSES)}")
-    for field in ("match_conflicts", "match_required_gaps", "match_unknowns"):
+    for field in (
+        "match_conflicts",
+        "match_required_gaps",
+        "match_unknowns",
+        # The JD's evidence selection. Ids and requirement names, never the events themselves:
+        # the canonical record stays in the Career Vault ledger and a selection cannot edit it.
+        "primary_experience_ids",
+        "supporting_experience_ids",
+        "unknown_requirements",
+    ):
         values = fields.get(field)
         if values is not None and (
             not isinstance(values, list)

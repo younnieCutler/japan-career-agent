@@ -45,6 +45,29 @@ Quote those values instead of asking again, and quote them exactly. Only a field
 profile. Never fill it from history, and show every quoted value for confirmation before saving, as
 with any other field.
 
+Confirmed work events are the same kind of evidence and load the same way:
+
+```bash
+python skills/career-agent/career_agent.py work-events --vault "$CAREER_VAULT" --confirmed
+```
+
+Ask about an experience only when no confirmed event already records it. A user who wrote down
+what they did at the time should not be asked to reconstruct it again years later — that
+reconstruction is where invented metrics come from.
+
+Rules for using them in a document:
+
+- A 職務経歴書 bullet or 自己PR claim may be built only from a confirmed event. A draft may seed a
+  working draft, marked `unconfirmed`, and never leaves as a claim.
+- Quote `individual_contribution` for what the candidate did and `team_result` for what the team
+  did. Never present a team outcome as personal, and never fill a blank
+  `individual_contribution` from the team's result.
+- Use only the numbers in `metrics`, with the evidence they carry. Never derive, estimate, or
+  round one.
+- An empty field is Unknown. Ask; do not compose.
+- `contains_confidential: true` requires a confidentiality review before anything recruiter-facing
+  is produced from it. `external_use: unknown` is not permission — it means nobody has checked.
+
 ## Interaction contract
 
 - Detect the user's latest language every turn. Keep Japanese domain terms in Japanese script.

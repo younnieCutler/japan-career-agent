@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-08
 **Source:** Routing Autoresearch PRD (approved, no open questions)
-**Benchmark:** `routing-eval-v2` (v1 retired, still readable and pinned)
+**Benchmark:** `routing-eval-v3` (v1 and v2 retired, still readable and pinned)
 **Baseline commit:** `4b75b4a` (the harness commit; routing behaviour unchanged from `f69f9eb`)
 
 ## What shipped
@@ -13,12 +13,29 @@
 | `scripts/test_routing_eval.py` | Evaluator contract tests — digest freeze, schema strictness, candidate discrimination, reproducibility |
 | `scripts/routing_autoresearch.py` | Experiment runner: mutation-surface enforcement, lexicographic gates, verdict classification, append-only log |
 | `scripts/test_routing_autoresearch.py` | Runner contract tests — subset gates, judging-file pinning, log schema, verdict statuses |
-| `skills/career-agent/tests/fixtures/routing_eval_v2_dev.yml` | Development set, 26 fixtures (visible to a research agent) |
-| `skills/career-agent/tests/fixtures/routing_eval_v2_holdout.yml` | Frozen holdout, 134 fixtures (aggregate-only results) |
-| `skills/career-agent/tests/fixtures/routing_eval_v1_*.yml` | Retired benchmark, kept readable so its recorded results stay reproducible |
+| `skills/career-agent/tests/fixtures/routing_eval_v3_dev.yml` | Development set, 33 fixtures (visible to a research agent) |
+| `skills/career-agent/tests/fixtures/routing_eval_v3_holdout.yml` | Frozen holdout, 166 fixtures (aggregate-only results) |
+| `skills/career-agent/tests/fixtures/routing_eval_v1_*.yml`, `routing_eval_v2_*.yml` | Retired benchmarks, kept readable so their recorded results stay reproducible |
 | `docs/routing-autoresearch-program.md` | The research agent's operating instructions and subject capsule |
 | `docs/routing-autoresearch-results.tsv` | Append-only experiment log |
 | `scripts/run_all_checks.py` | Registers `routing benchmark contract` in the canonical matrix |
+
+## v3: the intent surface (2026-08-10)
+
+v3 carries every v2 fixture, re-identified, and adds 39 fixtures for the three intent lexicons the
+career-maintenance work introduced: `maintenance`, `opportunity_review`, and `active_search` with
+its negation veto. Evaluator version 2 adds the matching `expected` keys. The addition is purely
+additive — a fixture that names none of them is scored exactly as evaluator version 1 scored it,
+which is what keeps the v1 and v2 rows in `routing-autoresearch-results.tsv` comparable.
+
+All three intent assertions are critical regardless of a fixture's `risk_class`. Reading one wrong
+changes what the product concludes about the user's intent, not merely which reference it opens.
+
+`routing_term_count()` now counts the intent tables. A table excluded from the complexity signal is
+exactly where a candidate would put the phrases it did not want counted.
+
+Baseline against v3 for the shipped subject: dev 29/33 (2 critical), holdout 141/166 (5 critical,
+1 fallback) — the same failure set v2 carries, plus zero new ones.
 
 ## Contract decisions taken while implementing
 
