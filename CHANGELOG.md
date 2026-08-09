@@ -34,6 +34,25 @@
   summary, confirmed work where the personal contribution is still Unknown, confidential material
   whose external use was never reviewed. There is no schedule and no reminder, at most one thing
   is meant to be said, and silence is the common answer.
+- Show pending captures in `weekly-review`. A quick note is a pending proposal until it is
+  approved, so reading only the ledger showed an empty week to someone who had been capturing all
+  week — and the unfinished notes are what a review is for. Draft rows carry their `proposal_id`
+  so the review can act on the row it is looking at.
+- Merge a project's `period` a level deeper, for the same reason `confidentiality` merges: a start
+  is learned when the project begins and an end when it closes, and replacing the object on the
+  second turn dropped the start.
+- Base `readiness` recency on the stated `work_date` alone. Falling back to capture time is right
+  for ordering a timeline and wrong for "is this recent": it turned a note written today about
+  work from five years ago into confirmed recent experience. Undated evidence now reads `Unknown`,
+  dated-but-old reads `Stale`, and a mix reads `Partial`.
+- Add `project.external_label`: the safe name for recruiter-facing output, kept beside the real
+  title rather than replacing it. "내부 결제 Phoenix 프로젝트" stays the user's own record while
+  "payment reliability project" is what leaves, decided once by the user instead of improvised per
+  document.
+- Ground `mock-interviewer` in confirmed evidence and the company's recorded selection, so practice
+  rehearses the answer the candidate will actually give — including saying "그 부분은 경험이
+  없습니다" well where `unknown_requirements` names a real gap.
+- Fix `add-project`'s next action, which named the project id where `approve` takes a proposal id.
 - Add `readiness`: independent dimensions with no total, and job-search intent reported beside
   them rather than derived from them. A current record is not a decision to leave.
 - Add project-end review guidance: draft the summary from the project's own confirmed timeline

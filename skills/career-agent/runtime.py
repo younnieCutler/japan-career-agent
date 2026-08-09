@@ -849,12 +849,15 @@ def add_project(
     if project_id is not None and project_id not in known:
         raise CareerError(f"unknown project id: {project_id}", code="PROJECT_NOT_FOUND")
     event = make_project_event(title, project_id, fields=fields)
+    proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
     proposal = {
-        "id": f"proposal-{uuid.uuid4().hex[:12]}",
+        "id": proposal_id,
         "kind": "event",
         "status": "pending",
         "created_at": utc_now(),
-        "next_action": f"approve {event['project']['id']} after checking the title and role",
+        # The proposal id, not the project id: `approve` takes the former, and naming the latter
+        # here handed the user a command that cannot work.
+        "next_action": f"approve {proposal_id} after checking the title and role",
         "event": event,
     }
     with vault_lock(home):
@@ -966,13 +969,27 @@ def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | N
     ).isoformat()
     events = read_jsonl(home.events)
     projects = projects_from_events(events)
+    # Pending captures come first in importance: a quick note lives on `proposals.jsonl` until it
+    # is approved, so reading only the ledger would show a week with nothing in it precisely when
+    # the user has been capturing all week. The whole point of this view is the not-yet-finished
+    # ones.
+    proposal_of: dict[str, str] = {}
+    pending: list[dict[str, Any]] = []
+    for row in read_jsonl(home.proposals):
+        event = row.get("event")
+        if row.get("status") != "pending" or not isinstance(event, dict):
+            continue
+        if event.get("type") != WORK_EVENT_TYPE:
+            continue
+        proposal_of[event["id"]] = row["id"]
+        pending.append(event)
     # Windowed on capture time, not on when the work happened. The point of this view is "what did
     # I write down and not finish structuring", so a note captured today about last June belongs
     # here — it is exactly the one still needing a contribution and a result. `work_date` is shown
     # per row and is what recency uses downstream.
     recent = [
         event
-        for event in events
+        for event in [*pending, *events]
         if event.get("type") == WORK_EVENT_TYPE
         and start <= str(event.get("occurred_at") or "")[:10] <= boundary
     ]
@@ -998,6 +1015,9 @@ def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | N
             )
             group["events"].append({
                 "event_id": event["id"],
+                # Present for a draft, absent once confirmed. It is what `review-work-event` and
+                # `approve` need, so a review can act on the row it is looking at.
+                "proposal_id": proposal_of.get(event["id"]),
                 "captured_on": str(event.get("occurred_at") or "")[:10],
                 "work_date": payload.get("work_date"),
                 "title": event.get("title"),
@@ -1011,6 +1031,8 @@ def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | N
         "since": start,
         "as_of": boundary,
         "event_count": len(recent),
+        "draft_count": sum(1 for event in recent if event.get("status") == "draft"),
+        "confirmed_count": sum(1 for event in recent if event.get("status") == "confirmed"),
         "groups": ordered,
         # Ranked by what changes how the record reads later, not by field order. Ask at most a few.
         "ask_first": ["individual_contribution", "result", "metrics_evidence", "improvements", "learning"],
@@ -1189,7 +1211,16 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
     confirmed = [
         e for e in events if e.get("type") == WORK_EVENT_TYPE and e.get("status") == "confirmed"
     ]
-    recent = [e for e in confirmed if work_event_date(e)[:10] >= cutoff]
+    # Recency uses the stated `work_date` and nothing else. Falling back to capture time is right
+    # for ordering a timeline, where the alternative is no order at all; it is wrong here, because
+    # it would turn "I wrote this down today about work I did five years ago" into confirmed
+    # recent experience. An undated record is undated, and Unknown stays Unknown.
+    dated = [e for e in confirmed if (e.get("work_event") or {}).get("work_date")]
+    undated = [e for e in confirmed if not (e.get("work_event") or {}).get("work_date")]
+    # A `YYYY-MM` sorts as the first of that month against a `YYYY-MM-DD` cutoff, so a month that
+    # straddles the boundary reads as older. That is the conservative direction: it can understate
+    # recency, never overstate it.
+    recent = [e for e in dated if str(e["work_event"]["work_date"]) >= cutoff]
     with_contribution = [
         e for e in confirmed if (e.get("work_event") or {}).get("individual_contribution")
     ]
@@ -1211,7 +1242,11 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
         "vault": str(home.path),
         "as_of": boundary,
         "dimensions": {
-            "recent_work_evidence": "Confirmed" if recent else ("Stale" if confirmed else "Unknown"),
+            "recent_work_evidence": (
+                "Unknown" if not dated
+                else ("Partial" if undated else "Confirmed") if recent
+                else "Stale"
+            ),
             "project_history": dimension(
                 [p for p in projects.values() if p.get("summary")], list(projects.values())
             ),
@@ -1221,7 +1256,9 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
         "counts": {
             "projects": len(projects),
             "confirmed_work_events": len(confirmed),
-            "confirmed_in_last_year": len(recent),
+            "dated_work_events": len(dated),
+            "undated_work_events": len(undated),
+            "dated_in_last_year": len(recent),
             "external_use_review_required": len(needs_review),
         },
         # Readiness says the record is current. It says nothing about wanting to leave.
@@ -1814,6 +1851,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_project_parser.add_argument("--role")
     add_project_parser.add_argument("--scope")
     add_project_parser.add_argument("--summary")
+    add_project_parser.add_argument(
+        "--external-label", dest="external_label",
+        help="safe name for recruiter-facing output when the real title cannot leave",
+    )
     add_project_parser.add_argument("--status", choices=sorted(PROJECT_STATUSES))
     add_project_parser.add_argument("--from", dest="period_from", metavar="YYYY-MM[-DD]")
     add_project_parser.add_argument("--to", dest="period_to", metavar="YYYY-MM[-DD]")
@@ -2158,6 +2199,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = add_project(
                     home, args.title, project_id=args.project_id,
                     role=args.role, scope=args.scope, summary=args.summary, status=args.status,
+                    external_label=args.external_label,
                     period=period if any(period.values()) else None,
                 )
             elif args.command == "maintenance-check":

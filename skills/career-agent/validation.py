@@ -249,17 +249,23 @@ def validate_project(project: Any) -> None:
 
     `id` is present on every event about a project, including the first: it is the key the
     projection groups by, and without it two events about one project read as two projects.
+
+    `external_label` exists because the honest internal name is often the unusable one. "내부 결제
+    Phoenix 프로젝트" is what the user calls it and what should stay in their own record; a
+    recruiter-facing document needs "payment reliability project". Keeping both means the
+    abstraction is decided once, by the user, instead of being improvised per document — and the
+    canonical title never has to be softened to make it safe to send.
     """
     if not isinstance(project, dict):
         raise CareerError("event.project must be an object")
-    known = {"id", "title", "role", "scope", "summary", "status", "period"}
+    known = {"id", "title", "role", "scope", "summary", "status", "period", "external_label"}
     unknown = sorted(set(project) - known)
     if unknown:
         raise CareerError(f"event.project has unknown fields: {', '.join(unknown)}")
     for field in ("id", "title"):
         if not isinstance(project.get(field), str) or not project[field].strip():
             raise CareerError(f"event.project.{field} must be a non-empty string")
-    for field in ("role", "scope", "summary"):
+    for field in ("role", "scope", "summary", "external_label"):
         value = project.get(field)
         if value is None:
             continue

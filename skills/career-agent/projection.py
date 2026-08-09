@@ -84,7 +84,7 @@ def upsert_pipeline_entry(
     return path
 
 
-PROJECT_FIELDS = ("title", "role", "scope", "summary", "status", "period")
+PROJECT_FIELDS = ("title", "external_label", "role", "scope", "summary", "status", "period")
 
 
 def projects_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -110,8 +110,19 @@ def projects_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, An
             project_id, {"id": project_id, "first_seen": event.get("occurred_at")}
         )
         for field in PROJECT_FIELDS:
-            if payload.get(field) is not None:
-                current[field] = payload[field]
+            value = payload.get(field)
+            if value is None:
+                continue
+            # `period` merges a level deeper for the same reason `confidentiality` does: its two
+            # ends are learned at different times. A project is given a start when it begins and an
+            # end when it closes, and replacing the whole object on the second turn would drop the
+            # start -- which is the opposite of "later non-null wins, earlier survives the silence".
+            if field == "period" and isinstance(value, dict) and isinstance(current.get(field), dict):
+                merged = dict(current[field])
+                merged.update({key: item for key, item in value.items() if item is not None})
+                current[field] = merged
+            else:
+                current[field] = value
         current["updated_at"] = event.get("occurred_at")
     for record in projects.values():
         record.setdefault("status", "unknown")

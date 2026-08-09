@@ -249,11 +249,50 @@ class ReadinessTests(VaultCase):
         self.assertEqual(dimensions["metrics_evidence"], "Unknown")
         self.assertEqual(dimensions["project_history"], "Confirmed")
 
+    def test_an_undated_record_is_not_recent_experience(self) -> None:
+        # "I wrote this down today about work I did five years ago" must not read as confirmed
+        # recent experience. Capture time is a fine tiebreak for ordering a timeline and a wrong
+        # answer to "is this recent"; Unknown stays Unknown.
+        project_id = self.add_project("결제 시스템 안정화")
+        self.confirm_work("오래 전 일인데 날짜는 기억 안 남", project_id)
+        result = self.cli("readiness", "--vault", self.vault)
+        self.assertEqual(result["dimensions"]["recent_work_evidence"], "Unknown")
+        self.assertEqual(result["counts"]["dated_work_events"], 0)
+        self.assertEqual(result["counts"]["undated_work_events"], 1)
+
+    def test_dated_recent_evidence_reads_as_confirmed(self) -> None:
+        project_id = self.add_project("결제 시스템 안정화")
+        self.confirm_work("이번 달 작업", project_id, {"work_date": "2026-08"})
+        self.assertEqual(
+            self.cli("readiness", "--vault", self.vault)["dimensions"]["recent_work_evidence"],
+            "Confirmed",
+        )
+
+    def test_dated_but_old_evidence_reads_as_stale(self) -> None:
+        project_id = self.add_project("결제 시스템 안정화")
+        self.confirm_work("한참 전 작업", project_id, {"work_date": "2019-03"})
+        self.assertEqual(
+            self.cli("readiness", "--vault", self.vault)["dimensions"]["recent_work_evidence"],
+            "Stale",
+        )
+
+    def test_a_mix_of_dated_and_undated_is_partial(self) -> None:
+        project_id = self.add_project("결제 시스템 안정화")
+        self.confirm_work("이번 달 작업", project_id, {"work_date": "2026-08"}, evidence="JIRA-1")
+        self.confirm_work("날짜 모르는 작업", project_id, evidence="JIRA-2")
+        self.assertEqual(
+            self.cli("readiness", "--vault", self.vault)["dimensions"]["recent_work_evidence"],
+            "Partial",
+        )
+
     def test_readiness_is_not_intent(self) -> None:
         project_id = self.add_project("결제 시스템 안정화", "--summary", "안정화")
-        self.confirm_work("장애 대응", project_id, {"individual_contribution": "직접 수행"})
+        self.confirm_work("장애 대응", project_id,
+                          {"work_date": "2026-08", "individual_contribution": "직접 수행"})
         result = self.cli("readiness", "--vault", self.vault)
+        # A record that is current in every dimension still says nothing about wanting to leave.
         self.assertEqual(result["dimensions"]["recent_work_evidence"], "Confirmed")
+        self.assertEqual(result["dimensions"]["individual_contribution"], "Confirmed")
         self.assertEqual(result["job_search"], "off")
 
     def test_reading_readiness_does_not_change_the_ledger(self) -> None:

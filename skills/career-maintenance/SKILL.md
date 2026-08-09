@@ -171,18 +171,23 @@ retrospective form:
 python skills/career-agent/career_agent.py weekly-review --vault "$CAREER_VAULT"
 ```
 
+It returns both the drafts captured this week and what was already confirmed, because the drafts
+are the point — a quick note stays a pending proposal until it is approved, and those are exactly
+the ones still needing a contribution and a result. Each draft row carries its `proposal_id`, which
+is what `review-work-event` and `approve` take.
+
 Group by project, mark what is confirmed, and name what is still missing:
 
 ```text
 이번 주
 
 [결제 시스템 안정화]
-[x] 배치 장애 원인 분석
-[x] 알림 조건 개선
-[ ] 운영팀 조정 내용 — 개인 기여가 아직 Unknown
+[x] 알림 조건 개선                 confirmed
+[ ] 배치 장애 원인 분석            draft — 개인 기여가 아직 Unknown
+[ ] 운영팀 조정 내용               draft — 결과가 아직 Unknown
 
 [프로젝트 없음]
-[x] 문서 정리
+[x] 문서 정리                      confirmed
 ```
 
 Then ask **at most three** questions, taken from `ask_first` in that order: what the user

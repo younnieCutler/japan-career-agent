@@ -94,6 +94,30 @@ class ProjectRecordTests(VaultCase):
         self.assertEqual(record["status"], "completed")
         self.assertEqual(self.cli("projects", "--vault", self.vault)["count"], 1)
 
+    def test_a_period_learned_over_two_turns_keeps_both_ends(self) -> None:
+        # A project gets a start when it begins and an end when it closes. Replacing the whole
+        # object on the second turn would drop the start, which is the opposite of what the
+        # projection promises everywhere else.
+        project_id = self.add_project("결제 시스템 안정화", "--from", "2026-04")
+        self.add_project("결제 시스템 안정화", "--project-id", project_id, "--to", "2026-06")
+        record = self.cli("projects", "--vault", self.vault)["projects"][0]
+        self.assertEqual(record["period"], {"from": "2026-04", "to": "2026-06"})
+
+    def test_an_external_label_is_kept_beside_the_real_title(self) -> None:
+        self.add_project("내부 결제 Phoenix 프로젝트",
+                         "--external-label", "payment reliability project")
+        record = self.cli("projects", "--vault", self.vault)["projects"][0]
+        self.assertEqual(record["title"], "내부 결제 Phoenix 프로젝트")
+        self.assertEqual(record["external_label"], "payment reliability project")
+
+    def test_the_next_action_names_the_proposal_not_the_project(self) -> None:
+        # `approve` takes a proposal id; naming the project id handed the user a command that
+        # could not work.
+        proposed = self.cli("add-project", "결제 시스템 안정화", "--vault", self.vault)
+        listed = self.cli("proposals", "--vault", self.vault, "--id", proposed["proposal"]["id"])
+        self.assertIn(proposed["proposal"]["id"], listed["proposal"]["next_action"])
+        self.assertNotIn(proposed["project"]["id"], listed["proposal"]["next_action"])
+
     def test_a_draft_project_is_not_listed(self) -> None:
         self.cli("add-project", "아직 확정 안 함", "--vault", self.vault)
         self.assertEqual(self.cli("projects", "--vault", self.vault)["count"], 0)
@@ -262,6 +286,34 @@ class WeeklyReviewTests(VaultCase):
         })
         entry = self.cli("weekly-review", "--vault", self.vault)["groups"][0]["events"][0]
         self.assertEqual(entry["gaps"], [])
+
+    def test_pending_captures_are_the_point_of_the_review(self) -> None:
+        # A quick note lives on proposals.jsonl until it is approved. Reading only the ledger
+        # showed an empty week to a user who had been capturing all week — which is precisely
+        # backwards, since the unfinished ones are what a review is for.
+        project_id = self.add_project("결제 시스템 안정화")
+        draft = self.capture("배치 장애 원인 분석")
+        self.cli("link-work-event", draft, "--vault", self.vault, "--project", project_id)
+        self.confirm("알림 조건 개선", project_id)
+
+        review = self.cli("weekly-review", "--vault", self.vault)
+        self.assertEqual(review["draft_count"], 1)
+        self.assertEqual(review["confirmed_count"], 1)
+        rows = {row["status"]: row for group in review["groups"] for row in group["events"]}
+        self.assertEqual(rows["draft"]["proposal_id"], draft)
+        self.assertIsNone(rows["confirmed"]["proposal_id"])
+
+    def test_a_draft_can_be_acted_on_from_what_the_review_returns(self) -> None:
+        self.add_project("결제 시스템 안정화")
+        self.capture("배치 장애 원인 분석")
+        row = self.cli("weekly-review", "--vault", self.vault)["groups"][0]["events"][0]
+        filled = self.cli("review-work-event", row["proposal_id"], "--vault", self.vault,
+                          "--json", '{"individual_contribution": "원인 분석을 직접 수행"}')
+        self.assertTrue(filled["ok"])
+        self.assertNotIn(
+            "individual_contribution",
+            self.cli("weekly-review", "--vault", self.vault)["groups"][0]["events"][0]["gaps"],
+        )
 
     def test_an_empty_week_is_not_an_error(self) -> None:
         result = self.cli("weekly-review", "--vault", self.vault)
