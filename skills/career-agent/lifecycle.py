@@ -381,15 +381,22 @@ def review_work_event(
         event[key] = merged
         validate_event(event)
         updated = home.replace_proposal(proposal_id, event=event)
-    return {
+    result = {
         "mode": "review-work-event",
         "vault": str(home.path),
         "proposal": {"id": updated["id"], "status": updated["status"]},
+        "evidence_type": event["type"],
         "evidence_payload": merged,
-        "work_event": merged,
         "filled": sorted(key for key, value in merged.items() if value not in (None, [], {})),
         "ok": True,
     }
+    if key == "work_event":
+        # Compatibility with readers written before there were two evidence types. Present only
+        # when the event really is a work event: echoing the payload under this name for a thesis
+        # would tell a caller the user had a job at their university, which is the exact confusion
+        # the separate type exists to prevent. A non-work review returns `evidence_payload` alone.
+        result["work_event"] = merged
+    return result
 
 
 def approve(

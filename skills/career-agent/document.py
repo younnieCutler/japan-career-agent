@@ -9,9 +9,17 @@ Japanese is written by a skill, because that is a language task; the boundary of
 may say is decided here, because that is not.
 
 `fidelity_gate` compares a written draft against those claims. Every check is deterministic and
-literal -- the same draft and the same model always produce the same violations -- because the
-invariant being protected is that polished wording never becomes a stronger claim, and an
+literal -- the same draft and the same model always produce the same violations -- because an
 invariant checked by judgement is not an invariant.
+
+What that buys, precisely: **no known protected-claim violation reaches a rendered document.** The
+rules below are enumerated, so they catch the escalations, invented numbers, unsupported
+technologies, misattributed team results and leaked internal names that are on their lists. They
+do not prove the absence of every possible semantic drift in Japanese -- a synonym outside
+`ESCALATION_TERMS` can still raise the strength of a claim slightly, and no list of substrings
+will ever close that. Meaning-level drift is defended by the humanize contract in
+`skills/humanize-japanese-career/SKILL.md` and by the user reading the result, which is why the
+document is theirs to send and not the system's.
 
 Neither function writes anything. Generating a document a hundred times leaves the ledger
 byte-identical: a document is a projection of career facts, never a source of them.
@@ -55,6 +63,11 @@ TEAM_ATTRIBUTION_TERMS = ("チーム", "部門", "全社", "共同", "組織全�
 # Verbs that raise the strength of a claim. The rule is not that these are forbidden -- someone who
 # did lead a design should say so -- but that they may only appear when the evidence already says
 # it. Arriving from nowhere, they are the exact failure this gate exists for: 支援 becoming 主導.
+#
+# It is a list, with a list's limits. It holds the escalations that actually recur in 職務経歴書
+# prose; a synonym outside it can still raise a claim's strength by a degree, and enumerating
+# Japanese exhaustively is not a thing that finishes. Adding a term here is cheap and is the right
+# response to finding one in review.
 ESCALATION_TERMS = (
     "主導", "牽引", "統括", "立ち上げ", "責任者", "リード", "全体設計", "意思決定者",
     "総括", "陣頭指揮",
@@ -347,9 +360,12 @@ def fidelity_gate(
     draft passed as `humanized`'s predecessor, so polishing is checked against the evidence *and*
     against what it replaced. A failure is a refusal, not a warning -- the caller does not render.
 
-    Every rule is literal string work on purpose. A semantic judge would be better at catching
-    subtle strengthening and worse at being the same judge tomorrow, and a fidelity guarantee that
-    varies between runs is not one.
+    Every rule is literal string work on purpose. A semantic judge would catch more subtle
+    strengthening and would not be the same judge tomorrow; a check that varies between runs
+    cannot be relied on as a gate. The trade is deliberate and it is a trade: passing means no
+    *enumerated* violation is present, not that the Japanese is proven faithful. Read
+    `protected_claim_violations` as what it is named -- a count of detected rule breaches, not a
+    measurement of semantic distance.
     """
     sources = _slot_sources(model)
     before = draft.get("slots") or {}
@@ -452,7 +468,10 @@ def fidelity_gate(
         "pass": not violations,
         "checked_slots": len(checked),
         "violations": violations,
-        # The measure is factual drift, never a detector score. Nothing here reads or reports one.
-        "factual_drift": len(violations),
+        # Named for what it counts: breaches of the enumerated protected-claim rules. It was
+        # called `factual_drift`, which read as a measurement of how far the wording had moved
+        # from the evidence -- and `factual_drift: 0` then said "no drift" when what the gate
+        # actually established was "nothing on my lists". No detector score is read or reported.
+        "protected_claim_violations": len(violations),
         "ok": not violations,
     }

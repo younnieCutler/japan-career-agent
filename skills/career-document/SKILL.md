@@ -138,6 +138,10 @@ A violation is not a warning. Fix the sentence and check again; never adjust the
 sentence pass. If the evidence genuinely says more than the record shows, that is a new fact and
 goes through `career-agent` approval like every other one.
 
+A clean check is a floor, not a certificate. The gate's rules are enumerated, so it establishes
+that no known protected-claim violation is present — not that every sentence has been proven
+faithful. Read the result yourself before it goes anywhere, with the evidence beside it.
+
 ### STEP 7 — Render
 
 ```bash

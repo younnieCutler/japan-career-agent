@@ -275,12 +275,24 @@ class TheGateIsTheSameGateEveryTimeTests(unittest.TestCase):
     def test_building_the_model_twice_gives_the_same_model(self) -> None:
         self.assertEqual(model(), model())
 
-    def test_nothing_here_reports_a_detector_score(self) -> None:
+    def test_the_verdict_is_named_for_what_it_counts(self) -> None:
+        # `factual_drift: 0` read as "the wording did not move", which is more than this gate
+        # establishes. It counts breaches of enumerated rules, and the name says so.
         result = document.fidelity_gate(model(), draft())
-        self.assertIn("factual_drift", result)
+        self.assertIn("protected_claim_violations", result)
+        self.assertNotIn("factual_drift", result)
         for key in result:
             self.assertNotIn("detector", key)
             self.assertNotIn("score", key)
+
+    def test_passing_means_no_enumerated_violation_not_proven_fidelity(self) -> None:
+        # The honest limit, asserted rather than left to a docstring. A synonym outside
+        # ESCALATION_TERMS raises the claim's strength and the gate does not see it, which is why
+        # the humanize contract and the user's own review are the other half of the defence.
+        outside_the_list = "デプロイ自動化を推進。"
+        self.assertTrue(all(term not in outside_the_list for term in document.ESCALATION_TERMS))
+        result = document.fidelity_gate(model(), draft(**{"entry:evt-deploy": outside_the_list}))
+        self.assertTrue(result["pass"])
 
 
 if __name__ == "__main__":

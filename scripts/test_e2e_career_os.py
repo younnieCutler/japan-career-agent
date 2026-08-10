@@ -324,7 +324,7 @@ class GateC_FidelityGate(Lifecycle):
     def test_evidence_grounded_japanese_passes(self) -> None:
         result = self.check(self.entry("GitHub Actionsで手動デプロイを自動化。"))
         self.assertTrue(result["pass"], result["violations"])
-        self.assertEqual(result["factual_drift"], 0)
+        self.assertEqual(result["protected_claim_violations"], 0)
 
     def test_support_does_not_become_leadership(self) -> None:
         result = self.check(self.entry("デプロイ自動化を主導。"))

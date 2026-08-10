@@ -56,8 +56,15 @@ detector are explicitly not goals and are not measured — [`../../_shared/decis
 rules out that kind of target, and a sentence rewritten to fool a classifier is not a sentence that
 serves the reader.
 
-What is measured: whether any fact changed, whether a protected claim moved, whether the structure
-survived, and how much of the result the user still has to fix by hand.
+What is measured: whether a protected claim moved, whether the structure survived, and how much of
+the result the user still has to fix by hand.
+
+And what the checker behind this skill does *not* establish: `career-agent document-check`
+enumerates its rules, so it catches the escalations, invented numbers and misattributions on its
+lists and cannot prove that no wording anywhere shifted a claim by a degree. Passing it means no
+known violation is present, not that the Japanese has been verified faithful. The rules in this
+file are the other half of that defence, and the user reading the document before sending it is the
+last half — which is why they send it and the system does not.
 
 ## Input
 
@@ -158,7 +165,8 @@ JD:       DevOps
 
 ## What never changes
 
-Each of these is a protected claim, and the gate refuses the document if one moves:
+Each of these is a protected claim. The gate refuses the document when it detects one moving, and
+the list below is what you are held to whether or not it detects a given case:
 
 employer · period · role · technology · responsibility · action · decision ·
 individual contribution · team result · metric · provenance · qualification · language level ·

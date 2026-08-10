@@ -44,8 +44,14 @@
   written as one person's doing, an internal project name leaving the building, or a bullet
   structure merged into prose during polishing — each is a refusal, not a warning. Every check is
   literal string work so that the same draft and the same model always produce the same result;
-  a fidelity guarantee that varies between runs is not one. The measure is factual drift. No
-  detector score is read, reported, or optimised for.
+  a check that varies between runs cannot be relied on as a gate.
+  What passing establishes, stated precisely: **no known protected-claim violation reaches a
+  rendered document.** The rules are enumerated, so a synonym outside them can still raise a
+  claim's strength by a degree — proving the absence of every semantic drift in Japanese is not
+  something a list of substrings can do. Meaning-level drift is defended by the humanize contract
+  and by the user reading the result before they send it. The verdict field is named
+  `protected_claim_violations` for that reason. No detector score is read, reported, or optimised
+  for.
 
 - Render the checked document with two built-in templates and no dependency at all. The
   substitution engine understands named slots and repeated blocks and deliberately nothing else --
