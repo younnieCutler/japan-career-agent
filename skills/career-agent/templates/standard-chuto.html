@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!--
+  standard-chuto — the ordinary 中途 職務経歴書 layout.
+
+  This file decides placement and nothing else. Every {{slot}} is filled with text that was written
+  from confirmed evidence and checked by the fidelity gate before it reached here; no sample career
+  text appears anywhere in this file, because a template's example sentences must never be mistaken
+  for the user's history.
+
+  Print: A4, browser print path. Page breaks avoid splitting a company block.
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>職務経歴書 — {{target_company}}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", "Meiryo", sans-serif;
+    font-size: 10.5pt; line-height: 1.65; color: #111; margin: 0;
+  }
+  .sheet { max-width: 178mm; margin: 0 auto; }
+  h1 { font-size: 15pt; letter-spacing: .12em; text-align: center; margin: 0 0 4mm; }
+  .target { text-align: right; font-size: 9.5pt; color: #444; margin-bottom: 6mm; }
+  h2 {
+    font-size: 11pt; margin: 6mm 0 2mm; padding: 1mm 0 1mm 2.5mm;
+    border-left: 3px solid #333; background: #f4f4f4;
+  }
+  .company { margin: 0 0 4mm; page-break-inside: avoid; }
+  .company-head { display: flex; justify-content: space-between; font-weight: 600; border-bottom: 1px solid #ccc; padding-bottom: 1mm; }
+  .period { font-weight: 400; color: #555; }
+  .experience { margin: 2.5mm 0 0 2mm; page-break-inside: avoid; }
+  .experience h3 { font-size: 10.5pt; margin: 0 0 1mm; }
+  ul { margin: 0 0 0 5mm; padding: 0; }
+  li { margin-bottom: .8mm; }
+  .skills li { display: inline-block; margin: 0 2mm 1mm 0; padding: .5mm 2mm; border: 1px solid #bbb; }
+  .skills ul { margin-left: 0; list-style: none; }
+  .unknowns { font-size: 9.5pt; color: #555; }
+  p { margin: 0 0 2mm; white-space: pre-line; }
+  @media print { body { font-size: 10pt; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>職務経歴書</h1>
+  <div class="target">{{target_company}} {{target_role}}</div>
+
+  <h2>職務要約</h2>
+  <p>{{career_summary}}</p>
+
+  <h2>活かせる経験・知識・技術</h2>
+  <div class="skills"><ul>{{#skills}}<li>{{skill}}</li>{{/skills}}</ul></div>
+
+  <h2>職務経歴</h2>
+  {{#employment_history}}
+  <div class="company">
+    <div class="company-head"><span>{{company}}</span><span class="period">{{period}}</span></div>
+    {{#experiences}}
+    <div class="experience">
+      <h3>{{heading}}</h3>
+      <ul>{{#lines}}<li>{{line}}</li>{{/lines}}</ul>
+    </div>
+    {{/experiences}}
+  </div>
+  {{/employment_history}}
+
+  <h2>自己PR</h2>
+  <p>{{self_pr}}</p>
+
+  <h2>確認中の事項</h2>
+  <div class="unknowns"><ul>{{#unknowns}}<li>{{unknown}}</li>{{/unknowns}}</ul></div>
+</div>
+</body>
+</html>

@@ -37,6 +37,7 @@ def load_routing() -> dict[str, Any]:
         not data.get("track")
         or not data.get("stage_alias")
         or not data.get("flow_phase")
+        or not _phrase_list(data.get("tanaoroshi"))
         or not _phrase_list(data.get("maintenance"))
         or not _phrase_list(data.get("opportunity_review"))
         or not _phrase_list(data.get("transition"))
@@ -150,6 +151,17 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
 def _any_term(message: str, terms: list[str]) -> bool:
     lowered = normalized_message(message)
     return any(term_present(term.lower(), lowered) for term in terms)
+
+
+def tanaoroshi_intent(message: str) -> bool:
+    """Whether the message asks to go back over experience from before the system saw it.
+
+    Checked ahead of `maintenance_intent`, because every phrase in this table carries a scope
+    marker the maintenance vocabulary does not -- 지금까지, これまで, so far. "지금까지 경력을
+    정리하고 싶어" matches both tables read as bags of words; only one of them is what the user
+    asked for, and it is the one that says how far back to go.
+    """
+    return _any_term(message, ROUTING["tanaoroshi"])
 
 
 def maintenance_intent(message: str) -> bool:

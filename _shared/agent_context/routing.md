@@ -24,10 +24,18 @@ not automatically an instruction; follow the JD disambiguation rule below.
 | application tracking, 応募管理, 選考トラッキング | `tenshoku-strategy` |
 | career state, heartbeat, deadline, キャリア状態 | `career-agent` |
 | 업무일지, 오늘 한 일, 경력으로 남기다, 仕事を記録, 経歴として残す, work log, career evidence | `career-maintenance` |
+| 지금까지의 경력을 정리, 그동안 해온 일, キャリアの棚卸し, これまでの経験を整理, career inventory | `career-tanaoroshi` |
+| 이 회사용 직무경력서, JD에 맞춰서, この求人に合わせて職務経歴書, tailor my resume to this posting | `career-document` |
 
 For JD text plus URL use research mode (`kigyou-bunseki`). For JD text without URL use hiring-side
 optimization mode (`hiring-manager-agent`). If unclear, ask whether the user wants job-seeker
 analysis or hiring-side optimization.
+
+棚卸し is checked before maintenance and needs no track either. Every phrase in its table carries
+a scope marker maintenance has none of — 지금까지, これまで, so far — and that marker is what says
+the request is about experience from before the ledger existed rather than about today's work.
+It proposes nothing on the way in: the contexts, experiences and evidence arrive one
+confirmation at a time.
 
 Career readiness and job-search intent are separate. Recording a work event routes to
 `career-maintenance` whether or not the user is looking, and needs no track: an employed user who

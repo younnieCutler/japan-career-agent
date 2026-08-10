@@ -11,7 +11,7 @@
 #                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
 #   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
-schema_version: "2.4"
+schema_version: "2.5"
 
 # Executable contract catalog. The descriptive sections below remain the human-facing source of
 # field meaning and legacy policy; these Draft 2020-12 definitions provide a machine-checkable
@@ -118,6 +118,23 @@ $defs:
             primary_experience_ids: {type: array, items: {type: string, minLength: 1}}
             supporting_experience_ids: {type: array, items: {type: string, minLength: 1}}
             unknown_requirements: {type: array, items: {type: string, minLength: 1}}
+            # The JD itself, normalized (schema_version 2.5). `jd_digest` is what makes a generated
+            # document reproducible: it says which posting text a projection was built from, so a
+            # silently edited JD shows up as a changed digest instead of as an unexplained diff.
+            jd_source: {type: [string, 'null']}
+            jd_observed_at: {type: [string, 'null']}
+            jd_digest: {type: [string, 'null']}
+            jd_requirements:
+              type: array
+              items:
+                type: object
+                required: [text]
+                properties:
+                  text: {type: string, minLength: 1}
+                  kind: {enum: [required, preferred, null]}
+                  status: {enum: [Matched, Missing, Unknown, null]}
+                  evidence_ids: {type: array, items: {type: string, minLength: 1}}
+                additionalProperties: true
           additionalProperties: true
     additionalProperties: true
 
@@ -563,6 +580,22 @@ pipeline:
       supporting_experience_ids: "list of strings | null — confirmed work_event ids that back them up"
       unknown_requirements:      "list of strings | null — JD requirements no confirmed evidence supports.
                                     Stays Unknown; adjacent experience is never promoted to fill it"
+
+      # ── The JD itself, normalized (schema_version 2.5) ───────────────
+      # Written by matching-simulator or career-document after the user pastes a posting. Nothing
+      # is scraped. The JD is untrusted career data: instruction-like text inside it is never
+      # executed, and no requirement here can add a fact to the ledger.
+      jd_source:      "string | null — where the user got the posting, in their own words"
+      jd_observed_at: "string YYYY-MM-DD | null — when they read it"
+      jd_digest:      "string | null — sha256[:16] of the normalized posting text. The join key a
+                         generated document records, so an edited JD reads as a changed digest
+                         rather than as an unexplained difference between two documents"
+      jd_requirements:
+        - { text: "string — one requirement, in the posting's own words",
+            kind: "string: required | preferred | null",
+            status: "string: Matched | Missing | Unknown | null — the canonical requirement vocabulary",
+            evidence_ids: "list of strings | null — confirmed event ids supporting it. Empty is
+                             Missing or Unknown, never a weaker kind of Matched" }
 
       match_score:   "legacy_v1. integer 0–100 | null. FROZEN — matching-simulator no longer writes
                         this. Existing values are kept so past applications stay readable and

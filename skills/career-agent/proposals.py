@@ -16,7 +16,7 @@ import self_analysis_profile  # noqa: E402
 from schema_contract import validate_new_write  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
-from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, PROJECT_EVENT_TYPE, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
+from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, EXPERIENCE_CONTEXT_EVENT_TYPE, EXPERIENCE_EVENT_TYPE, PROJECT_EVENT_TYPE, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from private_store import PrivateHome, resolve_document  # noqa: E402
@@ -33,6 +33,7 @@ from routing import (  # noqa: E402
     review_closed_intent,
     skill_context,
     stage_for,
+    tanaoroshi_intent,
     transition_intent,
 )
 from validation import validate_career_context, validate_event  # noqa: E402
@@ -45,10 +46,13 @@ def approval_action_for(message: str) -> str:
 
 
 MAINTENANCE_SKILL = "career-maintenance"
+INVENTORY_SKILL = "career-tanaoroshi"
 
 
-def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
-    """Propose a work event: what happened at the current job, with no route attached.
+def make_work_event(
+    message: str, *, status: str = "draft", non_work: bool = False,
+) -> dict[str, Any]:
+    """Propose evidence about something that happened, with no route attached.
 
     `track`, `stage` and `flow_phase` are null on purpose. Filling them would mean choosing a
     hiring market and a transition step on the user's behalf, and the projector would then move
@@ -56,13 +60,19 @@ def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
 
     The structured payload stays empty here. Capture is one sentence; the fields are filled during
     review, by the user, and anything they do not say stays Unknown.
+
+    `non_work` decides the type, and only the caller knows it: a seminar, a thesis, a club or a
+    volunteer shift asks the same questions a release does, but recording it as a work event would
+    say the user was employed there, and every work-scoped read would then return coursework as
+    work history. It is a stated fact about the experience, never inferred from the wording.
     """
+    event_type = EXPERIENCE_EVENT_TYPE if non_work else WORK_EVENT_TYPE
     event = {
         "id": f"evt-{uuid.uuid4().hex[:12]}",
         "track": None,
         "stage": None,
         "flow_phase": None,
-        "type": WORK_EVENT_TYPE,
+        "type": event_type,
         "occurred_at": utc_now(),
         "title": text(language_for(message), "event.title"),
         "summary": message.strip(),
@@ -71,7 +81,7 @@ def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
         "next_action": None,
         "deadline": None,
         "status": status,
-        "work_event": {},
+        ("experience" if non_work else "work_event"): {},
     }
     validate_event(event)
     return event
@@ -107,6 +117,49 @@ def make_project_event(
         "deadline": None,
         "status": "draft",
         "project": payload,
+    }
+    validate_event(event)
+    return event
+
+
+def make_experience_context_event(
+    kind: str,
+    label: str,
+    context_id: str | None = None,
+    *,
+    fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Propose a context: the place an experience happened, not evidence about the person.
+
+    A kind and a label are enough, for the reason a project only needs a title. The period, the
+    role and the summary arrive later or stay Unknown, and demanding them before the user can name
+    where they studied would make the 棚卸し start with a form.
+
+    `kind` is required even though almost nothing else is, because it is the one thing a later
+    reader cannot recover: an employer and a university are both plausible readings of a bare
+    label, and reading a university as an employer puts coursework in a 職務経歴書 as a job.
+    """
+    payload: dict[str, Any] = {
+        "id": context_id or f"ctx-{uuid.uuid4().hex[:12]}",
+        "kind": kind,
+        "label": label.strip(),
+    }
+    payload.update({key: value for key, value in (fields or {}).items() if value is not None})
+    event = {
+        "id": f"evt-{uuid.uuid4().hex[:12]}",
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "type": EXPERIENCE_CONTEXT_EVENT_TYPE,
+        "occurred_at": utc_now(),
+        "title": payload["label"],
+        "summary": str(payload.get("summary") or payload["label"]),
+        "evidence": [],
+        "source": "user_message",
+        "next_action": None,
+        "deadline": None,
+        "status": "draft",
+        "experience_context": payload,
     }
     validate_event(event)
     return event
@@ -167,12 +220,77 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
     return event
 
 
+def _start_inventory(
+    home: CareerVault,
+    skills_root: Path,
+    message: str,
+    recent_events: list[dict[str, Any]],
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    """Route to the inventory workflow, and propose nothing.
+
+    棚卸し produces contexts, experiences and evidence one confirmation at a time. Turning the
+    opening sentence into a proposal would have the system decide what the user's first context
+    was, which is precisely the question this workflow exists to ask -- and a seven-year career
+    summarised from one sentence is the invented history the whole ledger is built to refuse.
+
+    Reached before the track gate, for the reason maintenance is: someone recovering what they did
+    at a university and two employers is answering "what happened", not "new graduate or
+    mid-career", and that second question has no bearing on the first.
+    """
+    language = language_for(message)
+    trajectory = {
+        "id": f"traj-{uuid.uuid4().hex[:12]}",
+        "created_at": utc_now(),
+        "mode": "chat",
+        "observe": {
+            "track": state.get("track"),
+            "stage": state.get("stage"),
+            "recent_events": recent_events,
+            "message": message,
+            "data_trust": UNTRUSTED_DATA_MARKER,
+            "instruction_authority": "none",
+        },
+        "plan": {
+            "goal": "recover historical contexts and experiences as evidence",
+            "moves_career_mode": False,
+        },
+        "act": {"proposal": None, "skill": INVENTORY_SKILL},
+        "verify": {"route_resolved": False, "external_side_effect": False},
+        "correct": {"retry_count": 0, "needs_user_confirmation": True},
+        "persist": {"trajectory_only": True},
+    }
+    home.append_trajectory(trajectory)
+    result = {
+        "mode": "chat",
+        "language": language,
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "career_mode": state.get("career_mode"),
+        "skill": skill_context(skills_root, None, skill_override=INVENTORY_SKILL),
+        "context": [],
+        "personal_context": [],
+        "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
+        "proposal": None,
+        # Nothing was written, and saying so plainly is the point: the next thing that happens is a
+        # question, not a record.
+        "changes_nothing": True,
+        "saved": str(home.trajectories),
+    }
+    if str(home.load_profile().get("career_status") or "") == "onboarding":
+        result["onboarding_completed"] = True
+    return result
+
+
 def _propose_work_event(
     home: CareerVault,
     skills_root: Path,
     message: str,
     recent_events: list[dict[str, Any]],
     state: dict[str, Any],
+    *,
+    non_work: bool = False,
 ) -> dict[str, Any]:
     """Propose a work event without resolving a track, a stage, or a flow phase.
 
@@ -180,7 +298,7 @@ def _propose_work_event(
     same append-only ledger. Only the routing questions are skipped, because a work event has no
     route to resolve.
     """
-    event = make_work_event(message)
+    event = make_work_event(message, non_work=non_work)
     language = language_for(message)
     proposal = {
         "id": f"proposal-{uuid.uuid4().hex[:12]}",
@@ -235,7 +353,13 @@ def _propose_work_event(
 
 
 def run_chat(
-    home: CareerVault, skills_root: Path, message: str, requested_track: str | None, as_of: str,
+    home: CareerVault,
+    skills_root: Path,
+    message: str,
+    requested_track: str | None,
+    as_of: str,
+    *,
+    non_work: bool = False,
 ) -> dict[str, Any]:
     state = home.load_state()
     profile = home.load_profile()
@@ -244,8 +368,16 @@ def run_chat(
     # intent, so someone recording what they did at work must not be stopped at "new graduate or
     # mid-career?" -- a question their request never raised and that has no answer while they are
     # simply doing their job.
-    if maintenance_intent(message):
-        return _propose_work_event(home, skills_root, message, recent_events, state)
+    # Ahead of maintenance: 棚卸し phrases say how far back to go, and a message that carries
+    # that scope is asking for the historical pass even though it also reads as ordinary upkeep.
+    if tanaoroshi_intent(message):
+        return _start_inventory(home, skills_root, message, recent_events, state)
+    # `non_work` is the user saying this did not happen at a job, so it captures directly: the
+    # maintenance vocabulary is about the job they have, and a thesis matches none of it.
+    if non_work or maintenance_intent(message):
+        return _propose_work_event(
+            home, skills_root, message, recent_events, state, non_work=non_work,
+        )
     track = infer_track(message, requested_track) or state.get("track") or profile.get("track")
     if not track:
         goal = "resolve track before routing"

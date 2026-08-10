@@ -134,18 +134,89 @@ class NoRegressionInTheOlderTablesTests(unittest.TestCase):
         self.assertIsNone(career_agent.infer_track("오늘 한 일 기록해줘"))
         self.assertIsNone(career_agent.infer_track("今日やった仕事を記録して"))
 
-    def test_no_maintenance_phrase_is_a_substring_of_a_stage_alias_term(self) -> None:
+    def test_no_intent_phrase_is_a_substring_of_a_stage_alias_term(self) -> None:
         # The failure this guards against is silent: a fragment like 経歴 would make every
-        # 職務経歴書 request read as a maintenance note.
+        # 職務経歴書 request read as a maintenance note. Applied to every intent table, so a new
+        # one cannot reintroduce the same class of collision.
         alias_terms = [
             term.lower()
             for group in career_agent.ROUTING["stage_alias"]
             for term in group["terms"]
         ]
-        for phrase in career_agent.ROUTING["maintenance"]:
-            for term in alias_terms:
-                with self.subTest(phrase=phrase, term=term):
-                    self.assertNotIn(phrase.lower(), term)
+        for table in ("maintenance", "tanaoroshi", "opportunity_review", "transition"):
+            for phrase in career_agent.ROUTING[table]:
+                for term in alias_terms:
+                    with self.subTest(table=table, phrase=phrase, term=term):
+                        self.assertNotIn(phrase.lower(), term)
+
+
+class TanaoroshiIntentTests(unittest.TestCase):
+    """Going back over experience from before the ledger existed, not keeping it current."""
+
+    def test_korean_inventory_requests(self) -> None:
+        for message in (
+            "지금까지의 경력을 정리하고 싶어",
+            "그동안 해온 일을 정리해줘",
+            "경력 전체를 돌아보고 싶어요",
+            "학창시절 경험을 정리해야 할 것 같아",
+        ):
+            with self.subTest(message=message):
+                self.assertTrue(career_agent.tanaoroshi_intent(message))
+
+    def test_japanese_inventory_requests(self) -> None:
+        for message in (
+            "キャリアの棚卸しをしたい",
+            "これまでの経験を整理したいです",
+            "経歴の棚卸から始めたい",
+            "学生時代の経験を整理しておきたい",
+        ):
+            with self.subTest(message=message):
+                self.assertTrue(career_agent.tanaoroshi_intent(message))
+
+    def test_english_inventory_requests(self) -> None:
+        for message in (
+            "I want to do a career inventory.",
+            "Help me take stock of my career.",
+            "Let's go through my past experience first.",
+        ):
+            with self.subTest(message=message):
+                self.assertTrue(career_agent.tanaoroshi_intent(message))
+
+    def test_ordinary_upkeep_is_not_an_inventory(self) -> None:
+        # The distinguishing signal is scope. Without 지금까지 / これまで / so far, the request is
+        # about today's work and belongs to maintenance.
+        for message in (
+            "오늘 한 일 기록해줘",
+            "업무일지 남겨줘",
+            "今日やった仕事を記録して",
+            "今期の成果を整理したい",
+            "Add this to my work log",
+        ):
+            with self.subTest(message=message):
+                self.assertFalse(career_agent.tanaoroshi_intent(message))
+                self.assertTrue(career_agent.maintenance_intent(message))
+
+    def test_job_search_requests_are_not_an_inventory(self) -> None:
+        for message in (
+            "職務経歴書を添削してほしい",
+            "この求人に応募できるか",
+            "面接の準備をしたい",
+            "Please improve my resume",
+        ):
+            with self.subTest(message=message):
+                self.assertFalse(career_agent.tanaoroshi_intent(message))
+
+    def test_an_inventory_request_is_not_a_declaration_of_a_search(self) -> None:
+        message = "이직 생각은 없는데 지금까지의 경력을 정리해두고 싶어"
+        self.assertTrue(career_agent.tanaoroshi_intent(message))
+        self.assertFalse(career_agent.active_search_intent(message))
+
+    def test_stage_routing_is_unchanged_for_inventory_vocabulary(self) -> None:
+        # `stage_for` never reads the intent tables, so a caller that ignores the intent still gets
+        # the stage it always did.
+        self.assertEqual(
+            career_agent.stage_for("これまでの経験を整理したい", "chuto"), "自己分析・転職軸"
+        )
 
 
 if __name__ == "__main__":

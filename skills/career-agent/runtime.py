@@ -32,6 +32,7 @@ from models import (  # noqa: E402
     CONTEXT_KINDS,
     EMPLOYMENT_STATUSES,
     EVENT_STATUSES,
+    EXPERIENCE_CONTEXT_KINDS,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
     PROJECT_EVENT_TYPE,
@@ -73,6 +74,7 @@ from routing import (  # noqa: E402
     flow_phase_for,
     maintenance_intent,
     opportunity_review_intent,
+    tanaoroshi_intent,
     review_closed_intent,
     transition_intent,
     flow_phase_ids,
@@ -87,6 +89,7 @@ from routing import (  # noqa: E402
     term_present,
 )
 from proposals import (  # noqa: E402
+    make_experience_context_event,
     make_project_event,
     stated_career_mode,
     approval_action_for,
@@ -109,8 +112,19 @@ from lifecycle import (  # noqa: E402
     state_version_is_persisted,
     vault_lock,
 )
+from document import GENERATED_DOCUMENT_TYPES, document_model, fidelity_gate  # noqa: E402
+from render import (  # noqa: E402
+    RENDERER_VERSION,
+    available_templates,
+    manifest,
+    outdated_reasons,
+    render,
+    resolve_template,
+)
 from projection import (  # noqa: E402
     clamp_career_mode,
+    contexts_from_events,
+    experiences_from_events,
     next_career_mode,
     project_timeline,
     projects_from_events,
@@ -181,6 +195,7 @@ from guided import (  # noqa: E402
 )
 
 _PROPOSAL_COMPATIBILITY_EXPORTS = (
+    make_experience_context_event,
     make_project_event,
     stated_career_mode,
     approval_action_for,
@@ -198,8 +213,22 @@ _LIFECYCLE_COMPATIBILITY_EXPORTS = (
     state_version_is_persisted,
 )
 
+_DOCUMENT_COMPATIBILITY_EXPORTS = (
+    GENERATED_DOCUMENT_TYPES,
+    RENDERER_VERSION,
+    document_model,
+    fidelity_gate,
+    available_templates,
+    manifest,
+    outdated_reasons,
+    render,
+    resolve_template,
+)
+
 _PROJECTION_COMPATIBILITY_EXPORTS = (
     _legacy_company_slug,
+    contexts_from_events,
+    experiences_from_events,
     project_timeline,
     projects_from_events,
     work_event_date,
@@ -225,6 +254,7 @@ _ROUTING_COMPATIBILITY_EXPORTS = (
     maintenance_intent,
     opportunity_review_intent,
     review_closed_intent,
+    tanaoroshi_intent,
     transition_intent,
     flow_phase_ids,
     graduation_signal,
@@ -872,6 +902,279 @@ def add_project(
     }
 
 
+def _canonical_revision(home: CareerVault) -> str:
+    """The digest of the confirmed record a document was built from.
+
+    Recorded on every generated file so that "is this still current?" has an answer that does not
+    depend on remembering. Generating a document never changes it: this is what makes "a document
+    is a projection, not a source" checkable rather than merely stated.
+    """
+    return hashlib.sha256(home.events.read_bytes()).hexdigest() if home.events.exists() else ""
+
+
+def _pipeline_company(workspace: str | Path | None, slug: str) -> dict[str, Any]:
+    path = pipeline_file(workspace)
+    try:
+        data = pipeline_store.load(path)
+    except ImportError as exc:  # pragma: no cover - pyyaml is a documented requirement
+        raise CareerError("pyyaml is required to read the workspace pipeline") from exc
+    for entry in data.get("companies") or []:
+        if entry.get("slug") == slug:
+            return entry
+    raise CareerError(
+        f"no company '{slug}' in {path}; add it with scripts/pipeline.py upsert first",
+        code="COMPANY_NOT_FOUND",
+    )
+
+
+def build_document_model(
+    home: CareerVault,
+    slug: str,
+    *,
+    workspace: str | Path | None = None,
+    document_type: str = "shokumukeirekisho",
+) -> dict[str, Any]:
+    """Arrange confirmed evidence for one target. Reads the ledger; writes nothing to it."""
+    model = document_model(
+        read_jsonl(home.events),
+        _pipeline_company(workspace, slug),
+        document_type=document_type,
+        canonical_revision=_canonical_revision(home),
+    )
+    model["vault"] = str(home.path)
+    model["data_trust"] = UNTRUSTED_DATA_MARKER
+    model["instruction_authority"] = "none"
+    return model
+
+
+def _read_document_file(path: str | Path, label: str) -> dict[str, Any]:
+    """Read a caller-supplied JSON document, refusing an absent one.
+
+    `read_json` returns a default when the file is missing, which is right for a cache and wrong
+    here: a mistyped draft path would become an empty draft, and an empty draft passes every check
+    in the gate. A missing input is an error, not an empty one.
+    """
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise CareerError(f"{label} not found: {resolved}", code="DOCUMENT_INPUT_NOT_FOUND")
+    value = read_json(resolved, None)
+    if not isinstance(value, dict):
+        raise CareerError(f"{label} must be a JSON object: {resolved}", code="DOCUMENT_INPUT_INVALID")
+    return value
+
+
+def check_document(
+    model_path: str | Path, draft_path: str | Path, humanized_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Run the fidelity gate over a written draft, or over its polished replacement."""
+    model = _read_document_file(model_path, "--model")
+    draft = _read_document_file(draft_path, "--draft")
+    humanized = _read_document_file(humanized_path, "--humanized") if humanized_path else None
+    result = fidelity_gate(model, draft, humanized=humanized)
+    result["model"] = str(model_path)
+    return result
+
+
+def render_document(
+    model_path: str | Path,
+    draft_path: str | Path,
+    *,
+    template: str,
+    out_dir: str | Path,
+    humanized_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Render a checked document, and refuse to render an unchecked one.
+
+    The gate runs here rather than being trusted to have run earlier, because the failure mode this
+    guards against is a document that reaches a recruiter, and "the caller was supposed to check"
+    is not a guarantee. On failure nothing is written at all.
+
+    The filename carries a digest of what produced it, so regenerating after new evidence or a
+    changed JD writes a new file beside the old one instead of overwriting something the user may
+    already have sent.
+    """
+    model = _read_document_file(model_path, "--model")
+    draft = _read_document_file(draft_path, "--draft")
+    humanized = _read_document_file(humanized_path, "--humanized") if humanized_path else None
+    gate = fidelity_gate(model, draft, humanized=humanized)
+    if not gate["pass"]:
+        raise CareerError(
+            f"fidelity gate failed with {len(gate['violations'])} violation(s); nothing was written",
+            code="FIDELITY_GATE_FAILED",
+            details={"violations": gate["violations"]},
+        )
+    source = humanized or draft
+    slots = source.get("slots") or {}
+    template_path = resolve_template(Path(__file__).resolve().parent, template)
+    output = render(model, slots, template_path.read_text(encoding="utf-8"), skills=source.get("skills"))
+    target = model.get("target") or {}
+    fingerprint = hashlib.sha256(
+        "\0".join(
+            [
+                str(model.get("canonical_revision") or ""),
+                str(target.get("jd_digest") or ""),
+                template,
+                RENDERER_VERSION,
+                json.dumps(slots, ensure_ascii=False, sort_keys=True),
+                json.dumps(source.get("skills"), ensure_ascii=False, sort_keys=True),
+            ]
+        ).encode("utf-8")
+    ).hexdigest()[:8]
+    slug = str(target.get("slug") or "target")
+    directory = Path(out_dir) / slug
+    directory.mkdir(parents=True, exist_ok=True)
+    # The same instant the manifest records, so the filename and `generated_at` cannot disagree.
+    generated_at = utc_now()
+    name = f"{model.get('document_type')}-{generated_at[:10].replace('-', '')}-{fingerprint}"
+    document_path = directory / f"{name}.html"
+    manifest_path = directory / f"{name}.manifest.json"
+    unchanged = document_path.exists() and document_path.read_text(encoding="utf-8") == output
+    record = manifest(
+        model,
+        document_id=f"doc-{fingerprint}",
+        template_id=template,
+        output_path=str(document_path.resolve()),
+        generated_at=generated_at,
+    )
+    outdated: list[dict[str, Any]] = []
+    for existing in sorted(directory.glob("*.manifest.json")):
+        if existing == manifest_path:
+            continue
+        reasons = outdated_reasons(read_json(existing, {}), model, template)
+        if reasons:
+            outdated.append({"manifest": str(existing), "reasons": reasons})
+    if not unchanged:
+        atomic_write_text(document_path, output)
+        write_json(manifest_path, record)
+    return {
+        "mode": "document-render",
+        "template": template,
+        "output_path": str(document_path.resolve()),
+        "manifest_path": str(manifest_path.resolve()),
+        # Regenerating with the same evidence, JD, template and wording produces the same file.
+        "unchanged": unchanged,
+        # Reported, never acted on. Overwriting a document the user may have already sent is not a
+        # decision this runtime makes.
+        "outdated_documents": outdated,
+        "gate": {"pass": True, "checked_slots": gate["checked_slots"]},
+        "print_to_pdf": "open the HTML and print to PDF; the template carries A4 print CSS",
+        "ok": True,
+    }
+
+
+def add_context(
+    home: CareerVault, kind: str, label: str, *, context_id: str | None = None, **fields: Any,
+) -> dict[str, Any]:
+    """Propose a context, or an update to one that already exists.
+
+    Same proposal path as `add-project`, so the confirmation the UX already asks for is the
+    approval rather than a second step on top of it.
+    """
+    known = contexts_from_events(read_jsonl(home.events))
+    if context_id is not None and context_id not in known:
+        raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
+    event = make_experience_context_event(kind, label, context_id, fields=fields)
+    proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
+    proposal = {
+        "id": proposal_id,
+        "kind": "event",
+        "status": "pending",
+        "created_at": utc_now(),
+        "next_action": f"approve {proposal_id} after checking the kind and the period",
+        "event": event,
+    }
+    with vault_lock(home):
+        home.add_proposal(proposal)
+    return {
+        "mode": "add-context",
+        "vault": str(home.path),
+        "context": event["experience_context"],
+        "proposal": {"id": proposal["id"], "status": proposal["status"]},
+        "updates_existing": context_id is not None,
+        "ok": True,
+    }
+
+
+def list_contexts(home: CareerVault, *, kind: str | None = None) -> dict[str, Any]:
+    """Every confirmed context with how many experiences and how much evidence hang on it."""
+    events = read_jsonl(home.events)
+    grouped = experiences_from_events(events)
+    per_context_experiences: dict[str, int] = {}
+    per_context_evidence: dict[str, int] = {}
+    for experience in grouped["experiences"]:
+        key = str(experience.get("context_id") or "")
+        per_context_experiences[key] = per_context_experiences.get(key, 0) + 1
+        per_context_evidence[key] = (
+            per_context_evidence.get(key, 0) + len(experience["evidence_event_ids"])
+        )
+    rows = [
+        {
+            **record,
+            "experiences": per_context_experiences.get(context_id, 0),
+            "confirmed_evidence": per_context_evidence.get(context_id, 0),
+        }
+        for context_id, record in grouped["contexts"].items()
+        if kind is None or record.get("kind") == kind
+    ]
+    rows.sort(key=lambda row: (str(row.get("kind") or ""), str(row.get("label") or "")))
+    return {
+        "mode": "contexts",
+        "vault": str(home.path),
+        "count": len(rows),
+        "contexts": rows,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def list_experiences(home: CareerVault, *, context_id: str | None = None) -> dict[str, Any]:
+    """Context -> Experience -> Evidence over the confirmed ledger.
+
+    This is the 棚卸し progress view and the read a document projection starts from. It stores
+    nothing: an experience is the set of confirmed evidence naming the same project or the same
+    reference, so re-linking a note rewrites no history and the same evidence never exists twice.
+
+    There is no completion percentage. What the view answers is "can a decision quote the user's
+    own experience", and the gaps are named individually so a missing contribution stays visible
+    instead of being averaged into a number that looks like progress.
+    """
+    grouped = experiences_from_events(read_jsonl(home.events))
+    rows = [
+        experience
+        for experience in grouped["experiences"]
+        if context_id is None or experience.get("context_id") == context_id
+    ]
+    if context_id is not None and context_id not in grouped["contexts"]:
+        raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
+    return {
+        "mode": "experiences",
+        "vault": str(home.path),
+        "count": len(rows),
+        "contexts": grouped["contexts"],
+        "experiences": rows,
+        # Evidence that belongs to no recorded experience is still evidence. Hiding it would make
+        # the record look tidier than it is.
+        "unattached_evidence_ids": grouped["unattached_evidence_ids"],
+        "gaps": {
+            "experiences_without_individual_contribution": [
+                row["experience_id"] for row in rows if not row["individual_contribution"]
+            ],
+            "experiences_without_context": [
+                row["experience_id"] for row in rows if not row.get("context_id")
+            ],
+            "evidence_awaiting_external_use_review": [
+                event_id for row in rows for event_id in row["external_use_review_required"]
+            ],
+        },
+        "entries_are_references": True,
+        "no_total_by_design": True,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
 def list_projects(home: CareerVault, *, status: str | None = None) -> dict[str, Any]:
     """Every confirmed project with how much evidence hangs on it."""
     events = read_jsonl(home.events)
@@ -1242,6 +1545,13 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
         if ((e.get("work_event") or {}).get("confidentiality") or {}).get("external_use") == "unknown"
     ]
 
+    # Contexts and experiences cover the whole record, not just the working part of it: a new
+    # graduate's university and seminar are the evidence base, and a dimension that only counted
+    # work would report them as nothing.
+    grouped = experiences_from_events(events)
+    contexts = grouped["contexts"]
+    experiences = grouped["experiences"]
+
     def dimension(subset: list[Any], total: list[Any]) -> str:
         if not total:
             return "Unknown"
@@ -1268,6 +1578,16 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
             ),
             "individual_contribution": dimension(with_contribution, confirmed),
             "metrics_evidence": dimension(with_metrics, confirmed),
+            # A context with no period is a name without a timeline, which is exactly what an
+            # employment history section cannot be built from.
+            "career_contexts": dimension(
+                [c for c in contexts.values() if c.get("period")], list(contexts.values())
+            ),
+            # An experience with no individual contribution cannot answer "what did *you* do",
+            # which is the question every 職務経歴書 and every interview asks.
+            "experience_coverage": dimension(
+                [e for e in experiences if e["individual_contribution"]], experiences
+            ),
         },
         "counts": {
             "projects": len(projects),
@@ -1276,9 +1596,17 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
             "undated_work_events": len(undated),
             "dated_in_last_year": len(recent),
             "external_use_review_required": len(needs_review),
+            "career_contexts": len(contexts),
+            "experiences": len(experiences),
+            "unattached_evidence": len(grouped["unattached_evidence_ids"]),
         },
         # Readiness says the record is current. It says nothing about wanting to leave.
         "job_search": job_search_of(home.load_profile()),
+        # Not a score and not a threshold on one: it is the fact that the ledger holds nothing to
+        # quote. Someone with seven years of experience and a fresh install is in exactly this
+        # state, and telling them so is more useful than an analysis with nothing behind it.
+        # Independent of `job_search`: a record worth having is worth having before the search.
+        "bootstrap_suggested": not confirmed and not experiences and not contexts,
         "no_total_by_design": True,
         "ok": True,
     }
@@ -1342,7 +1670,7 @@ def _requires_approval_recovery(args: argparse.Namespace) -> bool:
         "setup", "guided", "approve", "restore-state", "index",
         "propose-fact", "propose-context",
         "set-job-search", "set-employment-status", "review-work-event",
-        "add-project", "link-work-event",
+        "add-project", "add-context", "link-work-event",
     }:
         return True
     if args.command == "doctor":
@@ -1834,6 +2162,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--message")
     run.add_argument("--track", choices=sorted(TRACKS))
     run.add_argument("--source", help="JSON file for discover; stdin is used when omitted")
+    run.add_argument(
+        "--non-work", dest="non_work", action="store_true",
+        help="this experience did not happen at a job: a seminar, a thesis, a club, a volunteer "
+             "shift. Same fields, different type, so coursework never reads as work history",
+    )
     add_as_of_argument(run)
     add_output_format(run)
     work_events_parser = subparsers.add_parser(
@@ -1875,6 +2208,80 @@ def build_parser() -> argparse.ArgumentParser:
     add_project_parser.add_argument("--from", dest="period_from", metavar="YYYY-MM[-DD]")
     add_project_parser.add_argument("--to", dest="period_to", metavar="YYYY-MM[-DD]")
     add_output_format(add_project_parser)
+    add_context_parser = subparsers.add_parser(
+        "add-context",
+        help="propose a context an experience happened in: a company, a university, a club",
+    )
+    add_vault_argument(add_context_parser)
+    add_context_parser.add_argument("label")
+    add_context_parser.add_argument(
+        "--kind", required=True, choices=sorted(EXPERIENCE_CONTEXT_KINDS),
+        help="a context is not always an employer; this is the part a label cannot say",
+    )
+    add_context_parser.add_argument(
+        "--context-id", dest="context_id", help="update this context instead of adding one",
+    )
+    add_context_parser.add_argument("--role")
+    add_context_parser.add_argument("--summary")
+    add_context_parser.add_argument(
+        "--external-label", dest="external_label",
+        help="safe name for recruiter-facing output when the real one cannot leave",
+    )
+    add_context_parser.add_argument("--from", dest="period_from", metavar="YYYY-MM[-DD]")
+    add_context_parser.add_argument("--to", dest="period_to", metavar="YYYY-MM[-DD]")
+    add_output_format(add_context_parser)
+    contexts_parser = subparsers.add_parser(
+        "contexts", help="confirmed contexts and how much hangs on each",
+    )
+    add_vault_argument(contexts_parser)
+    contexts_parser.add_argument("--kind", choices=sorted(EXPERIENCE_CONTEXT_KINDS))
+    add_output_format(contexts_parser)
+    experiences_parser = subparsers.add_parser(
+        "experiences",
+        help="context, experience and the evidence under it; the 棚卸し view, with no total",
+    )
+    add_vault_argument(experiences_parser)
+    experiences_parser.add_argument(
+        "--context", dest="context_id", help="only experiences inside this context",
+    )
+    add_output_format(experiences_parser)
+    model_parser = subparsers.add_parser(
+        "document-model",
+        help="arrange confirmed evidence for one target; reads the ledger and writes nothing",
+    )
+    add_vault_argument(model_parser)
+    add_workspace_argument(model_parser)
+    model_parser.add_argument("slug", help="the company slug in data/pipeline.yml")
+    model_parser.add_argument(
+        "--document-type", dest="document_type", default="shokumukeirekisho",
+        choices=sorted(GENERATED_DOCUMENT_TYPES),
+    )
+    add_output_format(model_parser)
+    check_parser = subparsers.add_parser(
+        "document-check",
+        help="the Career Fidelity Gate: whether written Japanese says what the evidence says",
+    )
+    check_parser.add_argument("--model", required=True, help="document-model output")
+    check_parser.add_argument("--draft", required=True, help="evidence-grounded draft slots")
+    check_parser.add_argument(
+        "--humanized",
+        help="the polished replacement; the draft is then checked as its predecessor too",
+    )
+    add_output_format(check_parser)
+    render_parser = subparsers.add_parser(
+        "document-render", help="render a checked document; an unchecked one is refused",
+    )
+    render_parser.add_argument("--model", required=True)
+    render_parser.add_argument("--draft", required=True)
+    render_parser.add_argument("--humanized")
+    render_parser.add_argument(
+        "--template", default="standard-chuto",
+        choices=available_templates(Path(__file__).resolve().parent),
+    )
+    render_parser.add_argument(
+        "--out", default="./career-docs", help="output directory, relative to CWD",
+    )
+    add_output_format(render_parser)
     for name, helptext in (
         ("maintenance-check", "situations worth mentioning, or none; never a scheduled reminder"),
         ("readiness", "independent readiness dimensions; there is no total and it is not intent"),
@@ -2195,6 +2602,25 @@ def main(argv: Iterable[str] | None = None) -> int:
             else:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result.get("ok", True) else 2
+        # These two read a model file that was already produced from the Vault, so requiring one
+        # again would only ask for a path the answer does not depend on. The gate in particular
+        # must stay runnable on its own: it is the check a caller runs before sending anything.
+        if args.command in ("document-check", "document-render"):
+            if args.command == "document-check":
+                result = check_document(args.model, args.draft, args.humanized)
+            else:
+                result = render_document(
+                    args.model, args.draft, template=args.template, out_dir=args.out,
+                    humanized_path=args.humanized,
+                )
+            result = project_ux(
+                args.command, result, args=vars(args), language=_output_language(args, result),
+            )
+            if args.output_format == "human":
+                print(render_human(result))
+            else:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result.get("ok", True) else 2
         if not args.vault:
             raise CareerError("--vault or CAREER_VAULT is required; the runtime never defaults to the current directory")
         home = CareerVault(Path(args.vault))
@@ -2218,6 +2644,21 @@ def main(argv: Iterable[str] | None = None) -> int:
                     external_label=args.external_label,
                     period=period if any(period.values()) else None,
                 )
+            elif args.command == "add-context":
+                period = {"from": args.period_from, "to": args.period_to}
+                result = add_context(
+                    home, args.kind, args.label, context_id=args.context_id,
+                    role=args.role, summary=args.summary, external_label=args.external_label,
+                    period=period if any(period.values()) else None,
+                )
+            elif args.command == "document-model":
+                result = build_document_model(
+                    home, args.slug, workspace=args.workspace, document_type=args.document_type,
+                )
+            elif args.command == "contexts":
+                result = list_contexts(home, kind=args.kind)
+            elif args.command == "experiences":
+                result = list_experiences(home, context_id=args.context_id)
             elif args.command == "maintenance-check":
                 result = maintenance_check(home, as_of=args.as_of)
             elif args.command == "readiness":
@@ -2328,7 +2769,10 @@ def main(argv: Iterable[str] | None = None) -> int:
                 message = args.message if args.message is not None else read_stdin_utf8().strip()
                 if not message:
                     raise CareerError("chat requires --message or stdin")
-                result = run_chat(home, skills_root, message, args.track, args.as_of)
+                result = run_chat(
+                    home, skills_root, message, args.track, args.as_of,
+                    non_work=args.non_work,
+                )
                 complete_onboarding(home, result)
             elif args.mode == "heartbeat":
                 result = run_heartbeat(home)

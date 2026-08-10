@@ -16,10 +16,19 @@ import pipeline_store  # noqa: E402
 
 from models import (  # noqa: E402
     CAREER_MODES,
+    EVIDENCE_EVENT_TYPES,
+    EXPERIENCE_CONTEXT_EVENT_TYPE,
     PIPELINE_STAGE,
     PROJECT_EVENT_TYPE,
     WORK_EVENT_TYPE,
     CareerError,
+)
+
+# The types that record something without moving the user through the hiring flow. They share one
+# name because three separate call sites need exactly this set, and three separate literals would
+# be three chances to add a type to two of them.
+UNROUTED_EVENT_TYPES = (
+    EVIDENCE_EVENT_TYPES | {PROJECT_EVENT_TYPE, EXPERIENCE_CONTEXT_EVENT_TYPE, "career_context"}
 )
 
 
@@ -58,6 +67,12 @@ def upsert_pipeline_entry(
     event: dict[str, Any], path: Path | None = None, workspace: str | Path | None = None,
 ) -> Path | None:
     """Project short confirmed-event metadata; evidence stays in the canonical event ledger."""
+    # An unrouted event has no application behind it. `company` on one names an employer the user
+    # worked at, not a company they are applying to, and projecting it would put a past job in the
+    # kanban as a live opportunity. The caller also checks `company`; this refuses by type, which
+    # is the part a future caller cannot forget.
+    if event.get("type") in UNROUTED_EVENT_TYPES:
+        return None
     path = path or pipeline_file(workspace)
     stage = PIPELINE_STAGE.get(event["stage"])
     day = str(event["occurred_at"])[:10]
@@ -127,6 +142,133 @@ def projects_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, An
     for record in projects.values():
         record.setdefault("status", "unknown")
     return projects
+
+
+EXPERIENCE_CONTEXT_FIELDS = ("kind", "label", "external_label", "role", "summary", "period")
+
+
+def contexts_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """The current state of every context, projected from confirmed context events.
+
+    Identical accumulation to `projects_from_events`, for the identical reason: a context is named
+    in one turn and given a period in another, and the ledger already is the history.
+    """
+    contexts: dict[str, dict[str, Any]] = {}
+    for event in events:
+        if event.get("type") != EXPERIENCE_CONTEXT_EVENT_TYPE or event.get("status") != "confirmed":
+            continue
+        payload = event.get("experience_context")
+        if not isinstance(payload, dict) or not payload.get("id"):
+            continue
+        context_id = str(payload["id"])
+        current = contexts.setdefault(
+            context_id, {"id": context_id, "first_seen": event.get("occurred_at")}
+        )
+        for field in EXPERIENCE_CONTEXT_FIELDS:
+            value = payload.get(field)
+            if value is None:
+                continue
+            if field == "period" and isinstance(value, dict) and isinstance(current.get(field), dict):
+                merged = dict(current[field])
+                merged.update({key: item for key, item in value.items() if item is not None})
+                current[field] = merged
+            else:
+                current[field] = value
+        current["updated_at"] = event.get("occurred_at")
+    return contexts
+
+
+def evidence_payload(event: dict[str, Any]) -> dict[str, Any]:
+    """The evidence payload, under whichever key this event type carries it.
+
+    Two keys rather than one because a `work_event` key on a university record would read as
+    employment (see models.EXPERIENCE_EVENT_TYPE). Readers that only care about the fields --
+    which is most of them -- go through here and never learn there were two.
+    """
+    for key in ("work_event", "experience"):
+        payload = event.get(key)
+        if isinstance(payload, dict):
+            return payload
+    return {}
+
+
+def experience_key(event: dict[str, Any]) -> str | None:
+    """Which experience this evidence belongs to, or None when it hangs on nothing.
+
+    A project id wins over an `experience_ref` and the validator refuses both at once, so one
+    experience never ends up with two names. Returning None is a normal answer: a note captured
+    before any 棚卸し belongs to no experience yet, and inventing a bucket for it would be a guess.
+    """
+    payload = evidence_payload(event)
+    project_id = payload.get("primary_project_id")
+    if isinstance(project_id, str) and project_id.strip():
+        return f"project:{project_id}"
+    reference = payload.get("experience_ref")
+    if isinstance(reference, str) and reference.strip():
+        return f"ref:{reference}"
+    return None
+
+
+def experiences_from_events(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Context → Experience → Evidence, grouped over the confirmed ledger.
+
+    An experience is not stored anywhere. It is the set of confirmed evidence that names the same
+    project or the same `experience_ref`, which is why a work event can be re-linked without any
+    history being rewritten, and why the same evidence never exists twice to appear in two views.
+
+    `unattached` is reported rather than hidden. Evidence that belongs to no recorded experience is
+    still evidence, and a view that dropped it would understate what the user has.
+    """
+    projects = projects_from_events(events)
+    contexts = contexts_from_events(events)
+    experiences: dict[str, dict[str, Any]] = {}
+    unattached: list[str] = []
+    for event in events:
+        if event.get("type") not in EVIDENCE_EVENT_TYPES or event.get("status") != "confirmed":
+            continue
+        key = experience_key(event)
+        if key is None:
+            unattached.append(event["id"])
+            continue
+        payload = evidence_payload(event)
+        current = experiences.setdefault(
+            key,
+            {
+                "experience_id": key,
+                "context_id": None,
+                "kind": None,
+                "label": key.split(":", 1)[1],
+                "evidence_event_ids": [],
+                "individual_contribution": 0,
+                "team_result": 0,
+                "metrics": 0,
+                "external_use_review_required": [],
+            },
+        )
+        current["evidence_event_ids"].append(event["id"])
+        # Later non-null wins here too: the context and the kind are often supplied on a second
+        # pass, and the first note about an experience rarely knows both.
+        for field, source in (("context_id", "context_id"), ("kind", "experience_kind")):
+            if payload.get(source) is not None:
+                current[field] = payload[source]
+        for field in ("individual_contribution", "team_result"):
+            if payload.get(field):
+                current[field] += 1
+        if payload.get("metrics"):
+            current["metrics"] += 1
+        if ((payload.get("confidentiality") or {}).get("external_use")) == "unknown":
+            current["external_use_review_required"].append(event["id"])
+    for record in experiences.values():
+        if record["experience_id"].startswith("project:"):
+            project = projects.get(record["experience_id"].split(":", 1)[1], {})
+            record["label"] = project.get("title") or record["label"]
+            record["external_label"] = project.get("external_label")
+            record["kind"] = record["kind"] or "project"
+    return {
+        "contexts": contexts,
+        "experiences": sorted(experiences.values(), key=lambda item: item["experience_id"]),
+        "unattached_evidence_ids": unattached,
+    }
 
 
 def work_event_project_ids(event: dict[str, Any]) -> list[str]:
@@ -217,11 +359,11 @@ def apply_event_to_state(
     state: dict[str, Any], event: dict[str, Any], *, job_search: str = "off",
 ) -> dict[str, Any]:
     next_state = dict(state)
-    # Work events, project records, and career-context events all record something without
-    # moving the user through the hiring flow, so none touches track, stage, flow_phase, or the
-    # mode. Someone at 面接 with a search underway who writes down what they did at work today
-    # is still at 面接 and still searching.
-    if event.get("type") in {WORK_EVENT_TYPE, PROJECT_EVENT_TYPE, "career_context"}:
+    # Work events, experiences, the contexts and projects they happened in, and career-context
+    # events all record something without moving the user through the hiring flow, so none touches
+    # track, stage, flow_phase, or the mode. Someone at 面接 with a search underway who writes down
+    # what they did at work today is still at 面接 and still searching.
+    if event.get("type") in UNROUTED_EVENT_TYPES:
         next_state["last_event_id"] = event["id"]
         return next_state
     mode = next_career_mode(event, job_search, state.get("career_mode"))

@@ -128,6 +128,59 @@ WORK_EVENT_TYPE = "work_event"
 # allocator, which is the one thing an append-only ledger should not need.
 PROJECT_EVENT_TYPE = "project"
 PROJECT_STATUSES = {"active", "completed", "paused", "unknown"}
+# The place an experience happened in: a company, a university, a part-time shop, a club, a
+# personal effort. Another type on the same ledger for the same reason projects are, and its later
+# state is a projection over its events rather than a second store.
+#
+# The `experience_` prefix is deliberate. `career_context` is already the anchors/theme/values
+# payload and `CONTEXT_KINDS` below already names the Vault note kinds, so a bare `context` would
+# collide with two existing meanings and the collision would read as a typo rather than a bug.
+EXPERIENCE_CONTEXT_EVENT_TYPE = "experience_context"
+EXPERIENCE_CONTEXT_KINDS = {
+    "company",
+    "university",
+    "graduate_school",
+    "internship_organization",
+    "part_time_workplace",
+    "club",
+    "student_organization",
+    "volunteer_organization",
+    "personal",
+    "open_source",
+    "other",
+}
+# Evidence about something that happened outside a job: a seminar, a thesis, a club, a volunteer
+# shift, a personal project. It carries the same payload as a work event -- role, problem, actions,
+# individual contribution, team result, metrics and confidentiality describe a ゼミ project as well
+# as they describe a release -- so the two share one validator.
+#
+# It is nevertheless a separate type. Storing a university seminar as a `work_event` would say the
+# user was employed there, and every work-scoped read (`readiness.recent_work_evidence`,
+# `weekly-review`, career-maintenance, which is explicitly the while-employed workflow) would start
+# returning coursework as work history.
+EXPERIENCE_EVENT_TYPE = "experience_event"
+EVIDENCE_EVENT_TYPES = {WORK_EVENT_TYPE, EXPERIENCE_EVENT_TYPE}
+# Which kind of experience a piece of evidence belongs to. `project` is one entry among many on
+# purpose: regular operations, an incident, a thesis and a part-time shift are experiences too, and
+# a model that only had projects would push the user to describe their work as one.
+EXPERIENCE_KINDS = {
+    "project",
+    "recurring_work",
+    "improvement",
+    "incident",
+    "research",
+    "academic_work",
+    "internship",
+    "part_time_work",
+    "extracurricular",
+    "leadership",
+    "mentoring",
+    "customer_support",
+    "operations",
+    "personal_project",
+    "open_source_contribution",
+    "other",
+}
 # Career readiness and job-search intent are separate concepts, so they are separate axes.
 # `employment_status` and `job_search` are the user's own declaration and live in the profile;
 # only the dedicated `set-employment-status` / `set-job-search` commands write them. Every other
@@ -314,6 +367,11 @@ class Event(TypedDict, total=False):
     compensation: int | float
     currency: str
     work_event: dict[str, Any]
+    # The same payload a work event carries, for an experience that did not happen at a job.
+    # Separate key rather than a reused `work_event` one: a reader that finds `work_event` on a
+    # university record would be right to read it as employment.
+    experience: dict[str, Any]
+    experience_context: dict[str, Any]
     project: dict[str, Any]
     # The workflow intent the user stated in the turn that produced this event, when they stated
     # one. Absent is the normal case and means "leave the mode where it is".

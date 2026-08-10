@@ -156,6 +156,30 @@ def _validate_fields(fields: dict[str, Any]) -> None:
             or not all(isinstance(item, str) and item.strip() for item in values)
         ):
             raise ValueError(f"{field} must be a list of non-empty strings or null")
+    for field in ("jd_source", "jd_observed_at", "jd_digest"):
+        value = fields.get(field)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise ValueError(f"{field} must be a non-empty string or null")
+    # A requirement carries the posting's own words, how the JD ranked it, and which confirmed
+    # events support it. `evidence_ids` holds ids only: copying the events here would create a
+    # second, editable copy of the ledger, which is the one thing a JD may never have.
+    requirements = fields.get("jd_requirements")
+    if requirements is not None:
+        if not isinstance(requirements, list):
+            raise ValueError("jd_requirements must be a list of objects or null")
+        for item in requirements:
+            if not isinstance(item, dict) or not str(item.get("text") or "").strip():
+                raise ValueError("each jd_requirement needs a non-empty text")
+            if item.get("kind") not in (None, "required", "preferred"):
+                raise ValueError("jd_requirement.kind must be required, preferred, or null")
+            if item.get("status") not in (None, "Matched", "Missing", "Unknown"):
+                raise ValueError("jd_requirement.status must be Matched, Missing, Unknown, or null")
+            ids = item.get("evidence_ids")
+            if ids is not None and (
+                not isinstance(ids, list)
+                or not all(isinstance(one, str) and one.strip() for one in ids)
+            ):
+                raise ValueError("jd_requirement.evidence_ids must be a list of event ids or null")
     version = fields.get("match_model_version")
     if version is not None and version not in MATCH_MODEL_VERSIONS:
         raise ValueError(f"match_model_version must be one of {sorted(MATCH_MODEL_VERSIONS)}")

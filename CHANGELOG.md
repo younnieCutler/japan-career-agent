@@ -1,5 +1,128 @@
 # Changelog
 
+## [2.0.0] - 2026-08-10
+
+- Add the context an experience happened in. A context is a company, a university, a part-time
+  shop, a club or a personal effort, and `kind` is the one required field beyond a label because it
+  is the part a later reader cannot recover: an employer and a school are both plausible readings
+  of a bare name, and reading a university as an employer puts coursework in a 職務経歴書 as a job.
+  It is another type on the same ledger, so durability, the approval gate and append-only history
+  come with it, and a context's current state is a projection over its events.
+- Record evidence about something that did not happen at a job. A seminar, a thesis, a club, a
+  volunteer shift and a personal project carry the same payload a work event does -- role, problem,
+  actions, individual contribution, team result, metrics, confidentiality -- and share its
+  validator, including the rule that a number must appear in the evidence before it can be
+  confirmed. They are a separate type because storing a university seminar as a work event would
+  say the user was employed there, and every work-scoped read would start returning coursework as
+  work history.
+- Group evidence into experiences without storing one. An experience is the confirmed evidence
+  naming the same project or the same `experience_ref`, so re-linking a note rewrites no history
+  and the same evidence never exists twice to appear in two views. Not every experience is a
+  project: regular operations, an improvement, an incident, a thesis and a part-time shift are
+  experiences too.
+- Add `add-context`, `contexts` and `experiences`. The last is the 棚卸し view: contexts, the
+  experiences under them, the evidence under those, and the gaps named one by one. There is no
+  completion percentage, because the question it answers is whether a decision can quote the
+  user's own experience, and a number would hide which part is missing.
+- Normalize the target JD onto the pipeline entry it already belongs to (`schema_version` 2.5):
+  `jd_source`, `jd_observed_at`, `jd_digest` and `jd_requirements`, each requirement carrying the
+  posting's own words, whether the JD called it required or preferred, and the confirmed event ids
+  that support it. Nothing is scraped and no requirement can add a fact: a requirement nothing
+  supports stays `Unknown`, and adjacent experience is never promoted to fill it. `jd_digest` is
+  what makes a generated document reproducible -- an edited posting reads as a changed digest
+  rather than as an unexplained difference between two documents.
+- Add the JD-specific document model. It selects and arranges confirmed evidence for one target
+  and writes no prose: what it produces is the material a recruiter-facing sentence may be built
+  from, slot by slot, with the evidence behind each slot and the claims that sentence may not
+  strengthen. Evidence whose confidentiality review has not cleared never enters it, an
+  `external_label` replaces the internal project name, and a selection pointing at a draft is
+  reported rather than silently dropped. Running it against a different JD moves evidence around
+  without changing any of it.
+- Add the Career Fidelity Gate. Polished Japanese may say less than the evidence and never more:
+  a number that was never measured, an existing number rounded, `支援` becoming `主導`, `参加`
+  becoming `全体設計`, a JD keyword arriving as a technology the user never used, a team's outcome
+  written as one person's doing, an internal project name leaving the building, or a bullet
+  structure merged into prose during polishing — each is a refusal, not a warning. Every check is
+  literal string work so that the same draft and the same model always produce the same result;
+  a check that varies between runs cannot be relied on as a gate.
+  What passing establishes, stated precisely: **no known protected-claim violation reaches a
+  rendered document.** The rules are enumerated, so a synonym outside them can still raise a
+  claim's strength by a degree — proving the absence of every semantic drift in Japanese is not
+  something a list of substrings can do. Meaning-level drift is defended by the humanize contract
+  and by the user reading the result before they send it. The verdict field is named
+  `protected_claim_violations` for that reason. No detector score is read, reported, or optimised
+  for.
+
+- Render the checked document with two built-in templates and no dependency at all. The
+  substitution engine understands named slots and repeated blocks and deliberately nothing else --
+  no expressions, no conditionals, no evaluation -- because a template is a file the user brought
+  from somewhere, and templates carry sample career text and occasionally text addressed to a
+  model. Every substituted value is HTML-escaped, so neither a template nor a JD nor a resume can
+  become markup, and a template id is a name rather than a path. PDF is the browser's print path
+  against the A4 print CSS the templates carry.
+- Ship two built-in templates rather than one. `standard-chuto` and `simple-print` render the same
+  checked document into different markup, which is what makes "changing the template never changes
+  the facts" a claim a test can falsify.
+- Refuse to render an unchecked document. `document-render` runs the fidelity gate itself instead
+  of trusting that a caller ran it, because the failure it guards against is a document reaching a
+  recruiter; on failure nothing is written at all. A truncated or hand-edited model makes the gate
+  stricter, never looser: a missing claim means nothing supports the wording.
+- Never overwrite a generated document. The filename carries a digest of the evidence, the JD, the
+  template and the wording that produced it, so regenerating after a change writes a new file
+  beside the old one and regenerating after no change writes nothing. Each file gets a manifest
+  recording what it was built from, and an existing document whose evidence or JD has since moved
+  is reported as a candidate for regeneration -- reported, never acted on, because overwriting
+  something the user may already have sent is not this runtime's decision.
+- Keep generated documents out of Git. `career-docs/` is ignored at any depth, and the private-data
+  gate now recognizes the romanized filenames the renderer produces; prose *about* writing a
+  職務経歴書 still tracks normally, because a gate that fires on its own repository gets bypassed.
+
+- Add `career-document` and `humanize-japanese-career`. The first orchestrates the target: read
+  the posting, map its requirements onto recorded evidence, store the selection, generate a model,
+  write the Japanese, check it, render it. The second is the expression layer, with a genre
+  contract of its own — a general humanizer merges bullets into flowing prose, which destroys the
+  one thing a 職務経歴書 is for, and it will happily invent a number to make a vague sentence
+  concrete. Detector pass rate is explicitly not a goal and is not measured.
+- Capture evidence about something that did not happen at a job with `run --mode chat --non-work`.
+  A seminar, a thesis, a club or a volunteer shift asks the same questions a release does and
+  fills the same fields, and `review-work-event` now works on either type. It is a stated fact
+  about the experience, never inferred from wording: only the user knows whether they were
+  employed there.
+- Add the end-to-end regression the release gate is defined by. One lifecycle through the real CLI
+  — install, vault, 棚卸し, canonical evidence, target JD, selection, model, draft, humanize, gate,
+  template, HTML — asserting the two things every layer depends on: career facts are identical
+  whichever target asked for them, and generating documents leaves the ledger byte-identical.
+
+- Order employment history newest first. It was sorted on the context id, which is a uuid: the
+  order was stable within one vault and arbitrary between any two, and a career history whose
+  order means nothing is worse than one in an unusual order. Reverse chronological is the ordinary
+  Japanese convention and the only ordering the recorded periods actually support; a context with
+  no period sorts last, because an Unknown start is not evidence of a recent one. Found by printing
+  a two-employer sample and looking at it.
+- Let a draft narrow the proposed skills list. Latin tokens are how technology names travel, and
+  they also pick "API" out of 決済API and "OJT" out of OJT計画 -- evidence-backed and useless as a
+  skill label. The model proposes, the writer selects, and the gate refuses any label that was not
+  proposed, so the list can only ever be narrowed.
+
+- Add `career-tanaoroshi`: キャリアの棚卸し, the workflow that recovers experience from before the
+  ledger existed. Contexts first, experiences second, evidence third -- asking which companies
+  someone worked at leaves a new graduate with nothing to answer, and asking which projects leaves
+  the operations engineer and the researcher with nothing either. Documents the user already has
+  are read first and only the gaps are asked about, and everything extracted stays a candidate
+  until they confirm it.
+- Route 棚卸し ahead of maintenance. Every phrase in the new table carries a scope marker the
+  maintenance vocabulary has none of -- 지금까지, これまで, so far -- and that marker is what says
+  the request is about the years behind the user rather than about today's work. The entry point
+  proposes nothing: a seven-year career summarised from one sentence is the invented history the
+  ledger exists to refuse. It also needs no track, for the reason maintenance does not, and never
+  reads as intent to leave.
+
+- Report `bootstrap_suggested` in `readiness`, with `career_contexts` and `experience_coverage`
+  alongside the existing dimensions. It is the fact that the ledger holds nothing to quote, not a
+  threshold on a score, and it does not depend on whether a job search is on: someone with seven
+  years of experience and a fresh install is in exactly this state whether or not they intend to
+  leave.
+
 ## [1.24.0] - 2026-08-10
 
 - Add PROJECT as the context a work event happened in. It is another type on the same ledger, not
