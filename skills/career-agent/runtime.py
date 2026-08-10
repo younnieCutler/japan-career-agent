@@ -112,6 +112,15 @@ from lifecycle import (  # noqa: E402
     state_version_is_persisted,
     vault_lock,
 )
+from document import GENERATED_DOCUMENT_TYPES, document_model, fidelity_gate  # noqa: E402
+from render import (  # noqa: E402
+    RENDERER_VERSION,
+    available_templates,
+    manifest,
+    outdated_reasons,
+    render,
+    resolve_template,
+)
 from projection import (  # noqa: E402
     clamp_career_mode,
     contexts_from_events,
@@ -202,6 +211,18 @@ _LIFECYCLE_COMPATIBILITY_EXPORTS = (
     count_consecutive_safe_stops,
     record_failed_attempt,
     state_version_is_persisted,
+)
+
+_DOCUMENT_COMPATIBILITY_EXPORTS = (
+    GENERATED_DOCUMENT_TYPES,
+    RENDERER_VERSION,
+    document_model,
+    fidelity_gate,
+    available_templates,
+    manifest,
+    outdated_reasons,
+    render,
+    resolve_template,
 )
 
 _PROJECTION_COMPATIBILITY_EXPORTS = (
@@ -877,6 +898,164 @@ def add_project(
         "project": event["project"],
         "proposal": {"id": proposal["id"], "status": proposal["status"]},
         "updates_existing": project_id is not None,
+        "ok": True,
+    }
+
+
+def _canonical_revision(home: CareerVault) -> str:
+    """The digest of the confirmed record a document was built from.
+
+    Recorded on every generated file so that "is this still current?" has an answer that does not
+    depend on remembering. Generating a document never changes it: this is what makes "a document
+    is a projection, not a source" checkable rather than merely stated.
+    """
+    return hashlib.sha256(home.events.read_bytes()).hexdigest() if home.events.exists() else ""
+
+
+def _pipeline_company(workspace: str | Path | None, slug: str) -> dict[str, Any]:
+    path = pipeline_file(workspace)
+    try:
+        data = pipeline_store.load(path)
+    except ImportError as exc:  # pragma: no cover - pyyaml is a documented requirement
+        raise CareerError("pyyaml is required to read the workspace pipeline") from exc
+    for entry in data.get("companies") or []:
+        if entry.get("slug") == slug:
+            return entry
+    raise CareerError(
+        f"no company '{slug}' in {path}; add it with scripts/pipeline.py upsert first",
+        code="COMPANY_NOT_FOUND",
+    )
+
+
+def build_document_model(
+    home: CareerVault,
+    slug: str,
+    *,
+    workspace: str | Path | None = None,
+    document_type: str = "shokumukeirekisho",
+) -> dict[str, Any]:
+    """Arrange confirmed evidence for one target. Reads the ledger; writes nothing to it."""
+    model = document_model(
+        read_jsonl(home.events),
+        _pipeline_company(workspace, slug),
+        document_type=document_type,
+        canonical_revision=_canonical_revision(home),
+    )
+    model["vault"] = str(home.path)
+    model["data_trust"] = UNTRUSTED_DATA_MARKER
+    model["instruction_authority"] = "none"
+    return model
+
+
+def _read_document_file(path: str | Path, label: str) -> dict[str, Any]:
+    """Read a caller-supplied JSON document, refusing an absent one.
+
+    `read_json` returns a default when the file is missing, which is right for a cache and wrong
+    here: a mistyped draft path would become an empty draft, and an empty draft passes every check
+    in the gate. A missing input is an error, not an empty one.
+    """
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise CareerError(f"{label} not found: {resolved}", code="DOCUMENT_INPUT_NOT_FOUND")
+    value = read_json(resolved, None)
+    if not isinstance(value, dict):
+        raise CareerError(f"{label} must be a JSON object: {resolved}", code="DOCUMENT_INPUT_INVALID")
+    return value
+
+
+def check_document(
+    model_path: str | Path, draft_path: str | Path, humanized_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Run the fidelity gate over a written draft, or over its polished replacement."""
+    model = _read_document_file(model_path, "--model")
+    draft = _read_document_file(draft_path, "--draft")
+    humanized = _read_document_file(humanized_path, "--humanized") if humanized_path else None
+    result = fidelity_gate(model, draft, humanized=humanized)
+    result["model"] = str(model_path)
+    return result
+
+
+def render_document(
+    model_path: str | Path,
+    draft_path: str | Path,
+    *,
+    template: str,
+    out_dir: str | Path,
+    humanized_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Render a checked document, and refuse to render an unchecked one.
+
+    The gate runs here rather than being trusted to have run earlier, because the failure mode this
+    guards against is a document that reaches a recruiter, and "the caller was supposed to check"
+    is not a guarantee. On failure nothing is written at all.
+
+    The filename carries a digest of what produced it, so regenerating after new evidence or a
+    changed JD writes a new file beside the old one instead of overwriting something the user may
+    already have sent.
+    """
+    model = _read_document_file(model_path, "--model")
+    draft = _read_document_file(draft_path, "--draft")
+    humanized = _read_document_file(humanized_path, "--humanized") if humanized_path else None
+    gate = fidelity_gate(model, draft, humanized=humanized)
+    if not gate["pass"]:
+        raise CareerError(
+            f"fidelity gate failed with {len(gate['violations'])} violation(s); nothing was written",
+            code="FIDELITY_GATE_FAILED",
+            details={"violations": gate["violations"]},
+        )
+    slots = (humanized or draft).get("slots") or {}
+    template_path = resolve_template(Path(__file__).resolve().parent, template)
+    output = render(model, slots, template_path.read_text(encoding="utf-8"))
+    target = model.get("target") or {}
+    fingerprint = hashlib.sha256(
+        "\0".join(
+            [
+                str(model.get("canonical_revision") or ""),
+                str(target.get("jd_digest") or ""),
+                template,
+                RENDERER_VERSION,
+                json.dumps(slots, ensure_ascii=False, sort_keys=True),
+            ]
+        ).encode("utf-8")
+    ).hexdigest()[:8]
+    slug = str(target.get("slug") or "target")
+    directory = Path(out_dir) / slug
+    directory.mkdir(parents=True, exist_ok=True)
+    # The same instant the manifest records, so the filename and `generated_at` cannot disagree.
+    generated_at = utc_now()
+    name = f"{model.get('document_type')}-{generated_at[:10].replace('-', '')}-{fingerprint}"
+    document_path = directory / f"{name}.html"
+    manifest_path = directory / f"{name}.manifest.json"
+    unchanged = document_path.exists() and document_path.read_text(encoding="utf-8") == output
+    record = manifest(
+        model,
+        document_id=f"doc-{fingerprint}",
+        template_id=template,
+        output_path=str(document_path.resolve()),
+        generated_at=generated_at,
+    )
+    outdated: list[dict[str, Any]] = []
+    for existing in sorted(directory.glob("*.manifest.json")):
+        if existing == manifest_path:
+            continue
+        reasons = outdated_reasons(read_json(existing, {}), model, template)
+        if reasons:
+            outdated.append({"manifest": str(existing), "reasons": reasons})
+    if not unchanged:
+        atomic_write_text(document_path, output)
+        write_json(manifest_path, record)
+    return {
+        "mode": "document-render",
+        "template": template,
+        "output_path": str(document_path.resolve()),
+        "manifest_path": str(manifest_path.resolve()),
+        # Regenerating with the same evidence, JD, template and wording produces the same file.
+        "unchanged": unchanged,
+        # Reported, never acted on. Overwriting a document the user may have already sent is not a
+        # decision this runtime makes.
+        "outdated_documents": outdated,
+        "gate": {"pass": True, "checked_slots": gate["checked_slots"]},
+        "print_to_pdf": "open the HTML and print to PDF; the template carries A4 print CSS",
         "ok": True,
     }
 
@@ -2059,6 +2238,43 @@ def build_parser() -> argparse.ArgumentParser:
         "--context", dest="context_id", help="only experiences inside this context",
     )
     add_output_format(experiences_parser)
+    model_parser = subparsers.add_parser(
+        "document-model",
+        help="arrange confirmed evidence for one target; reads the ledger and writes nothing",
+    )
+    add_vault_argument(model_parser)
+    add_workspace_argument(model_parser)
+    model_parser.add_argument("slug", help="the company slug in data/pipeline.yml")
+    model_parser.add_argument(
+        "--document-type", dest="document_type", default="shokumukeirekisho",
+        choices=sorted(GENERATED_DOCUMENT_TYPES),
+    )
+    add_output_format(model_parser)
+    check_parser = subparsers.add_parser(
+        "document-check",
+        help="the Career Fidelity Gate: whether written Japanese says what the evidence says",
+    )
+    check_parser.add_argument("--model", required=True, help="document-model output")
+    check_parser.add_argument("--draft", required=True, help="evidence-grounded draft slots")
+    check_parser.add_argument(
+        "--humanized",
+        help="the polished replacement; the draft is then checked as its predecessor too",
+    )
+    add_output_format(check_parser)
+    render_parser = subparsers.add_parser(
+        "document-render", help="render a checked document; an unchecked one is refused",
+    )
+    render_parser.add_argument("--model", required=True)
+    render_parser.add_argument("--draft", required=True)
+    render_parser.add_argument("--humanized")
+    render_parser.add_argument(
+        "--template", default="standard-chuto",
+        choices=available_templates(Path(__file__).resolve().parent),
+    )
+    render_parser.add_argument(
+        "--out", default="./career-docs", help="output directory, relative to CWD",
+    )
+    add_output_format(render_parser)
     for name, helptext in (
         ("maintenance-check", "situations worth mentioning, or none; never a scheduled reminder"),
         ("readiness", "independent readiness dimensions; there is no total and it is not intent"),
@@ -2379,6 +2595,25 @@ def main(argv: Iterable[str] | None = None) -> int:
             else:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result.get("ok", True) else 2
+        # These two read a model file that was already produced from the Vault, so requiring one
+        # again would only ask for a path the answer does not depend on. The gate in particular
+        # must stay runnable on its own: it is the check a caller runs before sending anything.
+        if args.command in ("document-check", "document-render"):
+            if args.command == "document-check":
+                result = check_document(args.model, args.draft, args.humanized)
+            else:
+                result = render_document(
+                    args.model, args.draft, template=args.template, out_dir=args.out,
+                    humanized_path=args.humanized,
+                )
+            result = project_ux(
+                args.command, result, args=vars(args), language=_output_language(args, result),
+            )
+            if args.output_format == "human":
+                print(render_human(result))
+            else:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result.get("ok", True) else 2
         if not args.vault:
             raise CareerError("--vault or CAREER_VAULT is required; the runtime never defaults to the current directory")
         home = CareerVault(Path(args.vault))
@@ -2408,6 +2643,10 @@ def main(argv: Iterable[str] | None = None) -> int:
                     home, args.kind, args.label, context_id=args.context_id,
                     role=args.role, summary=args.summary, external_label=args.external_label,
                     period=period if any(period.values()) else None,
+                )
+            elif args.command == "document-model":
+                result = build_document_model(
+                    home, args.slug, workspace=args.workspace, document_type=args.document_type,
                 )
             elif args.command == "contexts":
                 result = list_contexts(home, kind=args.kind)

@@ -125,6 +125,11 @@ class IgnoreRuleTest(unittest.TestCase):
             "docs/resume.pdf", "skills/my-resume.docx", "scripts/履歴書.md",
             "_shared/職務経歴書.txt", "hooks/payslip.csv", "docs/cv.md",
             "skills/private/notes.md", "examples/payslip.pdf",
+            # Where `document-render` writes, at the depth it writes: a rendered 職務経歴書 is the
+            # user's real history plus the employer names they chose to show one company.
+            "career-docs/example-corp/shokumukeirekisho-20260810-a1b2c3d4.html",
+            "career-docs/example-corp/shokumukeirekisho-20260810-a1b2c3d4.manifest.json",
+            "skills/career-agent/career-docs/anything.html",
         ):
             with self.subTest(path=relative):
                 self.assertTrue(self._ignored(relative))
@@ -264,6 +269,23 @@ class ClassificationTest(unittest.TestCase):
         finding = check_private_data.classify("note.md")
         self.assertIsNotNone(finding)
         self.assertEqual(finding.confidence, "ambiguous")
+
+    def test_a_generated_recruiter_document_is_recognized_by_name(self) -> None:
+        # `document-render` writes `shokumukeirekisho-<date>-<digest>.html`, which is the user's
+        # real career history plus the employer names they chose to show one company. The CJK
+        # pattern above does not see a romanized filename.
+        write(self.root, "shokumukeirekisho-20260810-a1b2c3d4.html", "<html>synthetic</html>")
+        finding = check_private_data.classify("shokumukeirekisho-20260810-a1b2c3d4.html")
+        self.assertIsNotNone(finding)
+        self.assertEqual(finding.confidence, "high")
+        self.assertEqual(finding.signal, "filename")
+
+    def test_prose_about_writing_one_is_not_a_document(self) -> None:
+        # `skills/job-seeker-agent/references/shokumukeireki-saigensei.md` is guidance on how to
+        # write a 職務経歴書. A pattern that swallowed it would fire on the repository's own docs,
+        # and a gate that fires on its own repository is a gate that gets bypassed.
+        write(self.root, "shokumukeireki-saigensei.md", "How to describe a role.\n")
+        self.assertIsNone(check_private_data.classify("shokumukeireki-saigensei.md"))
 
     def test_renamed_office_document_is_detected_by_container_shape(self) -> None:
         path = self.root / "notes.txt"

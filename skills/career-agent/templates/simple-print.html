@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!--
+  simple-print — minimum formatting, maximum portability.
+
+  Same slots as standard-chuto and deliberately a different layout, because that is what makes the
+  invariant testable: rendering one checked document through both templates must produce the same
+  facts in different markup. If changing the template changed the content, one of the two would be
+  saying something the evidence does not.
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>職務経歴書 — {{target_company}}</title>
+<style>
+  @page { size: A4; margin: 20mm; }
+  body { font-family: "Yu Gothic", "Noto Sans JP", serif; font-size: 11pt; line-height: 1.7; color: #000; }
+  h1 { font-size: 14pt; margin: 0 0 6mm; }
+  h2 { font-size: 11pt; margin: 5mm 0 1mm; text-decoration: underline; }
+  h3 { font-size: 11pt; font-weight: normal; margin: 3mm 0 1mm; }
+  ul { margin: 0 0 0 6mm; padding: 0; }
+  p { margin: 0 0 2mm; white-space: pre-line; }
+  .meta { color: #333; }
+</style>
+</head>
+<body>
+<h1>職務経歴書</h1>
+<p class="meta">{{target_company}} {{target_role}}</p>
+
+<h2>職務要約</h2>
+<p>{{career_summary}}</p>
+
+<h2>活かせる経験・知識・技術</h2>
+<ul>{{#skills}}<li>{{skill}}</li>{{/skills}}</ul>
+
+<h2>職務経歴</h2>
+{{#employment_history}}
+<h3>{{company}}（{{period}}）</h3>
+{{#experiences}}
+<p>{{heading}}</p>
+<ul>{{#lines}}<li>{{line}}</li>{{/lines}}</ul>
+{{/experiences}}
+{{/employment_history}}
+
+<h2>自己PR</h2>
+<p>{{self_pr}}</p>
+
+<h2>確認中の事項</h2>
+<ul>{{#unknowns}}<li>{{unknown}}</li>{{/unknowns}}</ul>
+</body>
+</html>

@@ -55,6 +55,12 @@
 /data/company_profiles/*.yml
 /data/pipeline.yml
 
+# Generated recruiter-facing documents and their manifests. `document-render` writes here by
+# default, relative to CWD, and a rendered 職務経歴書 is the user's real career history plus the
+# employer names they chose to show one company. The manifest beside it carries the same
+# provenance. Any depth: the runtime writes `career-docs/<company-slug>/`.
+career-docs/
+
 # Career Agent local event ledger and snapshots
 /career-home/
 

@@ -69,6 +69,11 @@ SYNTHETIC_CONTENT_MARKERS = (
 FILENAME_PATTERNS = (
     re.compile(r"履歴書|職務経歴書|エントリーシート|給与明細|源泉徴収|在職証明|卒業証明"),
     re.compile(r"payslip", re.IGNORECASE),
+    # The romanized names of the same two documents, which is what a generated file is called:
+    # `shokumukeirekisho-20260810-a1b2c3d4.html`. Anchored at a word start so the existing
+    # `shokumukeireki-saigensei.md` reference -- a document *about* writing one -- does not match,
+    # and so a future `rirekisho_parser.py` would not either.
+    re.compile(r"(?:^|[-_])(?:shokumukeirekisho|rirekisho)(?:[-_.]|$)", re.IGNORECASE),
     re.compile(r"(?:^|[-_])(?:cv|resume|curriculum-?vitae)(?:[-_.]|$)", re.IGNORECASE),
 )
 

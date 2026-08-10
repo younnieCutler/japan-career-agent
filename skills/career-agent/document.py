@@ -32,7 +32,10 @@ from projection import (
 )
 from validation import NUMERIC_CLAIM
 
-DOCUMENT_TYPES = {"shokumukeirekisho"}
+# The documents this projection can produce. Distinct from `private_store.DOCUMENT_TYPES`, which
+# names the kinds of document a user can import: one is what the system writes, the other is what
+# it reads, and they are not the same list.
+GENERATED_DOCUMENT_TYPES = {"shokumukeirekisho"}
 
 # Latin-script tokens are how technology names travel: AWS, Terraform, GitHub Actions, CI/CD. The
 # gate requires every one appearing in a draft to appear in that slot's evidence, which is what
@@ -154,9 +157,9 @@ def document_model(
     what is true: every factual field here comes from the ledger, and running this against a
     different JD moves evidence around without changing any of it.
     """
-    if document_type not in DOCUMENT_TYPES:
+    if document_type not in GENERATED_DOCUMENT_TYPES:
         raise CareerError(
-            f"document_type must be one of: {', '.join(sorted(DOCUMENT_TYPES))}",
+            f"document_type must be one of: {', '.join(sorted(GENERATED_DOCUMENT_TYPES))}",
             code="UNSUPPORTED_DOCUMENT_TYPE",
         )
     contexts = contexts_from_events(events)
@@ -301,22 +304,19 @@ def _slot_sources(model: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
     A narrative slot gets the union of every entry's claims, because a summary legitimately spans
     them. It gets no more than the union, because a summary is still only allowed to restate.
+
+    A model arriving as a file may be hand-edited or written by an older version, so every claim is
+    read with a default rather than indexed. The defaults are empty on purpose: a missing claim
+    means nothing supports the wording, so an absent key makes the gate stricter. Failing open here
+    would mean a truncated model silently waved a document through.
     """
-    sources = {entry["slot"]: entry for entry in model.get("entries", [])}
-    union_text = " ".join(entry["protected_claims"]["source_text"] for entry in model.get("entries", []))
-    union_metrics = [
-        metric
-        for entry in model.get("entries", [])
-        for metric in entry["protected_claims"]["metric"]
-    ]
-    union_tech = sorted({
-        token for entry in model.get("entries", []) for token in entry["protected_claims"]["technology"]
-    })
-    union_team = [
-        entry["protected_claims"]["team_result"]
-        for entry in model.get("entries", [])
-        if entry["protected_claims"]["team_result"]
-    ]
+    entries = model.get("entries") or []
+    claims = [entry.get("protected_claims") or {} for entry in entries]
+    sources = {entry["slot"]: entry for entry in entries if entry.get("slot")}
+    union_text = " ".join(str(claim.get("source_text") or "") for claim in claims)
+    union_metrics = [metric for claim in claims for metric in claim.get("metric") or []]
+    union_tech = sorted({token for claim in claims for token in claim.get("technology") or []})
+    union_team = [claim["team_result"] for claim in claims if claim.get("team_result")]
     for slot in model.get("narrative_slots", []):
         sources[slot] = {
             "slot": slot,
@@ -366,7 +366,7 @@ def fidelity_gate(
                 "detail": "the model has no such slot; a document may only fill slots it defines",
             })
             continue
-        claims = source["protected_claims"]
+        claims = source.get("protected_claims") or {}
         haystack = str(claims.get("source_text") or "")
         if not text.strip():
             continue

@@ -47,6 +47,30 @@
   a fidelity guarantee that varies between runs is not one. The measure is factual drift. No
   detector score is read, reported, or optimised for.
 
+- Render the checked document with two built-in templates and no dependency at all. The
+  substitution engine understands named slots and repeated blocks and deliberately nothing else --
+  no expressions, no conditionals, no evaluation -- because a template is a file the user brought
+  from somewhere, and templates carry sample career text and occasionally text addressed to a
+  model. Every substituted value is HTML-escaped, so neither a template nor a JD nor a resume can
+  become markup, and a template id is a name rather than a path. PDF is the browser's print path
+  against the A4 print CSS the templates carry.
+- Ship two built-in templates rather than one. `standard-chuto` and `simple-print` render the same
+  checked document into different markup, which is what makes "changing the template never changes
+  the facts" a claim a test can falsify.
+- Refuse to render an unchecked document. `document-render` runs the fidelity gate itself instead
+  of trusting that a caller ran it, because the failure it guards against is a document reaching a
+  recruiter; on failure nothing is written at all. A truncated or hand-edited model makes the gate
+  stricter, never looser: a missing claim means nothing supports the wording.
+- Never overwrite a generated document. The filename carries a digest of the evidence, the JD, the
+  template and the wording that produced it, so regenerating after a change writes a new file
+  beside the old one and regenerating after no change writes nothing. Each file gets a manifest
+  recording what it was built from, and an existing document whose evidence or JD has since moved
+  is reported as a candidate for regeneration -- reported, never acted on, because overwriting
+  something the user may already have sent is not this runtime's decision.
+- Keep generated documents out of Git. `career-docs/` is ignored at any depth, and the private-data
+  gate now recognizes the romanized filenames the renderer produces; prose *about* writing a
+  職務経歴書 still tracks normally, because a gate that fires on its own repository gets bypassed.
+
 - Add `career-tanaoroshi`: キャリアの棚卸し, the workflow that recovers experience from before the
   ledger existed. Contexts first, experiences second, evidence third -- asking which companies
   someone worked at leaves a new graduate with nothing to answer, and asking which projects leaves
