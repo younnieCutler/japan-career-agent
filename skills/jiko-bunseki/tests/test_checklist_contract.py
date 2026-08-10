@@ -112,7 +112,7 @@ def test_user_facing_language_spans_are_not_cross_contaminated() -> None:
 def test_profile_schema_is_v2_and_keeps_legacy_read_compatibility() -> None:
     schema = yaml.safe_load(SCHEMA.read_text(encoding="utf-8"))
     profile = schema["self_analysis_profile"]
-    assert schema["schema_version"] == "2.4"
+    assert schema["schema_version"] == "2.5"
     assert {
         "self_analysis_version", "candidate_name", "language_preference", "track",
         "interest_hypotheses", "behavior_tendencies", "evidence_episodes",

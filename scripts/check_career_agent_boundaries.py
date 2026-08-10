@@ -19,6 +19,7 @@ DOMAIN_MODULES = (
     "proposals",
     "lifecycle",
     "projection",
+    "document",
     "personal_timeline",
     "private_store",
     "guided",
@@ -43,6 +44,8 @@ FORBIDDEN_MODULE_IMPORTS = {
     "self_analysis_profile",
 }
 OWNED_SYMBOLS = {
+    "document_model": "document",
+    "fidelity_gate": "document",
     "CareerError": "models",
     "default_state": "models",
     "normalized_state": "models",

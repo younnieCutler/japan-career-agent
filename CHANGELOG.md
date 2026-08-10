@@ -24,6 +24,29 @@
   experiences under them, the evidence under those, and the gaps named one by one. There is no
   completion percentage, because the question it answers is whether a decision can quote the
   user's own experience, and a number would hide which part is missing.
+- Normalize the target JD onto the pipeline entry it already belongs to (`schema_version` 2.5):
+  `jd_source`, `jd_observed_at`, `jd_digest` and `jd_requirements`, each requirement carrying the
+  posting's own words, whether the JD called it required or preferred, and the confirmed event ids
+  that support it. Nothing is scraped and no requirement can add a fact: a requirement nothing
+  supports stays `Unknown`, and adjacent experience is never promoted to fill it. `jd_digest` is
+  what makes a generated document reproducible -- an edited posting reads as a changed digest
+  rather than as an unexplained difference between two documents.
+- Add the JD-specific document model. It selects and arranges confirmed evidence for one target
+  and writes no prose: what it produces is the material a recruiter-facing sentence may be built
+  from, slot by slot, with the evidence behind each slot and the claims that sentence may not
+  strengthen. Evidence whose confidentiality review has not cleared never enters it, an
+  `external_label` replaces the internal project name, and a selection pointing at a draft is
+  reported rather than silently dropped. Running it against a different JD moves evidence around
+  without changing any of it.
+- Add the Career Fidelity Gate. Polished Japanese may say less than the evidence and never more:
+  a number that was never measured, an existing number rounded, `支援` becoming `主導`, `参加`
+  becoming `全体設計`, a JD keyword arriving as a technology the user never used, a team's outcome
+  written as one person's doing, an internal project name leaving the building, or a bullet
+  structure merged into prose during polishing — each is a refusal, not a warning. Every check is
+  literal string work so that the same draft and the same model always produce the same result;
+  a fidelity guarantee that varies between runs is not one. The measure is factual drift. No
+  detector score is read, reported, or optimised for.
+
 - Add `career-tanaoroshi`: キャリアの棚卸し, the workflow that recovers experience from before the
   ledger existed. Contexts first, experiences second, evidence third -- asking which companies
   someone worked at leaves a new graduate with nothing to answer, and asking which projects leaves

@@ -58,6 +58,7 @@ CHECKS = (
     ("career-agent work events", (PYTHON, "skills/career-agent/test_work_event.py")),
     ("career-agent projects", (PYTHON, "skills/career-agent/test_project.py")),
     ("career-agent experiences", (PYTHON, "skills/career-agent/test_experience.py")),
+    ("career-agent document projection", (PYTHON, "skills/career-agent/test_document.py")),
     ("career-agent evidence reuse", (PYTHON, "skills/career-agent/test_reuse.py")),
     ("matching v3", (PYTHON, "_shared/test_matching_v3.py")),
     ("legacy self-test", (PYTHON, "_shared/legacy_experimental.py", "--self-test")),
