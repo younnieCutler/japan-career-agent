@@ -60,6 +60,14 @@ A project is the story a reader follows; the work events under it are what makes
 Write the bullet from the events, and use the project for context and ordering. A project title
 alone supports nothing.
 
+Name the project by its `external_label` whenever the project carries one. It exists because the
+real title is not safe to send outside — an internal codename, a customer's name, an unannounced
+product. When it is present it replaces `title` everywhere recruiter-facing, with no exception for
+a heading, a bullet, or a passing mention. When it is absent and the title itself could be
+confidential, ask for a safe name or abstract it before it goes in a document; do not decide alone
+that a codename is harmless. A project `summary` is context for the writer, not external evidence:
+the factual claims still come from confidentiality-reviewed work events.
+
 Ask about an experience only when no confirmed event already records it. A user who wrote down
 what they did at the time should not be asked to reconstruct it again years later — that
 reconstruction is where invented metrics come from.

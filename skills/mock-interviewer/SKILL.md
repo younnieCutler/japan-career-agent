@@ -59,7 +59,9 @@ The same rules apply here as anywhere else evidence is reused:
 - `unknown_requirements` on the company entry is where a real gap is. Practise saying "그 부분은
   경험이 없습니다" well, rather than practising a way around it;
 - `contains_confidential: true` means the practice answer needs the abstraction too — the habit
-  rehearsed here is the one used in the room. `external_use: unknown` is not permission.
+  rehearsed here is the one used in the room. `external_use: unknown` is not permission. Where a
+  project has an `external_label`, practise saying that and not the real title, for the same
+  reason: the name said out loud in a real interview cannot be taken back.
 
 ## Language Auto-Detection
 

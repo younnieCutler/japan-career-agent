@@ -201,6 +201,30 @@ class MaintenanceCheckTests(VaultCase):
         kinds = [s["kind"] for s in self.cli("maintenance-check", "--vault", self.vault)["suggestions"]]
         self.assertIn("review_recent_project_activity", kinds)
 
+    def test_a_pile_of_pending_notes_is_worth_mentioning_too(self) -> None:
+        # The moment a review helps most is before any of the week's notes has been approved.
+        # Reading only the ledger reports "nothing this week" to the user who has been capturing
+        # all week, which is exactly backwards.
+        project_id = self.add_project("결제 시스템 안정화")
+        for index in range(3):
+            note = self.cli("run", "--mode", "chat", "--vault", self.vault,
+                            "--message", f"작업 {index} 기록. 업무일지 남겨줘")
+            self.cli("link-work-event", note["proposal"]["id"], "--vault", self.vault,
+                     "--project", project_id)
+        suggestions = self.cli("maintenance-check", "--vault", self.vault)["suggestions"]
+        activity = [s for s in suggestions if s["kind"] == "review_recent_project_activity"]
+        self.assertEqual(len(activity), 1)
+        self.assertEqual(activity[0]["count"], 3)
+        self.assertEqual(activity[0]["project_id"], project_id)
+
+    def test_a_pending_note_is_not_reported_as_a_finished_record(self) -> None:
+        # Drafts count towards "you have been busy here"; they must not count towards the checks
+        # that describe confirmed records, or every fresh capture would raise its own complaint.
+        self.cli("run", "--mode", "chat", "--vault", self.vault,
+                 "--message", "이번 작업 기록. 업무일지 남겨줘")
+        kinds = [s["kind"] for s in self.cli("maintenance-check", "--vault", self.vault)["suggestions"]]
+        self.assertNotIn("individual_contribution_unknown", kinds)
+
     def test_a_closed_project_without_a_summary_is_worth_mentioning(self) -> None:
         project_id = self.add_project("결제 시스템 안정화")
         self.add_project("결제 시스템 안정화", "--project-id", project_id, "--status", "completed")
@@ -279,6 +303,18 @@ class ReadinessTests(VaultCase):
     def test_a_mix_of_dated_and_undated_is_partial(self) -> None:
         project_id = self.add_project("결제 시스템 안정화")
         self.confirm_work("이번 달 작업", project_id, {"work_date": "2026-08"}, evidence="JIRA-1")
+        self.confirm_work("날짜 모르는 작업", project_id, evidence="JIRA-2")
+        self.assertEqual(
+            self.cli("readiness", "--vault", self.vault)["dimensions"]["recent_work_evidence"],
+            "Partial",
+        )
+
+    def test_old_dated_work_beside_an_undated_note_is_not_stale(self) -> None:
+        # Stale asserts the recent record is empty. The undated note could be last week's work, so
+        # that assertion is not available -- the honest reading is Partial, the same as when the
+        # dated half is recent.
+        project_id = self.add_project("결제 시스템 안정화")
+        self.confirm_work("한참 전 작업", project_id, {"work_date": "2019-03"}, evidence="JIRA-1")
         self.confirm_work("날짜 모르는 작업", project_id, evidence="JIRA-2")
         self.assertEqual(
             self.cli("readiness", "--vault", self.vault)["dimensions"]["recent_work_evidence"],

@@ -954,6 +954,26 @@ def link_work_event(
     return result
 
 
+def pending_work_events(home: CareerVault) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Work events captured but not yet approved, and the proposal id each one came in on.
+
+    A quick note lives on `proposals.jsonl` until it is approved, so any view that reads only the
+    ledger shows a week with nothing in it precisely when the user has been capturing all week.
+    Every view of recent activity needs these, which is why they are read in one place.
+    """
+    pending: list[dict[str, Any]] = []
+    proposal_of: dict[str, str] = {}
+    for row in read_jsonl(home.proposals):
+        event = row.get("event")
+        if row.get("status") != "pending" or not isinstance(event, dict):
+            continue
+        if event.get("type") != WORK_EVENT_TYPE:
+            continue
+        proposal_of[event["id"]] = row["id"]
+        pending.append(event)
+    return pending, proposal_of
+
+
 def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | None = None) -> dict[str, Any]:
     """This period's work evidence, grouped by project, with what is worth asking about.
 
@@ -969,20 +989,7 @@ def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | N
     ).isoformat()
     events = read_jsonl(home.events)
     projects = projects_from_events(events)
-    # Pending captures come first in importance: a quick note lives on `proposals.jsonl` until it
-    # is approved, so reading only the ledger would show a week with nothing in it precisely when
-    # the user has been capturing all week. The whole point of this view is the not-yet-finished
-    # ones.
-    proposal_of: dict[str, str] = {}
-    pending: list[dict[str, Any]] = []
-    for row in read_jsonl(home.proposals):
-        event = row.get("event")
-        if row.get("status") != "pending" or not isinstance(event, dict):
-            continue
-        if event.get("type") != WORK_EVENT_TYPE:
-            continue
-        proposal_of[event["id"]] = row["id"]
-        pending.append(event)
+    pending, proposal_of = pending_work_events(home)
     # Windowed on capture time, not on when the work happened. The point of this view is "what did
     # I write down and not finish structuring", so a note captured today about last June belongs
     # here — it is exactly the one still needing a contribution and a result. `work_date` is shown
@@ -1129,7 +1136,12 @@ def maintenance_check(home: CareerVault, *, as_of: str | None = None) -> dict[st
     week_ago = (dt.date.fromisoformat(boundary) - dt.timedelta(days=7)).isoformat()
     events = read_jsonl(home.events)
     projects = projects_from_events(events)
-    work = [e for e in events if e.get("type") == WORK_EVENT_TYPE]
+    # Drafts count here. The situation worth mentioning is "you have been writing notes on this
+    # project all week" -- which is true before any of them is approved, and is in fact the moment
+    # a review helps most. Only the checks below that speak about finished records filter to
+    # `confirmed`.
+    pending, _ = pending_work_events(home)
+    work = [e for e in [*pending, *events] if e.get("type") == WORK_EVENT_TYPE]
     confirmed = [e for e in work if e.get("status") == "confirmed"]
     suggestions: list[dict[str, Any]] = []
 
@@ -1242,9 +1254,13 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
         "vault": str(home.path),
         "as_of": boundary,
         "dimensions": {
+            # `Stale` is a claim that the recent record is empty, so it may only be made when
+            # every record is dated. One undated note could be last week's work; mixing it with
+            # old dated ones is Partial, not Stale.
             "recent_work_evidence": (
                 "Unknown" if not dated
-                else ("Partial" if undated else "Confirmed") if recent
+                else "Partial" if undated
+                else "Confirmed" if recent
                 else "Stale"
             ),
             "project_history": dimension(
