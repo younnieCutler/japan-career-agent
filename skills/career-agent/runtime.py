@@ -32,6 +32,7 @@ from models import (  # noqa: E402
     CONTEXT_KINDS,
     EMPLOYMENT_STATUSES,
     EVENT_STATUSES,
+    EXPERIENCE_CONTEXT_KINDS,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
     PROJECT_EVENT_TYPE,
@@ -87,6 +88,7 @@ from routing import (  # noqa: E402
     term_present,
 )
 from proposals import (  # noqa: E402
+    make_experience_context_event,
     make_project_event,
     stated_career_mode,
     approval_action_for,
@@ -111,6 +113,8 @@ from lifecycle import (  # noqa: E402
 )
 from projection import (  # noqa: E402
     clamp_career_mode,
+    contexts_from_events,
+    experiences_from_events,
     next_career_mode,
     project_timeline,
     projects_from_events,
@@ -181,6 +185,7 @@ from guided import (  # noqa: E402
 )
 
 _PROPOSAL_COMPATIBILITY_EXPORTS = (
+    make_experience_context_event,
     make_project_event,
     stated_career_mode,
     approval_action_for,
@@ -200,6 +205,8 @@ _LIFECYCLE_COMPATIBILITY_EXPORTS = (
 
 _PROJECTION_COMPATIBILITY_EXPORTS = (
     _legacy_company_slug,
+    contexts_from_events,
+    experiences_from_events,
     project_timeline,
     projects_from_events,
     work_event_date,
@@ -872,6 +879,119 @@ def add_project(
     }
 
 
+def add_context(
+    home: CareerVault, kind: str, label: str, *, context_id: str | None = None, **fields: Any,
+) -> dict[str, Any]:
+    """Propose a context, or an update to one that already exists.
+
+    Same proposal path as `add-project`, so the confirmation the UX already asks for is the
+    approval rather than a second step on top of it.
+    """
+    known = contexts_from_events(read_jsonl(home.events))
+    if context_id is not None and context_id not in known:
+        raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
+    event = make_experience_context_event(kind, label, context_id, fields=fields)
+    proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
+    proposal = {
+        "id": proposal_id,
+        "kind": "event",
+        "status": "pending",
+        "created_at": utc_now(),
+        "next_action": f"approve {proposal_id} after checking the kind and the period",
+        "event": event,
+    }
+    with vault_lock(home):
+        home.add_proposal(proposal)
+    return {
+        "mode": "add-context",
+        "vault": str(home.path),
+        "context": event["experience_context"],
+        "proposal": {"id": proposal["id"], "status": proposal["status"]},
+        "updates_existing": context_id is not None,
+        "ok": True,
+    }
+
+
+def list_contexts(home: CareerVault, *, kind: str | None = None) -> dict[str, Any]:
+    """Every confirmed context with how many experiences and how much evidence hang on it."""
+    events = read_jsonl(home.events)
+    grouped = experiences_from_events(events)
+    per_context_experiences: dict[str, int] = {}
+    per_context_evidence: dict[str, int] = {}
+    for experience in grouped["experiences"]:
+        key = str(experience.get("context_id") or "")
+        per_context_experiences[key] = per_context_experiences.get(key, 0) + 1
+        per_context_evidence[key] = (
+            per_context_evidence.get(key, 0) + len(experience["evidence_event_ids"])
+        )
+    rows = [
+        {
+            **record,
+            "experiences": per_context_experiences.get(context_id, 0),
+            "confirmed_evidence": per_context_evidence.get(context_id, 0),
+        }
+        for context_id, record in grouped["contexts"].items()
+        if kind is None or record.get("kind") == kind
+    ]
+    rows.sort(key=lambda row: (str(row.get("kind") or ""), str(row.get("label") or "")))
+    return {
+        "mode": "contexts",
+        "vault": str(home.path),
+        "count": len(rows),
+        "contexts": rows,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def list_experiences(home: CareerVault, *, context_id: str | None = None) -> dict[str, Any]:
+    """Context -> Experience -> Evidence over the confirmed ledger.
+
+    This is the 棚卸し progress view and the read a document projection starts from. It stores
+    nothing: an experience is the set of confirmed evidence naming the same project or the same
+    reference, so re-linking a note rewrites no history and the same evidence never exists twice.
+
+    There is no completion percentage. What the view answers is "can a decision quote the user's
+    own experience", and the gaps are named individually so a missing contribution stays visible
+    instead of being averaged into a number that looks like progress.
+    """
+    grouped = experiences_from_events(read_jsonl(home.events))
+    rows = [
+        experience
+        for experience in grouped["experiences"]
+        if context_id is None or experience.get("context_id") == context_id
+    ]
+    if context_id is not None and context_id not in grouped["contexts"]:
+        raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
+    return {
+        "mode": "experiences",
+        "vault": str(home.path),
+        "count": len(rows),
+        "contexts": grouped["contexts"],
+        "experiences": rows,
+        # Evidence that belongs to no recorded experience is still evidence. Hiding it would make
+        # the record look tidier than it is.
+        "unattached_evidence_ids": grouped["unattached_evidence_ids"],
+        "gaps": {
+            "experiences_without_individual_contribution": [
+                row["experience_id"] for row in rows if not row["individual_contribution"]
+            ],
+            "experiences_without_context": [
+                row["experience_id"] for row in rows if not row.get("context_id")
+            ],
+            "evidence_awaiting_external_use_review": [
+                event_id for row in rows for event_id in row["external_use_review_required"]
+            ],
+        },
+        "entries_are_references": True,
+        "no_total_by_design": True,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
 def list_projects(home: CareerVault, *, status: str | None = None) -> dict[str, Any]:
     """Every confirmed project with how much evidence hangs on it."""
     events = read_jsonl(home.events)
@@ -1242,6 +1362,13 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
         if ((e.get("work_event") or {}).get("confidentiality") or {}).get("external_use") == "unknown"
     ]
 
+    # Contexts and experiences cover the whole record, not just the working part of it: a new
+    # graduate's university and seminar are the evidence base, and a dimension that only counted
+    # work would report them as nothing.
+    grouped = experiences_from_events(events)
+    contexts = grouped["contexts"]
+    experiences = grouped["experiences"]
+
     def dimension(subset: list[Any], total: list[Any]) -> str:
         if not total:
             return "Unknown"
@@ -1268,6 +1395,16 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
             ),
             "individual_contribution": dimension(with_contribution, confirmed),
             "metrics_evidence": dimension(with_metrics, confirmed),
+            # A context with no period is a name without a timeline, which is exactly what an
+            # employment history section cannot be built from.
+            "career_contexts": dimension(
+                [c for c in contexts.values() if c.get("period")], list(contexts.values())
+            ),
+            # An experience with no individual contribution cannot answer "what did *you* do",
+            # which is the question every 職務経歴書 and every interview asks.
+            "experience_coverage": dimension(
+                [e for e in experiences if e["individual_contribution"]], experiences
+            ),
         },
         "counts": {
             "projects": len(projects),
@@ -1276,9 +1413,17 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
             "undated_work_events": len(undated),
             "dated_in_last_year": len(recent),
             "external_use_review_required": len(needs_review),
+            "career_contexts": len(contexts),
+            "experiences": len(experiences),
+            "unattached_evidence": len(grouped["unattached_evidence_ids"]),
         },
         # Readiness says the record is current. It says nothing about wanting to leave.
         "job_search": job_search_of(home.load_profile()),
+        # Not a score and not a threshold on one: it is the fact that the ledger holds nothing to
+        # quote. Someone with seven years of experience and a fresh install is in exactly this
+        # state, and telling them so is more useful than an analysis with nothing behind it.
+        # Independent of `job_search`: a record worth having is worth having before the search.
+        "bootstrap_suggested": not confirmed and not experiences and not contexts,
         "no_total_by_design": True,
         "ok": True,
     }
@@ -1342,7 +1487,7 @@ def _requires_approval_recovery(args: argparse.Namespace) -> bool:
         "setup", "guided", "approve", "restore-state", "index",
         "propose-fact", "propose-context",
         "set-job-search", "set-employment-status", "review-work-event",
-        "add-project", "link-work-event",
+        "add-project", "add-context", "link-work-event",
     }:
         return True
     if args.command == "doctor":
@@ -1875,6 +2020,43 @@ def build_parser() -> argparse.ArgumentParser:
     add_project_parser.add_argument("--from", dest="period_from", metavar="YYYY-MM[-DD]")
     add_project_parser.add_argument("--to", dest="period_to", metavar="YYYY-MM[-DD]")
     add_output_format(add_project_parser)
+    add_context_parser = subparsers.add_parser(
+        "add-context",
+        help="propose a context an experience happened in: a company, a university, a club",
+    )
+    add_vault_argument(add_context_parser)
+    add_context_parser.add_argument("label")
+    add_context_parser.add_argument(
+        "--kind", required=True, choices=sorted(EXPERIENCE_CONTEXT_KINDS),
+        help="a context is not always an employer; this is the part a label cannot say",
+    )
+    add_context_parser.add_argument(
+        "--context-id", dest="context_id", help="update this context instead of adding one",
+    )
+    add_context_parser.add_argument("--role")
+    add_context_parser.add_argument("--summary")
+    add_context_parser.add_argument(
+        "--external-label", dest="external_label",
+        help="safe name for recruiter-facing output when the real one cannot leave",
+    )
+    add_context_parser.add_argument("--from", dest="period_from", metavar="YYYY-MM[-DD]")
+    add_context_parser.add_argument("--to", dest="period_to", metavar="YYYY-MM[-DD]")
+    add_output_format(add_context_parser)
+    contexts_parser = subparsers.add_parser(
+        "contexts", help="confirmed contexts and how much hangs on each",
+    )
+    add_vault_argument(contexts_parser)
+    contexts_parser.add_argument("--kind", choices=sorted(EXPERIENCE_CONTEXT_KINDS))
+    add_output_format(contexts_parser)
+    experiences_parser = subparsers.add_parser(
+        "experiences",
+        help="context, experience and the evidence under it; the 棚卸し view, with no total",
+    )
+    add_vault_argument(experiences_parser)
+    experiences_parser.add_argument(
+        "--context", dest="context_id", help="only experiences inside this context",
+    )
+    add_output_format(experiences_parser)
     for name, helptext in (
         ("maintenance-check", "situations worth mentioning, or none; never a scheduled reminder"),
         ("readiness", "independent readiness dimensions; there is no total and it is not intent"),
@@ -2218,6 +2400,17 @@ def main(argv: Iterable[str] | None = None) -> int:
                     external_label=args.external_label,
                     period=period if any(period.values()) else None,
                 )
+            elif args.command == "add-context":
+                period = {"from": args.period_from, "to": args.period_to}
+                result = add_context(
+                    home, args.kind, args.label, context_id=args.context_id,
+                    role=args.role, summary=args.summary, external_label=args.external_label,
+                    period=period if any(period.values()) else None,
+                )
+            elif args.command == "contexts":
+                result = list_contexts(home, kind=args.kind)
+            elif args.command == "experiences":
+                result = list_experiences(home, context_id=args.context_id)
             elif args.command == "maintenance-check":
                 result = maintenance_check(home, as_of=args.as_of)
             elif args.command == "readiness":

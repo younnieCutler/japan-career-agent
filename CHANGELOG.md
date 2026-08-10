@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.0.0] - 2026-08-10
+
+- Add the context an experience happened in. A context is a company, a university, a part-time
+  shop, a club or a personal effort, and `kind` is the one required field beyond a label because it
+  is the part a later reader cannot recover: an employer and a school are both plausible readings
+  of a bare name, and reading a university as an employer puts coursework in a 職務経歴書 as a job.
+  It is another type on the same ledger, so durability, the approval gate and append-only history
+  come with it, and a context's current state is a projection over its events.
+- Record evidence about something that did not happen at a job. A seminar, a thesis, a club, a
+  volunteer shift and a personal project carry the same payload a work event does -- role, problem,
+  actions, individual contribution, team result, metrics, confidentiality -- and share its
+  validator, including the rule that a number must appear in the evidence before it can be
+  confirmed. They are a separate type because storing a university seminar as a work event would
+  say the user was employed there, and every work-scoped read would start returning coursework as
+  work history.
+- Group evidence into experiences without storing one. An experience is the confirmed evidence
+  naming the same project or the same `experience_ref`, so re-linking a note rewrites no history
+  and the same evidence never exists twice to appear in two views. Not every experience is a
+  project: regular operations, an improvement, an incident, a thesis and a part-time shift are
+  experiences too.
+- Add `add-context`, `contexts` and `experiences`. The last is the 棚卸し view: contexts, the
+  experiences under them, the evidence under those, and the gaps named one by one. There is no
+  completion percentage, because the question it answers is whether a decision can quote the
+  user's own experience, and a number would hide which part is missing.
+- Report `bootstrap_suggested` in `readiness`, with `career_contexts` and `experience_coverage`
+  alongside the existing dimensions. It is the fact that the ledger holds nothing to quote, not a
+  threshold on a score, and it does not depend on whether a job search is on: someone with seven
+  years of experience and a fresh install is in exactly this state whether or not they intend to
+  leave.
+
 ## [1.24.0] - 2026-08-10
 
 - Add PROJECT as the context a work event happened in. It is another type on the same ledger, not

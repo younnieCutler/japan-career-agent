@@ -16,7 +16,7 @@ import self_analysis_profile  # noqa: E402
 from schema_contract import validate_new_write  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
-from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, PROJECT_EVENT_TYPE, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
+from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, EXPERIENCE_CONTEXT_EVENT_TYPE, PROJECT_EVENT_TYPE, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from private_store import PrivateHome, resolve_document  # noqa: E402
@@ -107,6 +107,49 @@ def make_project_event(
         "deadline": None,
         "status": "draft",
         "project": payload,
+    }
+    validate_event(event)
+    return event
+
+
+def make_experience_context_event(
+    kind: str,
+    label: str,
+    context_id: str | None = None,
+    *,
+    fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Propose a context: the place an experience happened, not evidence about the person.
+
+    A kind and a label are enough, for the reason a project only needs a title. The period, the
+    role and the summary arrive later or stay Unknown, and demanding them before the user can name
+    where they studied would make the 棚卸し start with a form.
+
+    `kind` is required even though almost nothing else is, because it is the one thing a later
+    reader cannot recover: an employer and a university are both plausible readings of a bare
+    label, and reading a university as an employer puts coursework in a 職務経歴書 as a job.
+    """
+    payload: dict[str, Any] = {
+        "id": context_id or f"ctx-{uuid.uuid4().hex[:12]}",
+        "kind": kind,
+        "label": label.strip(),
+    }
+    payload.update({key: value for key, value in (fields or {}).items() if value is not None})
+    event = {
+        "id": f"evt-{uuid.uuid4().hex[:12]}",
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "type": EXPERIENCE_CONTEXT_EVENT_TYPE,
+        "occurred_at": utc_now(),
+        "title": payload["label"],
+        "summary": str(payload.get("summary") or payload["label"]),
+        "evidence": [],
+        "source": "user_message",
+        "next_action": None,
+        "deadline": None,
+        "status": "draft",
+        "experience_context": payload,
     }
     validate_event(event)
     return event

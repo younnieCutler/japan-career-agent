@@ -10,6 +10,10 @@ from models import (
     CAREER_CONTEXT_FIELDS,
     CAREER_MODES,
     EVENT_STATUSES,
+    EXPERIENCE_CONTEXT_EVENT_TYPE,
+    EXPERIENCE_CONTEXT_KINDS,
+    EXPERIENCE_EVENT_TYPE,
+    EXPERIENCE_KINDS,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
     PROJECT_EVENT_TYPE,
@@ -142,7 +146,14 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
     # the context it happened in. Neither belongs to a hiring market or to a step of a transition,
     # so demanding a track and a stage would force an invented answer -- and the invented stage
     # would then move the user's routed state. Null is the honest value for these two types.
-    unrouted = event.get("type") in {WORK_EVENT_TYPE, PROJECT_EVENT_TYPE}
+    # An experience and the context it happened in are unrouted for the same reason: a university
+    # seminar belongs to no hiring market and to no step of a transition.
+    unrouted = event.get("type") in {
+        WORK_EVENT_TYPE,
+        PROJECT_EVENT_TYPE,
+        EXPERIENCE_EVENT_TYPE,
+        EXPERIENCE_CONTEXT_EVENT_TYPE,
+    }
     if not (unrouted and event["track"] is None) and event["track"] not in TRACKS:
         raise CareerError("event.track must be shinsotsu or chuto")
     if event["status"] not in EVENT_STATUSES:
@@ -185,6 +196,12 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
             raise CareerError(f"event.career_mode must be one of: {', '.join(sorted(CAREER_MODES))}")
     if "work_event" in event and event["work_event"] is not None:
         validate_work_event(event["work_event"])
+    if "experience" in event and event["experience"] is not None:
+        validate_work_event(event["experience"], field="event.experience")
+    if event.get("type") == EXPERIENCE_CONTEXT_EVENT_TYPE and event.get("experience_context") is None:
+        raise CareerError("an experience_context event must carry event.experience_context")
+    if "experience_context" in event and event["experience_context"] is not None:
+        validate_experience_context(event["experience_context"])
     if event.get("type") == PROJECT_EVENT_TYPE and event.get("project") is None:
         raise CareerError("a project event must carry event.project")
     if "project" in event and event["project"] is not None:
@@ -290,96 +307,175 @@ def validate_project(project: Any) -> None:
         raise CareerError("event.project.period.to is before period.from")
 
 
+def validate_experience_context(context: Any) -> None:
+    """Validate the payload an `experience_context` event carries.
+
+    Only `id`, `kind` and `label` are required, for the reason a project only requires a title: a
+    context exists to give experiences somewhere to hang, and asking for a period and a role before
+    the user can name their university would make creating one the form this workflow avoids.
+
+    `kind` is required and closed, unlike the free-text fields around it, because it is the one
+    thing a later reader cannot recover from the label. "A社" and "A大学" are both plausible as
+    either an employer or a school to a downstream skill, and guessing wrong turns coursework into
+    employment history in a 職務経歴書.
+
+    `external_label` mirrors `project.external_label`: the honest internal name is often the
+    unusable one, and deciding the safe abstraction once, here, beats improvising it per document.
+    """
+    if not isinstance(context, dict):
+        raise CareerError("event.experience_context must be an object")
+    known = {"id", "kind", "label", "external_label", "role", "summary", "period"}
+    unknown = sorted(set(context) - known)
+    if unknown:
+        raise CareerError(f"event.experience_context has unknown fields: {', '.join(unknown)}")
+    for field in ("id", "label"):
+        if not isinstance(context.get(field), str) or not context[field].strip():
+            raise CareerError(f"event.experience_context.{field} must be a non-empty string")
+    if context.get("kind") not in EXPERIENCE_CONTEXT_KINDS:
+        raise CareerError(
+            "event.experience_context.kind must be one of: "
+            f"{', '.join(sorted(EXPERIENCE_CONTEXT_KINDS))}"
+        )
+    for field in ("external_label", "role", "summary"):
+        value = context.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise CareerError(
+                f"event.experience_context.{field} must be a non-empty string or null"
+            )
+    period = context.get("period")
+    if period is None:
+        return
+    if not isinstance(period, dict):
+        raise CareerError("event.experience_context.period must be an object or null")
+    unknown = sorted(set(period) - {"from", "to"})
+    if unknown:
+        raise CareerError(
+            f"event.experience_context.period has unknown fields: {', '.join(unknown)}"
+        )
+    start = month_or_day(period.get("from"), "event.experience_context.period.from")
+    end = month_or_day(period.get("to"), "event.experience_context.period.to")
+    if start and end and end < start:
+        raise CareerError("event.experience_context.period.to is before period.from")
+
+
 def claim_surface(event: dict[str, Any]) -> str:
     """Every part of an event that can make a numeric claim, as one string.
 
-    `work_event.metrics` is where a work event puts its numbers, so leaving it out of the
-    confirmation check would let "30% 감소" become confirmed history with no evidence behind it --
-    the exact thing the title/summary check already prevents everywhere else.
+    `metrics` is where an evidence payload puts its numbers, so leaving it out of the confirmation
+    check would let "30% 감소" become confirmed history with no evidence behind it -- the exact
+    thing the title/summary check already prevents everywhere else. Both payload keys are read:
+    a thesis that claims a 40% speedup is a numeric claim exactly like a release that does.
     """
     surface = [str(event.get("summary") or ""), str(event.get("title") or "")]
-    work_event = event.get("work_event")
-    if isinstance(work_event, dict):
-        surface.extend(str(item) for item in work_event.get("metrics") or [])
+    for key in ("work_event", "experience"):
+        payload = event.get(key)
+        if isinstance(payload, dict):
+            surface.extend(str(item) for item in payload.get("metrics") or [])
     return " ".join(surface)
 
 
-def validate_work_event(work_event: Any) -> None:
-    """Validate the optional work-event payload a `work_event` type may carry.
+def validate_work_event(work_event: Any, *, field: str = "event.work_event") -> None:
+    """Validate the evidence payload a `work_event` or an `experience_event` carries.
 
-    Every field is optional: a work note captured in one sentence is worth keeping, and an absent
-    field is `Unknown` rather than a prompt to guess. Two things are refused outright. An unknown
-    key is an error instead of an ignored typo, because a misspelled `metric` would otherwise drop
-    the user's numbers and read as Unknown afterwards. And a payload flagged as containing
-    confidential material must state its `external_use`, since the whole point of the flag is that
-    "not decided yet" and "safe to send" cannot look the same.
+    Every field is optional: a note captured in one sentence is worth keeping, and an absent field
+    is `Unknown` rather than a prompt to guess. Two things are refused outright. An unknown key is
+    an error instead of an ignored typo, because a misspelled `metric` would otherwise drop the
+    user's numbers and read as Unknown afterwards. And a payload flagged as containing confidential
+    material must state its `external_use`, since the whole point of the flag is that "not decided
+    yet" and "safe to send" cannot look the same.
 
     `individual_contribution` and `team_result` are separate keys and stay that way. Nothing here
     or downstream copies one into the other.
+
+    One validator serves both event types because the payload is the same question in both: what
+    was the role, what was the problem, what did *you* do, what did the team get, what number backs
+    it. `field` only changes which key the error message names, so a mistake in an
+    `experience_event` does not report itself as a work-event error.
     """
     if not isinstance(work_event, dict):
-        raise CareerError("event.work_event must be an object or null")
+        raise CareerError(f"{field} must be an object or null")
     known = set(WORK_EVENT_TEXT_FIELDS) | set(WORK_EVENT_LIST_FIELDS) | {
         "confidentiality", "primary_project_id", "related_project_ids", "work_date",
+        "context_id", "experience_kind", "experience_ref",
     }
     unknown = sorted(set(work_event) - known)
     if unknown:
-        raise CareerError(f"event.work_event has unknown fields: {', '.join(unknown)}")
+        raise CareerError(f"{field} has unknown fields: {', '.join(unknown)}")
     # Project links are references, never copies. One canonical work event is pointed at by every
     # project it belongs to, so changing a link cannot change what happened.
     primary = work_event.get("primary_project_id")
     if primary is not None and (not isinstance(primary, str) or not primary.strip()):
-        raise CareerError("event.work_event.primary_project_id must be a project id or null")
+        raise CareerError(f"{field}.primary_project_id must be a project id or null")
     related = work_event.get("related_project_ids")
     if related is not None:
         if string_list_from(work_event, "related_project_ids") is None:
-            raise CareerError("event.work_event.related_project_ids must be a list of project ids")
+            raise CareerError(f"{field}.related_project_ids must be a list of project ids")
         if primary is not None and primary in related:
             raise CareerError(
-                "event.work_event.primary_project_id must not repeat in related_project_ids"
+                f"{field}.primary_project_id must not repeat in related_project_ids"
             )
         if len(set(related)) != len(related):
-            raise CareerError("event.work_event.related_project_ids must not repeat a project")
+            raise CareerError(f"{field}.related_project_ids must not repeat a project")
+    # Which context this happened in, and which experience inside it. Both stay optional: a note
+    # that belongs to no recorded context is still evidence, and demanding one before the user has
+    # done their 棚卸し would block capture on bookkeeping.
+    context_id = work_event.get("context_id")
+    if context_id is not None and (not isinstance(context_id, str) or not context_id.strip()):
+        raise CareerError(f"{field}.context_id must be an experience_context id or null")
+    kind = work_event.get("experience_kind")
+    if kind is not None and kind not in EXPERIENCE_KINDS:
+        raise CareerError(
+            f"{field}.experience_kind must be one of: {', '.join(sorted(EXPERIENCE_KINDS))}"
+        )
+    # The grouping key for an experience that is not a project. A project already has an id, so
+    # carrying both would give one experience two names and let them disagree.
+    reference = work_event.get("experience_ref")
+    if reference is not None:
+        if not isinstance(reference, str) or not reference.strip():
+            raise CareerError(f"{field}.experience_ref must be a non-empty string or null")
+        if primary is not None:
+            raise CareerError(
+                f"{field}.experience_ref must be null when primary_project_id is set; "
+                "the project id already identifies the experience"
+            )
     # When the work actually happened, which is not when it was written down. Absent stays
     # Unknown: a note captured today about last June says June only if the user said June.
-    month_or_day(work_event.get("work_date"), "event.work_event.work_date")
-    for field in WORK_EVENT_TEXT_FIELDS:
-        value = work_event.get(field)
+    month_or_day(work_event.get("work_date"), f"{field}.work_date")
+    for name in WORK_EVENT_TEXT_FIELDS:
+        value = work_event.get(name)
         if value is None:
             continue
         if not isinstance(value, str) or not value.strip():
-            raise CareerError(f"event.work_event.{field} must be a non-empty string or null")
-    for field in WORK_EVENT_LIST_FIELDS:
-        if work_event.get(field) is None:
+            raise CareerError(f"{field}.{name} must be a non-empty string or null")
+    for name in WORK_EVENT_LIST_FIELDS:
+        if work_event.get(name) is None:
             continue
-        if string_list_from(work_event, field) is None:
-            raise CareerError(f"event.work_event.{field} must be a list of non-empty strings")
+        if string_list_from(work_event, name) is None:
+            raise CareerError(f"{field}.{name} must be a list of non-empty strings")
     confidentiality = work_event.get("confidentiality")
     if confidentiality is None:
         return
     if not isinstance(confidentiality, dict):
-        raise CareerError("event.work_event.confidentiality must be an object or null")
+        raise CareerError(f"{field}.confidentiality must be an object or null")
     unknown = sorted(set(confidentiality) - {"contains_confidential", "external_use"})
     if unknown:
-        raise CareerError(
-            f"event.work_event.confidentiality has unknown fields: {', '.join(unknown)}"
-        )
+        raise CareerError(f"{field}.confidentiality has unknown fields: {', '.join(unknown)}")
     contains = confidentiality.get("contains_confidential", False)
     if not isinstance(contains, bool):
-        raise CareerError(
-            "event.work_event.confidentiality.contains_confidential must be true or false"
-        )
+        raise CareerError(f"{field}.confidentiality.contains_confidential must be true or false")
     external_use = confidentiality.get("external_use")
     if external_use is None:
         if contains:
             raise CareerError(
-                "event.work_event.confidentiality.external_use is required once "
+                f"{field}.confidentiality.external_use is required once "
                 "contains_confidential is true; use \"unknown\" when it has not been reviewed"
             )
         return
     if external_use not in EXTERNAL_USE_STATES:
         raise CareerError(
-            "event.work_event.confidentiality.external_use must be one of: "
+            f"{field}.confidentiality.external_use must be one of: "
             f"{', '.join(sorted(EXTERNAL_USE_STATES))}"
         )
 
