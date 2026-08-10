@@ -521,5 +521,46 @@ class ExperiencesViewTests(VaultCase):
         self.assertEqual(self.ledger_digest(), before)
 
 
+class InventoryRoutingTests(VaultCase):
+    """棚卸し routes to the inventory workflow and writes nothing on the way in."""
+
+    def chat(self, message: str, vault: str | None = None) -> dict:
+        return self.cli(
+            "run", "--mode", "chat", "--vault", vault or self.vault, "--message", message,
+        )
+
+    def test_it_routes_to_the_inventory_skill(self) -> None:
+        result = self.chat("지금까지의 경력을 정리하고 싶어")
+        self.assertEqual(result["skill"]["skill"], "career-tanaoroshi")
+
+    def test_it_proposes_nothing(self) -> None:
+        # A seven-year career summarised from one sentence is exactly the invented history the
+        # ledger exists to refuse. The next thing that happens is a question.
+        result = self.chat("キャリアの棚卸しをしたい")
+        self.assertIsNone(result["proposal"])
+        self.assertTrue(result["changes_nothing"])
+        self.assertEqual(self.ledger_digest(), "")
+
+    def test_ordinary_upkeep_still_reaches_maintenance(self) -> None:
+        result = self.chat("오늘 한 일 기록해줘")
+        self.assertEqual(result["skill"]["skill"], "career-maintenance")
+        self.assertIsNotNone(result["proposal"])
+
+    def test_it_does_not_ask_which_hiring_market_first(self) -> None:
+        # Someone recovering what they did at a university and two employers is answering "what
+        # happened", not "new graduate or mid-career".
+        untracked = str(Path(self._tmp.name) / "fresh")
+        self.cli("init", "--vault", untracked)
+        result = self.chat("キャリアの棚卸しをしたい", vault=untracked)
+        self.assertNotIn("question", result)
+        self.assertEqual(result["skill"]["skill"], "career-tanaoroshi")
+        self.assertIsNone(result["track"])
+
+    def test_it_leaves_job_search_alone(self) -> None:
+        self.cli("set-job-search", "off", "--vault", self.vault)
+        self.chat("이직 생각은 없는데 지금까지의 경력을 정리해두고 싶어")
+        self.assertEqual(self.cli("status", "--vault", self.vault)["profile"]["job_search"], "off")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

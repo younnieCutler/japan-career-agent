@@ -33,6 +33,7 @@ from routing import (  # noqa: E402
     review_closed_intent,
     skill_context,
     stage_for,
+    tanaoroshi_intent,
     transition_intent,
 )
 from validation import validate_career_context, validate_event  # noqa: E402
@@ -45,6 +46,7 @@ def approval_action_for(message: str) -> str:
 
 
 MAINTENANCE_SKILL = "career-maintenance"
+INVENTORY_SKILL = "career-tanaoroshi"
 
 
 def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
@@ -210,6 +212,69 @@ def make_event(message: str, track: str, stage: str, flow_phase: str, *, status:
     return event
 
 
+def _start_inventory(
+    home: CareerVault,
+    skills_root: Path,
+    message: str,
+    recent_events: list[dict[str, Any]],
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    """Route to the inventory workflow, and propose nothing.
+
+    棚卸し produces contexts, experiences and evidence one confirmation at a time. Turning the
+    opening sentence into a proposal would have the system decide what the user's first context
+    was, which is precisely the question this workflow exists to ask -- and a seven-year career
+    summarised from one sentence is the invented history the whole ledger is built to refuse.
+
+    Reached before the track gate, for the reason maintenance is: someone recovering what they did
+    at a university and two employers is answering "what happened", not "new graduate or
+    mid-career", and that second question has no bearing on the first.
+    """
+    language = language_for(message)
+    trajectory = {
+        "id": f"traj-{uuid.uuid4().hex[:12]}",
+        "created_at": utc_now(),
+        "mode": "chat",
+        "observe": {
+            "track": state.get("track"),
+            "stage": state.get("stage"),
+            "recent_events": recent_events,
+            "message": message,
+            "data_trust": UNTRUSTED_DATA_MARKER,
+            "instruction_authority": "none",
+        },
+        "plan": {
+            "goal": "recover historical contexts and experiences as evidence",
+            "moves_career_mode": False,
+        },
+        "act": {"proposal": None, "skill": INVENTORY_SKILL},
+        "verify": {"route_resolved": False, "external_side_effect": False},
+        "correct": {"retry_count": 0, "needs_user_confirmation": True},
+        "persist": {"trajectory_only": True},
+    }
+    home.append_trajectory(trajectory)
+    result = {
+        "mode": "chat",
+        "language": language,
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "career_mode": state.get("career_mode"),
+        "skill": skill_context(skills_root, None, skill_override=INVENTORY_SKILL),
+        "context": [],
+        "personal_context": [],
+        "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
+        "proposal": None,
+        # Nothing was written, and saying so plainly is the point: the next thing that happens is a
+        # question, not a record.
+        "changes_nothing": True,
+        "saved": str(home.trajectories),
+    }
+    if str(home.load_profile().get("career_status") or "") == "onboarding":
+        result["onboarding_completed"] = True
+    return result
+
+
 def _propose_work_event(
     home: CareerVault,
     skills_root: Path,
@@ -287,6 +352,10 @@ def run_chat(
     # intent, so someone recording what they did at work must not be stopped at "new graduate or
     # mid-career?" -- a question their request never raised and that has no answer while they are
     # simply doing their job.
+    # Ahead of maintenance: 棚卸し phrases say how far back to go, and a message that carries
+    # that scope is asking for the historical pass even though it also reads as ordinary upkeep.
+    if tanaoroshi_intent(message):
+        return _start_inventory(home, skills_root, message, recent_events, state)
     if maintenance_intent(message):
         return _propose_work_event(home, skills_root, message, recent_events, state)
     track = infer_track(message, requested_track) or state.get("track") or profile.get("track")

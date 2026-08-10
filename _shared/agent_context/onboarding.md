@@ -39,7 +39,11 @@ that a workflow was chosen and not that anything was verified. An existing Vault
 `stage` keeps its workflow and is never re-onboarded, even if `career_status` is set back to
 `onboarding` by hand.
 
-A career-maintenance request skips the track question entirely: an employed user who is not looking
+An empty ledger is a fact worth stating: `readiness` reports `bootstrap_suggested` when there is
+nothing to quote, independently of `job_search`, and the honest response is to offer
+`career-tanaoroshi` rather than to analyse from nothing. Offer it; never start it unasked.
+
+A career-tanaoroshi or career-maintenance request skips the track question entirely: an employed user who is not looking
 belongs to no hiring market, so `track` stays `null` and the work event is captured without one.
 The question returns the moment a request actually needs a track. An opportunity-review message
 counts as a stated intent for the third gate — it names a task as clearly as 面接 does, it just is

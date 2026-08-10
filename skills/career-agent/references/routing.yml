@@ -98,6 +98,46 @@ stage_alias:
 # inside 職務経歴書, 경력기술서 and half the chuto lexicon — the same substring over-match the
 # header of this file already warns about for 卒.
 
+# Going back over experience that happened before the system ever saw it: キャリアの棚卸し. This is
+# historical backfill, not upkeep, and it is checked before `maintenance` because every phrase here
+# carries a scope marker the maintenance vocabulary does not -- 지금까지, これまで, so far, everything.
+# "오늘 한 일 기록해줘" has no such marker and must keep routing to maintenance.
+#
+# Whole phrases only, and the scope marker is what makes them safe. A bare 정리 / 整理 / 経歴 would
+# fire inside half the maintenance table and inside 職務経歴書, which is already
+# `stage_alias.documents`.
+tanaoroshi:
+  - "지금까지의 경력을 정리"
+  - "지금까지 경력을 정리"
+  - "지금까지의 경험을 정리"
+  - "지금까지 경험을 정리"
+  - "지금까지 해온 일을 정리"
+  - "그동안의 경력을 정리"
+  - "그동안 해온 일을 정리"
+  - "경력 전체를 정리"
+  - "경력 전체를 돌아"
+  - "예전 회사 경험까지"
+  - "이전 회사 경험까지"
+  - "학창시절 경험을 정리"
+  - "대학 때 경험을 정리"
+  - "커리어 전체를 정리"
+  - "キャリアの棚卸"
+  - "経歴の棚卸"
+  - "棚卸しをしたい"
+  - "棚卸しから始め"
+  - "これまでの経験を整理"
+  - "これまでの経歴を整理"
+  - "これまでのキャリアを整理"
+  - "学生時代の経験を整理"
+  - "過去の経験をまとめ"
+  - "career inventory"
+  - "inventory my experience"
+  - "inventory my career"
+  - "take stock of my career"
+  - "go through my past experience"
+  - "everything i have done so far"
+  - "start from my past experience"
+
 # Recording what happened at the job the user already has. This says nothing about wanting to
 # leave, and reaching it must never be read as intent to leave.
 maintenance:

@@ -24,6 +24,19 @@
   experiences under them, the evidence under those, and the gaps named one by one. There is no
   completion percentage, because the question it answers is whether a decision can quote the
   user's own experience, and a number would hide which part is missing.
+- Add `career-tanaoroshi`: キャリアの棚卸し, the workflow that recovers experience from before the
+  ledger existed. Contexts first, experiences second, evidence third -- asking which companies
+  someone worked at leaves a new graduate with nothing to answer, and asking which projects leaves
+  the operations engineer and the researcher with nothing either. Documents the user already has
+  are read first and only the gaps are asked about, and everything extracted stays a candidate
+  until they confirm it.
+- Route 棚卸し ahead of maintenance. Every phrase in the new table carries a scope marker the
+  maintenance vocabulary has none of -- 지금까지, これまで, so far -- and that marker is what says
+  the request is about the years behind the user rather than about today's work. The entry point
+  proposes nothing: a seven-year career summarised from one sentence is the invented history the
+  ledger exists to refuse. It also needs no track, for the reason maintenance does not, and never
+  reads as intent to leave.
+
 - Report `bootstrap_suggested` in `readiness`, with `career_contexts` and `experience_coverage`
   alongside the existing dimensions. It is the fact that the ledger holds nothing to quote, not a
   threshold on a score, and it does not depend on whether a job search is on: someone with seven
