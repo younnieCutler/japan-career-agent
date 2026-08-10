@@ -5,6 +5,7 @@ description: >
   axes, provenance, missing evidence, confirmed conflicts, and Decision Status without a composite
   score, hiring forecast, or claim about a private agency system.
   Use when a user asks whether a candidate and a specific role fit, or supplies both profile types.
+license: MIT
 ---
 
 # Matching Simulator: evidence-based diagnosis

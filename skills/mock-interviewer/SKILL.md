@@ -9,6 +9,7 @@ description: >
   Use when:
   - "practice interview", "mock interview", "면접 연습", "面接対策", "深掘り 対策"
   - Candidate has generated resume/stories and wants to test interview readiness
+license: MIT
 ---
 
 # mock-interviewer — Japanese Interview Stress-Test Agent

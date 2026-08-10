@@ -34,21 +34,26 @@
   summary, confirmed work where the personal contribution is still Unknown, confidential material
   whose external use was never reviewed. There is no schedule and no reminder, at most one thing
   is meant to be said, and silence is the common answer.
-- Show pending captures in `weekly-review`. A quick note is a pending proposal until it is
-  approved, so reading only the ledger showed an empty week to someone who had been capturing all
-  week — and the unfinished notes are what a review is for. Draft rows carry their `proposal_id`
-  so the review can act on the row it is looking at.
+- Show pending captures in `weekly-review` and `maintenance-check`. A quick note is a pending
+  proposal until it is approved, so reading only the ledger showed an empty week to someone who
+  had been capturing all week — and the unfinished notes are what a review is for. Draft rows in
+  the review carry their `proposal_id` so it can act on the row it is looking at. Drafts count
+  towards "notes are piling up on this project" and stay out of the checks that describe finished
+  records.
 - Merge a project's `period` a level deeper, for the same reason `confidentiality` merges: a start
   is learned when the project begins and an end when it closes, and replacing the object on the
   second turn dropped the start.
 - Base `readiness` recency on the stated `work_date` alone. Falling back to capture time is right
   for ordering a timeline and wrong for "is this recent": it turned a note written today about
-  work from five years ago into confirmed recent experience. Undated evidence now reads `Unknown`,
-  dated-but-old reads `Stale`, and a mix reads `Partial`.
+  work from five years ago into confirmed recent experience. Undated evidence reads `Unknown`, and
+  `Stale` is reserved for a record where every entry is dated and none is recent — it asserts the
+  recent record is empty, which an undated note makes unavailable. Any mix reads `Partial`.
 - Add `project.external_label`: the safe name for recruiter-facing output, kept beside the real
-  title rather than replacing it. "내부 결제 Phoenix 프로젝트" stays the user's own record while
-  "payment reliability project" is what leaves, decided once by the user instead of improvised per
-  document.
+  title in the record rather than replacing it. "내부 결제 Phoenix 프로젝트" stays the user's own
+  record while "payment reliability project" is what leaves, decided once by the user instead of
+  improvised per document. Where a label exists, `job-seeker-agent` and `mock-interviewer` use it
+  in place of the title in everything recruiter-facing; a title with no label and possible
+  confidentiality is asked about rather than judged harmless.
 - Ground `mock-interviewer` in confirmed evidence and the company's recorded selection, so practice
   rehearses the answer the candidate will actually give — including saying "그 부분은 경험이
   없습니다" well where `unknown_requirements` names a real gap.

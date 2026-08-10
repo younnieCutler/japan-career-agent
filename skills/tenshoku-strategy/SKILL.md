@@ -5,6 +5,7 @@ description: >
   offer and labor-condition review, salary conversations, resignation, onboarding, and application
   tracking. It records facts and workflow observations; it does not predict hiring outcomes.
   Use for 退職理由, 面接マナー, 年収交渉, オファー面談, 円満退職, 入社, and 選考 tracking.
+license: MIT
 ---
 
 # 転職 strategy: execution with evidence
