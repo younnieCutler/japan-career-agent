@@ -48,6 +48,31 @@
       "version": "1.5.0"
     },
     {
+      "bom-ref": "pkg:pypi/colorama@0.4.6",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "colorama",
+      "purl": "pkg:pypi/colorama@0.4.6",
+      "scope": "optional",
+      "type": "library",
+      "version": "0.4.6"
+    },
+    {
       "bom-ref": "pkg:pypi/hatchling@1.31.0",
       "hashes": [
         {
@@ -402,11 +427,11 @@
     "properties": [
       {
         "name": "lock.sha256",
-        "value": "a8333f8899d9390e33a2f4f03ef68287f259943986c240f1742caa1740c54814"
+        "value": "3d1c93e5d885c21d7294a55d5013b6a468b06a054cc0f3ffbc6b1ec446f703e6"
       }
     ]
   },
-  "serialNumber": "urn:uuid:a8333f88-99d9-390e-33a2-f4f03ef68287",
+  "serialNumber": "urn:uuid:3d1c93e5-d885-c21d-7294-a55d5013b6a4",
   "specVersion": "1.5",
   "version": 1
 }

@@ -13,6 +13,7 @@ so the script is executed rather than only read.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -34,6 +35,20 @@ def _package() -> dict:
 
 def _release_version() -> str:
     return json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
+
+
+def _isolated_env(path_dir: str, home: str) -> dict[str, str]:
+    """A PATH holding only what the test planted, while Node still has what it needs to start.
+
+    `SystemRoot` is not optional on Windows — a process started without it fails before reaching
+    any of the behaviour under test, which would look like the bootstrapper failing correctly.
+    """
+    environment = {"PATH": path_dir, "HOME": home}
+    for inherited in ("SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "COMSPEC", "PATHEXT"):
+        value = os.environ.get(inherited)
+        if value is not None:
+            environment[inherited] = value
+    return environment
 
 
 class NpmBootstrapperContractTests(unittest.TestCase):
@@ -70,7 +85,7 @@ class NpmBootstrapperContractTests(unittest.TestCase):
                 text=True,
                 encoding="utf-8",
                 cwd=temporary,
-                env={"PATH": temporary, "SYSTEMROOT": "", "HOME": temporary},
+                env=_isolated_env(temporary, temporary),
                 check=False,
             )
         self.assertEqual(result.returncode, 1)
@@ -80,6 +95,14 @@ class NpmBootstrapperContractTests(unittest.TestCase):
         self.assertIn("Nothing was installed", message)
 
     @unittest.skipIf(shutil.which("node") is None, "node is not available")
+    @unittest.skipIf(
+        sys.platform == "win32",
+        # Since the CVE-2024-27980 fix, Node refuses to spawn a .cmd or .bat without `shell: true`,
+        # and a stub runner on Windows can only be one of those. The behaviour under test is
+        # platform-independent JavaScript, and the real runners there are uv.exe and pipx.exe,
+        # which spawn normally — so what is lost is the stub, not the guarantee.
+        "a stub runner on Windows would have to be a .cmd, which Node will not spawn without a shell",
+    )
     def test_forwards_arguments_and_exit_code_to_the_runner(self) -> None:
         """A stub `uv` on PATH stands in for the real one so the hand-off itself is observable.
 
@@ -90,32 +113,22 @@ class NpmBootstrapperContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="japan-career-npm-stub-") as temporary:
             stub_dir = Path(temporary)
             recorded = stub_dir / "argv.txt"
-            if sys.platform == "win32":
-                stub = stub_dir / "uv.cmd"
-                stub.write_text(
-                    "@echo off\r\n"
-                    "if \"%1\"==\"--version\" (echo uv 0.0.0-stub & exit /b 0)\r\n"
-                    f"echo %* > \"{recorded}\"\r\n"
-                    "exit /b 42\r\n",
-                    encoding="utf-8",
-                )
-            else:
-                stub = stub_dir / "uv"
-                stub.write_text(
-                    "#!/bin/sh\n"
-                    'if [ "$1" = "--version" ]; then echo "uv 0.0.0-stub"; exit 0; fi\n'
-                    f'printf "%s\\n" "$@" > "{recorded}"\n'
-                    "exit 42\n",
-                    encoding="utf-8",
-                )
-                stub.chmod(0o755)
+            stub = stub_dir / "uv"
+            stub.write_text(
+                "#!/bin/sh\n"
+                'if [ "$1" = "--version" ]; then echo "uv 0.0.0-stub"; exit 0; fi\n'
+                f'printf "%s\\n" "$@" > "{recorded}"\n'
+                "exit 42\n",
+                encoding="utf-8",
+            )
+            stub.chmod(0o755)
             result = subprocess.run(
                 [shutil.which("node"), str(CLI), "doctor", "--format", "json"],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 cwd=temporary,
-                env={"PATH": str(stub_dir), "SYSTEMROOT": "", "HOME": temporary},
+                env=_isolated_env(str(stub_dir), temporary),
                 check=False,
             )
             self.assertEqual(result.returncode, 42, result.stderr)
