@@ -13,7 +13,13 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = (
     ROOT / ".claude-plugin" / "plugin.json",
     ROOT / ".codex-plugin" / "plugin.json",
+    # The npm bootstrapper installs `japan-career-agent==<its own version>`. If it falls behind,
+    # `npx japan-career-agent@X` installs something that is not X, and nothing at runtime notices.
+    ROOT / "packaging" / "npm" / "package.json",
 )
+# The wheel carries the same release. `uvx japan-career-agent` and the plugin must not be able to
+# be two different builds of two different versions.
+PYPROJECT_VERSION_PATTERN = re.compile(r"^version = \"([^\"]+)\"", re.MULTILINE)
 README_RELEASE_PATTERNS = {
     ROOT / "README.md": re.compile(r"^Current release:\s*`([^`]+)`\.", re.MULTILINE),
     ROOT / "README_ko.md": re.compile(r"^현재 릴리스:\s*`([^`]+)`\.", re.MULTILINE),
@@ -46,9 +52,16 @@ def main() -> int:
             continue
         manifest_versions.append(version)
 
+    pyproject = ROOT / "pyproject.toml"
+    pyproject_match = PYPROJECT_VERSION_PATTERN.search(pyproject.read_text(encoding="utf-8"))
+    if pyproject_match is None:
+        errors.append("pyproject.toml: missing project version")
+    else:
+        manifest_versions.append(pyproject_match.group(1))
+
     release_version = manifest_versions[0] if manifest_versions else None
     if manifest_versions and len(set(manifest_versions)) != 1:
-        errors.append(f"plugin manifest version mismatch: {manifest_versions}")
+        errors.append(f"release version mismatch across manifests: {manifest_versions}")
 
     changelog = ROOT / "CHANGELOG.md"
     changelog_matches = CHANGELOG_HEADING.finditer(changelog.read_text(encoding="utf-8"))

@@ -93,10 +93,10 @@ def test_version_pinned_cache_path_guard() -> None:
     synthesized case — a hand-written repro tends to quietly differ from what actually broke.
     """
     rejected = (
-        'python3 "/Users/x/.claude/plugins/cache/japan-recruit-ai-agent/1.6.1/scripts/status_bar.py"',
-        r"C:\plugins\cache\japan-recruit-ai-agent\1.6.2\scripts\status_bar.py",
+        'python3 "/Users/x/.claude/plugins/cache/japan-career-agent/1.6.1/scripts/status_bar.py"',
+        r"C:\plugins\cache\japan-career-agent\1.6.2\scripts\status_bar.py",
         "python3: can't open file "
-        "'/Users/example/.codex/plugins/cache/japan-recruit-ai-agent/japan-recruit-ai-agent/"
+        "'/Users/example/.codex/plugins/cache/japan-career-agent/japan-career-agent/"
         "1.6.1/scripts/status_bar.py': [Errno 2] No such file or directory",
     )
     allowed = (

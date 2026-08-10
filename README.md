@@ -1,8 +1,8 @@
-# Japan Recruit AI Agent
+# Japan Career Agent
 
 [English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
-Current release: `2.0.0`.
+Current release: `2.1.0`.
 
 Local-first, evidence-based career decision support for Japanese job search. This is a Claude Code and Codex plugin/skill suite with a local Career Agent runtime for job seekers and hiring teams.
 
@@ -32,20 +32,34 @@ flowchart LR
 
 ## Install
 
-Install the plugin into the host you already use.
+### Without a plugin host
+
+Both commands install and run the same Python program. Pick whichever runner you already have.
+
+```bash
+npx japan-career-agent init     # via npm
+uvx japan-career-agent init     # via uv, or: pipx run japan-career-agent init
+```
+
+`npx` ships an installer and no runtime: it locates `uv` or `pipx`, installs the matching PyPI
+release, and hands over. Nothing runs at `npm install` time. Python 3.11 or newer is required and
+neither runner provides it, so a missing interpreter is reported with instructions rather than a
+traceback.
 
 ### Claude Code
 
+Install the plugin into the host you already use.
+
 ```bash
-claude plugin marketplace add younnieCutler/japan-recruit-ai-agent
-claude plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
+claude plugin marketplace add younnieCutler/japan-career-agent
+claude plugin install japan-career-agent@japan-career-agent
 ```
 
 ### Codex
 
 ```bash
-codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
-codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
+codex plugin marketplace add younnieCutler/japan-career-agent
+codex plugin add japan-career-agent@japan-career-agent
 ```
 
 ### Release channels
@@ -61,8 +75,24 @@ behavior change, and closes again when the following tag is published and this r
 Clone the repository when you need to inspect or run the files directly:
 
 ```bash
-git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
+git clone https://github.com/younnieCutler/japan-career-agent.git
 ```
+
+### Upgrading from 2.0.x, when this was `japan-recruit-ai-agent`
+
+The project was renamed in 2.1.0. GitHub redirects the old repository URL, so an existing clone or
+remote keeps working, but the marketplace entry is matched by name and has to be re-added:
+
+```bash
+claude plugin marketplace remove japan-recruit-ai-agent
+claude plugin marketplace add younnieCutler/japan-career-agent
+claude plugin install japan-career-agent@japan-career-agent
+```
+
+Nothing in your Career Vault changes: the vault path, the event ledger and every document are
+untouched by the rename. `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` still disables the update check, so an
+existing opt-out stays in force alongside the new `JAPAN_CAREER_NO_UPDATE_CHECK`. Release bundles
+published under the old name remain verifiable with `scripts/verify_release.py`.
 
 ## Quick start
 
@@ -160,7 +190,7 @@ See [`skills/career-agent/SKILL.md`](skills/career-agent/SKILL.md) for the full 
 The status bar may perform one detached, non-blocking version check per 24-hour period against the public plugin manifest. It does not send Vault, pipeline, or candidate data. To disable that check completely, set:
 
 ```bash
-export JAPAN_RECRUIT_NO_UPDATE_CHECK=1
+export JAPAN_CAREER_NO_UPDATE_CHECK=1
 ```
 
 Details of the persistence, context, workspace, and policy hardening in `1.6.2` and `1.6.3` are in [`CHANGELOG.md`](CHANGELOG.md), rather than on this entry page.

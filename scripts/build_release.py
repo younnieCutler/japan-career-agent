@@ -6,9 +6,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -126,6 +128,39 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _build_wheel(output_dir: Path, commit: str, version: str) -> Path:
+    """Build the PyPI wheel into the release bundle so both channels ship one verified build.
+
+    `SOURCE_DATE_EPOCH` is pinned to the commit's own timestamp: without it the wheel embeds the
+    build time and two builds of the same commit produce different bytes, which would make the
+    recorded digest meaningless and break the bundle's reproducibility claim.
+    """
+    timestamp = _git("show", "-s", "--format=%ct", commit).strip()
+    if not timestamp.isdigit():
+        raise ReleaseBuildError(f"cannot read commit timestamp for {commit}")
+    environment = {**os.environ, "SOURCE_DATE_EPOCH": timestamp}
+    staging = output_dir / "_wheel"
+    result = subprocess.run(
+        [sys.executable, "-m", "build", "--no-isolation", "--wheel", "--outdir", str(staging), str(ROOT)],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        env=environment,
+        check=False,
+    )
+    if result.returncode:
+        raise ReleaseBuildError(f"wheel build failed: {result.stderr.strip() or result.stdout.strip()}")
+    wheels = sorted(staging.glob("*.whl"))
+    if len(wheels) != 1:
+        raise ReleaseBuildError(f"expected exactly one wheel, found {[wheel.name for wheel in wheels]}")
+    if f"-{version}-" not in wheels[0].name:
+        raise ReleaseBuildError(f"wheel {wheels[0].name} does not carry release version {version}")
+    destination = output_dir / wheels[0].name
+    shutil.copyfile(wheels[0], destination)
+    shutil.rmtree(staging)
+    return destination
+
+
 def _write_checksums(path: Path, files: list[Path]) -> None:
     lines = [f"{_sha256_file(file)}  {file.name}" for file in files]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
@@ -142,16 +177,17 @@ def build(output_dir: Path, expected_commit: str | None = None) -> dict[str, Any
         output_dir = output_dir.resolve()
     source_paths = _tracked_files()
     entries = _source_entries(source_paths)
-    artifact = output_dir / f"japan-recruit-ai-agent-v{version}.zip"
+    artifact = output_dir / f"japan-career-agent-v{version}.zip"
     _write_zip(artifact, source_paths)
     sbom_source = ROOT / "sbom.cdx.json"
     if not sbom_source.is_file():
         raise ReleaseBuildError("tracked sbom.cdx.json is required before release packaging")
     sbom = output_dir / "sbom.cdx.json"
     shutil.copyfile(sbom_source, sbom)
+    wheel = _build_wheel(output_dir, commit, version)
     manifest = {
         "format_version": 1,
-        "product": "japan-recruit-ai-agent",
+        "product": "japan-career-agent",
         "version": version,
         "source_commit": commit,
         "git_status_clean": True,
@@ -159,11 +195,12 @@ def build(output_dir: Path, expected_commit: str | None = None) -> dict[str, Any
         "files": entries,
         "artifact": {"name": artifact.name, "size": artifact.stat().st_size, "sha256": _sha256_file(artifact)},
         "sbom": {"name": sbom.name, "size": sbom.stat().st_size, "sha256": _sha256_file(sbom)},
+        "wheel": {"name": wheel.name, "size": wheel.stat().st_size, "sha256": _sha256_file(wheel)},
     }
     manifest_file = output_dir / "release-manifest.json"
     manifest_file.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
     checksums = output_dir / "SHA256SUMS"
-    _write_checksums(checksums, [artifact, sbom, manifest_file])
+    _write_checksums(checksums, [artifact, sbom, wheel, manifest_file])
     return manifest
 
 

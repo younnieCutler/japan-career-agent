@@ -36,7 +36,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
             verify_release._check_manifest(
                 {
                     "format_version": 1,
-                    "product": "japan-recruit-ai-agent",
+                    "product": "japan-career-agent",
                     "version": "1.7.0",
                     "source_commit": "0" * 40,
                     "git_status_clean": True,

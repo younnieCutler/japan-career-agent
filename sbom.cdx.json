@@ -23,6 +23,56 @@
       "version": "25.3.0"
     },
     {
+      "bom-ref": "pkg:pypi/build@1.5.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "13f3eecb844759ab66efec90ca17639bbf14dc06cb2fdf37a9010322d9c50a6f"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "302c22c3ba2a0fd5f3911918651341ebb3896176cbdec15bd421f80b1afc7647"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "build",
+      "purl": "pkg:pypi/build@1.5.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "1.5.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/hatchling@1.31.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6b48ad4068a482ed7239b3a8215bc55b47aad3345d58dfc94e553c5d2d46211b"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "aac80bec8b6fe35e8480f1c335be8910fa210a0e6f735a139be205dadcacb544"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "hatchling",
+      "purl": "pkg:pypi/hatchling@1.31.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "1.31.0"
+    },
+    {
       "bom-ref": "pkg:pypi/jsonschema@4.25.0",
       "hashes": [
         {
@@ -63,6 +113,106 @@
       "scope": "required",
       "type": "library",
       "version": "2025.4.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/packaging@26.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "packaging",
+      "purl": "pkg:pypi/packaging@26.3",
+      "scope": "optional",
+      "type": "library",
+      "version": "26.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/pathspec@1.1.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "pathspec",
+      "purl": "pkg:pypi/pathspec@1.1.1",
+      "scope": "optional",
+      "type": "library",
+      "version": "1.1.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/pluggy@1.6.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "pluggy",
+      "purl": "pkg:pypi/pluggy@1.6.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "1.6.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/pyproject-hooks@1.2.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "pyproject-hooks",
+      "purl": "pkg:pypi/pyproject-hooks@1.2.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "1.2.0"
     },
     {
       "bom-ref": "pkg:pypi/pyyaml@6.0.3",
@@ -193,6 +343,31 @@
       "version": "0.15.10"
     },
     {
+      "bom-ref": "pkg:pypi/trove-classifiers@2026.6.1.19",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ab4c4ec93cc4a4e7815fa759906e05e6bb3f2fbd92ea0f897288c6a43efd15b3"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "c5132b4b61a829d11cfbd2d72e97f20a45ed6edb95e45c5efdeb5e00836b2745"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "trove-classifiers",
+      "purl": "pkg:pypi/trove-classifiers@2026.6.1.19",
+      "scope": "optional",
+      "type": "library",
+      "version": "2026.6.1.19"
+    },
+    {
       "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
       "hashes": [
         {
@@ -220,18 +395,18 @@
   ],
   "metadata": {
     "component": {
-      "name": "japan-recruit-ai-agent",
+      "name": "japan-career-agent",
       "type": "application",
-      "version": "2.0.0"
+      "version": "2.1.0"
     },
     "properties": [
       {
         "name": "lock.sha256",
-        "value": "affe78ec27057fcc087f7da655fd0bf6b778debca227de66412f191edd35a67c"
+        "value": "a8333f8899d9390e33a2f4f03ef68287f259943986c240f1742caa1740c54814"
       }
     ]
   },
-  "serialNumber": "urn:uuid:affe78ec-2705-7fcc-087f-7da655fd0bf6",
+  "serialNumber": "urn:uuid:a8333f88-99d9-390e-33a2-f4f03ef68287",
   "specVersion": "1.5",
   "version": 1
 }

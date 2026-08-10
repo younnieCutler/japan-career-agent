@@ -57,7 +57,7 @@ DIVERSITY_WINDOW = 5
 # detaching a background copy of itself. A cold install therefore shows the notice from the
 # following prompt, not this one.
 UPDATE_URL = (
-    "https://raw.githubusercontent.com/younnieCutler/japan-recruit-ai-agent"
+    "https://raw.githubusercontent.com/younnieCutler/japan-career-agent"
     "/main/.claude-plugin/plugin.json"
 )
 CHECK_INTERVAL_SECONDS = 24 * 3600
@@ -67,12 +67,20 @@ RULE_CONTEXT_LIMIT = 3
 
 
 def update_check_disabled() -> bool:
-    return os.environ.get("JAPAN_RECRUIT_NO_UPDATE_CHECK") == "1"
+    """The 2.0.x name is still honoured: someone who opted out once should stay opted out.
+
+    A renamed variable that silently stops working turns an explicit user decision back on
+    without telling anyone, which is the one failure mode an opt-out cannot have.
+    """
+    return any(
+        os.environ.get(name) == "1"
+        for name in ("JAPAN_CAREER_NO_UPDATE_CHECK", "JAPAN_RECRUIT_NO_UPDATE_CHECK")
+    )
 
 
 def cache_file() -> Path:
     """CLAUDE_PLUGIN_DATA survives plugin updates; the cache is useless if it does not."""
-    base = os.environ.get("CLAUDE_PLUGIN_DATA") or os.path.expanduser("~/.japan-recruit-agent")
+    base = os.environ.get("CLAUDE_PLUGIN_DATA") or os.path.expanduser("~/.japan-career-agent")
     return Path(base) / "update-check.json"
 
 
@@ -103,7 +111,7 @@ def update_line(local: str | None, cache: dict) -> str | None:
         return None
     return (
         f"update: v{remote} available (installed {local}) — "
-        "claude plugin update japan-recruit-ai-agent@japan-recruit-ai-agent, then restart"
+        "claude plugin update japan-career-agent@japan-career-agent, then restart"
     )
 
 

@@ -1,0 +1,24 @@
+{
+  "name": "japan-career-agent",
+  "version": "2.1.0",
+  "description": "Local-first evidence-based career decision support for Japan job seekers. Installer for the Python runtime published on PyPI.",
+  "keywords": ["japan", "job-search", "recruitment", "career", "matching", "tenshoku", "self-analysis"],
+  "homepage": "https://github.com/younnieCutler/japan-career-agent",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/younnieCutler/japan-career-agent.git"
+  },
+  "license": "MIT",
+  "author": "younnieCutler",
+  "type": "commonjs",
+  "bin": {
+    "japan-career-agent": "bin/cli.js"
+  },
+  "files": [
+    "bin/cli.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

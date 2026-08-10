@@ -1,8 +1,8 @@
-# Japan Recruit AI Agent
+# Japan Career Agent
 
 [English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
 
-現在のリリース: `2.0.0`。
+現在のリリース: `2.1.0`。
 
 日本での就職・転職に向けた local-first の evidence-based なキャリア意思決定支援です。Claude Code と Codex で使う plugin/skill の集合で、ローカルで動く Career Agent runtime が求職者と採用側の workflow を扱います。
 
@@ -32,20 +32,35 @@ flowchart LR
 
 ## インストール
 
-普段使っている host に plugin を追加します。
+### plugin host なしで使う
+
+どちらのコマンドも同じ Python プログラムを導入して実行します。すでに手元にある runner を選んで
+ください。
+
+```bash
+npx japan-career-agent init     # npm 経由
+uvx japan-career-agent init     # uv 経由、または: pipx run japan-career-agent init
+```
+
+`npx` が取得するのはインストーラだけで、runtime は含まれません。`uv` か `pipx` を見つけて同じ
+バージョンの PyPI リリースを導入し、実行を委ねます。`npm install` の時点では何も実行されません。
+Python 3.11 以降が必要で、どちらの runner も Python を用意してくれないため、interpreter が無い
+場合は traceback ではなく導入方法を案内して停止します。
 
 ### Claude Code
 
+普段使っている host に plugin を追加します。
+
 ```bash
-claude plugin marketplace add younnieCutler/japan-recruit-ai-agent
-claude plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
+claude plugin marketplace add younnieCutler/japan-career-agent
+claude plugin install japan-career-agent@japan-career-agent
 ```
 
 ### Codex
 
 ```bash
-codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
-codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
+codex plugin marketplace add younnieCutler/japan-career-agent
+codex plugin add japan-career-agent@japan-career-agent
 ```
 
 ### リリースチャンネル
@@ -61,8 +76,24 @@ codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
 ファイルを直接確認したり実行したりする場合は、リポジトリを clone します。
 
 ```bash
-git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
+git clone https://github.com/younnieCutler/japan-career-agent.git
 ```
+
+### 2.0.x からの移行 — 旧名は `japan-recruit-ai-agent`
+
+2.1.0 で名称を変更しました。GitHub が旧リポジトリ URL を redirect するため既存の clone と remote は
+そのまま動きますが、marketplace の項目は名前で識別されるため追加し直す必要があります。
+
+```bash
+claude plugin marketplace remove japan-recruit-ai-agent
+claude plugin marketplace add younnieCutler/japan-career-agent
+claude plugin install japan-career-agent@japan-career-agent
+```
+
+Career Vault は何も変わりません。vault のパス、event ledger、生成済みの書類はいずれも名称変更の
+影響を受けません。`JAPAN_RECRUIT_NO_UPDATE_CHECK=1` も引き続き update check を無効にするため、既存の
+設定は新しい `JAPAN_CAREER_NO_UPDATE_CHECK` と併せてそのまま有効です。旧名で公開されたリリース
+バンドルも `scripts/verify_release.py` で検証できます。
 
 ## Quick Start
 
@@ -150,7 +181,7 @@ python skills/career-agent/career_agent.py document-render --model model.json --
 status bar は24時間に最大1回、公開plugin manifestに対する分離された非ブロッキングのバージョン確認を実行する場合があります。Vault、pipeline、candidate dataは送信しません。完全に無効にするには次を設定します。
 
 ```bash
-export JAPAN_RECRUIT_NO_UPDATE_CHECK=1
+export JAPAN_CAREER_NO_UPDATE_CHECK=1
 ```
 
 `1.6.2` と `1.6.3` の persistence、context、workspace、policy hardening の詳細は、このページではなく [`CHANGELOG.md`](CHANGELOG.md) にあります。

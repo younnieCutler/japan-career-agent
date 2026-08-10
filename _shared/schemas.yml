@@ -1,4 +1,4 @@
-# Japan Recruit AI Agent — Shared Schema Contract
+# Japan Career Agent — Shared Schema Contract
 # Single source of truth for inter-skill YAML data formats.
 #
 # When modifying a schema here, update all skills that produce or consume it:
@@ -17,7 +17,7 @@ schema_version: "2.5"
 # field meaning and legacy policy; these Draft 2020-12 definitions provide a machine-checkable
 # shape at every serialization boundary without changing the existing YAML contract.
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://github.com/younnieCutler/japan-recruit-ai-agent/shared-schemas"
+$id: "https://github.com/younnieCutler/japan-career-agent/shared-schemas"
 $defs:
   SELF_ANALYSIS_PROFILE:
     type: object

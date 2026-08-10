@@ -147,10 +147,10 @@ expected commit, run the E2E there, then package it:
 ```bash
 SHA=$(git rev-parse HEAD)
 python scripts/e2e_artifact.py prepare-worktree --repo . --commit "$SHA" \
-  --worktree /tmp/japan-recruit-e2e-worktree
-# Run the E2E command with /tmp/japan-recruit-e2e-worktree as its repository.
-python scripts/e2e_artifact.py check --repo /tmp/japan-recruit-e2e-worktree --expected-commit "$SHA"
-python scripts/e2e_artifact.py package --repo /tmp/japan-recruit-e2e-worktree \
+  --worktree /tmp/japan-career-e2e-worktree
+# Run the E2E command with /tmp/japan-career-e2e-worktree as its repository.
+python scripts/e2e_artifact.py check --repo /tmp/japan-career-e2e-worktree --expected-commit "$SHA"
+python scripts/e2e_artifact.py package --repo /tmp/japan-career-e2e-worktree \
   --expected-commit "$SHA" --artifact-root /path/to/e2e-output \
   --output /path/to/e2e-output.zip \
   --skill-status-json /path/to/e2e-output/skill-status.json \

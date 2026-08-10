@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -119,9 +120,31 @@ def parse_lock(path: Path, _seen: set[Path] | None = None) -> dict[str, LockedPa
     return packages
 
 
-def validate(runtime: Path, development: Path, requirements: Path) -> list[str]:
+def wheel_dependencies(path: Path) -> dict[str, str]:
+    """Read the runtime dependencies the published wheel declares."""
+    with path.open("rb") as stream:
+        project = tomllib.load(stream).get("project", {})
+    dependencies: dict[str, str] = {}
+    for raw in project.get("dependencies", []):
+        match = PACKAGE_RE.match(str(raw).strip())
+        if not match:
+            raise ValueError(f"unsupported wheel dependency declaration: {raw!r}")
+        dependencies[_normalize(match.group(1))] = match.group(2)
+    return dependencies
+
+
+def validate(runtime: Path, development: Path, requirements: Path, wheel: Path | None = None) -> list[str]:
     errors: list[str] = []
     direct = direct_dependencies(requirements)
+    # The wheel is a second declaration of the same runtime contract. Left unchecked, a user who
+    # installs with `uvx` gets different dependency bounds from a user running the plugin, and the
+    # hash-pinned lock below only constrains one of them.
+    if wheel is not None:
+        declared = wheel_dependencies(wheel)
+        if declared != direct:
+            errors.append(
+                f"{wheel.name} dependencies {declared} do not match requirements.txt {direct}"
+            )
     runtime_packages = parse_lock(runtime)
     development_packages = parse_lock(development)
     missing_direct = sorted(set(direct) - set(runtime_packages))
@@ -154,11 +177,17 @@ def main() -> int:
     parser.add_argument("--requirements", default="requirements.txt")
     parser.add_argument("--runtime-lock", default="requirements.lock")
     parser.add_argument("--development-lock", default="requirements-dev.lock")
+    parser.add_argument("--wheel-metadata", default="pyproject.toml")
     args = parser.parse_args()
-    paths = [Path(args.requirements), Path(args.runtime_lock), Path(args.development_lock)]
+    paths = [
+        Path(args.requirements),
+        Path(args.runtime_lock),
+        Path(args.development_lock),
+        Path(args.wheel_metadata),
+    ]
     paths = [path if path.is_absolute() else ROOT / path for path in paths]
     try:
-        errors = validate(paths[1], paths[2], paths[0])
+        errors = validate(paths[1], paths[2], paths[0], paths[3])
     except (OSError, ValueError) as exc:
         print(f"dependency lock check: FAIL ({exc})")
         return 1
