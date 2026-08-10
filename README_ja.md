@@ -39,7 +39,7 @@
 2. **承認する** — 本人が確認するまで、canonical な経歴記録には何も入りません。出典のない数値は拒否されます。
 3. **使う** — JD マッチング、職務経歴書、面接練習、次の行動。すべて確認済みの根拠だけを引用します。
 
-日本での就職・転職に向けた local-first の evidence-based なキャリア意思決定支援です。Claude Code と Codex で使う plugin/skill の集合で、ローカルで動く Career Agent runtime が求職者と採用側の workflow を扱います。
+Claude Code と Codex の plugin/skill としても、単体のコマンドとしても動き、ローカルの Career Agent runtime の上で求職者と採用側の workflow を扱います。
 
 キャリアの方向整理、履歴書・職務経歴書、JD と企業情報の確認、求人やオファーの比較、面接練習、次の行動の管理に使えます。ホスティング型SaaSや単体GUIではなく、pluginとローカルruntimeで構成されています。
 

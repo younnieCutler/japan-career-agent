@@ -39,7 +39,7 @@
 2. **승인한다** — 사용자가 확인하기 전에는 어떤 것도 canonical 경력 기록에 들어가지 않습니다. 출처 없는 수치는 거부됩니다.
 3. **사용한다** — JD 매칭, 職務経歴書, 면접 연습, 다음 행동 모두 확인된 근거만 인용합니다.
 
-일본 취업·이직을 위한 local-first evidence-based 커리어 의사결정 도구입니다. Claude Code와 Codex에서 쓰는 plugin/skill 모음이며, 로컬 Career Agent runtime으로 구직자와 채용 측 workflow를 지원합니다.
+Claude Code와 Codex의 plugin/skill 모음으로도, 독립 명령으로도 실행되며, 로컬 Career Agent runtime 위에서 구직자와 채용 측 workflow를 지원합니다.
 
 진로 방향, 이력서·職務経歴書, JD와 기업 정보, 지원 비교, 면접, 다음 행동을 정리할 때 사용하세요. 호스팅 SaaS나 독립 GUI가 아니라 plugin과 로컬 runtime으로 구성된 저장소입니다.
 

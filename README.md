@@ -39,7 +39,7 @@ Current release: `2.1.0`.
 2. **Approve it** — nothing enters your canonical career record until you confirm it. A number without a source is refused.
 3. **Use it** — JD matching, a 職務経歴書, interview practice and next actions, all quoting only confirmed evidence.
 
-Local-first, evidence-based career decision support for Japanese job search. This is a Claude Code and Codex plugin/skill suite with a local Career Agent runtime for job seekers and hiring teams.
+It runs as a Claude Code and Codex plugin/skill suite, or as a standalone command, over a local Career Agent runtime — for job seekers and hiring teams.
 
 Use it to sort out a career direction, prepare a resume or 職務経歴書, read a job description or company evidence, compare opportunities, practise an interview, and keep track of the next step. It is a plugin and local runtime, not a hosted SaaS or standalone GUI.
 
