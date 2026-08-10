@@ -137,6 +137,77 @@ class NpmBootstrapperContractTests(unittest.TestCase):
         self.assertIn("doctor", forwarded)
         self.assertIn("--format", forwarded)
 
+    @unittest.skipIf(shutil.which("npm") is None, "npm is not available")
+    @unittest.skipIf(
+        sys.platform == "win32",
+        "the shim is a .cmd on Windows and the stub runner cannot be one",
+    )
+    def test_npm_installs_a_working_command(self) -> None:
+        """Install the package the way a user does, then run the shim npm created.
+
+        Reading `bin` out of package.json says what the manifest claims. It does not say that npm
+        produced a runnable command — a dropped shebang leaves the manifest correct and `npx`
+        broken — nor that the real shim forwards arguments and the exit code, which is all a user
+        ever touches.
+
+        The install goes through `npm pack` rather than the source directory, so what is installed
+        is the tarball a registry would serve. (`files` cannot hide the entry point: npm
+        force-includes whatever `bin` points at. The declarative test above guards the other
+        direction, that nothing extra ships.) The package has no dependencies, so nothing comes
+        from the network.
+        """
+        with tempfile.TemporaryDirectory(prefix="japan-career-npm-install-") as temporary:
+            root = Path(temporary)
+            stub_dir = root / "stub"
+            stub_dir.mkdir()
+            stub = stub_dir / "uv"
+            stub.write_text(
+                "#!/bin/sh\n"
+                'if [ "$1" = "--version" ]; then echo "uv 0.0.0-stub"; exit 0; fi\n'
+                'printf "%s\\n" "$@"\n'
+                "exit 42\n",
+                encoding="utf-8",
+            )
+            stub.chmod(0o755)
+            project = root / "project"
+            project.mkdir()
+            npm = shutil.which("npm")
+            subprocess.run(
+                [npm, "pack", "--silent", "--pack-destination", str(root), str(NPM_DIR)],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            )
+            tarballs = sorted(root.glob("*.tgz"))
+            self.assertEqual(len(tarballs), 1, f"expected one tarball, got {[t.name for t in tarballs]}")
+            subprocess.run(
+                [npm, "install", "--silent", "--no-audit", "--no-fund", str(tarballs[0])],
+                cwd=project,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            )
+            shim = project / "node_modules" / ".bin" / "japan-career-agent"
+            self.assertTrue(shim.exists(), "npm did not create the command")
+            # The shim's shebang is `#!/usr/bin/env node`, so node's own directory has to stay
+            # reachable. The stub is listed first, which is what makes it win over any real uv
+            # that happens to live beside node.
+            node_dir = str(Path(shutil.which("node")).parent)
+            result = subprocess.run(
+                [str(shim), "doctor"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                cwd=project,
+                env=_isolated_env(os.pathsep.join([str(stub_dir), node_dir]), temporary),
+                check=False,
+            )
+        self.assertEqual(result.returncode, 42, result.stderr)
+        self.assertIn(f"japan-career-agent=={_release_version()}", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=0)
