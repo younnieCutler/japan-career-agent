@@ -82,6 +82,7 @@ You do not need to learn `proposal_id`, `CAREER_VAULT`, or `data/pipeline.yml` b
 | Need | What you can do | Skill |
 |---|---|---|
 | Recover past experience | Rebuild contexts, experiences and evidence from before you installed this, from documents you already have | `career-tanaoroshi` |
+| Write a 職務経歴書 for one company | Map a posting onto recorded evidence, then generate and render a document whose wording cannot outrun it | `career-document` |
 | Keep a career record current | Record what happened at work as reusable evidence, whether or not you are job hunting | `career-maintenance` |
 | Find direction | Reflect on work style and explore career hypotheses | `jiko-bunseki` |
 | Prepare documents | Work on a resume, 職務経歴書, self-PR, and candidate profile from stated evidence | `job-seeker-agent` |

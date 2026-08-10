@@ -2160,6 +2160,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--message")
     run.add_argument("--track", choices=sorted(TRACKS))
     run.add_argument("--source", help="JSON file for discover; stdin is used when omitted")
+    run.add_argument(
+        "--non-work", dest="non_work", action="store_true",
+        help="this experience did not happen at a job: a seminar, a thesis, a club, a volunteer "
+             "shift. Same fields, different type, so coursework never reads as work history",
+    )
     add_as_of_argument(run)
     add_output_format(run)
     work_events_parser = subparsers.add_parser(
@@ -2762,7 +2767,10 @@ def main(argv: Iterable[str] | None = None) -> int:
                 message = args.message if args.message is not None else read_stdin_utf8().strip()
                 if not message:
                     raise CareerError("chat requires --message or stdin")
-                result = run_chat(home, skills_root, message, args.track, args.as_of)
+                result = run_chat(
+                    home, skills_root, message, args.track, args.as_of,
+                    non_work=args.non_work,
+                )
                 complete_onboarding(home, result)
             elif args.mode == "heartbeat":
                 result = run_heartbeat(home)

@@ -24,6 +24,7 @@ except ImportError:  # POSIX
     msvcrt = None
 
 from models import (
+    EVIDENCE_EVENT_TYPES,
     ApprovalStage,
     ApprovalTransactionRecord,
     CareerError,
@@ -364,23 +365,27 @@ def review_work_event(
                 code="PROPOSAL_NOT_PENDING",
             )
         event = dict(proposal.get("event") or {})
-        if event.get("type") != WORK_EVENT_TYPE:
+        if event.get("type") not in EVIDENCE_EVENT_TYPES:
             raise CareerError(
-                f"proposal {proposal_id} is not a work event", code="INVALID_INPUT",
+                f"proposal {proposal_id} is not an evidence event", code="INVALID_INPUT",
             )
         if not isinstance(payload, dict):
-            raise CareerError("work event payload must be an object", code="INVALID_INPUT")
-        merged = payload if replace else _merge_work_event(event.get("work_event") or {}, payload)
+            raise CareerError("evidence payload must be an object", code="INVALID_INPUT")
+        # Which key holds the payload follows the type, and the type was decided at capture. A
+        # seminar and a release ask the same questions; only one of them says the user was employed.
+        key = "work_event" if event["type"] == WORK_EVENT_TYPE else "experience"
+        merged = payload if replace else _merge_work_event(event.get(key) or {}, payload)
         # Validate the merged result, not the patch: a payload that is fine alone can still be
         # rejected once combined, and what gets stored is what has to hold.
-        validate_work_event(merged)
-        event["work_event"] = merged
+        validate_work_event(merged, field=f"event.{key}")
+        event[key] = merged
         validate_event(event)
         updated = home.replace_proposal(proposal_id, event=event)
     return {
         "mode": "review-work-event",
         "vault": str(home.path),
         "proposal": {"id": updated["id"], "status": updated["status"]},
+        "evidence_payload": merged,
         "work_event": merged,
         "filled": sorted(key for key, value in merged.items() if value not in (None, [], {})),
         "ok": True,

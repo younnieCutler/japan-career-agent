@@ -82,6 +82,7 @@ git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
 | 目的 | できること | Skill |
 |---|---|---|
 | 過去の経験を復元する | 導入以前の Context・Experience・根拠を、すでに持っている書類から復元します | `career-tanaoroshi` |
+| 応募先ごとの職務経歴書を作る | 求人を記録済みの根拠に対応づけ、表現が根拠を超えない書類を生成・出力します | `career-document` |
 | 経歴を最新に保つ | 転職の意思に関わらず、今の仕事で起きたことを再利用できる根拠として記録します | `career-maintenance` |
 | 方向を整理する | work-style reflection からキャリアの仮説を整理します | `jiko-bunseki` |
 | 書類を準備する | ユーザーが示した根拠をもとに履歴書、職務経歴書、自己PR、candidate profileを扱います | `job-seeker-agent` |

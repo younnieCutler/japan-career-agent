@@ -16,7 +16,7 @@ import self_analysis_profile  # noqa: E402
 from schema_contract import validate_new_write  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
-from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, EXPERIENCE_CONTEXT_EVENT_TYPE, PROJECT_EVENT_TYPE, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
+from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, EXPERIENCE_CONTEXT_EVENT_TYPE, EXPERIENCE_EVENT_TYPE, PROJECT_EVENT_TYPE, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from private_store import PrivateHome, resolve_document  # noqa: E402
@@ -49,8 +49,10 @@ MAINTENANCE_SKILL = "career-maintenance"
 INVENTORY_SKILL = "career-tanaoroshi"
 
 
-def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
-    """Propose a work event: what happened at the current job, with no route attached.
+def make_work_event(
+    message: str, *, status: str = "draft", non_work: bool = False,
+) -> dict[str, Any]:
+    """Propose evidence about something that happened, with no route attached.
 
     `track`, `stage` and `flow_phase` are null on purpose. Filling them would mean choosing a
     hiring market and a transition step on the user's behalf, and the projector would then move
@@ -58,13 +60,19 @@ def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
 
     The structured payload stays empty here. Capture is one sentence; the fields are filled during
     review, by the user, and anything they do not say stays Unknown.
+
+    `non_work` decides the type, and only the caller knows it: a seminar, a thesis, a club or a
+    volunteer shift asks the same questions a release does, but recording it as a work event would
+    say the user was employed there, and every work-scoped read would then return coursework as
+    work history. It is a stated fact about the experience, never inferred from the wording.
     """
+    event_type = EXPERIENCE_EVENT_TYPE if non_work else WORK_EVENT_TYPE
     event = {
         "id": f"evt-{uuid.uuid4().hex[:12]}",
         "track": None,
         "stage": None,
         "flow_phase": None,
-        "type": WORK_EVENT_TYPE,
+        "type": event_type,
         "occurred_at": utc_now(),
         "title": text(language_for(message), "event.title"),
         "summary": message.strip(),
@@ -73,7 +81,7 @@ def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
         "next_action": None,
         "deadline": None,
         "status": status,
-        "work_event": {},
+        ("experience" if non_work else "work_event"): {},
     }
     validate_event(event)
     return event
@@ -281,6 +289,8 @@ def _propose_work_event(
     message: str,
     recent_events: list[dict[str, Any]],
     state: dict[str, Any],
+    *,
+    non_work: bool = False,
 ) -> dict[str, Any]:
     """Propose a work event without resolving a track, a stage, or a flow phase.
 
@@ -288,7 +298,7 @@ def _propose_work_event(
     same append-only ledger. Only the routing questions are skipped, because a work event has no
     route to resolve.
     """
-    event = make_work_event(message)
+    event = make_work_event(message, non_work=non_work)
     language = language_for(message)
     proposal = {
         "id": f"proposal-{uuid.uuid4().hex[:12]}",
@@ -343,7 +353,13 @@ def _propose_work_event(
 
 
 def run_chat(
-    home: CareerVault, skills_root: Path, message: str, requested_track: str | None, as_of: str,
+    home: CareerVault,
+    skills_root: Path,
+    message: str,
+    requested_track: str | None,
+    as_of: str,
+    *,
+    non_work: bool = False,
 ) -> dict[str, Any]:
     state = home.load_state()
     profile = home.load_profile()
@@ -356,8 +372,12 @@ def run_chat(
     # that scope is asking for the historical pass even though it also reads as ordinary upkeep.
     if tanaoroshi_intent(message):
         return _start_inventory(home, skills_root, message, recent_events, state)
-    if maintenance_intent(message):
-        return _propose_work_event(home, skills_root, message, recent_events, state)
+    # `non_work` is the user saying this did not happen at a job, so it captures directly: the
+    # maintenance vocabulary is about the job they have, and a thesis matches none of it.
+    if non_work or maintenance_intent(message):
+        return _propose_work_event(
+            home, skills_root, message, recent_events, state, non_work=non_work,
+        )
     track = infer_track(message, requested_track) or state.get("track") or profile.get("track")
     if not track:
         goal = "resolve track before routing"

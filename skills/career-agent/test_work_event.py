@@ -402,7 +402,10 @@ class ReviewMutationTests(unittest.TestCase):
         self.assertFalse(result.get("ok", False))
         self.assertEqual(result["error_code"], "PROPOSAL_NOT_PENDING")
 
-    def test_a_routed_event_is_not_a_work_event(self) -> None:
+    def test_a_routed_event_is_not_an_evidence_event(self) -> None:
+        # An interview-prep event is routed: it has a track and a stage and carries no evidence
+        # payload. `review-work-event` fills evidence fields, so it must refuse this outright
+        # rather than attach a payload to an event that has nowhere to put one.
         other = self.cli(
             "run", "--mode", "chat", "--vault", self.vault, "--message", "면접 준비 도와줘"
         )["proposal"]["id"]
@@ -410,7 +413,8 @@ class ReviewMutationTests(unittest.TestCase):
             "review-work-event", other, "--vault", self.vault, "--json", '{"role": "x"}',
         )
         self.assertFalse(result.get("ok", False))
-        self.assertIn("not a work event", result["error"])
+        self.assertEqual(result["error_code"], "INVALID_INPUT")
+        self.assertIn("not an evidence event", result["error"])
 
     def test_malformed_json_is_refused(self) -> None:
         result = self.cli(

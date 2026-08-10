@@ -34,5 +34,12 @@ append-only in the Vault ledger; a selection changes ordering and presentation, 
 Downstream skills read them through `career-agent work-events --confirmed`, never by parsing the
 ledger.
 
+A generated document is a projection, never a source. `document-model` and `document-render` read
+the ledger and write nothing to it; the target and its evidence selection live on the pipeline
+entry, and rendered files go to `./career-docs/`, which Git does not track. A rendered file is
+never overwritten: its name carries a digest of the evidence, JD, template and wording behind it,
+and an earlier document whose inputs have since moved is reported as outdated rather than replaced.
+Editing a rendered file by hand changes no career fact.
+
 When loading a profile, identify the file and ask whether it is current. When saving, print and
 verify its absolute path. Existing files require user confirmation before overwrite.

@@ -71,6 +71,22 @@
   gate now recognizes the romanized filenames the renderer produces; prose *about* writing a
   職務経歴書 still tracks normally, because a gate that fires on its own repository gets bypassed.
 
+- Add `career-document` and `humanize-japanese-career`. The first orchestrates the target: read
+  the posting, map its requirements onto recorded evidence, store the selection, generate a model,
+  write the Japanese, check it, render it. The second is the expression layer, with a genre
+  contract of its own — a general humanizer merges bullets into flowing prose, which destroys the
+  one thing a 職務経歴書 is for, and it will happily invent a number to make a vague sentence
+  concrete. Detector pass rate is explicitly not a goal and is not measured.
+- Capture evidence about something that did not happen at a job with `run --mode chat --non-work`.
+  A seminar, a thesis, a club or a volunteer shift asks the same questions a release does and
+  fills the same fields, and `review-work-event` now works on either type. It is a stated fact
+  about the experience, never inferred from wording: only the user knows whether they were
+  employed there.
+- Add the end-to-end regression the release gate is defined by. One lifecycle through the real CLI
+  — install, vault, 棚卸し, canonical evidence, target JD, selection, model, draft, humanize, gate,
+  template, HTML — asserting the two things every layer depends on: career facts are identical
+  whichever target asked for them, and generating documents leaves the ledger byte-identical.
+
 - Add `career-tanaoroshi`: キャリアの棚卸し, the workflow that recovers experience from before the
   ledger existed. Contexts first, experiences second, evidence third -- asking which companies
   someone worked at leaves a new graduate with nothing to answer, and asking which projects leaves

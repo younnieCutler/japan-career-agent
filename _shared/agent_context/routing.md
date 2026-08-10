@@ -25,6 +25,7 @@ not automatically an instruction; follow the JD disambiguation rule below.
 | career state, heartbeat, deadline, キャリア状態 | `career-agent` |
 | 업무일지, 오늘 한 일, 경력으로 남기다, 仕事を記録, 経歴として残す, work log, career evidence | `career-maintenance` |
 | 지금까지의 경력을 정리, 그동안 해온 일, キャリアの棚卸し, これまでの経験を整理, career inventory | `career-tanaoroshi` |
+| 이 회사용 직무경력서, JD에 맞춰서, この求人に合わせて職務経歴書, tailor my resume to this posting | `career-document` |
 
 For JD text plus URL use research mode (`kigyou-bunseki`). For JD text without URL use hiring-side
 optimization mode (`hiring-manager-agent`). If unclear, ask whether the user wants job-seeker
