@@ -11,7 +11,7 @@ was corrected rather than left aspirational.
 
 ## 1. Summary
 
-Japan Recruit AI Agent needs a dedicated private-data layer for personal career documents such as resumes, 履歴書, 職務経歴書, ES, compensation records, certificates, transcripts, and related evidence.
+Japan Career Agent needs a dedicated private-data layer for personal career documents such as resumes, 履歴書, 職務経歴書, ES, compensation records, certificates, transcripts, and related evidence.
 
 The feature must satisfy four properties at the same time:
 

@@ -1,10 +1,47 @@
-# Japan Recruit AI Agent
+<!-- This file is the PyPI long description as well as the GitHub landing page, so links
+     that leave the file are absolute: PyPI resolves a relative link against nothing. -->
+<h1 align="center">Japan Career Agent</h1>
 
-[English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
+<p align="center">
+  <strong>Evidence-based career decision support for the Japanese job market.<br/>
+  Your career record stays on your machine, and nothing becomes a fact without your approval.</strong>
+</p>
 
-Current release: `2.0.0`.
+<p align="center">
+  <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
+</p>
 
-Local-first, evidence-based career decision support for Japanese job search. This is a Claude Code and Codex plugin/skill suite with a local Career Agent runtime for job seekers and hiring teams.
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#why-this-is-different">Why</a> ·
+  <a href="#the-basic-flow">Flow</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#what-it-can-help-with">Skills</a> ·
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CONTRIBUTING.md">Contributing</a> ·
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  🌐 <strong>English</strong> ·
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/README_ko.md">한국어</a> ·
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/README_ja.md">日本語</a>
+</p>
+
+---
+
+Current release: `2.1.0`.
+
+**In three steps:**
+
+1. **Record what happened** — 棚卸し turns past work into contexts, experiences and checkable evidence. What you cannot verify stays `Unknown`.
+2. **Approve it** — nothing enters your canonical career record until you confirm it. A number without a source is refused.
+3. **Use it** — JD matching, a 職務経歴書, interview practice and next actions, all quoting only confirmed evidence.
+
+It runs as a Claude Code and Codex plugin/skill suite, or as a standalone command, over a local Career Agent runtime — for job seekers and hiring teams.
 
 Use it to sort out a career direction, prepare a resume or 職務経歴書, read a job description or company evidence, compare opportunities, practise an interview, and keep track of the next step. It is a plugin and local runtime, not a hosted SaaS or standalone GUI.
 
@@ -32,20 +69,37 @@ flowchart LR
 
 ## Install
 
-Install the plugin into the host you already use.
+### Without a plugin host
+
+Both commands install and run the same Python program. Pick whichever runner you already have.
+
+```bash
+npx japan-career-agent init     # via npm
+uvx japan-career-agent init     # via uv, or: pipx run japan-career-agent init
+```
+
+`npx` ships an installer and no runtime: it locates `uv` or `pipx`, installs the matching PyPI
+release, and hands over. Nothing runs at `npm install` time, and neither path writes into a Python
+you already depend on.
+
+Python 3.11 or newer is required. `uv` downloads a matching interpreter by itself; `pipx` uses one
+that is already installed. With neither runner present, `npx` prints how to install one and changes
+nothing.
 
 ### Claude Code
 
+Install the plugin into the host you already use.
+
 ```bash
-claude plugin marketplace add younnieCutler/japan-recruit-ai-agent
-claude plugin install japan-recruit-ai-agent@japan-recruit-ai-agent
+claude plugin marketplace add younnieCutler/japan-career-agent
+claude plugin install japan-career-agent@japan-career-agent
 ```
 
 ### Codex
 
 ```bash
-codex plugin marketplace add younnieCutler/japan-recruit-ai-agent
-codex plugin add japan-recruit-ai-agent@japan-recruit-ai-agent
+codex plugin marketplace add younnieCutler/japan-career-agent
+codex plugin add japan-career-agent@japan-career-agent
 ```
 
 ### Release channels
@@ -61,8 +115,24 @@ behavior change, and closes again when the following tag is published and this r
 Clone the repository when you need to inspect or run the files directly:
 
 ```bash
-git clone https://github.com/younnieCutler/japan-recruit-ai-agent.git
+git clone https://github.com/younnieCutler/japan-career-agent.git
 ```
+
+### Upgrading from 2.0.x, when this was `japan-recruit-ai-agent`
+
+The project was renamed in 2.1.0. GitHub redirects the old repository URL, so an existing clone or
+remote keeps working, but the marketplace entry is matched by name and has to be re-added:
+
+```bash
+claude plugin marketplace remove japan-recruit-ai-agent
+claude plugin marketplace add younnieCutler/japan-career-agent
+claude plugin install japan-career-agent@japan-career-agent
+```
+
+Nothing in your Career Vault changes: the vault path, the event ledger and every document are
+untouched by the rename. `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` still disables the update check, so an
+existing opt-out stays in force alongside the new `JAPAN_CAREER_NO_UPDATE_CHECK`. Release bundles
+published under the old name remain verifiable with `scripts/verify_release.py`.
 
 ## Quick start
 
@@ -160,7 +230,7 @@ See [`skills/career-agent/SKILL.md`](skills/career-agent/SKILL.md) for the full 
 The status bar may perform one detached, non-blocking version check per 24-hour period against the public plugin manifest. It does not send Vault, pipeline, or candidate data. To disable that check completely, set:
 
 ```bash
-export JAPAN_RECRUIT_NO_UPDATE_CHECK=1
+export JAPAN_CAREER_NO_UPDATE_CHECK=1
 ```
 
 Details of the persistence, context, workspace, and policy hardening in `1.6.2` and `1.6.3` are in [`CHANGELOG.md`](CHANGELOG.md), rather than on this entry page.

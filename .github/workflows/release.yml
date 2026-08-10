@@ -16,6 +16,9 @@ on:
 
 permissions:
   contents: write
+  # PyPI Trusted Publishing and npm provenance both exchange this short-lived OIDC token for
+  # upload rights, so no long-lived registry credential has to live in this repository.
+  id-token: write
 
 concurrency:
   group: release-main
@@ -89,7 +92,7 @@ jobs:
         if: steps.release.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: japan-recruit-ai-agent-${{ steps.release.outputs.version }}
+          name: japan-career-agent-${{ steps.release.outputs.version }}
           path: release/
           if-no-files-found: error
       - name: create or verify immutable tag
@@ -130,3 +133,50 @@ jobs:
             gh release create "$TAG" --title "$TAG" --generate-notes
           fi
           gh release upload "$TAG" release/* --clobber
+
+      # Publishing happens only after the bundle has been verified and the immutable tag exists,
+      # because neither registry allows a version to be replaced. The wheel uploaded here is the
+      # same file recorded in release-manifest.json and SHA256SUMS above, so what PyPI serves can
+      # be checked against the GitHub Release.
+      - name: stage the verified wheel for PyPI
+        if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          wheel="$(python -c 'import json; print(json.load(open("release/release-manifest.json", encoding="utf-8"))["wheel"]["name"])')"
+          cp "release/$wheel" "dist/$wheel"
+      - name: publish to PyPI
+        if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          # Re-running a release must not fail on an already-published version; the identity of
+          # that version was fixed by the immutable tag, not by this step.
+          skip-existing: true
+
+      - name: set up node for the npm channel
+        if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: publish the npm bootstrapper
+        if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
+        working-directory: packaging/npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "NPM_TOKEN is not configured; skipping the npm channel."
+            echo "The PyPI release above is unaffected — uvx and pipx already have this version."
+            exit 0
+          fi
+          version="${{ steps.release.outputs.version }}"
+          if npm view "japan-career-agent@$version" version >/dev/null 2>&1; then
+            echo "japan-career-agent@$version is already on npm"
+          else
+            # --provenance attests that this tarball came from this workflow run on this commit.
+            npm publish --provenance --access public
+          fi

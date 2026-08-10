@@ -15,6 +15,12 @@ from typing import Any
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 
+# The product was renamed to `japan-career-agent` in 2.1.0. Bundles published under the old name
+# are already downloaded and signed; refusing them here would mean this verifier could no longer
+# check the very releases people still hold. The name a bundle carries is an identity to match,
+# not a version to advance, so both remain valid forever.
+PRODUCT_NAMES = ("japan-career-agent", "japan-recruit-ai-agent")
+
 
 class ReleaseVerificationError(ValueError):
     """Raised when a release bundle fails an identity or content check."""
@@ -43,9 +49,12 @@ def _check_name(value: Any, label: str) -> str:
 
 def _check_manifest(manifest: dict[str, Any]) -> None:
     required = {"format_version", "product", "version", "source_commit", "git_status_clean", "source_tree_sha256", "files", "artifact", "sbom"}
-    if set(manifest) != required:
+    # `wheel` arrived in 2.1.0 with the PyPI channel. It is optional rather than required so this
+    # verifier still accepts the 2.0.x bundles that predate it; an unknown key stays a hard error,
+    # because a manifest carrying something this contract does not describe was not built by it.
+    if set(manifest) - {"wheel"} != required:
         raise ReleaseVerificationError("manifest keys do not match the release contract")
-    if manifest["format_version"] != 1 or manifest["product"] != "japan-recruit-ai-agent":
+    if manifest["format_version"] != 1 or manifest["product"] not in PRODUCT_NAMES:
         raise ReleaseVerificationError("manifest identity is invalid")
     if not isinstance(manifest["version"], str) or not re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"]):
         raise ReleaseVerificationError("manifest version is invalid")
@@ -74,7 +83,9 @@ def _check_manifest(manifest: dict[str, Any]) -> None:
             or not HEX64.fullmatch(entry["sha256"])
         ):
             raise ReleaseVerificationError(f"invalid manifest digest entry: {path!r}")
-    for key in ("artifact", "sbom"):
+    for key in ("artifact", "sbom", "wheel"):
+        if key not in manifest:
+            continue
         value = manifest[key]
         if not isinstance(value, dict) or set(value) != {"name", "size", "sha256"}:
             raise ReleaseVerificationError(f"manifest {key} identity is invalid")
@@ -133,10 +144,21 @@ def verify(manifest_path: Path, checksums_path: Path, artifact: Path, sbom: Path
     _check_manifest(manifest)
     if manifest["artifact"]["name"] != artifact.name or manifest["sbom"]["name"] != sbom.name:
         raise ReleaseVerificationError("manifest filenames do not match supplied files")
-    for label, target, metadata in (("artifact", artifact, manifest["artifact"]), ("sbom", sbom, manifest["sbom"])):
+    checked = [("artifact", artifact, manifest["artifact"]), ("sbom", sbom, manifest["sbom"])]
+    # The wheel is the file `uvx` and `npx` end up running. It is verified from the bundle
+    # directory rather than a separate argument so an existing caller gains the check for free —
+    # a channel nobody remembered to verify is the same as an unverified channel.
+    if "wheel" in manifest:
+        wheel = manifest_path.parent / manifest["wheel"]["name"]
+        if not wheel.is_file():
+            raise ReleaseVerificationError(f"manifest declares a wheel that is not in the bundle: {wheel.name}")
+        checked.append(("wheel", wheel, manifest["wheel"]))
+    for label, target, metadata in checked:
         if target.stat().st_size != metadata["size"] or _sha256(target) != metadata["sha256"]:
             raise ReleaseVerificationError(f"{label} does not match manifest")
-    _check_checksums(checksums_path, {artifact.name: artifact, sbom.name: sbom, manifest_path.name: manifest_path})
+    expected_checksums = {target.name: target for _, target, _ in checked}
+    expected_checksums[manifest_path.name] = manifest_path
+    _check_checksums(checksums_path, expected_checksums)
     _check_archive(artifact, manifest)
     sbom_document = _load_json(sbom)
     if sbom_document.get("bomFormat") != "CycloneDX" or sbom_document.get("metadata", {}).get("component", {}).get("version") != manifest["version"]:

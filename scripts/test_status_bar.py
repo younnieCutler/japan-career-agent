@@ -217,7 +217,31 @@ def test_update_line_only_when_newer():
     line = status_bar.update_line("1.1.0", {"latest": "1.2.0"})
     assert "update: v1.2.0 available (installed 1.1.0)" in line
     # The plugin@marketplace form is required; the bare name does not resolve.
-    assert "claude plugin update japan-recruit-ai-agent@japan-recruit-ai-agent" in line
+    assert "claude plugin update japan-career-agent@japan-career-agent" in line
+
+
+def test_update_check_honours_the_pre_rename_variable():
+    # The project was renamed in 2.1.0. Someone who set the 2.0.x variable made a decision, and a
+    # rename that quietly stops reading it turns their opt-out back on without telling them.
+    saved = {name: os.environ.get(name) for name in ("JAPAN_CAREER_NO_UPDATE_CHECK", "JAPAN_RECRUIT_NO_UPDATE_CHECK")}
+    try:
+        for name in saved:
+            os.environ.pop(name, None)
+        assert not status_bar.update_check_disabled()
+        os.environ["JAPAN_RECRUIT_NO_UPDATE_CHECK"] = "1"
+        assert status_bar.update_check_disabled(), "the pre-rename opt-out must keep working"
+        os.environ.pop("JAPAN_RECRUIT_NO_UPDATE_CHECK")
+        os.environ["JAPAN_CAREER_NO_UPDATE_CHECK"] = "1"
+        assert status_bar.update_check_disabled()
+        # Only an explicit "1" opts out, under either name.
+        os.environ["JAPAN_CAREER_NO_UPDATE_CHECK"] = "yes"
+        assert not status_bar.update_check_disabled()
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def test_update_line_appears_last_in_the_block():
@@ -353,12 +377,12 @@ def test_workspace_resolution_explicit_env_then_cwd():
         write_pipeline(cwd, "cwd-company")
         old_cwd = Path.cwd()
         old_workspace = os.environ.get("CAREER_WORKSPACE")
-        old_no_update = os.environ.get("JAPAN_RECRUIT_NO_UPDATE_CHECK")
+        old_no_update = os.environ.get("JAPAN_CAREER_NO_UPDATE_CHECK")
         try:
             os.chdir(cwd)
             child_env = os.environ.copy()
             child_env["CAREER_WORKSPACE"] = str(env)
-            child_env["JAPAN_RECRUIT_NO_UPDATE_CHECK"] = "1"
+            child_env["JAPAN_CAREER_NO_UPDATE_CHECK"] = "1"
             assert "explicit-company" in run(["--workspace", str(explicit)], cwd, child_env)
             assert "env-company" in run([], cwd, child_env)
             child_env.pop("CAREER_WORKSPACE", None)
@@ -371,9 +395,9 @@ def test_workspace_resolution_explicit_env_then_cwd():
             else:
                 os.environ["CAREER_WORKSPACE"] = old_workspace
             if old_no_update is None:
-                os.environ.pop("JAPAN_RECRUIT_NO_UPDATE_CHECK", None)
+                os.environ.pop("JAPAN_CAREER_NO_UPDATE_CHECK", None)
             else:
-                os.environ["JAPAN_RECRUIT_NO_UPDATE_CHECK"] = old_no_update
+                os.environ["JAPAN_CAREER_NO_UPDATE_CHECK"] = old_no_update
 
 
 def run():

@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.1.0] - 2026-08-11
+
+- Rename the project to `japan-career-agent`. The old name described the work as recruiting, which
+  is what the other side of the table does; what this actually holds is one person's career record.
+  The repository, the plugin, the marketplace entry and the release product name all move together,
+  because a name that is right in one manifest and stale in another is worse than either name alone.
+- Keep every artefact published under the old name verifiable. `verify_release.py` accepts both
+  product names, permanently: a bundle someone already downloaded cannot be re-stamped, and a
+  verifier that rejects it would stop checking the very releases still in circulation.
+- Keep an existing opt-out working. `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` still disables the update
+  check alongside the new `JAPAN_CAREER_NO_UPDATE_CHECK`. A renamed variable that quietly stops
+  being read turns a decision the user made back on without telling them.
+- Install without a plugin host. `pyproject.toml` builds a wheel, so `uvx japan-career-agent` and
+  `pipx install japan-career-agent` now reach the same runtime the plugin ships. The wheel keeps
+  `_shared/` and `skills/career-agent/` in their existing relative positions rather than converting
+  them into packages, so the runtime modules are shipped unmodified and the plugin path is
+  unaffected.
+- Add `npx japan-career-agent` as a discovery channel. The npm package contains an installer and no
+  runtime: it locates `uv` or `pipx`, installs the same version of the same PyPI package, and hands
+  over. It deliberately does not fall back to `pip install`, which would modify an interpreter the
+  user did not name. There is no `postinstall` hook — nothing executes at install time — and no second
+  artefact to verify, because the only thing ever fetched is the wheel.
+- Fail with instructions rather than a traceback when no runner is present. `npx` with neither `uv`
+  nor `pipx` installed is an ordinary first run, and it now prints how to install one and states
+  that nothing on the machine was changed.
+- Guard the new surface in CI. `scripts/test_pyproject_install.py` builds the wheel, installs it
+  into a throwaway environment and runs it from a directory unrelated to the repository, asserting
+  that both console scripts work and that `routing.yml` and the built-in templates still resolve.
+  `scripts/test_npm_bootstrapper.py` asserts the npm package declares no install-time hook and
+  cannot drift from the release version.
+
 ## [2.0.0] - 2026-08-10
 
 - Add the context an experience happened in. A context is a company, a university, a part-time

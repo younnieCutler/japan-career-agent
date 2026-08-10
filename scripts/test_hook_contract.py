@@ -75,7 +75,7 @@ def _normal_script(marker: str) -> str:
 
 def test_missing_script_fails_open() -> None:
     with tempfile.TemporaryDirectory(prefix="plugins cache ") as tmp:
-        stale_root = Path(tmp) / "plugins" / "cache" / "japan-recruit-ai-agent" / "1.6.0"
+        stale_root = Path(tmp) / "plugins" / "cache" / "japan-career-agent" / "1.6.0"
         _assert_degraded(_run_hook(stale_root))
 
 
@@ -120,7 +120,7 @@ def test_paths_with_spaces_and_unicode_are_safe() -> None:
 
 def test_stale_version_delete_and_current_version_lifecycle() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        cache = Path(tmp) / "plugins" / "cache" / "japan-recruit-ai-agent"
+        cache = Path(tmp) / "plugins" / "cache" / "japan-career-agent"
         old_root = cache / "1.6.0"
         current_root = cache / "1.6.2"
 

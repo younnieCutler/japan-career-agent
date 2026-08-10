@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CANARY_ID = "CANARY-ENDPOINT-001"
 HEALTHCHECK_DESCRIPTOR = {
     "kind": "endpoint_health",
-    "product": "japan-recruit-ai-agent",
+    "product": "japan-career-agent",
     "contract_version": 1,
 }
 
@@ -64,7 +64,7 @@ def run_canary(
             request = urllib.request.Request(
                 url,
                 method="GET",
-                headers={"User-Agent": "japan-recruit-ai-agent-canary/1"},
+                headers={"User-Agent": "japan-career-agent-canary/1"},
             )
             try:
                 with opener(request, timeout=timeout) as response:

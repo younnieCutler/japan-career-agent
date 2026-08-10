@@ -17,6 +17,7 @@
 !/sbom.cdx.json
 !/CONTRIBUTING.md
 !/CHANGELOG.md
+!/pyproject.toml
 !/examples/
 !/examples/**
 !/docs/
@@ -36,6 +37,10 @@
 !/_shared/
 !/scripts/
 !/hooks/
+
+# Exception: distribution launchers (Python wheel entry point, npm bootstrapper)
+!/packaging/
+!/packaging/**
 
 # Exception: Skill folders
 !/skills/

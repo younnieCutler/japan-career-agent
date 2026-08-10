@@ -1,10 +1,10 @@
 {
-  "name": "japan-recruit-ai-agent",
+  "name": "japan-career-agent",
   "owner": { "name": "younnieCutler" },
   "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
   "plugins": [
     {
-      "name": "japan-recruit-ai-agent",
+      "name": "japan-career-agent",
       "source": ".",
       "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
       "category": "career",

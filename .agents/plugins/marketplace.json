@@ -1,14 +1,14 @@
 {
-  "name": "japan-recruit-ai-agent",
+  "name": "japan-career-agent",
   "interface": {
-    "displayName": "Japan Recruit AI Agent"
+    "displayName": "Japan Career Agent"
   },
   "plugins": [
     {
-      "name": "japan-recruit-ai-agent",
+      "name": "japan-career-agent",
       "source": {
         "source": "url",
-        "url": "https://github.com/younnieCutler/japan-recruit-ai-agent.git",
+        "url": "https://github.com/younnieCutler/japan-career-agent.git",
         "ref": "v1.18.1"
       },
       "policy": {

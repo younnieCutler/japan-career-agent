@@ -57,7 +57,7 @@ def build_document(runtime_lock: Path, development_lock: Path) -> dict[str, Any]
         "metadata": {
             "component": {
                 "type": "application",
-                "name": "japan-recruit-ai-agent",
+                "name": "japan-career-agent",
                 "version": json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"],
             },
             "properties": [

@@ -1,4 +1,4 @@
-# Japan Recruit AI Agent - entry
+# Japan Career Agent - entry
 
 Read [`AGENTS.md`](./AGENTS.md). At session start load
 [`_shared/agent_context/onboarding.md`](./_shared/agent_context/onboarding.md); load other lazy

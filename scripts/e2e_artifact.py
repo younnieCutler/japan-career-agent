@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 
-ARTIFACT_SCHEMA = "japan-recruit-ai-agent.e2e-artifact.v2"
+ARTIFACT_SCHEMA = "japan-career-agent.e2e-artifact.v2"
 ALLOWED_SKILL_STATUSES = frozenset(
     {"runtime_e2e_pass", "contract_audit_pass", "not_executable"}
 )
@@ -463,7 +463,7 @@ def package_artifact(
     if output_zip.exists() and not force:
         raise ArtifactError(f"output already exists; refusing to overwrite: {output_zip}")
 
-    with tempfile.TemporaryDirectory(prefix="japan-recruit-e2e-stage-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="japan-career-e2e-stage-") as temporary:
         stage_root = Path(temporary) / artifact_root.name
         stage_root.mkdir(parents=True)
         pairs = _redaction_roots(repo_root, artifact_root, stage_root)

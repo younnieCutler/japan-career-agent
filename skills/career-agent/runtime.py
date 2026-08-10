@@ -482,6 +482,19 @@ def _set_profile_axis_locked(home: CareerVault, field: str, normalized: str) -> 
     return result
 
 
+def _invocation() -> str:
+    """The command name to put in front of a suggested next step.
+
+    A clone is run as `python skills/career-agent/career_agent.py`; an installed wheel is run as
+    `japan-career-agent`. Printing the clone form to someone who installed with uvx or npx names a
+    file they do not have, which turns a next step into a dead end.
+    """
+    program = Path(sys.argv[0]).name if sys.argv and sys.argv[0] else ""
+    if not program or program.endswith(".py"):
+        return "python skills/career-agent/career_agent.py"
+    return program
+
+
 def setup(
     vault_path: Path,
     track: str | None = None,
@@ -518,14 +531,15 @@ def setup(
         needs_input.append("graduation_year")
     if needs_input:
         quoted_vault = '"' + str(home.path).replace('"', '\\"') + '"'
+        program = _invocation()
         if needs_input == ["graduation_year"]:
             next_command = (
-                "python skills/career-agent/career_agent.py setup "
+                f"{program} setup "
                 f"--vault {quoted_vault} --track shinsotsu --graduation-year <YYYY>"
             )
         else:
             next_command = (
-                "python skills/career-agent/career_agent.py setup "
+                f"{program} setup "
                 f"--vault {quoted_vault} --track <shinsotsu|chuto>"
             )
     elif not diagnosis["ok"]:
