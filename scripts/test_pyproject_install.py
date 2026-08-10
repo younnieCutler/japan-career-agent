@@ -122,6 +122,22 @@ def install_and_smoke(wheel: Path, root: Path) -> None:
     vault = root / "vault"
 
     agent = str(_executable(venv, CONSOLE_SCRIPTS[0]))
+
+    # A setup that still needs input prints the command to run next. From an installed wheel that
+    # command must name the installed program: `python skills/career-agent/career_agent.py` is a
+    # file the user does not have, so the suggestion would be a dead end.
+    incomplete = subprocess.run(
+        [agent, "setup", "--vault", str(root / "hint-vault"), "--format", "json"],
+        cwd=workspace,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    hint = json.loads(incomplete.stdout).get("next", "")
+    if "career_agent.py" in hint or CONSOLE_SCRIPTS[0] not in hint:
+        raise RuntimeError(f"installed setup suggests a command that does not exist: {hint!r}")
+
     setup = _run_json(
         [agent, "setup", "--vault", str(vault), "--track", "chuto", "--target-role", "Data Engineer", "--format", "json"],
         cwd=workspace,

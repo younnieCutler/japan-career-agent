@@ -18,12 +18,13 @@
   them into packages, so the runtime modules are shipped unmodified and the plugin path is
   unaffected.
 - Add `npx japan-career-agent` as a discovery channel. The npm package contains an installer and no
-  runtime: it locates `uv`, `pipx` or `pip`, installs the same version of the same PyPI package, and
-  hands over. There is no `postinstall` hook — nothing executes at install time — and no second
+  runtime: it locates `uv` or `pipx`, installs the same version of the same PyPI package, and hands
+  over. It deliberately does not fall back to `pip install`, which would modify an interpreter the
+  user did not name. There is no `postinstall` hook — nothing executes at install time — and no second
   artefact to verify, because the only thing ever fetched is the wheel.
-- Fail with instructions rather than a traceback when Python is too old or missing. Neither `uvx`
-  nor `npx` provisions an interpreter, so a first run on Python 3.10 is an ordinary outcome and now
-  says which version is needed and how to get it.
+- Fail with instructions rather than a traceback when no runner is present. `npx` with neither `uv`
+  nor `pipx` installed is an ordinary first run, and it now prints how to install one and states
+  that nothing on the machine was changed.
 - Guard the new surface in CI. `scripts/test_pyproject_install.py` builds the wheel, installs it
   into a throwaway environment and runs it from a directory unrelated to the repository, asserting
   that both console scripts work and that `routing.yml` and the built-in templates still resolve.

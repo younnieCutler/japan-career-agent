@@ -43,9 +43,11 @@ uvx japan-career-agent init     # uv 経由、または: pipx run japan-career-a
 ```
 
 `npx` が取得するのはインストーラだけで、runtime は含まれません。`uv` か `pipx` を見つけて同じ
-バージョンの PyPI リリースを導入し、実行を委ねます。`npm install` の時点では何も実行されません。
-Python 3.11 以降が必要で、どちらの runner も Python を用意してくれないため、interpreter が無い
-場合は traceback ではなく導入方法を案内して停止します。
+バージョンの PyPI リリースを導入し、実行を委ねます。`npm install` の時点では何も実行されず、
+どちらの経路も既に使っている Python には手を触れません。
+
+Python 3.11 以降が必要です。`uv` は適合する interpreter を自分で取得し、`pipx` は導入済みの
+Python を使います。どちらも無い場合、`npx` は導入方法を案内し、何も変更しません。
 
 ### Claude Code
 

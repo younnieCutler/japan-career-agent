@@ -16,9 +16,12 @@ uvx japan-career-agent init
 
 ## What it needs
 
-Python 3.11 or newer, plus [uv](https://docs.astral.sh/uv/) or
-[pipx](https://pipx.pypa.io/) to run the tool in its own environment. If neither is present the
-command explains how to install one and changes nothing.
+[uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/), to run the tool in its own
+environment rather than in a Python you depend on. If neither is present, the command explains how
+to install one and changes nothing.
+
+Python 3.11 or newer is required: `uv` downloads a matching interpreter by itself, `pipx` uses one
+that is already installed.
 
 ## What it does not do
 

@@ -42,9 +42,12 @@ uvx japan-career-agent init     # via uv, or: pipx run japan-career-agent init
 ```
 
 `npx` ships an installer and no runtime: it locates `uv` or `pipx`, installs the matching PyPI
-release, and hands over. Nothing runs at `npm install` time. Python 3.11 or newer is required and
-neither runner provides it, so a missing interpreter is reported with instructions rather than a
-traceback.
+release, and hands over. Nothing runs at `npm install` time, and neither path writes into a Python
+you already depend on.
+
+Python 3.11 or newer is required. `uv` downloads a matching interpreter by itself; `pipx` uses one
+that is already installed. With neither runner present, `npx` prints how to install one and changes
+nothing.
 
 ### Claude Code
 
