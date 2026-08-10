@@ -1,8 +1,43 @@
-# Japan Career Agent
+<h1 align="center">Japan Career Agent</h1>
 
-[English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
+<p align="center">
+  <strong>일본 취업·이직을 위한 evidence-based 커리어 의사결정 도구.<br/>
+  경력 기록은 내 컴퓨터에만 남고, 승인 없이는 어떤 것도 사실이 되지 않습니다.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="#설치">설치</a> ·
+  <a href="#무엇이-다른가">왜 다른가</a> ·
+  <a href="#기본-흐름">흐름</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#할-수-있는-일">스킬</a> ·
+  <a href="CONTRIBUTING.md">기여</a> ·
+  <a href="CHANGELOG.md">변경 이력</a>
+</p>
+
+<p align="center">
+  🌐 <a href="README.md">English</a> ·
+  <strong>한국어</strong> ·
+  <a href="README_ja.md">日本語</a>
+</p>
+
+---
 
 현재 릴리스: `2.1.0`.
+
+**세 단계로:**
+
+1. **있었던 일을 기록한다** — 棚卸し가 지나온 일을 context, experience, 확인 가능한 근거로 바꿉니다. 확인할 수 없는 것은 `Unknown`으로 남습니다.
+2. **승인한다** — 사용자가 확인하기 전에는 어떤 것도 canonical 경력 기록에 들어가지 않습니다. 출처 없는 수치는 거부됩니다.
+3. **사용한다** — JD 매칭, 職務経歴書, 면접 연습, 다음 행동 모두 확인된 근거만 인용합니다.
 
 일본 취업·이직을 위한 local-first evidence-based 커리어 의사결정 도구입니다. Claude Code와 Codex에서 쓰는 plugin/skill 모음이며, 로컬 Career Agent runtime으로 구직자와 채용 측 workflow를 지원합니다.
 

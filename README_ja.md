@@ -1,8 +1,43 @@
-# Japan Career Agent
+<h1 align="center">Japan Career Agent</h1>
 
-[English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
+<p align="center">
+  <strong>日本での就職・転職のための evidence-based なキャリア意思決定支援。<br/>
+  経歴の記録は手元の PC に留まり、承認なしに何も事実になりません。</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="#インストール">インストール</a> ·
+  <a href="#何が違うのか">何が違うか</a> ·
+  <a href="#基本の流れ">流れ</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#できること">スキル</a> ·
+  <a href="CONTRIBUTING.md">コントリビュート</a> ·
+  <a href="CHANGELOG.md">変更履歴</a>
+</p>
+
+<p align="center">
+  🌐 <a href="README.md">English</a> ·
+  <a href="README_ko.md">한국어</a> ·
+  <strong>日本語</strong>
+</p>
+
+---
 
 現在のリリース: `2.1.0`。
+
+**3つのステップ:**
+
+1. **あったことを記録する** — 棚卸しが過去の仕事を context・experience・検証できる根拠に変えます。確認できないものは `Unknown` のまま残ります。
+2. **承認する** — 本人が確認するまで、canonical な経歴記録には何も入りません。出典のない数値は拒否されます。
+3. **使う** — JD マッチング、職務経歴書、面接練習、次の行動。すべて確認済みの根拠だけを引用します。
 
 日本での就職・転職に向けた local-first の evidence-based なキャリア意思決定支援です。Claude Code と Codex で使う plugin/skill の集合で、ローカルで動く Career Agent runtime が求職者と採用側の workflow を扱います。
 

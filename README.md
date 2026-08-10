@@ -1,8 +1,43 @@
-# Japan Career Agent
+<h1 align="center">Japan Career Agent</h1>
 
-[English](README.md) | [한국어](README_ko.md) | [日本語](README_ja.md)
+<p align="center">
+  <strong>Evidence-based career decision support for the Japanese job market.<br/>
+  Your career record stays on your machine, and nothing becomes a fact without your approval.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#why-this-is-different">Why</a> ·
+  <a href="#the-basic-flow">Flow</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#what-it-can-help-with">Skills</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  🌐 <strong>English</strong> ·
+  <a href="README_ko.md">한국어</a> ·
+  <a href="README_ja.md">日本語</a>
+</p>
+
+---
 
 Current release: `2.1.0`.
+
+**In three steps:**
+
+1. **Record what happened** — 棚卸し turns past work into contexts, experiences and checkable evidence. What you cannot verify stays `Unknown`.
+2. **Approve it** — nothing enters your canonical career record until you confirm it. A number without a source is refused.
+3. **Use it** — JD matching, a 職務経歴書, interview practice and next actions, all quoting only confirmed evidence.
 
 Local-first, evidence-based career decision support for Japanese job search. This is a Claude Code and Codex plugin/skill suite with a local Career Agent runtime for job seekers and hiring teams.
 

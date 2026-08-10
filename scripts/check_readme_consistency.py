@@ -29,6 +29,18 @@ FORBIDDEN = (
     *CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS,
     re.compile(r"(?:Recruit|Persol)\s+(?:algorithm|score|style)", re.I),
 )
+HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.MULTILINE)
+IN_PAGE_LINK = re.compile(r'href="#([^"]+)"')
+
+
+def _anchor(heading: str) -> str:
+    """GitHub's heading anchor: lowercased, punctuation dropped, spaces hyphenated.
+
+    `\\w` under Unicode keeps Hangul and kana, which the navigation rows in README_ko and
+    README_ja depend on.
+    """
+    text = re.sub(r"[^\w\s-]", "", heading.strip().lower(), flags=re.UNICODE)
+    return re.sub(r"\s+", "-", text)
 
 
 def main() -> int:
@@ -44,6 +56,12 @@ def main() -> int:
         for pattern in FORBIDDEN:
             if pattern.search(text):
                 errors.append(f"{path.name}: forbidden output claim {pattern.pattern}")
+        # The navigation row is the first thing a reader clicks, and a heading rename silently
+        # turns it into a link to the top of the page.
+        anchors = {_anchor(heading) for heading in HEADING.findall(text)}
+        for target in IN_PAGE_LINK.findall(text):
+            if target not in anchors:
+                errors.append(f"{path.name}: navigation link #{target} matches no heading")
     if errors:
         print("README consistency errors:")
         print("\n".join(errors))
