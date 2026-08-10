@@ -1,5 +1,64 @@
 # Changelog
 
+## [1.24.0] - 2026-08-10
+
+- Add PROJECT as the context a work event happened in. It is another type on the same ledger, not
+  a second store, so durability, the approval gate, and append-only history come with it. A
+  project's current state is a projection over its events: later non-null fields win and the rest
+  keep what an earlier event said, which is how a record actually gets filled in — named in one
+  turn, given a role in another, closed in a third.
+- Link work events to projects by reference. `primary_project_id` plus `related_project_ids` means
+  one canonical event appears in several project timelines while existing once; the same work is
+  never recorded twice to make it show up in two places. `--none` records general work, and no
+  project question ever blocks a capture: a work event with no project is valid.
+- Add `work_date` to the work-event payload, at month or day precision. `occurred_at` remains what
+  it was — when the note was captured — so writing up last June's project today can now say June
+  without changing an existing meaning. Absent stays Unknown and nothing guesses a date.
+- Add `weekly-review`: the period's work grouped by project, with the gaps worth asking about
+  ranked by what changes how the record reads later. It windows on capture time, so a note written
+  this week about older work appears here, which is the one most likely to still need a
+  contribution and a result.
+- Add `projects`, `project-timeline`, `add-project`, and `link-work-event`. Timelines are views
+  over the ledger; no duplicated history is stored.
+- Add `evidence-pool`: confirmed work events grouped under the projects they belong to, which is
+  the read a JD answer starts from. Each row says whether its date was stated or inherited from
+  capture time, so an answer cannot present the day a note was written as the day work happened.
+- Answer a JD with requirements and the evidence behind them first, and primary experience
+  candidates second. No score, no total, no ordering by keyword count — a requirement is
+  supported when recorded behaviour matches what it asks for, not when a word repeats.
+- Add `primary_project_ids` to the per-company selection. A project may be the headline because
+  it is the story a reader follows; the work events under it are what makes it checkable, and a
+  project title alone supports nothing.
+- Add `maintenance-check`: situations worth mentioning, or none. Everything it reports is
+  triggered by something in the record — notes piling up on one project, a closed project with no
+  summary, confirmed work where the personal contribution is still Unknown, confidential material
+  whose external use was never reviewed. There is no schedule and no reminder, at most one thing
+  is meant to be said, and silence is the common answer.
+- Show pending captures in `weekly-review`. A quick note is a pending proposal until it is
+  approved, so reading only the ledger showed an empty week to someone who had been capturing all
+  week — and the unfinished notes are what a review is for. Draft rows carry their `proposal_id`
+  so the review can act on the row it is looking at.
+- Merge a project's `period` a level deeper, for the same reason `confidentiality` merges: a start
+  is learned when the project begins and an end when it closes, and replacing the object on the
+  second turn dropped the start.
+- Base `readiness` recency on the stated `work_date` alone. Falling back to capture time is right
+  for ordering a timeline and wrong for "is this recent": it turned a note written today about
+  work from five years ago into confirmed recent experience. Undated evidence now reads `Unknown`,
+  dated-but-old reads `Stale`, and a mix reads `Partial`.
+- Add `project.external_label`: the safe name for recruiter-facing output, kept beside the real
+  title rather than replacing it. "내부 결제 Phoenix 프로젝트" stays the user's own record while
+  "payment reliability project" is what leaves, decided once by the user instead of improvised per
+  document.
+- Ground `mock-interviewer` in confirmed evidence and the company's recorded selection, so practice
+  rehearses the answer the candidate will actually give — including saying "그 부분은 경험이
+  없습니다" well where `unknown_requirements` names a real gap.
+- Fix `add-project`'s next action, which named the project id where `approve` takes a proposal id.
+- Add `readiness`: independent dimensions with no total, and job-search intent reported beside
+  them rather than derived from them. A current record is not a decision to leave.
+- Add project-end review guidance: draft the summary from the project's own confirmed timeline
+  instead of asking the user to explain it again. The summary is a narrative layer and never
+  becomes evidence on its own.
+
 ## [1.23.0] - 2026-08-10
 
 - Separate career readiness from job-search intent. `employment_status` and `job_search` are the

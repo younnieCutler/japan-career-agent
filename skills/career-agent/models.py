@@ -118,6 +118,16 @@ CAREER_STATUSES = {"active", "confirmed", "onboarding"}
 # type on the existing ledger rather than a second store: the approval gate, the idempotent
 # append, supersession, and the numeric-claim rule below all apply to it unchanged.
 WORK_EVENT_TYPE = "work_event"
+# A project is the context a work event happened in, not evidence about the person. It is another
+# type on the same ledger for the same reason work events are: durability, the approval gate, and
+# append-only history come with it, and a project's later state is a projection over its events
+# rather than a second store to keep in sync.
+#
+# `project_id` is minted once and reused by every later event about that project, so the record
+# accumulates the way the user fills it in. No counter: a sequential PRJ-001 would need a shared
+# allocator, which is the one thing an append-only ledger should not need.
+PROJECT_EVENT_TYPE = "project"
+PROJECT_STATUSES = {"active", "completed", "paused", "unknown"}
 # Career readiness and job-search intent are separate concepts, so they are separate axes.
 # `employment_status` and `job_search` are the user's own declaration and live in the profile;
 # only the dedicated `set-employment-status` / `set-job-search` commands write them. Every other
@@ -304,6 +314,7 @@ class Event(TypedDict, total=False):
     compensation: int | float
     currency: str
     work_event: dict[str, Any]
+    project: dict[str, Any]
     # The workflow intent the user stated in the turn that produced this event, when they stated
     # one. Absent is the normal case and means "leave the mode where it is".
     career_mode: str

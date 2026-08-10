@@ -16,7 +16,7 @@ import self_analysis_profile  # noqa: E402
 from schema_contract import validate_new_write  # noqa: E402
 
 from lifecycle import count_consecutive_safe_stops, vault_lock  # noqa: E402
-from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
+from models import CHUTO_STAGES, DOCUMENT_EVIDENCE_PREFIX, PROJECT_EVENT_TYPE, SHINSOTSU_STAGES, TRACKS, UNTRUSTED_DATA_MARKER, WORK_EVENT_TYPE, CareerError  # noqa: E402
 from personal_timeline import select_personal_context  # noqa: E402
 from persistence import read_jsonl, write_jsonl  # noqa: E402
 from private_store import PrivateHome, resolve_document  # noqa: E402
@@ -72,6 +72,41 @@ def make_work_event(message: str, *, status: str = "draft") -> dict[str, Any]:
         "deadline": None,
         "status": status,
         "work_event": {},
+    }
+    validate_event(event)
+    return event
+
+
+def make_project_event(
+    title: str, project_id: str | None = None, *, fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Propose a project: the context work events hang on, not evidence about the person.
+
+    Only a title is needed. A project exists so a work note has somewhere to go, and asking for a
+    role, a period, and a summary before the user can name one would make creating a project the
+    form this workflow exists to avoid. Passing an existing `project_id` records an update to that
+    project rather than a second one.
+    """
+    payload: dict[str, Any] = {
+        "id": project_id or f"prj-{uuid.uuid4().hex[:12]}",
+        "title": title.strip(),
+    }
+    payload.update({key: value for key, value in (fields or {}).items() if value is not None})
+    event = {
+        "id": f"evt-{uuid.uuid4().hex[:12]}",
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "type": PROJECT_EVENT_TYPE,
+        "occurred_at": utc_now(),
+        "title": payload["title"],
+        "summary": str(payload.get("summary") or payload["title"]),
+        "evidence": [],
+        "source": "user_message",
+        "next_action": None,
+        "deadline": None,
+        "status": "draft",
+        "project": payload,
     }
     validate_event(event)
     return event

@@ -35,6 +35,34 @@ When `CAREER_VAULT` is set, read confirmed `career_context` from `career-agent c
 Otherwise read `data/self_analysis_profile.yml` only when `career_context_confirmed: true`. Missing or
 unconfirmed context is not a reason to invent a value; continue with facts the user states in-session.
 
+## Ground the practice in confirmed evidence
+
+```bash
+python skills/career-agent/career_agent.py evidence-pool --vault "$CAREER_VAULT"
+```
+
+That returns confirmed work events grouped under their projects. When the user is practising for a
+specific company, `data/pipeline.yml` already records what they chose to lead with —
+`primary_project_ids`, `primary_experience_ids`, `supporting_experience_ids`. Build the questions
+around those: the point of practice is the answer they will actually give.
+
+Ask about what is recorded. "이 프로젝트에서 본인이 직접 한 일은?" is a question the evidence can
+answer; a question about a project they never recorded only teaches them to improvise.
+
+The same rules apply here as anywhere else evidence is reused:
+
+- an answer may only claim what a confirmed record supports — a draft is not evidence;
+- quote `individual_contribution` for what the candidate did and `team_result` for the team, and
+  never coach them into presenting one as the other;
+- use only the numbers in `metrics`, with the evidence behind them; never supply a figure to make
+  an answer land better;
+- `unknown_requirements` on the company entry is where a real gap is. Practise saying "그 부분은
+  경험이 없습니다" well, rather than practising a way around it;
+- `contains_confidential: true` means the practice answer needs the abstraction too — the habit
+  rehearsed here is the one used in the room. `external_use: unknown` is not permission. Where a
+  project has an `external_label`, practise saying that and not the real title, for the same
+  reason: the name said out loud in a real interview cannot be taken back.
+
 ## Language Auto-Detection
 
 Detect the user's language preferences for UI, but the **interview practice questions can be delivered in Japanese** if the user chooses Japanese interview practice mode.

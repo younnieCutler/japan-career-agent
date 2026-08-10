@@ -114,6 +114,7 @@ $defs:
             # supports. Per company because the answer differs per JD: the same person leads with
             # incident response at one employer and stakeholder coordination at another. The user's
             # own axes -- employment_status, job_search, career_mode -- are never copied here.
+            primary_project_ids: {type: array, items: {type: string, minLength: 1}}
             primary_experience_ids: {type: array, items: {type: string, minLength: 1}}
             supporting_experience_ids: {type: array, items: {type: string, minLength: 1}}
             unknown_requirements: {type: array, items: {type: string, minLength: 1}}
@@ -556,6 +557,8 @@ pipeline:
       #
       # The user's own axes — employment_status, job_search, career_mode — are NOT copied here.
       # They belong to the person, not to an opportunity, and a per-company copy would drift.
+      primary_project_ids:       "list of strings | null — projects this JD leads with. A project is the
+                                    narrative container; the work events under it are the evidence"
       primary_experience_ids:    "list of strings | null — confirmed work_event ids this JD leads with"
       supporting_experience_ids: "list of strings | null — confirmed work_event ids that back them up"
       unknown_requirements:      "list of strings | null — JD requirements no confirmed evidence supports.

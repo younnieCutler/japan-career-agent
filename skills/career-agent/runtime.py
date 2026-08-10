@@ -34,6 +34,8 @@ from models import (  # noqa: E402
     EVENT_STATUSES,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
+    PROJECT_EVENT_TYPE,
+    PROJECT_STATUSES,
     JOB_SEARCH_STATES,
     WORK_EVENT_TYPE,
     PIPELINE_STAGE,
@@ -85,6 +87,7 @@ from routing import (  # noqa: E402
     term_present,
 )
 from proposals import (  # noqa: E402
+    make_project_event,
     stated_career_mode,
     approval_action_for,
     list_proposals,
@@ -109,6 +112,10 @@ from lifecycle import (  # noqa: E402
 from projection import (  # noqa: E402
     clamp_career_mode,
     next_career_mode,
+    project_timeline,
+    projects_from_events,
+    work_event_date,
+    work_event_project_ids,
     _legacy_company_slug,
     apply_event_to_state,
     company_slug,
@@ -174,6 +181,7 @@ from guided import (  # noqa: E402
 )
 
 _PROPOSAL_COMPATIBILITY_EXPORTS = (
+    make_project_event,
     stated_career_mode,
     approval_action_for,
     list_proposals,
@@ -192,6 +200,10 @@ _LIFECYCLE_COMPATIBILITY_EXPORTS = (
 
 _PROJECTION_COMPATIBILITY_EXPORTS = (
     _legacy_company_slug,
+    project_timeline,
+    projects_from_events,
+    work_event_date,
+    work_event_project_ids,
     apply_event_to_state,
     clamp_career_mode,
     company_slug,
@@ -257,6 +269,8 @@ _MODEL_COMPATIBILITY_EXPORTS = (
     EVENT_STATUSES,
     EXTERNAL_USE_STATES,
     JOB_SEARCH_STATES,
+    PROJECT_EVENT_TYPE,
+    PROJECT_STATUSES,
     WORK_EVENT_TYPE,
     PIPELINE_STAGE,
     REFERENCE_BY_STAGE,
@@ -823,6 +837,453 @@ def work_events(
     }
 
 
+def add_project(
+    home: CareerVault, title: str, *, project_id: str | None = None, **fields: Any,
+) -> dict[str, Any]:
+    """Propose a project, or an update to one that already exists.
+
+    Goes through the same proposal the rest of the ledger uses, so the confirmation the UX already
+    asks for ("연결할까요?") is the approval, not an extra step on top of it.
+    """
+    known = projects_from_events(read_jsonl(home.events))
+    if project_id is not None and project_id not in known:
+        raise CareerError(f"unknown project id: {project_id}", code="PROJECT_NOT_FOUND")
+    event = make_project_event(title, project_id, fields=fields)
+    proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
+    proposal = {
+        "id": proposal_id,
+        "kind": "event",
+        "status": "pending",
+        "created_at": utc_now(),
+        # The proposal id, not the project id: `approve` takes the former, and naming the latter
+        # here handed the user a command that cannot work.
+        "next_action": f"approve {proposal_id} after checking the title and role",
+        "event": event,
+    }
+    with vault_lock(home):
+        home.add_proposal(proposal)
+    return {
+        "mode": "add-project",
+        "vault": str(home.path),
+        "project": event["project"],
+        "proposal": {"id": proposal["id"], "status": proposal["status"]},
+        "updates_existing": project_id is not None,
+        "ok": True,
+    }
+
+
+def list_projects(home: CareerVault, *, status: str | None = None) -> dict[str, Any]:
+    """Every confirmed project with how much evidence hangs on it."""
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    counts: dict[str, int] = {}
+    for event in events:
+        if event.get("type") != WORK_EVENT_TYPE or event.get("status") != "confirmed":
+            continue
+        for project_id in work_event_project_ids(event):
+            counts[project_id] = counts.get(project_id, 0) + 1
+    rows = [
+        {**record, "confirmed_work_events": counts.get(project_id, 0)}
+        for project_id, record in projects.items()
+        if status is None or record.get("status") == status
+    ]
+    rows.sort(key=lambda row: (row.get("status") != "active", str(row.get("title") or "")))
+    return {
+        "mode": "projects",
+        "vault": str(home.path),
+        "count": len(rows),
+        "projects": rows,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def show_project_timeline(home: CareerVault, project_id: str) -> dict[str, Any]:
+    """One project's confirmed work events in time order, as references to the ledger."""
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    if project_id not in projects:
+        raise CareerError(f"unknown project id: {project_id}", code="PROJECT_NOT_FOUND")
+    entries = project_timeline(events, project_id)
+    return {
+        "mode": "project-timeline",
+        "vault": str(home.path),
+        "project": projects[project_id],
+        "count": len(entries),
+        "timeline": entries,
+        # Every row points at a ledger event. Nothing here is a second copy of the history.
+        "entries_are_references": True,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def link_work_event(
+    home: CareerVault,
+    proposal_id: str,
+    *,
+    primary: str | None = None,
+    related: list[str] | None = None,
+    clear: bool = False,
+) -> dict[str, Any]:
+    """Point a pending work event at projects, or at none.
+
+    A link is a reference. One canonical work event is pointed at by every project it belongs to,
+    so a note spanning three projects is stored once and appears in three timelines -- copying it
+    per project would create three facts where the user lived one.
+
+    `clear` records "no project / general work", which is a real answer. Capture is never blocked
+    on choosing a project.
+    """
+    known = set(projects_from_events(read_jsonl(home.events)))
+    unknown = sorted({item for item in [primary, *(related or [])] if item and item not in known})
+    if unknown:
+        raise CareerError(f"unknown project id: {', '.join(unknown)}", code="PROJECT_NOT_FOUND")
+    if clear:
+        patch: dict[str, Any] = {"primary_project_id": None, "related_project_ids": []}
+    else:
+        patch = {}
+        if primary is not None:
+            patch["primary_project_id"] = primary
+        if related is not None:
+            patch["related_project_ids"] = [item for item in related if item != primary]
+    result = review_work_event(home, proposal_id, patch)
+    result["mode"] = "link-work-event"
+    return result
+
+
+def pending_work_events(home: CareerVault) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Work events captured but not yet approved, and the proposal id each one came in on.
+
+    A quick note lives on `proposals.jsonl` until it is approved, so any view that reads only the
+    ledger shows a week with nothing in it precisely when the user has been capturing all week.
+    Every view of recent activity needs these, which is why they are read in one place.
+    """
+    pending: list[dict[str, Any]] = []
+    proposal_of: dict[str, str] = {}
+    for row in read_jsonl(home.proposals):
+        event = row.get("event")
+        if row.get("status") != "pending" or not isinstance(event, dict):
+            continue
+        if event.get("type") != WORK_EVENT_TYPE:
+            continue
+        proposal_of[event["id"]] = row["id"]
+        pending.append(event)
+    return pending, proposal_of
+
+
+def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | None = None) -> dict[str, Any]:
+    """This period's work evidence, grouped by project, with what is worth asking about.
+
+    Not a retrospective form. It shows what already accumulated and names the gaps that actually
+    change how the record reads later, in the order they matter: what the user personally did,
+    what came of it, where a number came from, what changed for the team, what they learned.
+
+    A record with gaps is a good record. These are questions worth asking, never fields to force.
+    """
+    boundary = iso_date(as_of, "--as-of") or utc_now()[:10]
+    start = iso_date(since, "--since") or (
+        dt.date.fromisoformat(boundary) - dt.timedelta(days=7)
+    ).isoformat()
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    pending, proposal_of = pending_work_events(home)
+    # Windowed on capture time, not on when the work happened. The point of this view is "what did
+    # I write down and not finish structuring", so a note captured today about last June belongs
+    # here — it is exactly the one still needing a contribution and a result. `work_date` is shown
+    # per row and is what recency uses downstream.
+    recent = [
+        event
+        for event in [*pending, *events]
+        if event.get("type") == WORK_EVENT_TYPE
+        and start <= str(event.get("occurred_at") or "")[:10] <= boundary
+    ]
+    groups: dict[str, dict[str, Any]] = {}
+    for event in recent:
+        payload = event.get("work_event") or {}
+        ids = work_event_project_ids(event) or [""]
+        gaps = [name for name, ask in (
+            ("individual_contribution", not payload.get("individual_contribution")),
+            ("result", not payload.get("individual_contribution") and not payload.get("team_result")),
+            ("metrics_evidence", bool(payload.get("metrics")) and not event.get("evidence")),
+            ("improvements", not payload.get("improvements")),
+            ("learning", not payload.get("learning")),
+        ) if ask]
+        for project_id in ids:
+            group = groups.setdefault(
+                project_id,
+                {
+                    "project_id": project_id or None,
+                    "title": projects.get(project_id, {}).get("title") if project_id else None,
+                    "events": [],
+                },
+            )
+            group["events"].append({
+                "event_id": event["id"],
+                # Present for a draft, absent once confirmed. It is what `review-work-event` and
+                # `approve` need, so a review can act on the row it is looking at.
+                "proposal_id": proposal_of.get(event["id"]),
+                "captured_on": str(event.get("occurred_at") or "")[:10],
+                "work_date": payload.get("work_date"),
+                "title": event.get("title"),
+                "status": event.get("status"),
+                "gaps": gaps,
+            })
+    ordered = sorted(groups.values(), key=lambda g: (g["project_id"] is None, str(g["title"] or "")))
+    return {
+        "mode": "weekly-review",
+        "vault": str(home.path),
+        "since": start,
+        "as_of": boundary,
+        "event_count": len(recent),
+        "draft_count": sum(1 for event in recent if event.get("status") == "draft"),
+        "confirmed_count": sum(1 for event in recent if event.get("status") == "confirmed"),
+        "groups": ordered,
+        # Ranked by what changes how the record reads later, not by field order. Ask at most a few.
+        "ask_first": ["individual_contribution", "result", "metrics_evidence", "improvements", "learning"],
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def evidence_pool(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
+    """Confirmed career evidence, grouped the way a JD is answered: by project, then by event.
+
+    One call instead of three, because the mapping needs both levels at once — a project is what
+    the user leads with, and the work events under it are what makes the claim checkable. Read
+    only. Nothing here can be selected into a JD in a way that edits it.
+
+    Every event carries `recency`, which prefers the stated `work_date` and falls back to capture
+    time. The fallback is named in `dated` so a JD answer can say "recorded in August, work date
+    not stated" instead of implying August work.
+    """
+    boundary = iso_date(as_of, "--as-of") or utc_now()[:10]
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    confirmed = [
+        event
+        for event in events
+        if event.get("type") == WORK_EVENT_TYPE
+        and event.get("status") == "confirmed"
+        and str(event.get("occurred_at") or "")[:10] <= boundary
+    ]
+
+    def summarize(event: dict[str, Any]) -> dict[str, Any]:
+        payload = event.get("work_event") or {}
+        return {
+            "event_id": event["id"],
+            "title": event.get("title"),
+            "summary": event.get("summary"),
+            "recency": work_event_date(event),
+            "dated": bool(payload.get("work_date")),
+            "projects": work_event_project_ids(event),
+            "work_event": payload,
+            "evidence": event.get("evidence") or [],
+        }
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    unattached: list[dict[str, Any]] = []
+    for event in confirmed:
+        row = summarize(event)
+        # A reference to a project this projection does not know about must not make the evidence
+        # disappear. `link-work-event` already refuses an unknown id, so this should be
+        # unreachable -- but silently dropping confirmed evidence from the view a JD is answered
+        # from is the worst way for that assumption to turn out wrong.
+        known = [project_id for project_id in row["projects"] if project_id in projects]
+        if not known:
+            unattached.append(row)
+        for project_id in known:
+            grouped.setdefault(project_id, []).append(row)
+    return {
+        "mode": "evidence-pool",
+        "vault": str(home.path),
+        "as_of": boundary,
+        "projects": [
+            {
+                **record,
+                "work_events": sorted(
+                    grouped.get(project_id, []), key=lambda row: row["recency"], reverse=True
+                ),
+            }
+            for project_id, record in projects.items()
+        ],
+        "unattached_work_events": sorted(unattached, key=lambda row: row["recency"], reverse=True),
+        "confirmed_work_event_count": len(confirmed),
+        # Only confirmed rows are here. A draft is a proposal the user never verified, and a
+        # superseded one was replaced; neither may back a claim made to someone else.
+        "confirmed_only": True,
+        "data_trust": UNTRUSTED_DATA_MARKER,
+        "instruction_authority": "none",
+        "ok": True,
+    }
+
+
+def maintenance_check(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
+    """Situations worth mentioning, or none.
+
+    Everything here is triggered by something that actually happened in the record, never by a
+    date. "It has been a week, log your work" is an interruption with no information in it; "이
+    프로젝트가 끝난 것 같은데 정리할까요?" is a suggestion the user can act on. If nothing here
+    fires, the honest output is an empty list — say nothing rather than manufacture a nudge.
+
+    Read only, and deliberately so: nothing in maintenance may change `job_search`, the career
+    mode, or any record. It reports; the user decides.
+    """
+    boundary = iso_date(as_of, "--as-of") or utc_now()[:10]
+    week_ago = (dt.date.fromisoformat(boundary) - dt.timedelta(days=7)).isoformat()
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    # Drafts count here. The situation worth mentioning is "you have been writing notes on this
+    # project all week" -- which is true before any of them is approved, and is in fact the moment
+    # a review helps most. Only the checks below that speak about finished records filter to
+    # `confirmed`.
+    pending, _ = pending_work_events(home)
+    work = [e for e in [*pending, *events] if e.get("type") == WORK_EVENT_TYPE]
+    confirmed = [e for e in work if e.get("status") == "confirmed"]
+    suggestions: list[dict[str, Any]] = []
+
+    per_project: dict[str, int] = {}
+    for event in work:
+        if str(event.get("occurred_at") or "")[:10] >= week_ago:
+            for project_id in work_event_project_ids(event):
+                per_project[project_id] = per_project.get(project_id, 0) + 1
+    for project_id, count in sorted(per_project.items(), key=lambda item: -item[1]):
+        if count >= 3:
+            suggestions.append({
+                "kind": "review_recent_project_activity",
+                "project_id": project_id,
+                "title": projects.get(project_id, {}).get("title"),
+                "count": count,
+                "detail": f"{count} notes this week on this project; a short review would tidy them",
+            })
+
+    for project_id, record in projects.items():
+        if record.get("status") == "completed" and not record.get("summary"):
+            suggestions.append({
+                "kind": "project_ended_without_summary",
+                "project_id": project_id,
+                "title": record.get("title"),
+                "detail": "this project is closed but has no summary yet",
+            })
+
+    missing = [
+        event["id"]
+        for event in confirmed
+        if not (event.get("work_event") or {}).get("individual_contribution")
+    ]
+    if missing:
+        suggestions.append({
+            "kind": "individual_contribution_unknown",
+            "event_ids": missing[:5],
+            "count": len(missing),
+            "detail": "confirmed notes where what the user personally did is still Unknown",
+        })
+
+    flagged = [
+        event["id"]
+        for event in confirmed
+        if ((event.get("work_event") or {}).get("confidentiality") or {}).get("external_use")
+        == "unknown"
+    ]
+    if flagged:
+        suggestions.append({
+            "kind": "external_use_unreviewed",
+            "event_ids": flagged[:5],
+            "count": len(flagged),
+            "detail": "confidential material with external use not yet reviewed; unknown is not permission",
+        })
+
+    return {
+        "mode": "maintenance-check",
+        "vault": str(home.path),
+        "as_of": boundary,
+        "suggestions": suggestions,
+        # Say at most one of these, and only when the turn has room for it. Silence is a valid
+        # and frequent answer.
+        "mention_at_most": 1,
+        "changes_nothing": True,
+        "ok": True,
+    }
+
+
+def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
+    """Independent readiness dimensions. There is no total, and readiness is not intent.
+
+    Each line answers its own question and is reported on its own. Collapsing them into one number
+    would be the composite this repository refuses everywhere else, and it would also be read as
+    "am I ready to leave", which is a different question from whether the record is current.
+    """
+    boundary = iso_date(as_of, "--as-of") or utc_now()[:10]
+    cutoff = (dt.date.fromisoformat(boundary) - dt.timedelta(days=365)).isoformat()
+    events = read_jsonl(home.events)
+    projects = projects_from_events(events)
+    confirmed = [
+        e for e in events if e.get("type") == WORK_EVENT_TYPE and e.get("status") == "confirmed"
+    ]
+    # Recency uses the stated `work_date` and nothing else. Falling back to capture time is right
+    # for ordering a timeline, where the alternative is no order at all; it is wrong here, because
+    # it would turn "I wrote this down today about work I did five years ago" into confirmed
+    # recent experience. An undated record is undated, and Unknown stays Unknown.
+    dated = [e for e in confirmed if (e.get("work_event") or {}).get("work_date")]
+    undated = [e for e in confirmed if not (e.get("work_event") or {}).get("work_date")]
+    # A `YYYY-MM` sorts as the first of that month against a `YYYY-MM-DD` cutoff, so a month that
+    # straddles the boundary reads as older. That is the conservative direction: it can understate
+    # recency, never overstate it.
+    recent = [e for e in dated if str(e["work_event"]["work_date"]) >= cutoff]
+    with_contribution = [
+        e for e in confirmed if (e.get("work_event") or {}).get("individual_contribution")
+    ]
+    with_metrics = [e for e in confirmed if (e.get("work_event") or {}).get("metrics")]
+    needs_review = [
+        e["id"] for e in confirmed
+        if ((e.get("work_event") or {}).get("confidentiality") or {}).get("external_use") == "unknown"
+    ]
+
+    def dimension(subset: list[Any], total: list[Any]) -> str:
+        if not total:
+            return "Unknown"
+        if len(subset) == len(total):
+            return "Confirmed"
+        return "Partial" if subset else "Unknown"
+
+    return {
+        "mode": "readiness",
+        "vault": str(home.path),
+        "as_of": boundary,
+        "dimensions": {
+            # `Stale` is a claim that the recent record is empty, so it may only be made when
+            # every record is dated. One undated note could be last week's work; mixing it with
+            # old dated ones is Partial, not Stale.
+            "recent_work_evidence": (
+                "Unknown" if not dated
+                else "Partial" if undated
+                else "Confirmed" if recent
+                else "Stale"
+            ),
+            "project_history": dimension(
+                [p for p in projects.values() if p.get("summary")], list(projects.values())
+            ),
+            "individual_contribution": dimension(with_contribution, confirmed),
+            "metrics_evidence": dimension(with_metrics, confirmed),
+        },
+        "counts": {
+            "projects": len(projects),
+            "confirmed_work_events": len(confirmed),
+            "dated_work_events": len(dated),
+            "undated_work_events": len(undated),
+            "dated_in_last_year": len(recent),
+            "external_use_review_required": len(needs_review),
+        },
+        # Readiness says the record is current. It says nothing about wanting to leave.
+        "job_search": job_search_of(home.load_profile()),
+        "no_total_by_design": True,
+        "ok": True,
+    }
+
+
 def _state_projector_for(home: CareerVault):
     """Bind the user's declared job-search intent to the state projector.
 
@@ -881,6 +1342,7 @@ def _requires_approval_recovery(args: argparse.Namespace) -> bool:
         "setup", "guided", "approve", "restore-state", "index",
         "propose-fact", "propose-context",
         "set-job-search", "set-employment-status", "review-work-event",
+        "add-project", "link-work-event",
     }:
         return True
     if args.command == "doctor":
@@ -1396,6 +1858,72 @@ def build_parser() -> argparse.ArgumentParser:
              "is capture time, not when the work happened",
     )
     add_output_format(work_events_parser)
+    add_project_parser = subparsers.add_parser(
+        "add-project", help="propose a project, or an update to one that already exists",
+    )
+    add_vault_argument(add_project_parser)
+    add_project_parser.add_argument("title")
+    add_project_parser.add_argument("--project-id", help="update this project instead of adding one")
+    add_project_parser.add_argument("--role")
+    add_project_parser.add_argument("--scope")
+    add_project_parser.add_argument("--summary")
+    add_project_parser.add_argument(
+        "--external-label", dest="external_label",
+        help="safe name for recruiter-facing output when the real title cannot leave",
+    )
+    add_project_parser.add_argument("--status", choices=sorted(PROJECT_STATUSES))
+    add_project_parser.add_argument("--from", dest="period_from", metavar="YYYY-MM[-DD]")
+    add_project_parser.add_argument("--to", dest="period_to", metavar="YYYY-MM[-DD]")
+    add_output_format(add_project_parser)
+    for name, helptext in (
+        ("maintenance-check", "situations worth mentioning, or none; never a scheduled reminder"),
+        ("readiness", "independent readiness dimensions; there is no total and it is not intent"),
+    ):
+        sub = subparsers.add_parser(name, help=helptext)
+        add_vault_argument(sub)
+        sub.add_argument("--as-of", metavar="YYYY-MM-DD", help="defaults to today in UTC")
+        add_output_format(sub)
+    pool_parser = subparsers.add_parser(
+        "evidence-pool",
+        help="confirmed evidence grouped by project, the read a JD mapping starts from",
+    )
+    add_vault_argument(pool_parser)
+    pool_parser.add_argument("--as-of", metavar="YYYY-MM-DD", help="defaults to today in UTC")
+    add_output_format(pool_parser)
+    weekly_parser = subparsers.add_parser(
+        "weekly-review", help="this period's work evidence grouped by project, with the gaps worth asking about",
+    )
+    add_vault_argument(weekly_parser)
+    weekly_parser.add_argument("--since", metavar="YYYY-MM-DD", help="defaults to seven days before --as-of")
+    weekly_parser.add_argument("--as-of", metavar="YYYY-MM-DD", help="defaults to today in UTC")
+    add_output_format(weekly_parser)
+    projects_parser = subparsers.add_parser(
+        "projects", help="list confirmed projects and how much evidence hangs on each",
+    )
+    add_vault_argument(projects_parser)
+    projects_parser.add_argument("--status", choices=sorted(PROJECT_STATUSES))
+    add_output_format(projects_parser)
+    timeline_parser = subparsers.add_parser(
+        "project-timeline", help="one project's confirmed work events, as ledger references",
+    )
+    add_vault_argument(timeline_parser)
+    timeline_parser.add_argument("project_id")
+    add_output_format(timeline_parser)
+    link_parser = subparsers.add_parser(
+        "link-work-event", help="point a pending work event at projects, or at none",
+    )
+    add_vault_argument(link_parser)
+    link_parser.add_argument("proposal_id")
+    link_parser.add_argument("--project", dest="primary", help="the project this work mainly belongs to")
+    link_parser.add_argument(
+        "--related", action="append", default=None,
+        help="another project this work also belongs to; repeat for several",
+    )
+    link_parser.add_argument(
+        "--none", dest="clear", action="store_true",
+        help="record general work that belongs to no project",
+    )
+    add_output_format(link_parser)
     review_parser = subparsers.add_parser(
         "review-work-event",
         help="fill the structured fields of a pending work event before it is confirmed",
@@ -1682,6 +2210,36 @@ def main(argv: Iterable[str] | None = None) -> int:
                 result = set_profile_axis(home, "employment_status", args.value)
             elif args.command == "doctor":
                 result = doctor(home, fix=args.fix, workspace=args.workspace)
+            elif args.command == "add-project":
+                period = {"from": args.period_from, "to": args.period_to}
+                result = add_project(
+                    home, args.title, project_id=args.project_id,
+                    role=args.role, scope=args.scope, summary=args.summary, status=args.status,
+                    external_label=args.external_label,
+                    period=period if any(period.values()) else None,
+                )
+            elif args.command == "maintenance-check":
+                result = maintenance_check(home, as_of=args.as_of)
+            elif args.command == "readiness":
+                result = readiness(home, as_of=args.as_of)
+            elif args.command == "evidence-pool":
+                result = evidence_pool(home, as_of=args.as_of)
+            elif args.command == "weekly-review":
+                result = weekly_review(home, since=args.since, as_of=args.as_of)
+            elif args.command == "projects":
+                result = list_projects(home, status=args.status)
+            elif args.command == "project-timeline":
+                result = show_project_timeline(home, args.project_id)
+            elif args.command == "link-work-event":
+                if args.clear and (args.primary or args.related):
+                    raise CareerError(
+                        "--none records no project; it cannot be combined with --project or --related",
+                        code="INVALID_INPUT",
+                    )
+                result = link_work_event(
+                    home, args.proposal_id,
+                    primary=args.primary, related=args.related, clear=args.clear,
+                )
             elif args.command == "review-work-event":
                 raw = sys.stdin.read() if args.work_event_json == "-" else args.work_event_json
                 try:
