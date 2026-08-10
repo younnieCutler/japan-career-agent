@@ -153,6 +153,30 @@ def _protected_claims(event: dict[str, Any], context: dict[str, Any], project: d
     }
 
 
+def _employment_order(block: dict[str, Any]) -> tuple:
+    """Newest employment first, which is what a 職務経歴書 reader expects.
+
+    This used to sort on the context id, which is a uuid: the order was stable for one vault and
+    arbitrary between any two, and a career history whose order means nothing is worse than one
+    that is merely in an unusual order. Reverse chronological is the ordinary Japanese convention
+    and it is also the only ordering the data actually supports.
+
+    A context with no recorded period sorts last rather than first. Absent is Unknown, and an
+    Unknown start is not evidence of a recent one. Ties fall back to the label so that two
+    contexts sharing a start date still come out the same way every run.
+    """
+    period = block.get("period") or {}
+    start = str(period.get("from") or "")
+    return (0 if start else 1, _descending(start), str(block.get("label") or ""))
+
+
+def _descending(value: str) -> str:
+    """Sort a `YYYY-MM` string in reverse without reversing the whole key."""
+    # Complement each digit so plain ascending string order runs newest-first, which keeps the
+    # sort key a single tuple rather than needing a second pass with `reverse=True`.
+    return "".join(str(9 - int(char)) if char.isdigit() else char for char in value)
+
+
 def _slot(prefix: str, key: str) -> str:
     return f"{prefix}:{key}"
 
@@ -236,18 +260,21 @@ def document_model(
         )
 
     used_contexts = {entry["context_id"] for entry in entries if entry["context_id"]}
-    employment_history = [
-        {
-            "context_id": context_id,
-            "label": contexts[context_id].get("external_label") or contexts[context_id].get("label"),
-            "internal_label": contexts[context_id].get("label"),
-            "kind": contexts[context_id].get("kind"),
-            "period": contexts[context_id].get("period"),
-            "entries": [entry["slot"] for entry in entries if entry["context_id"] == context_id],
-        }
-        for context_id in sorted(used_contexts)
-        if context_id in contexts
-    ]
+    employment_history = sorted(
+        (
+            {
+                "context_id": context_id,
+                "label": contexts[context_id].get("external_label") or contexts[context_id].get("label"),
+                "internal_label": contexts[context_id].get("label"),
+                "kind": contexts[context_id].get("kind"),
+                "period": contexts[context_id].get("period"),
+                "entries": [entry["slot"] for entry in entries if entry["context_id"] == context_id],
+            }
+            for context_id in used_contexts
+            if context_id in contexts
+        ),
+        key=_employment_order,
+    )
     # A skill is a name plus the evidence that shows it being used. Without the second half it is
     # a keyword list, and a keyword list is the thing a JD would happily fill in for the user.
     skills: dict[str, list[str]] = {}
@@ -284,6 +311,10 @@ def document_model(
         # protected claims are the union of every entry's -- they may say less than the evidence,
         # never more.
         "narrative_slots": [_slot("section", "summary"), _slot("section", "self_pr")],
+        # Proposals, not decisions. Latin tokens are how technology travels, but they also pick up
+        # "API" out of 決済API and "OJT" out of OJT計画 -- evidence-backed and useless as a skill
+        # label. The writer narrows this list in the draft; `fidelity_gate` refuses anything added
+        # to it, so narrowing is the only direction available.
         "skills": [
             {"label": label, "evidence_ids": ids} for label, ids in sorted(skills.items())
         ],
@@ -428,6 +459,19 @@ def fidelity_gate(
                 violations.append({
                     "slot": slot, "rule": "confidentiality_bypass",
                     "detail": f"{label!r} has an external label; the internal name may not be sent",
+                })
+
+    # A draft may drop a proposed skill; it may not introduce one. Adding a label here would be
+    # the same failure as writing an unsupported technology into a sentence, arriving through a
+    # different door.
+    proposed = {item["label"] for item in model.get("skills", [])}
+    selected = (humanized or draft).get("skills")
+    if selected is not None:
+        for label in selected:
+            if label not in proposed:
+                violations.append({
+                    "slot": "skills", "rule": "unsupported_technology",
+                    "detail": f"{label!r} is not a technology this evidence records",
                 })
 
     for entry in model.get("entries", []):

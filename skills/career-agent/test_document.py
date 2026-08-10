@@ -173,6 +173,66 @@ class WhatNeverReachesTheDocumentTests(unittest.TestCase):
         self.assertEqual(built["skills"], [{"label": "GitHub Actions", "evidence_ids": ["evt-deploy"]}])
 
 
+class EmploymentHistoryReadsNewestFirstTests(unittest.TestCase):
+    """The ordinary Japanese convention, and the only ordering the data supports."""
+
+    def ledger_with_two_employers(self) -> list[dict]:
+        return [
+            *LEDGER,
+            context("ctx-b", "以前の会社", period={"from": "2019-04", "to": "2022-03"}),
+            evidence("evt-old", summary="月次レポートを定型化", role="担当", context_id="ctx-b"),
+        ]
+
+    def test_the_more_recent_employer_comes_first(self) -> None:
+        built = document.document_model(
+            self.ledger_with_two_employers(),
+            company(primary_experience_ids=["evt-deploy", "evt-old"]),
+        )
+        self.assertEqual(
+            [block["context_id"] for block in built["employment_history"]], ["ctx-a", "ctx-b"]
+        )
+
+    def test_a_context_with_no_period_sorts_last(self) -> None:
+        # Absent is Unknown, and an Unknown start is not evidence of a recent one.
+        ledger = [
+            *self.ledger_with_two_employers(),
+            context("ctx-c", "期間未記録の会社", period=None),
+            evidence("evt-undated", summary="担当業務", role="担当", context_id="ctx-c"),
+        ]
+        built = document.document_model(
+            ledger, company(primary_experience_ids=["evt-deploy", "evt-old", "evt-undated"]),
+        )
+        self.assertEqual(built["employment_history"][-1]["context_id"], "ctx-c")
+
+    def test_the_order_does_not_depend_on_the_context_id(self) -> None:
+        # It used to sort on the uuid, which made the order stable for one vault and arbitrary
+        # between any two. A career history whose order means nothing is worse than an odd one.
+        built = document.document_model(
+            self.ledger_with_two_employers(),
+            company(primary_experience_ids=["evt-deploy", "evt-old"]),
+        )
+        ids = [block["context_id"] for block in built["employment_history"]]
+        self.assertNotEqual(ids, sorted(ids, reverse=True))
+        self.assertEqual(ids, ["ctx-a", "ctx-b"])
+
+
+class SkillsAreProposedAndMayOnlyBeNarrowedTests(unittest.TestCase):
+    def test_a_draft_may_drop_a_noisy_proposal(self) -> None:
+        # "API" out of 決済API is evidence-backed and useless as a skill label, so the writer is
+        # allowed to remove it.
+        built = model()
+        result = document.fidelity_gate(built, {"slots": {}, "skills": ["GitHub Actions"]})
+        self.assertTrue(result["pass"], result["violations"])
+
+    def test_a_draft_may_not_add_one(self) -> None:
+        built = model()
+        result = document.fidelity_gate(built, {"slots": {}, "skills": ["Kubernetes"]})
+        self.assertIn("unsupported_technology", {item["rule"] for item in result["violations"]})
+
+    def test_omitting_the_list_keeps_every_proposal(self) -> None:
+        self.assertTrue(document.fidelity_gate(model(), draft())["pass"])
+
+
 class TheGateRefusesStrongerWordingTests(unittest.TestCase):
     def assertBlocked(self, slots: dict, rule: str) -> None:
         result = document.fidelity_gate(model(), draft(**slots))

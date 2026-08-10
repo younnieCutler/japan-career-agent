@@ -64,7 +64,9 @@ def _fill(template: str, scope: dict[str, Any]) -> str:
     return SLOT.sub(lambda match: _escape(scope.get(match.group(1))), expanded)
 
 
-def _sections(model: dict[str, Any], slots: dict[str, Any]) -> dict[str, Any]:
+def _sections(
+    model: dict[str, Any], slots: dict[str, Any], skills: list[str] | None = None,
+) -> dict[str, Any]:
     """The model and the written text, flattened into what a template addresses.
 
     The template never sees an evidence id or a protected claim. It sees a heading and the lines
@@ -103,7 +105,14 @@ def _sections(model: dict[str, Any], slots: dict[str, Any]) -> dict[str, Any]:
         "target_role": target.get("role") or "",
         "career_summary": str(slots.get("section:summary") or "").strip(),
         "self_pr": str(slots.get("section:self_pr") or "").strip(),
-        "skills": [{"skill": item["label"]} for item in model.get("skills", [])],
+        # The model proposes; the draft may have narrowed. It can only ever be a subset -- the
+        # gate refuses a label that was not proposed -- so this cannot introduce a skill.
+        "skills": [
+            {"skill": label}
+            for label in (
+                skills if skills is not None else [item["label"] for item in model.get("skills", [])]
+            )
+        ],
         "employment_history": history,
         "unknowns": [{"unknown": item} for item in model.get("unknowns", [])],
     }
@@ -140,9 +149,15 @@ def resolve_template(root, template_id: str):
     return path
 
 
-def render(model: dict[str, Any], slots: dict[str, Any], template_text: str) -> str:
+def render(
+    model: dict[str, Any],
+    slots: dict[str, Any],
+    template_text: str,
+    *,
+    skills: list[str] | None = None,
+) -> str:
     """Fill a template with a checked document. Content is decided before this is called."""
-    return _fill(template_text, _sections(model, slots))
+    return _fill(template_text, _sections(model, slots, skills))
 
 
 def manifest(

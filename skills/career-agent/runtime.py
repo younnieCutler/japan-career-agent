@@ -1003,9 +1003,10 @@ def render_document(
             code="FIDELITY_GATE_FAILED",
             details={"violations": gate["violations"]},
         )
-    slots = (humanized or draft).get("slots") or {}
+    source = humanized or draft
+    slots = source.get("slots") or {}
     template_path = resolve_template(Path(__file__).resolve().parent, template)
-    output = render(model, slots, template_path.read_text(encoding="utf-8"))
+    output = render(model, slots, template_path.read_text(encoding="utf-8"), skills=source.get("skills"))
     target = model.get("target") or {}
     fingerprint = hashlib.sha256(
         "\0".join(
@@ -1015,6 +1016,7 @@ def render_document(
                 template,
                 RENDERER_VERSION,
                 json.dumps(slots, ensure_ascii=False, sort_keys=True),
+                json.dumps(source.get("skills"), ensure_ascii=False, sort_keys=True),
             ]
         ).encode("utf-8")
     ).hexdigest()[:8]

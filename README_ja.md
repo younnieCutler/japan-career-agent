@@ -118,6 +118,31 @@ python skills/career-agent/career_agent.py guided --vault "$VAULT" --format huma
 
 `guided` は setup 状態、pending proposal、`Unknown` と `Conflict` の数、workspace metadata、実行できる次の操作を表示します。スクリプトでは `--choice <id-or-number>` を使えます。書き込みを行う操作には `--confirm` が必要です。guided mode がproposalを自動承認したり、private noteの本文を読んだりすることはありません。
 
+
+### 過去の経験を復元し、応募先ごとに書類を作る
+
+Vault が空の場合は `readiness` がそれを明示し、そこから何も推測しません。
+
+```bash
+python skills/career-agent/career_agent.py readiness --vault "$VAULT"      # bootstrap_suggested
+python skills/career-agent/career_agent.py add-context "○○大学" --kind university --vault "$VAULT"
+python skills/career-agent/career_agent.py experiences --vault "$VAULT"    # Context → Experience → Evidence
+```
+
+Context は経験が起きた場所であり、勤務先とは限りません。`--kind` は会社・大学・インターン・アルバイト先・サークル・ボランティア・個人活動・オープンソースを含みます。Experience もプロジェクトとは限りません。仕事以外の経験は `run --mode chat --non-work` で記録し、学業が職務経歴として扱われないようにします。
+
+根拠がたまったら、応募先ごとに書類を組み立て、出力前に検査します。
+
+```bash
+python skills/career-agent/career_agent.py document-model <company-slug> --vault "$VAULT" > model.json
+python skills/career-agent/career_agent.py document-check --model model.json --draft draft.json
+python skills/career-agent/career_agent.py document-render --model model.json --draft draft.json \
+    --template standard-chuto --out ./career-docs
+```
+
+検査は deterministic です。記録にない数値、既存の数値の丸め、`支援` を `主導` と書く表現、使っていない技術として提示された求人キーワード、チームの成果を個人の成果として書いた文、`external_label` があるのに露出した社内プロジェクト名を拒否します。通過は **既知の protected claim 違反がない** という意味であり、日本語が事実と一致すると証明したわけではありません。送る前にご自身で読む理由がここにあります。
+
+出力は A4 の print CSS を含む HTML で、PDF はブラウザの印刷から作成します。書類が上書きされることはありません。ファイル名に根拠・求人・template・文面の digest が含まれるため、変更後に再生成すると新しいファイルが作られ、既存のものはそのまま残ります。`./career-docs/` は Git の追跡対象外です。
 詳しいCLI契約は [`skills/career-agent/SKILL.md`](skills/career-agent/SKILL.md) を参照してください。
 
 ## local-first と完全オフラインは同じではありません

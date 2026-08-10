@@ -93,6 +93,17 @@
   template, HTML — asserting the two things every layer depends on: career facts are identical
   whichever target asked for them, and generating documents leaves the ledger byte-identical.
 
+- Order employment history newest first. It was sorted on the context id, which is a uuid: the
+  order was stable within one vault and arbitrary between any two, and a career history whose
+  order means nothing is worse than one in an unusual order. Reverse chronological is the ordinary
+  Japanese convention and the only ordering the recorded periods actually support; a context with
+  no period sorts last, because an Unknown start is not evidence of a recent one. Found by printing
+  a two-employer sample and looking at it.
+- Let a draft narrow the proposed skills list. Latin tokens are how technology names travel, and
+  they also pick "API" out of 決済API and "OJT" out of OJT計画 -- evidence-backed and useless as a
+  skill label. The model proposes, the writer selects, and the gate refuses any label that was not
+  proposed, so the list can only ever be narrowed.
+
 - Add `career-tanaoroshi`: キャリアの棚卸し, the workflow that recovers experience from before the
   ledger existed. Contexts first, experiences second, evidence third -- asking which companies
   someone worked at leaves a new graduate with nothing to answer, and asking which projects leaves
