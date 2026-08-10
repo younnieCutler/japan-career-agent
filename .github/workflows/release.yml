@@ -154,13 +154,13 @@ jobs:
           # that version was fixed by the immutable tag, not by this step.
           skip-existing: true
 
-      - name: publish the npm bootstrapper
+      - name: set up node for the npm channel
         if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - name: npm publish
+      - name: publish the npm bootstrapper
         if: steps.release.outputs.changed == 'true' && steps.release.outputs.dry_run != 'true'
         working-directory: packaging/npm
         env:
