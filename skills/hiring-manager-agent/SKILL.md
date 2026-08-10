@@ -10,6 +10,7 @@ description: >
   - an employer wants to write or improve a JD
   - a hiring manager asks what evidence to collect in an interview
   - a company wants an explicit requirements and working-conditions profile
+license: MIT
 ---
 
 # Hiring Manager Agent — explicit requirements and evidence

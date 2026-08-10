@@ -9,6 +9,7 @@ description: >
   - the user asks for 自己分析, strengths, values, work style, career anchors, or direction
   - the user wants to understand preferences before resume work
   - the user is unsure which role or environment to investigate next
+license: MIT
 ---
 
 # Jiko Bunseki — user-led self-reflection

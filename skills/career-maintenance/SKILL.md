@@ -11,6 +11,7 @@ description: >
   The user says they are not job hunting but wants their career record kept current.
   Career readiness is continuous and job search is optional: this skill runs the same whether
   job search is on or off, and reaching it is never evidence of an intention to leave.
+license: MIT
 ---
 
 # Career Maintenance: work evidence while it is still fresh

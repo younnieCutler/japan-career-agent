@@ -10,6 +10,7 @@ description: >
   - the user compares two companies, offers, or roles
   - the user asks which offer to choose
   - the user has a CANDIDATE_PROFILE plus two COMPANY_PROFILE records
+license: MIT
 ---
 
 # Company Battlecard — independent evidence comparison

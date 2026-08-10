@@ -11,6 +11,7 @@ description: >
   - the user wants a self-PR, 志望動機, interview-content preparation, or a JD evidence review
   - the user asks about ATS/scout keywords, 新卒, 第二新卒, 中途, or a career transition
   - the user asks whether their evidence addresses a specific job requirement
+license: MIT
 ---
 
 # Job Seeker Agent — evidence and preparation

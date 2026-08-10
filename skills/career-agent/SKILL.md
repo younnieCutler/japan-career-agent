@@ -5,6 +5,7 @@ description: >
   loads only the relevant existing skill context, keeps an append-only event ledger, and proposes
   grounded next actions. It never submits applications, sends messages, or edits skills.
   Use for career state, next-action, heartbeat, deadline, event approval, and public posting discovery.
+license: MIT
 ---
 
 # Career Agent

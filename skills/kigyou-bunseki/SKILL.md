@@ -4,6 +4,7 @@ description: >
   Evidence-based research for a Japanese job posting or company URL. Extracts dated company,
   role, condition, and process observations; preserves unknowns; and prepares evidence for
   matching or a battlecard without a company score or hiring prediction.
+license: MIT
 ---
 
 # 企業分析: source-labelled research
