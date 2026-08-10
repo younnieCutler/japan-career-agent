@@ -220,6 +220,30 @@ def test_update_line_only_when_newer():
     assert "claude plugin update japan-career-agent@japan-career-agent" in line
 
 
+def test_update_check_honours_the_pre_rename_variable():
+    # The project was renamed in 2.1.0. Someone who set the 2.0.x variable made a decision, and a
+    # rename that quietly stops reading it turns their opt-out back on without telling them.
+    saved = {name: os.environ.get(name) for name in ("JAPAN_CAREER_NO_UPDATE_CHECK", "JAPAN_RECRUIT_NO_UPDATE_CHECK")}
+    try:
+        for name in saved:
+            os.environ.pop(name, None)
+        assert not status_bar.update_check_disabled()
+        os.environ["JAPAN_RECRUIT_NO_UPDATE_CHECK"] = "1"
+        assert status_bar.update_check_disabled(), "the pre-rename opt-out must keep working"
+        os.environ.pop("JAPAN_RECRUIT_NO_UPDATE_CHECK")
+        os.environ["JAPAN_CAREER_NO_UPDATE_CHECK"] = "1"
+        assert status_bar.update_check_disabled()
+        # Only an explicit "1" opts out, under either name.
+        os.environ["JAPAN_CAREER_NO_UPDATE_CHECK"] = "yes"
+        assert not status_bar.update_check_disabled()
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
 def test_update_line_appears_last_in_the_block():
     pipeline = {"companies": [company("a", stage=4)]}
     out = build_status(pipeline, {}, TODAY, "update: v1.2.0 available")
