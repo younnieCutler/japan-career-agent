@@ -1,3 +1,5 @@
+<!-- This file is the PyPI long description as well as the GitHub landing page, so links
+     that leave the file are absolute: PyPI resolves a relative link against nothing. -->
 <h1 align="center">Japan Career Agent</h1>
 
 <p align="center">
@@ -9,8 +11,8 @@
   <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
   <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
 </p>
 
 <p align="center">
@@ -19,14 +21,14 @@
   <a href="#the-basic-flow">Flow</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#what-it-can-help-with">Skills</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="CHANGELOG.md">Changelog</a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CONTRIBUTING.md">Contributing</a> ·
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">
   🌐 <strong>English</strong> ·
-  <a href="README_ko.md">한국어</a> ·
-  <a href="README_ja.md">日本語</a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/README_ko.md">한국어</a> ·
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/README_ja.md">日本語</a>
 </p>
 
 ---
