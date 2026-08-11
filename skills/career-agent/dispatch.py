@@ -30,7 +30,6 @@ from experiences import (
     work_events,
 )
 from guided_flow import run_guided
-from gui.server import serve as serve_gui
 from ingest import read_stdin_utf8, run_discover, run_heartbeat, run_index
 from lifecycle import restore_state, review_work_event
 from models import CareerError
@@ -53,6 +52,7 @@ from private_store import (
     resolve_private_home,
 )
 from proposals import list_proposals, propose_career_context, propose_fact, review_proposal, run_chat
+from sessions import list_sessions
 from vault import CareerVault, initialize_vault
 from views import (
     evidence_pool,
@@ -121,6 +121,8 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
         context["ok_is_exit_status"] = True
         return result
     if args.command == "ui":
+        from gui.server import serve as serve_gui
+
         ui_vault = CareerVault(Path(args.vault).expanduser()) if args.vault else CareerVault(DEFAULT_VAULT_PATH)
         return serve_gui(
             port=args.port,
@@ -261,6 +263,8 @@ def _run_vault_command(
         )
     if args.command == "status":
         return status(home, workspace=args.workspace)
+    if args.command == "sessions":
+        return list_sessions(home)
     if args.command == "proposals":
         if args.limit is not None and args.limit < 1:
             raise CareerError("--limit must be a positive integer")

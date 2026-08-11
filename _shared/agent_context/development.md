@@ -15,6 +15,8 @@ decision philosophy; `_shared/decision_philosophy.md` and `_shared/schemas.yml` 
 - `skills/career-agent/vault.py`: Vault paths, metadata indexing, trusted-context selection, and
   canonical Vault state facade.
 - `skills/career-agent/proposals.py`: approval-gated event/context proposal creation and listing.
+- `skills/career-agent/sessions.py`: APPLICATION-owned transient 棚卸し sessions, drafts,
+  checkpoints, and the read-only CLI session listing/migration path.
 - `skills/career-agent/lifecycle.py`: Vault locking, approval, retry-safe checkpoints, recovery,
   and safe-stop trajectories.
 - `skills/career-agent/projection.py`: company slugs, workspace resolution, pipeline projection,

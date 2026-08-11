@@ -35,7 +35,7 @@
 
 ---
 
-Current release: `2.8.0`.
+Current release: `2.9.0`.
 
 **In three steps:**
 
@@ -43,7 +43,7 @@ Current release: `2.8.0`.
 2. **Approve it** — nothing enters your canonical career record until you confirm it. A number without a source is refused.
 3. **Use it** — JD matching, a 職務経歴書, interview practice and next actions, all quoting only confirmed evidence.
 
-It runs as a Claude Code and Codex plugin/skill suite, or as a standalone command, over a local Career Agent runtime — for job seekers and hiring teams. The optional local GUI includes read views, resumable 棚卸し drafts, separate Company/Application cases with digest-named artifacts, and a read-only Projects / employment view; canonical evidence still requires your approval.
+It runs as a Claude Code and Codex plugin/skill suite, or as a standalone command, over a local Career Agent runtime — for job seekers and hiring teams. The optional local GUI includes read views, resumable 棚卸し drafts, separate Company/Application cases with digest-named artifacts, and a read-only Projects / employment view; `career-agent sessions --format json` reads the same resumable session store; canonical evidence still requires your approval.
 
 Use it to sort out a career direction, prepare a resume or 職務経歴書, read a job description or company evidence, compare opportunities, practise an interview, and keep track of the next step. It is a plugin and local runtime with an optional local GUI for read views, resumable 棚卸し drafts, case-scoped artifacts, and project/employment views, not a hosted SaaS. Canonical evidence still requires your approval.
 
@@ -137,7 +137,7 @@ work with no host installed; the plugin changes how you reach them, never what t
 
 The repository version can be ahead of the stable marketplace channel while a release is being
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
-follows `main`. Source metadata is `2.8.0` while the stable marketplace ref is still `v2.1.1`,
+follows `main`. Source metadata is `2.9.0` while the stable marketplace ref is still `v2.1.1`,
 because the release workflow has not published a tag for this source yet. Installing from the
 marketplace therefore gives you `2.1.1` today. The gap closes when the release workflow publishes
 the next tag and this ref is updated. `uvx` and `npx` are not affected either way, since they

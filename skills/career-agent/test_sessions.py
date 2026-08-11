@@ -295,7 +295,7 @@ class SessionTests(unittest.TestCase):
         path = sessions.session_path(self.home, created["session_id"])
         original = json.loads(path.read_text(encoding="utf-8"))
 
-        for value, message in ((999, "newer"), (None, "missing"), (0, "migration")):
+        for value, message in ((999, "newer"), (None, "missing")):
             record = dict(original)
             if value is None:
                 record.pop("session_schema_version")
@@ -308,6 +308,23 @@ class SessionTests(unittest.TestCase):
 
         path.write_text(json.dumps(original) + "\n", encoding="utf-8")
         self.assertEqual(sessions.load_session(self.home, created["session_id"])["session_id"], created["session_id"])
+
+    def test_v0_fixture_migrates_semantic_page_to_stage_without_rewriting(self) -> None:
+        created = sessions.create_session(self.home)
+        path = sessions.session_path(self.home, created["session_id"])
+        current = json.loads(path.read_text(encoding="utf-8"))
+        legacy = dict(current)
+        legacy.pop("stage")
+        legacy["session_schema_version"] = 0
+        legacy["page"] = "review"
+        legacy_bytes = (json.dumps(legacy) + "\n").encode("utf-8")
+        path.write_bytes(legacy_bytes)
+
+        resumed = sessions.resume_session(self.home, created["session_id"])
+
+        self.assertEqual(resumed["session"]["stage"], "review")
+        self.assertNotIn("page", resumed["session"])
+        self.assertEqual(path.read_bytes(), legacy_bytes)
 
 
 if __name__ == "__main__":

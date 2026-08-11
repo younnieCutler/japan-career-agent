@@ -70,8 +70,10 @@ stage/item state, never a page number. An autosaved draft may be newer than the 
 checkpoint; resume exposes that as unconfirmed input rather than silently promoting it.
 
 The session schema version is strict: current versions load, future or missing versions refuse with
-upgrade guidance, and older versions call an explicit migration hook. PR3 registers no migration,
-so it refuses older records without deleting or rewriting them. PR7 may register the v0→v1 hook.
+upgrade guidance, and older versions call an explicit migration hook. PR7 registers the v0→v1 hook:
+it maps only the legacy semantic `page` value to `stage`, rejects unsupported or conflicting values,
+and never rewrites the stored record. `career-agent sessions --format json` reads the same
+APPLICATION-owned store without importing `gui/`; the GUI and CLI therefore resume from one source.
 
 ## Read-only slice
 

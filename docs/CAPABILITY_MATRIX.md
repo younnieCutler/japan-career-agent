@@ -22,6 +22,7 @@ persistent install. Those four are the same program.
 |---|---|---|---|:--:|:--:|
 | Create a Career Vault | `core` | `setup` | ✅ | ✅ | ✅ |
 | Start the local loopback GUI | `core` | `ui` | ✅ | — | — |
+| Inspect resumable 棚卸し sessions | `core` | `sessions` | ✅ | ✅ | ✅ |
 | Resume a 棚卸し draft and submit an approval-gated proposal | `host-enhanced` | `ui` | ✅ local form | — | — |
 | Diagnose a Vault, repair its structure | `core` | `doctor` | ✅ | ✅ | ✅ |
 | See what is confirmed and what is pending | `core` | `status` | ✅ | ✅ | ✅ |

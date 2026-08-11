@@ -34,7 +34,9 @@ canonical writer or a hidden CLI dependency.
 `sessions.py` is the shared APPLICATION owner for resumable workflow state. `gui.tanaoroshi.py`
 translates semantic form actions into that owner; it does not own the files. A draft or checkpoint
 can be written to the transient capture area, but only the existing `approvals.approve` →
-`lifecycle.approve` path can append canonical evidence.
+`lifecycle.approve` path can append canonical evidence. The CLI `sessions` command reads this owner
+directly for resume inspection; it does not import the GUI adapter, while `ui` remains the only
+entrypoint bridge that launches `gui.server`.
 
 `case_store.py` and `artifact_store.py` own durable GUI metadata under `03-active/gui/`. The
 `gui.cases` and `gui.artifacts` modules are adapters: they never import persistence or Vault

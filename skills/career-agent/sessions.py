@@ -187,6 +187,30 @@ def _migrate_session(record: dict[str, Any]) -> dict[str, Any]:
     return current
 
 
+def _migrate_v0_session(record: dict[str, Any]) -> dict[str, Any]:
+    """Convert the pre-semantic ``page`` field without guessing numeric UI pages."""
+    migrated = dict(record)
+    legacy_stage = migrated.pop("page", None)
+    current_stage = migrated.get("stage")
+    if current_stage is None:
+        current_stage = legacy_stage
+        migrated["stage"] = current_stage
+    if legacy_stage is not None and legacy_stage != current_stage:
+        raise CareerError(
+            "v0 session page and stage disagree; the session was not changed",
+            code="SESSION_MIGRATION_INVALID",
+            retryable=False,
+        )
+    if not isinstance(current_stage, str) or current_stage not in SESSION_STAGES:
+        raise CareerError(
+            "v0 session has no supported semantic stage; the session was not changed",
+            code="SESSION_MIGRATION_INVALID",
+            retryable=False,
+        )
+    migrated["session_schema_version"] = CURRENT_SESSION_SCHEMA_VERSION
+    return migrated
+
+
 def register_session_migration(
     from_version: int, migration: Callable[[dict[str, Any]], dict[str, Any]]
 ) -> None:
@@ -194,6 +218,9 @@ def register_session_migration(
     if from_version < 0 or not callable(migration):
         raise CareerError("invalid session migration", code="INVALID_INPUT")
     SESSION_MIGRATIONS[from_version] = migration
+
+
+register_session_migration(0, _migrate_v0_session)
 
 
 def _read_session(home: CareerVault, session_id: str) -> dict[str, Any]:

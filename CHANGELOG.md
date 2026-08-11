@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0] - 2026-08-12
+
+- Register the explicit v0→v1 session migration from the legacy semantic `page` field to the
+  current `stage` field without rewriting the stored session.
+- Add the read-only `career-agent sessions --format json` view over the shared APPLICATION session
+  store, keeping CLI and GUI resume state on the same files without importing GUI modules.
+
 ## [2.8.0] - 2026-08-12
 
 - Add a read-only Projects / 재직 중 GUI view that composes confirmed project timelines with the

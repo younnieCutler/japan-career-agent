@@ -18,8 +18,9 @@ frozen legacy fields.
 
 Resumable GUI 棚卸し sessions and drafts are transient workflow material under
 `01-capture/gui/{sessions,drafts}` and use the existing atomic writer. They are not canonical
-evidence and do not belong under `.career-agent/` or `02-state/`; only proposal approval may create
-confirmed evidence in the latter.
+evidence and do not belong under `.career-agent/` or `02-state/`; the read-only
+`career-agent sessions --format json` command reads the session records from this same location;
+only proposal approval may create confirmed evidence in the latter.
 
 Durable GUI case and artifact metadata use the existing `03-active` Vault directory:
 `03-active/gui/cases/*.json` and `03-active/gui/artifacts/*.json`; artifact bodies are below

@@ -88,6 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
     ui_parser.add_argument("--port", type=int, default=0, help="loopback port; 0 chooses a free port")
     ui_parser.add_argument("--no-browser", action="store_true", help="print the launch URL without opening a browser")
     add_output_format(ui_parser)
+    sessions_parser = subparsers.add_parser(
+        "sessions", help="list resumable 棚卸し sessions; this command is read-only",
+    )
+    add_vault_argument(sessions_parser)
+    add_output_format(sessions_parser)
     for command, field in (("set-job-search", "job_search"), ("set-employment-status", "employment_status")):
         axis_parser = subparsers.add_parser(
             command,
