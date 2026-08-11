@@ -28,6 +28,26 @@ README_RELEASE_PATTERNS = {
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 CHANGELOG_HEADING = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
 
+# The release-channel section names two moving numbers in prose: the source version and the ref the
+# stable marketplace channel points at. It sat stale for two releases, telling readers the two
+# matched while the marketplace actually installed something older — the one thing that section
+# exists to answer. Both numbers are now read from the files that own them.
+MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
+RELEASE_CHANNEL_HEADINGS = {
+    ROOT / "README.md": "### Release channels",
+    ROOT / "README_ko.md": "### 릴리스 채널",
+    ROOT / "README_ja.md": "### リリースチャンネル",
+}
+
+
+def _section(text: str, heading: str) -> str | None:
+    start = text.find(heading)
+    if start < 0:
+        return None
+    body = text[start + len(heading):]
+    end = body.find("\n### ")
+    return body if end < 0 else body[:end]
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -80,6 +100,21 @@ def main() -> int:
         elif release_version is not None and match.group(1) != release_version:
             errors.append(
                 f"{path.name}: current release {match.group(1)!r} != manifest {release_version!r}"
+            )
+
+    marketplace_ref = json.loads(MARKETPLACE.read_text(encoding="utf-8"))["plugins"][0]["source"]["ref"]
+    for path, heading in RELEASE_CHANNEL_HEADINGS.items():
+        section = _section(path.read_text(encoding="utf-8"), heading)
+        if section is None:
+            errors.append(f"{path.name}: missing release-channel section {heading!r}")
+            continue
+        if marketplace_ref not in section:
+            errors.append(
+                f"{path.name}: release-channel section does not name the marketplace ref {marketplace_ref!r}"
+            )
+        if release_version is not None and release_version not in section:
+            errors.append(
+                f"{path.name}: release-channel section does not name the source version {release_version!r}"
             )
 
     if args.require_tag and release_version is not None:
