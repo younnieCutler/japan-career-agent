@@ -158,19 +158,17 @@ class LegacyReadTests(unittest.TestCase):
                 refused += 1
         self.assertTrue(refused, "no fixture exercises the read/write asymmetry")
 
-    def test_the_pipelines_this_repository_ships_are_canonical(self) -> None:
+    def test_the_pipeline_this_repository_ships_is_canonical(self) -> None:
         """A pipeline the repository hands a user must pass the writer, not merely the reader.
 
-        Only the pipelines: `examples/demo-workspace/*.example.yml` are matching-simulator inputs
-        despite their names, not CANDIDATE_PROFILE and COMPANY_PROFILE documents, and validating
-        them against those schemas would assert a shape nothing produces.
+        The demo workspace is the only one: `/data/pipeline.yml` is gitignored working state that
+        exists on a maintainer's machine and not in a checkout, so asserting on it would pass
+        locally and fail in CI. And only pipelines -- `examples/demo-workspace/*.example.yml` are
+        matching-simulator inputs despite their names, not CANDIDATE_PROFILE and COMPANY_PROFILE
+        documents, so validating them against those schemas would assert a shape nothing produces.
         """
-        for path in (
-            ROOT / "data" / "pipeline.yml",
-            ROOT / "examples" / "demo-workspace" / "data" / "pipeline.yml",
-        ):
-            with self.subTest(pipeline=str(path.relative_to(ROOT))):
-                validate_new_write("PIPELINE", yaml.safe_load(path.read_text(encoding="utf-8")))
+        path = ROOT / "examples" / "demo-workspace" / "data" / "pipeline.yml"
+        validate_new_write("PIPELINE", yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
 class ProducerContractTests(unittest.TestCase):
