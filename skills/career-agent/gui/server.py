@@ -199,7 +199,8 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
 
     def _write_tanaoroshi(self, path: str) -> None:
         if self.server.home is None:
-            self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
+            # Preserve the data-free shell's route-discovery contract when no Vault was supplied.
+            self._error(HTTPStatus.NOT_FOUND, "not found")
             return
         try:
             payload = self._json_body()
