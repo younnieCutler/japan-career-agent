@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
 import queue
 import subprocess
 import sys
@@ -96,6 +97,8 @@ class GuiProcessE2ETests(unittest.TestCase):
         if not line:
             stderr = process.stderr.read() if process.stderr is not None else ""
             if "PermissionError" in stderr and "Operation not permitted" in stderr:
+                if os.environ.get("CI", "").casefold() == "true":
+                    raise AssertionError("loopback bind unavailable in CI")
                 raise unittest.SkipTest("loopback bind unavailable in this execution sandbox")
             raise AssertionError(f"GUI process exited before announcing its URL: {stderr}")
         prefix = "Japan Career Agent GUI: "
