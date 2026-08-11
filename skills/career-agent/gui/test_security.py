@@ -162,6 +162,38 @@ class GuiSecurityTests(unittest.TestCase):
             )
             self.assertEqual(status, 404)
 
+    def test_a_reload_keeps_the_existing_session_instead_of_stranding_the_page(self):
+        """The bootstrap token is single-use and its fragment is erased once spent.
+
+        So a reload arrives with a valid HttpOnly cookie and no token. Refusing it left the shell
+        rendered and permanently inert: every read and write needs a CSRF token the page can no
+        longer obtain, and only closing the tab and restarting the server recovered it.
+        """
+        with running_server() as server:
+            _, headers, body = request(
+                server,
+                "POST",
+                "/session",
+                headers={"Content-Type": "application/json", "Origin": server.origin},
+                body=json.dumps({"token": server.bootstrap_token}),
+            )
+            cookie = headers["Set-Cookie"].split(";", 1)[0]
+            first_csrf = json.loads(body)["csrf_token"]
+
+            status, reload_headers, reload_body = request(
+                server,
+                "POST",
+                "/session",
+                headers={"Content-Type": "application/json", "Cookie": cookie},
+                body="{}",
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(reload_body)["csrf_token"], first_csrf)
+            self.assertNotIn("Set-Cookie", reload_headers)
+
+            status, _, _ = request(server, "POST", "/session", body="{}")
+            self.assertEqual(status, 403)
+
     def test_invalid_bootstrap_token_is_refused(self):
         with running_server() as server:
             status, headers, _ = request(
@@ -173,6 +205,27 @@ class GuiSecurityTests(unittest.TestCase):
             )
             self.assertEqual(status, 403)
             self.assertNotIn("Set-Cookie", headers)
+
+    def test_shell_slots_are_actually_filled(self):
+        """An unfilled slot renders as empty, so a wrong renderer fails silently.
+
+        The document renderer builds its scope from a 職務経歴書 model and has no `title` slot, so
+        passing one emptied both the tab label and the page heading. An empty <title> leaves Chrome
+        labelling the tab with the URL — which is where the bootstrap token was.
+        """
+        module = _server_module()
+        html = module.render_shell()
+
+        self.assertIn("<title>Japan Career Agent</title>", html)
+        self.assertIn("<h1>Japan Career Agent</h1>", html)
+        self.assertNotIn("{{", html)
+        self.assertNotIn("<title></title>", html)
+
+    def test_the_current_view_is_marked_differently_from_a_hovered_one(self):
+        stylesheet = _server_module().static_asset("style.css").decode("utf-8")
+        current = stylesheet.split(".nav-current {", 1)[-1].split("}", 1)[0]
+        self.assertTrue(current.strip(), ".nav-current has no rule of its own")
+        self.assertNotIn(".nav-current:hover", stylesheet)
 
     def test_csp_permits_every_browser_capability_the_shipped_client_uses(self):
         """Compare what the assets actually do against what the policy allows.

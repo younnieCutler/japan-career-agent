@@ -674,15 +674,16 @@
       });
   };
 
+  // A reload has no fragment: the bootstrap token is single-use and replaceState erased it. The
+  // session cookie is still valid, so ask for its CSRF token rather than leaving an empty shell.
   const fragment = new URLSearchParams(window.location.hash.slice(1));
   const token = fragment.get("t");
-  if (!token) return;
 
   fetch("/session", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify(token ? { token } : {}),
   })
     .then((response) => {
       if (!response.ok) throw new Error("Session bootstrap failed");

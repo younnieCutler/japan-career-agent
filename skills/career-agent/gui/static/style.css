@@ -41,7 +41,16 @@ main {
   margin-inline: auto;
 }
 
-.masthead { padding-block: clamp(4rem, 12vw, 10rem) 3rem; }
+.masthead { padding-block: clamp(1.5rem, 4vw, 3rem) 2rem; }
+
+/* The masthead h1 is the product name, shown on every screen. The page's own title is the h2
+   below it, which keeps the display size. At the shared h1 scale the name alone filled the
+   viewport and pushed the navigation below the fold. */
+.masthead h1 {
+  max-width: none;
+  font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+  letter-spacing: -0.02em;
+}
 
 .eyebrow,
 .section-label {
@@ -95,6 +104,15 @@ h2 { max-width: 18ch; font-size: clamp(2rem, 5vw, 4rem); }
 
 .nav-button { cursor: pointer; }
 .nav-button:hover { background: var(--ink); color: var(--paper); }
+
+/* The current view needs a mark hover does not also produce, or the screen under the pointer
+   reads as the screen you are on. Weight and an underline stay legible without colour. */
+.nav-current {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+  cursor: default;
+}
 
 .dashboard-section {
   border-top: 0.2rem solid var(--ink);

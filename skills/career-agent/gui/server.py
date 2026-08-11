@@ -298,7 +298,17 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             self._error(HTTPStatus.FORBIDDEN, "invalid bootstrap request")
             return
-        exchanged = self.server.security.exchange(payload.get("token"))
+        token = payload.get("token")
+        if not token:
+            # A reload: the bootstrap token was spent and its fragment erased, but the cookie is
+            # still valid. Hand back that session's CSRF token instead of stranding the page.
+            csrf_token = self.server.security.session_csrf(self.headers)
+            if csrf_token is None:
+                self._error(HTTPStatus.FORBIDDEN, "no bootstrap token and no local session")
+                return
+            self._json({"csrf_token": csrf_token})
+            return
+        exchanged = self.server.security.exchange(token)
         if exchanged is None:
             self._error(HTTPStatus.FORBIDDEN, "invalid bootstrap token")
             return

@@ -64,6 +64,16 @@ def _fill(template: str, scope: dict[str, Any]) -> str:
     return SLOT.sub(lambda match: _escape(scope.get(match.group(1))), expanded)
 
 
+def fill_slots(template: str, values: dict[str, Any]) -> str:
+    """Substitute named slots in a template that is not a 職務経歴書 document.
+
+    `render` below is the document path: it derives its scope from a checked document model, so
+    the only slots it can fill are that model's own. A caller with a plain mapping — the GUI shell
+    and its title, say — silently got every slot emptied. Same engine, same escaping, no document.
+    """
+    return _fill(template, values)
+
+
 def _sections(
     model: dict[str, Any], slots: dict[str, Any], skills: list[str] | None = None,
 ) -> dict[str, Any]:

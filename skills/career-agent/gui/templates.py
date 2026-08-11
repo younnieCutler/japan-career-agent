@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from render import render as render_slots
+from render import fill_slots
 
 
 SHELL_TEMPLATE = """<!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -38,7 +38,7 @@ SHELL_TEMPLATE = """<!doctype html>
 
 def render_shell() -> str:
     """Render the data-free shell through the existing escaped slot renderer."""
-    return render_slots({}, {"title": "Japan Career Agent"}, SHELL_TEMPLATE)
+    return fill_slots(SHELL_TEMPLATE, {"title": "Japan Career Agent", "lang": "ko"})
 
 
 def static_asset(name: str) -> bytes:
