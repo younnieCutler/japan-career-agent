@@ -98,14 +98,23 @@ def extract_workspace_flag(argv: list[str]) -> tuple[list[str], str | None]:
     return argv[:index] + argv[index + 2:], value
 
 
+VALIDATED_FILES = {"pipeline.yml": "PIPELINE", "rules.yml": "RULES"}
+
+
 def mutate(path: Path, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
     """Load, apply fn(data) -> data, write back — all under one exclusive lock."""
     with locked(path):
         data = fn(load(path))
-        if path.name == "pipeline.yml":
+        schema = VALIDATED_FILES.get(path.name)
+        if schema:
             from schema_contract import validate_document
 
-            validate_document("PIPELINE", data)
+            # Deliberately the tolerant validator, even though this is a write. `mutate` rewrites
+            # the whole file, including the parts it did not touch, and one of its callers migrates
+            # legacy documents by carrying unknown keys forward on purpose. Rejecting them here
+            # would make an old pipeline unusable rather than upgradeable. New *fields* are gated
+            # strictly one level down, in `_validate_fields`.
+            validate_document(schema, data)
         atomic_write(path, data)
         return data
 
@@ -125,11 +134,32 @@ LEGACY_WRITE_FIELDS = {
 }
 
 
+def _company_entry_properties() -> frozenset[str]:
+    """The field names a company entry may carry, read from the shared catalog.
+
+    Taken from the schema rather than restated here, so a field added to `schemas.yml` is writable
+    without a second edit, and a field that was never added is not writable at all. This is the
+    check that turns a typo into an error instead of into a key nothing will ever read again.
+    """
+    from schema_contract import load_catalog
+
+    catalog = load_catalog()
+    entry = catalog["$defs"]["PIPELINE"]["properties"]["companies"]["items"]
+    return frozenset(entry["properties"])
+
+
 def _validate_fields(fields: dict[str, Any]) -> None:
     if not isinstance(fields, dict):
         raise ValueError("company fields must be a JSON object")
     if "slug" in fields:
         raise ValueError("slug is the command argument, not an editable field")
+    unknown = sorted(set(fields) - _company_entry_properties())
+    if unknown:
+        raise ValueError(
+            f"unknown company fields: {', '.join(unknown)}. "
+            "Add the field to $defs.PIPELINE in _shared/schemas.yml if it is real; "
+            "otherwise this is a typo, and writing it would store a value nothing reads."
+        )
     if "stage" in fields and (not isinstance(fields["stage"], int) or not 0 <= fields["stage"] <= 7):
         raise ValueError("stage must be an integer from 0 to 7")
 

@@ -16,6 +16,21 @@ schema_version: "2.5"
 # Executable contract catalog. The descriptive sections below remain the human-facing source of
 # field meaning and legacy policy; these Draft 2020-12 definitions provide a machine-checkable
 # shape at every serialization boundary without changing the existing YAML contract.
+#
+# Two validators are built from this one catalog (_shared/schema_contract.py):
+#
+#   validate_document   the tolerant READ path. Unknown properties are accepted, because a record
+#                       written by an older version of this suite must stay readable forever.
+#   validate_new_write  the strict WRITE path. Every object below is closed by a transform in code
+#                       that replaces `additionalProperties: true` with `false`, so a typo like
+#                       `decison_status` is rejected at the moment it would be written.
+#
+# Because the two share one property list, every field a writer may legitimately produce has to be
+# named here. Fields promoted from the prose sections below carry NO type constraint on purpose:
+# both validators read this list, so adding a type would newly reject historical records that hold
+# a different shape. The schema's job here is to stop shape drift; value rules stay in the Python
+# validators that already own them (`_shared/pipeline_store.py`, `_shared/self_analysis_profile.py`,
+# `skills/career-agent/validation.py`).
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://github.com/younnieCutler/japan-career-agent/shared-schemas"
 $defs:
@@ -50,6 +65,26 @@ $defs:
       value_candidates: {type: [array, 'null']}
       avoid_candidates: {type: [array, 'null']}
       career_context_confirmed: {type: boolean}
+      # Promoted from the descriptive `self_analysis_profile` block below.
+      preferred_environment_hypothesis: {}
+      verification_questions: {}
+      recommended_role_clusters: {}
+      self_pr_seeds: {}
+      career_anchors: {}
+      derailers: {}
+      energy_map: {}
+      career_theme: {}
+      career_values: {}
+      notes: {}
+      # legacy_v1, readable forever and never written by a v2 producer. Naming them keeps a legacy
+      # profile readable while `validate_new_write` still refuses to create one.
+      top_strengths: {}
+      strength_clusters: {}
+      work_style: {}
+      wellbeing_priorities: {}
+      preferred_role_environment: {}
+      risk_flags: {}
+      preferred_company_type: {}
     additionalProperties: true
 
   CANDIDATE_PROFILE:
@@ -65,6 +100,15 @@ $defs:
       portable_skill_level: {type: [integer, 'null'], minimum: 1, maximum: 5}
       portable_skill_allocation: {type: [object, 'null']}
       career_values: {type: [object, 'null']}
+      # Promoted from the descriptive `candidate_profile` block below.
+      portable_skill_assessed_at: {}
+      wellbeing_priorities: {}
+      segment: {}
+      visa_status: {}
+      # legacy_v1 / read-only compatibility aliases.
+      spi3: {}
+      portable_skills: {}
+      target_company_type: {}
     additionalProperties: true
 
   COMPANY_PROFILE:
@@ -78,6 +122,18 @@ $defs:
       conditions: {type: [object, 'null']}
       mhlw_mapping: {type: [object, 'null']}
       visa_sponsorship: {type: [boolean, 'null']}
+      # Promoted from the descriptive `company_profile` block below.
+      industry: {}
+      headcount: {}
+      company_type: {}
+      chuto_saiyo_ratio: {}
+      accepted_adjacent_skills: {}
+      salary_range: {}
+      remote_policy: {}
+      # legacy_v1 inputs, readable and never written by a v3 producer.
+      top_performer_spi3: {}
+      top_performer_portable_skills: {}
+      wellbeing_scores: {}
     additionalProperties: true
 
   MATCH_HISTORY:
@@ -92,6 +148,23 @@ $defs:
         company_name: {type: string, minLength: 1}
         position_title: {type: string, minLength: 1}
         decision_status: {enum: [proceed, review, conflict, null]}
+        # Promoted from the descriptive `match_history_entry` block below.
+        platform: {}
+        report_file: {}
+        required_coverage: {}
+        required_coverage_status: {}
+        portable_skill_status: {}
+        portable_skill_distance: {}
+        portable_skill_rank: {}
+        compared_profiles: {}
+        conflicts: {}
+        missing_information: {}
+        # legacy_v1 history. Present on entries written before evidence_based_v3, never on new ones.
+        recruit_style_score: {}
+        persol_style_score: {}
+        culture_fit_score: {}
+        overall_score: {}
+        overall_grade: {}
       additionalProperties: true
 
   PIPELINE:
@@ -135,22 +208,85 @@ $defs:
                   status: {enum: [Matched, Missing, Unknown, null]}
                   evidence_ids: {type: array, items: {type: string, minLength: 1}}
                 additionalProperties: true
+            # Promoted from the descriptive `pipeline` block below. `_shared/pipeline_store.py`
+            # owns the value rules for these; naming them here is what closes the entry to typos.
+            status: {}
+            channel: {}
+            kyujin_legitimacy: {}
+            match_model_version: {}
+            match_conflicts: {}
+            match_required_gaps: {}
+            match_unknowns: {}
+            interest_level: {}
+            interest_reason: {}
+            interest_updated_at: {}
+            interest_evidence: {}
+            interest_history: {}
+            employer_signals: {}
+            next_action: {}
+            deadline: {}
+            closed_reason: {}
+            agent_feedback: {}
+            reached_stage: {}
+            feedback_obtained: {}
+            root_cause: {}
+            demo_slot: {}
+            prep_lines: {}
+            gate_override: {}
+            action_items:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {}
+                  text: {}
+                  checked: {}
+                  created: {}
+                  # Written by scripts/check_action.py when the user ticks the item off.
+                  checked_at: {}
+                additionalProperties: true
+            history:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: {}
+                  event: {}
+                  event_id: {}
+                  # Legacy history rows carry `id`; readers accept it, writers use `event_id`.
+                  id: {}
+                additionalProperties: true
+            # legacy_v1, frozen. Readable on existing entries; `_validate_fields` refuses new ones.
+            match_score: {}
+            predicted_tier: {}
           additionalProperties: true
     additionalProperties: true
 
+  # This definition describes the file, `data/rules.yml`, which is a mapping with one `rules` key.
+  # It previously declared a bare array, which no writer or reader has ever produced: both
+  # `scripts/calibrate.py` and `scripts/status_bar.py` have always used the mapping. The mismatch
+  # survived because `mutate()` only validated `pipeline.yml`, so rules writes were never checked.
   RULES:
-    type: array
-    items:
-      type: object
-      required: [id, text, status, source, supported_by, created]
-      properties:
-        id: {type: string, minLength: 1}
-        text: {type: string, minLength: 1}
-        status: {enum: [candidate, active, retired]}
-        source: {enum: [self_authored, derived_from_rejections]}
-        supported_by: {type: array, items: {type: string}}
-        created: {type: string, minLength: 1}
-      additionalProperties: true
+    type: object
+    required: [rules]
+    properties:
+      rules:
+        type: array
+        items:
+          type: object
+          required: [id, text, status, source, supported_by, created]
+          properties:
+            id: {type: string, minLength: 1}
+            text: {type: string, minLength: 1}
+            status: {enum: [candidate, active, retired]}
+            # `observed_workflow` is what `scripts/calibrate.py` writes for a rule derived from a
+            # repeated root cause across pipeline entries. It was missing from this enum for the
+            # same reason as the shape above: nothing validated the file.
+            source: {enum: [self_authored, derived_from_rejections, observed_workflow]}
+            supported_by: {type: array, items: {type: string}}
+            created: {type: string, minLength: 1}
+          additionalProperties: true
+    additionalProperties: true
 
 legacy_field_policy:
   readable: true
@@ -692,7 +828,8 @@ pipeline:
         - { id: "string: short slug, unique within the company entry",
             text: "string: the action, in the user's own words",
             checked: "boolean",
-            created: "string: YYYY-MM-DD" }
+            created: "string: YYYY-MM-DD",
+            checked_at: "string: YYYY-MM-DD | absent — set by scripts/check_action.py when ticked" }
 
       history:       # append-only projection log; canonical evidence remains in events.jsonl
         - { date: "YYYY-MM-DD", event: "short event title",
@@ -721,7 +858,9 @@ rules:
     text:         "string: the rule in the user's own words, verbatim. This exact string is
                      re-surfaced before interviews, so do not paraphrase or translate it."
     status:       "string: candidate | active | retired"
-    source:       "string: self_authored | derived_from_rejections"
+    source:       "string: self_authored | derived_from_rejections | observed_workflow
+                     observed_workflow is written by scripts/calibrate.py when one root_cause
+                     repeats across entries. It is derived, so it obeys the two-entry threshold."
     supported_by: "list of strings: pipeline slugs backing this rule. Length >= 2 required to
                      move derived_from_rejections rules to `active`. Empty for self_authored."
     created:      "string: YYYY-MM-DD"

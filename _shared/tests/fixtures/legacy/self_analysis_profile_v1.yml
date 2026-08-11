@@ -1,0 +1,49 @@
+schema: SELF_ANALYSIS_PROFILE
+writable: false
+why: >
+  A v2 profile that still carries the v1 strength and work-style answers beside its v2 fields. This
+  is the shape a Vault reaches by being upgraded rather than recreated, and it is the only legacy
+  case this validator ever sees: a profile with no `self_analysis_version` marker at all is v1, and
+  `proposals.propose_career_context` skips schema validation for it rather than guessing v2 values
+  from v1 answers. `preferred_company_type` is frozen, so the whole document is read-only.
+value:
+  self_analysis_version: 2
+  candidate_name: 박민준
+  language_preference: ko
+  track: chuto
+  interest_hypotheses: null
+  behavior_tendencies: null
+  evidence_episodes: null
+  career_self_efficacy: null
+  perceived_barriers: null
+  perceived_supports: null
+  environment_preferences: null
+  value_candidates: null
+  avoid_candidates: null
+  top_strengths:
+    - name: ownership
+      score: 14
+      cluster: executing
+    - name: analysis
+      score: 11
+      cluster: strategic_thinking
+  strength_clusters:
+    executing: 62
+    strategic_thinking: 48
+    relationship_building: 31
+    influencing: 27
+  work_style:
+    autonomy: 4
+    structure_preference: 2
+    speed_preference: 4
+    change_tolerance: 3
+    collaboration_preference: 3
+    feedback_frequency: 4
+  wellbeing_priorities:
+    autonomy: 5
+    social_contribution: 3
+    management_quality: 4
+    mutual_respect: 5
+  preferred_company_type: self-developed
+  risk_flags:
+    - 短期離職が2回

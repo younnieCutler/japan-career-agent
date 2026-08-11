@@ -1,0 +1,18 @@
+schema: PIPELINE
+writable: true
+why: >
+  History rows written before the idempotency key was renamed carry `id` instead of `event_id`.
+  Readers accept both; writers only produce `event_id`. This one is writable because the row is
+  still a legal shape -- the rename was additive, not a freeze.
+value:
+  companies:
+    - slug: aozora-systems
+      name: Aozora Systems
+      stage: 3
+      history:
+        - date: "2026-01-09"
+          event: 面接申込
+          id: 3f2b91c0-0e2f-4a77-9d10-2f7d5c1b8a44
+        - date: "2026-01-20"
+          event: 一次面接
+          event_id: 8c1e77a2-55b4-4d3e-b0aa-1c9e6f0a3d55
