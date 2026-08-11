@@ -10,6 +10,8 @@
 <p align="center">
   <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
   <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
+  <a href="https://pypi.org/project/japan-career-agent/"><img src="https://img.shields.io/pypi/v/japan-career-agent?style=for-the-badge&color=3775a9&logo=pypi&logoColor=white" alt="PyPI"></a>
+  <a href="https://www.npmjs.com/package/japan-career-agent"><img src="https://img.shields.io/npm/v/japan-career-agent?style=for-the-badge&color=cb3837&logo=npm&logoColor=white" alt="npm"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
   <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
   <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
@@ -132,11 +134,11 @@ work with no host installed; the plugin changes how you reach them, never what t
 
 The repository version can be ahead of the stable marketplace channel while a release is being
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
-follows `main`. Source metadata is `2.2.0` while the stable marketplace ref is still `v1.18.1`,
-because the release workflow has not published a tag for the newer source yet. Installing from the
-marketplace therefore gives you `1.18.1` today. The gap closes when the release workflow publishes
-the next tag and this ref is updated; `uvx` and `npx` are not affected, since they resolve a
-published package version rather than this ref.
+follows `main`. Source metadata is `2.2.0` while the stable marketplace ref is still `v2.1.1`,
+because the release workflow has not published a tag for this source yet. Installing from the
+marketplace therefore gives you `2.1.1` today. The gap closes when the release workflow publishes
+the next tag and this ref is updated. `uvx` and `npx` are not affected either way, since they
+resolve a published package version rather than this ref.
 
 ### Local fallback
 
