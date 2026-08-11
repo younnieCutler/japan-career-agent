@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -103,6 +104,12 @@ def main() -> int:
             print(f"{label} could not start: {exc}", file=sys.stderr, flush=True)
             return 1
         if result.returncode:
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                print(
+                    f"::error file=scripts/run_all_checks.py,line=1,title=repository-check::"
+                    f"{label} failed (exit {result.returncode})",
+                    flush=True,
+                )
             print(f"FAILED: {label} (exit {result.returncode})", file=sys.stderr, flush=True)
             return result.returncode
     print(f"\nAll {len(CHECKS)} repository checks passed.", flush=True)
