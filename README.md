@@ -33,7 +33,7 @@
 
 ---
 
-Current release: `2.1.0`.
+Current release: `2.1.1`.
 
 **In three steps:**
 
@@ -106,7 +106,7 @@ codex plugin add japan-career-agent@japan-career-agent
 
 The repository version can be ahead of the stable marketplace channel while a release is being
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
-follows `main`. Source metadata is `2.1.0` while the stable marketplace ref is still `v1.18.1`,
+follows `main`. Source metadata is `2.1.1` while the stable marketplace ref is still `v1.18.1`,
 because the release workflow has not published a tag for the newer source yet. Installing from the
 marketplace therefore gives you `1.18.1` today. The gap closes when the release workflow publishes
 the next tag and this ref is updated; `uvx` and `npx` are not affected, since they resolve a
@@ -122,7 +122,7 @@ git clone https://github.com/younnieCutler/japan-career-agent.git
 
 ### Upgrading from 2.0.x, when this was `japan-recruit-ai-agent`
 
-The project was renamed in 2.1.0. GitHub redirects the old repository URL, so an existing clone or
+The project was renamed in 2.1.1. GitHub redirects the old repository URL, so an existing clone or
 remote keeps working, but the marketplace entry is matched by name and has to be re-added:
 
 ```bash
