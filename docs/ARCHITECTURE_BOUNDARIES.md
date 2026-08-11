@@ -3,6 +3,10 @@
 The rules `scripts/check_career_agent_boundaries.py` enforces, and why each one is worth a build
 failure. Read this before moving a function between modules in `skills/career-agent/`.
 
+Its two companions: [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md) for what runs with and without a
+plugin host, and [`MAINTAINER_RUNBOOK.md`](MAINTAINER_RUNBOOK.md) for verification, release and
+schema migration.
+
 ## The layers
 
 ```
