@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import copy
 import subprocess
 import sys
@@ -226,6 +227,73 @@ class GoldenCliTests(unittest.TestCase):
                 self.assertNotIn(str(Path.home()), serialized)
                 self.assertNotIn(str(root), serialized)
             self.assertNotIn(b"\r\n", commands_log.read_bytes())
+
+    def test_exit_codes_separate_a_verdict_from_a_report(self) -> None:
+        """A command that answers a question reports it in the exit code; a command that describes
+        the Vault does not. `doctor` finding problems is a successful `doctor`, and a script that
+        treats it as a crash would stop working the day a warning appears. `document-check` is the
+        opposite: it exists to be gated on, so a failed gate must be a non-zero exit."""
+        # CAREER_VAULT is the documented fallback for --vault, so a developer who exports it would
+        # otherwise see the "no vault given" case silently resolve to their own Vault.
+        environment = {key: value for key, value in os.environ.items() if key != "CAREER_VAULT"}
+
+        def raw(*args: str, cwd: Path) -> subprocess.CompletedProcess:
+            return subprocess.run(
+                [sys.executable, str(SCRIPT), *args], env=environment,
+                cwd=cwd, text=True, encoding="utf-8", capture_output=True, check=False,
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vault = root / "vault"
+            invoke(vault, "setup", "--track", "chuto", "--target-role", "SRE", cwd=root)
+
+            healthy = raw("doctor", "--vault", str(vault), cwd=root)
+            self.assertEqual(healthy.returncode, 0)
+            self.assertTrue(json.loads(healthy.stdout)["ok"])
+
+            profile = vault / "00-control" / "career-profile.toml"
+            profile.write_text(
+                profile.read_text(encoding="utf-8").replace(
+                    'career_status = "onboarding"', 'career_status = "invalid"'
+                ),
+                encoding="utf-8",
+            )
+            reporting = raw("doctor", "--vault", str(vault), cwd=root)
+            self.assertFalse(json.loads(reporting.stdout)["ok"])
+            self.assertEqual(reporting.returncode, 0, "a Vault report is not a verdict")
+
+            missing_vault = raw("status", cwd=root)
+            self.assertEqual(missing_vault.returncode, 2)
+            self.assertFalse(json.loads(missing_vault.stderr)["ok"])
+            self.assertEqual(missing_vault.stdout, "", "an error never reaches stdout")
+
+    def test_restore_state_names_the_versions_it_did_not_touch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vault = root / "vault"
+            workspace = root / "workspace"
+            workspace.mkdir()
+            invoke(vault, "setup", "--track", "chuto", "--target-role", "SRE", cwd=root)
+            proposed = invoke(
+                vault, "run", "--mode", "chat", "--message", "A社に面接を申し込んだ", cwd=workspace,
+            )
+            invoke(
+                vault, "approve", proposed["proposal"]["id"],
+                "--evidence", "面接申込完了", "--company", "A社", cwd=workspace,
+            )
+            versions = sorted(path.stem for path in (vault / ".career-agent" / "versions").glob("*.json"))
+            self.assertTrue(versions)
+
+            restored = invoke(vault, "restore-state", versions[-1], cwd=workspace)
+            self.assertEqual(
+                {key: restored[key] for key in ("restored", "version", "ledger_retained")},
+                {"restored": True, "version": versions[-1], "ledger_retained": True},
+            )
+            # Restore replaces the snapshot and nothing else: the ledger is append-only, so a
+            # restore that also rewound it would be deleting history the user approved.
+            events = (vault / "02-state" / "events.jsonl").read_text(encoding="utf-8")
+            self.assertEqual(len(events.strip().splitlines()), 1)
 
     def test_fresh_vault_matching_projection_and_full_lifecycle_e2e(self) -> None:
         """Run the real matching, pipeline, and career-agent CLIs in one fresh workspace."""

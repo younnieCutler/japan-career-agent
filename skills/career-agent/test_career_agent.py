@@ -790,7 +790,10 @@ class CareerAgentTests(unittest.TestCase):
 
         pipeline_target = self.workdir / "data" / "pipeline.yml"
 
-        with patch("career_agent.pipeline_file", return_value=pipeline_target):
+        # `approvals` owns the writer that resolves this path, so that is where it is bound. The
+        # name is still re-exported from `career_agent`, but patching the re-export would not
+        # reach the module that actually looks it up.
+        with patch("approvals.pipeline_file", return_value=pipeline_target):
             from models import CareerError
 
             # Failure 1: canonical event append succeeds, but state persistence fails.
@@ -868,7 +871,7 @@ class CareerAgentTests(unittest.TestCase):
                 fresh_vault, "run", "--mode", "chat", "--message", "A社に面接を申し込んだ", cwd=self.workdir,
             ))
             fresh_target = fresh_home.path.parent / "fresh-data" / "pipeline.yml"
-            with patch("career_agent.pipeline_file", return_value=fresh_target):
+            with patch("approvals.pipeline_file", return_value=fresh_target):
                 approve(fresh_home, fresh_proposed["proposal"]["id"], evidence=["面接申込完了"], company="A社")
 
             def logical_projection(vault, target):

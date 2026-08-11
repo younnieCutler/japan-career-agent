@@ -87,8 +87,13 @@ build/
 .agents/
 !/.agents/
 /.agents/PRE_COMMIT_CHECKLIST.md
+# `.agents/` above only matches a directory of that name, so a plugin host installing skills into
+# `/.agents/skills/` lands in the tree as untracked source that `ruff check .` then lints.
+/.agents/skills/
 !/.agents/plugins/
 !/.agents/plugins/marketplace.json
+# Written beside the pipeline while a command holds its lock; never part of the record.
+data/*.lock
 tmp/
 *.webp
 

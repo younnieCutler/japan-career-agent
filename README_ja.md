@@ -31,7 +31,7 @@
 
 ---
 
-現在のリリース: `2.1.1`。
+現在のリリース: `2.2.0`。
 
 **3つのステップ:**
 
@@ -104,7 +104,7 @@ codex plugin add japan-career-agent@japan-career-agent
 
 リリース準備中は、リポジトリのバージョンが stable marketplace チャンネルより先に進む
 ことがあります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを
-参照し、`main` は追跡しません。現在はソースメタデータが `2.1.1` である一方、stable marketplace
+参照し、`main` は追跡しません。現在はソースメタデータが `2.2.0` である一方、stable marketplace
 ref はまだ `v1.18.1` です。新しいソースに対するタグをリリース workflow がまだ公開していない
 ためで、marketplace から入れると今日は `1.18.1` が入ります。次のタグが公開され ref が更新され
 れば差は閉じます。`uvx` と `npx` はこの ref ではなく公開済みパッケージのバージョンを解決する

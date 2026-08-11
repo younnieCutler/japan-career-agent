@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.2.0] - 2026-08-11
+
+- Split `skills/career-agent/runtime.py` into owner modules. The file held the argument parser, the
+  dispatch chain, onboarding, diagnostics, the career views and the experience, document and guided
+  orchestration, so every new command had to be added there. It is now imports and re-exports:
+  `command_line` owns the parser and the single place a result becomes bytes, `dispatch` maps a
+  command to its owner, and `diagnostics`, `onboarding`, `ingest`, `experiences`, `documents`,
+  `views`, `approvals` and `guided_flow` own the commands themselves.
+- Enforce the façade rather than describe it. `check_career_agent_boundaries.py` now fails if
+  `runtime.py` defines a function or a class at all, and if an owner module imports the parser or
+  the dispatcher. Checking for definitions instead of for size is deliberate: a line budget is
+  satisfied by reformatting, this is not.
+- Keep the whole historical import surface. `runtime.__all__` names all 226 exports explicitly, so
+  removing one is a visible edit instead of a side effect of moving code. `runtime.main`,
+  `runtime.build_parser`, `career_agent.pipeline_file` and `career_agent.os` all still resolve.
+- Pin the exit-code contract in a test. A command that answers a question reports the answer in its
+  exit code; a command that describes the Vault does not. `doctor` finding problems exits 0, because
+  a script that treated a new warning as a crash would stop working the day one appeared, while
+  `document-check` failing its gate exits 2, because being gated on is what it is for. The split
+  briefly collapsed the two and nothing but this test would have noticed.
+
 ## [2.1.1] - 2026-08-11
 
 - Rename the project to `japan-career-agent`. The old name described the work as recruiting, which

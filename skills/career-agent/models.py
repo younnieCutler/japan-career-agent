@@ -187,6 +187,12 @@ EXPERIENCE_KINDS = {
 # code path reads them. `career_mode` is projected from events by apply_event_to_state().
 EMPLOYMENT_STATUSES = {"employed", "unemployed", "student", "other", "unknown"}
 JOB_SEARCH_STATES = {"off", "on"}
+# The two axes together, so the parser, the diagnostics and the writer read one definition instead
+# of three copies that can disagree about which values are allowed.
+PROFILE_AXES = {
+    "job_search": JOB_SEARCH_STATES,
+    "employment_status": EMPLOYMENT_STATUSES,
+}
 CAREER_MODES = {"maintenance", "opportunity_review", "active_search", "transition"}
 # A work event's confidentiality review answers "may this leave the vault", not "is this true".
 EXTERNAL_USE_STATES = {"allowed", "blocked", "unknown"}

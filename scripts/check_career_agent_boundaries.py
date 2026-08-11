@@ -25,6 +25,18 @@ DOMAIN_MODULES = (
     "guided",
     "localization",
     "ux",
+    # Application layer: one owner per group of commands, all of them below the CLI and above the
+    # domain. They may call each other sideways, but never upwards into the parser or the facade.
+    "diagnostics",
+    "onboarding",
+    "ingest",
+    "experiences",
+    "documents",
+    "views",
+    "approvals",
+    "guided_flow",
+    "dispatch",
+    "command_line",
     "runtime",
 )
 
@@ -32,6 +44,24 @@ DOMAIN_MODULES = (
 # This allowlist is reduced in the following PRs and must be empty before the architecture phase
 # is declared complete. It is explicit so a new runtime dependency cannot hide in the transition.
 TRANSITIONAL_RUNTIME_IMPORTERS = set()
+
+# `runtime.py` re-exports and delegates; it implements nothing. Checking for definitions rather
+# than for size is deliberate: a line-count budget is satisfied by reformatting, while this fails
+# the moment a command's behaviour starts living in the facade again.
+FACADE_MODULE = "runtime"
+# The parser and the dispatcher sit above every owner. An owner reaching back up to either one
+# would mean a command could only be understood by reading the CLI, which is what the split was
+# for. `runtime` is exempt because re-exporting them is its entire job.
+CLI_MODULES = {"command_line", "dispatch"}
+APPLICATION_MODULES = {
+    "diagnostics", "onboarding", "ingest", "experiences",
+    "documents", "views", "approvals", "guided_flow",
+}
+# The only places an owned symbol may be re-declared, and then only as a single delegating call.
+# `approvals.approve` injects the pipeline writer and the state projector into `lifecycle.approve`;
+# the approval rules stay in `lifecycle`. Listing the pair explicitly keeps this from becoming a
+# general "a one-line wrapper may live anywhere" loophole.
+THIN_FACADES = {("approvals", "approve")}
 
 PURE_MODULES = {"models", "validation"}
 FORBIDDEN_MODULE_IMPORTS = {
@@ -102,6 +132,35 @@ OWNED_SYMBOLS = {
     "make_project_event": "proposals",
     "validate_project": "validation",
     "month_or_day": "validation",
+    "doctor": "diagnostics",
+    "setup": "onboarding",
+    "set_profile_axis": "onboarding",
+    "complete_onboarding": "onboarding",
+    "run_heartbeat": "ingest",
+    "run_discover": "ingest",
+    "run_index": "ingest",
+    "normalize_posting": "ingest",
+    "add_project": "experiences",
+    "add_context": "experiences",
+    "list_experiences": "experiences",
+    "link_work_event": "experiences",
+    "work_events": "experiences",
+    "run_context": "experiences",
+    "build_document_model": "documents",
+    "check_document": "documents",
+    "render_document": "documents",
+    "readiness": "views",
+    "evidence_pool": "views",
+    "maintenance_check": "views",
+    "weekly_review": "views",
+    "status": "views",
+    "workspace_summary": "views",
+    "recover_approval": "approvals",
+    "run_guided": "guided_flow",
+    "run_command": "dispatch",
+    "run_private_command": "dispatch",
+    "build_parser": "command_line",
+    "main": "command_line",
 }
 
 
@@ -208,9 +267,25 @@ def validate() -> list[str]:
     for symbol, owner in OWNED_SYMBOLS.items():
         for module, tree in trees.items():
             if module != owner and symbol in _defined_names(tree) and not (
-                module == "runtime" and _is_thin_facade(tree, symbol)
+                (module, symbol) in THIN_FACADES and _is_thin_facade(tree, symbol)
             ):
                 errors.append(f"{symbol} is defined in {module}.py; owner is {owner}.py")
+
+    facade = trees[FACADE_MODULE]
+    defined = [
+        node.name
+        for node in facade.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    ]
+    if defined:
+        errors.append(
+            f"{FACADE_MODULE}.py must only re-export, but defines: {', '.join(sorted(defined))}"
+        )
+
+    for module in sorted(APPLICATION_MODULES):
+        reaching_up = sorted(imports[module] & CLI_MODULES)
+        if reaching_up:
+            errors.append(f"{module}.py imports the CLI layer: {', '.join(reaching_up)}")
 
     graph = {
         module: {child for child in imports[module] if child in DOMAIN_MODULES}
