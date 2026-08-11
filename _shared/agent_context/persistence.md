@@ -16,6 +16,11 @@ workspace pipeline is the per-company projection. Approval projects confirmed st
 history but does not overwrite domain-owned decision, channel, legitimacy, interest, outcome, or
 frozen legacy fields.
 
+Resumable GUI 棚卸し sessions and drafts are transient workflow material under
+`01-capture/gui/{sessions,drafts}` and use the existing atomic writer. They are not canonical
+evidence and do not belong under `.career-agent/` or `02-state/`; only proposal approval may create
+confirmed evidence in the latter.
+
 `interest_level` is recorded independently and is not a priority signal. No skill combines it with
 deadline, stage, or fit. Rules are read-only to domain skills and are promoted only through
 approval-gated `career-agent` events.

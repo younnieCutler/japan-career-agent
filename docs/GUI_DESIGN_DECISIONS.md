@@ -54,10 +54,22 @@ any framework, hosted-font, or component-library suggestion.
 
 ## Persistence boundary
 
-PR1 writes no career data. Draft/session storage is transient; `case` and artifact metadata are
-durable; canonical evidence remains in `02-state` and can only be changed by the existing strict
-approval path. The exact durable directory for the latter two is intentionally decided by tests at
-PR3, before those records exist.
+PR1 writes no career data. PR3 fixes the four lifetimes before durable records exist:
+
+- `01-capture/gui/sessions/` and `01-capture/gui/drafts/` are transient user work. They may be
+  interrupted, discarded, or expired and are not a second evidence ledger.
+- `case` and artifact metadata are durable, but are not created by the 棚卸し vertical slice. Their
+  storage root remains a later PR decision.
+- canonical evidence remains in `02-state` and can only be changed by the existing strict path:
+  `approvals.approve` → `lifecycle.approve`.
+
+All session and draft writes use the existing atomic writer. A session checkpoint stores semantic
+stage/item state, never a page number. An autosaved draft may be newer than the last completed
+checkpoint; resume exposes that as unconfirmed input rather than silently promoting it.
+
+The session schema version is strict: current versions load, future or missing versions refuse with
+upgrade guidance, and older versions call an explicit migration hook. PR3 registers no migration,
+so it refuses older records without deleting or rewriting them. PR7 may register the v0→v1 hook.
 
 ## Read-only slice
 
@@ -66,3 +78,11 @@ models only: status, readiness, evidence pool, weekly review, Context → Experi
 project timelines, and guided actions. The browser receives no internal identifiers unless
 `JAPAN_CAREER_GUI_DEBUG=1`; readiness dimensions remain independent and no composite percentage is
 shown. These routes do not write the Vault and POST returns `405 Allow: GET`.
+
+## Resumable 棚卸し slice
+
+`skills/career-agent/sessions.py` owns the workflow store in the APPLICATION layer. The GUI adapter
+`gui/tanaoroshi.py` owns only form and route translation. Autosave uses an 800ms client debounce and
+`POST /api/draft`; proposal creation and approval are separate actions. The explicit `non_work`
+checkbox selects an experience event, and no text inference changes its meaning. Missing fields are
+shown independently (`Unknown` remains visible); no completion percentage is calculated.
