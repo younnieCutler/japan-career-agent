@@ -119,5 +119,82 @@ class UXContractTests(unittest.TestCase):
         self.assertTrue(any(action["id"] == "keep_conflict" for action in conflict["ux"]["next"]["actions"]))
 
 
+class FirstRunVocabularyTests(unittest.TestCase):
+    """What a user reads must be in their language; the machine payload is unaffected."""
+
+    def test_every_effect_string_resolves_to_a_translated_phrase(self) -> None:
+        """`effect_label` returns its input unchanged for anything it does not recognize, so an
+        effect added without a catalog entry leaks `canonical state` into human output instead of
+        failing. This walks the source rather than a sample of results, because the leak appears
+        only on the command that produces that one effect."""
+        import ast
+        import localization
+
+        source = (SCRIPT.parent / "ux.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        assignments: dict[str, list[ast.expr]] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
+                assignments.setdefault(node.targets[0].id, []).append(node.value)
+
+        def strings(node: ast.expr) -> list[str]:
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                return [node.value]
+            if isinstance(node, ast.List):
+                return [value for element in node.elts for value in strings(element)]
+            if isinstance(node, ast.IfExp):
+                return strings(node.body) + strings(node.orelse)
+            if isinstance(node, ast.Name):
+                return [value for source in assignments.get(node.id, []) for value in strings(source)]
+            raise AssertionError(
+                f"ux.py line {node.lineno}: cannot read this effect statically. Pass a list of "
+                "string literals so the catalog can be checked at build time."
+            )
+
+        effects = {
+            value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            for keyword in node.keywords
+            if keyword.arg in {"changed", "unchanged"}
+            for value in strings(keyword.value)
+        }
+        self.assertTrue(effects)
+        # Comparing the label against the raw string would not do: several English translations are
+        # the same words as the internal name, so a real leak and a correct entry look identical.
+        self.assertEqual(sorted(effects - set(localization.EFFECT_ALIASES)), [])
+
+    def test_the_first_run_never_shows_an_identifier_or_an_internal_file(self) -> None:
+        """Record, confirm, reuse. Getting to a first approved record never requires reading a
+        proposal id, a store filename or a schema version.
+
+        The user's own workspace directory is deliberately still shown: it is a directory they
+        chose and will look inside, so hiding it would cost them more than the term does."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vault = root / "vault"
+            human = ("--format", "human")
+            transcript = [
+                run(vault, "setup", "--track", "chuto", "--target-role", "SRE", *human),
+                run(vault, "run", "--mode", "chat", "--message", "面接の準備をしたい", *human),
+                run(vault, "status", *human),
+                run(vault, "guided", *human),
+            ]
+            for result in transcript:
+                self.assertEqual(result.returncode, 0, result.stderr)
+            printed = "\n".join(result.stdout for result in transcript)
+
+            self.assertNotRegex(printed, r"proposal-[0-9a-f]{12}", "a proposal id is visible")
+            self.assertNotRegex(printed, r"[0-9a-f]{8}-[0-9a-f]{4}-", "an event id is visible")
+            self.assertNotIn(str(vault), printed, "the Vault's internal path is visible")
+            for internal in ("pipeline.yml", "events.jsonl", "proposals.jsonl", ".career-agent",
+                             "schema_version", "proposal_id", "canonical", "projection", "revision"):
+                self.assertNotIn(internal, printed, f"{internal!r} is an internal term")
+            # The JSON contract is untouched: the same run still carries the id a caller needs.
+            machine = json.loads(run(vault, "proposals").stdout)
+            self.assertRegex(machine["proposals"][0]["id"], r"^proposal-[0-9a-f]{12}$")
+
+
 if __name__ == "__main__":
     unittest.main()
