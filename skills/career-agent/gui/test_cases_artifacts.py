@@ -51,9 +51,11 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertEqual(company["kind"], "company")
         self.assertEqual(application["kind"], "application")
         self.assertEqual(application["parent_ref"], company["case_id"])
-        self.assertTrue(str(cases.case_path(self.home, company["case_id"])).endswith(
-            "03-active/gui/cases/" + company["case_id"] + ".json"
-        ))
+        relative_case_path = cases.case_path(self.home, company["case_id"]).relative_to(self.home.path)
+        self.assertEqual(
+            relative_case_path.as_posix(),
+            "03-active/gui/cases/" + company["case_id"] + ".json",
+        )
         self.assertNotIn("01-capture", str(cases.case_path(self.home, company["case_id"])))
         self.assertNotIn("02-state", str(cases.case_path(self.home, company["case_id"])))
 
