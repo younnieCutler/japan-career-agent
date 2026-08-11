@@ -190,11 +190,13 @@ Quick Start above with nothing installed:
 ```bash
 npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
 npx japan-career-agent guided    # record, then confirm, in one guided flow
-npx japan-career-agent status    # what is confirmed, and what is still Unknown
 ```
 
-Swap `npx` for `uvx`, or drop the prefix entirely once you have run `uv tool install` or
-`pipx install` — the three commands are the same program either way.
+`guided` also reports what is confirmed and what is still `Unknown` — that is the same information
+a separate `status` command would show, so no third command is needed here. (`status` itself is a
+normal command; like every command below `guided`, it takes `--vault` explicitly rather than
+guessing one.) Swap `npx` for `uvx`, or drop the prefix entirely once you have run
+`uv tool install` or `pipx install` — the two commands are the same program either way.
 
 You do not need to learn `proposal_id`, `CAREER_VAULT`, or `data/pipeline.yml` before your first
 request. Those details belong to the advanced local workflow below.

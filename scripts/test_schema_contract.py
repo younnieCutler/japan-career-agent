@@ -189,21 +189,36 @@ class FrozenFieldContractTests(unittest.TestCase):
 
     def test_every_frozen_field_is_a_declared_property(self) -> None:
         """A frozen field that no schema names would be rejected on write and unreachable on read
-        for the wrong reason -- the tolerant catch-all rather than a field the catalog knows."""
-        declared: set[str] = set()
+        for the wrong reason -- the tolerant catch-all rather than a field the catalog knows.
 
-        def walk(node: object) -> None:
-            if isinstance(node, dict):
-                for key, value in node.items():
-                    if key == "properties" and isinstance(value, dict):
-                        declared.update(value)
-                    walk(value)
-            elif isinstance(node, list):
-                for value in node:
-                    walk(value)
+        Checked per schema, not as a global union: `by_schema[name]` is a claim about what `name`
+        itself declares. A field frozen for one schema but only ever declared by a different one
+        (`preferred_company_type` was frozen under CANDIDATE_PROFILE while only SELF_ANALYSIS_PROFILE
+        ever declared it) would pass a union check while being unreachable in the schema it was
+        supposedly frozen for.
+        """
 
-        walk(load_catalog()["$defs"])
-        self.assertEqual(sorted(set(self.policy["fields"]) - declared), [])
+        def declared_in(node: object) -> set[str]:
+            found: set[str] = set()
+
+            def walk(inner: object) -> None:
+                if isinstance(inner, dict):
+                    for key, value in inner.items():
+                        if key == "properties" and isinstance(value, dict):
+                            found.update(value)
+                        walk(value)
+                elif isinstance(inner, list):
+                    for value in inner:
+                        walk(value)
+
+            walk(node)
+            return found
+
+        defs = load_catalog()["$defs"]
+        for name, fields in self.policy["by_schema"].items():
+            with self.subTest(schema=name):
+                missing = sorted(set(fields) - declared_in(defs[name]))
+                self.assertEqual(missing, [])
 
     def test_the_v1_self_analysis_fields_the_prose_calls_read_only_are_refused(self) -> None:
         """These were documented as legacy and were writable anyway until the lists were joined."""

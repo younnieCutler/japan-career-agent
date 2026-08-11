@@ -337,7 +337,6 @@ legacy_field_policy:
       - spi3
       - portable_skills
       - target_company_type
-      - preferred_company_type
     COMPANY_PROFILE:
       - top_performer_spi3
       - top_performer_portable_skills

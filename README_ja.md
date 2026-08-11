@@ -186,11 +186,13 @@ plugin host では、普段の言葉で依頼するだけです。
 ```bash
 npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
 npx japan-career-agent guided    # 記録して確認するまでを一つの流れで
-npx japan-career-agent status    # 何が確定し、何が Unknown のままか
 ```
 
-`npx` は `uvx` に置き換えられます。`uv tool install` か `pipx install` で導入済みなら接頭辞ごと
-外してください。どちらでも同じプログラムです。
+`guided` は何が確定し、何がまだ `Unknown` かも表示します。別に `status` コマンドを呼んでも同じ
+内容が返るので、ここでは三つ目のコマンドは不要です（`status` 自体は通常のコマンドで、`guided` から
+下のコマンドと同じく `--vault` を明示的に渡します。推測はしません）。`npx` は `uvx` に置き換え
+られます。`uv tool install` か `pipx install` で導入済みなら接頭辞ごと外してください。どちらでも
+同じプログラムです。
 
 最初から `proposal_id`、`CAREER_VAULT`、`data/pipeline.yml` を理解する必要はありません。まず依頼を
 一文で書き、必要になったときだけ下のローカル向け workflow を使います。
