@@ -23,6 +23,7 @@ CHECKS = (
     ("agent context", (PYTHON, "scripts/check_agent_context.py")),
     ("manifest consistency", (PYTHON, "scripts/check_manifest_consistency.py")),
     ("README consistency", (PYTHON, "scripts/check_readme_consistency.py")),
+    ("capability matrix", (PYTHON, "scripts/check_capability_matrix.py")),
     ("release consistency", (PYTHON, "scripts/check_release_consistency.py")),
     ("schema contract", (PYTHON, "scripts/check_schema_contract.py")),
     ("schema contract tests", (PYTHON, "scripts/test_schema_contract.py")),

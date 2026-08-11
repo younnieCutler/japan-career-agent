@@ -60,9 +60,21 @@ Windows path handling and retry/idempotency behavior when applicable. Context-bu
 the reason and baseline evidence to be recorded; token reduction without semantic regression tests
 is not acceptable.
 
+## Reference
+
+Three documents carry what is otherwise only in the checks and the commit history:
+
+- [`docs/MAINTAINER_RUNBOOK.md`](docs/MAINTAINER_RUNBOOK.md) — verification, release, registry
+  publish, marketplace ref, failure recovery, schema migration, private-data incidents.
+- [`docs/ARCHITECTURE_BOUNDARIES.md`](docs/ARCHITECTURE_BOUNDARIES.md) — the module layers, what
+  `check_career_agent_boundaries.py` enforces, and how to add a command.
+- [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) — what works with no plugin host, what a
+  host improves, and what only a host can do.
+
 ## Release lifecycle
 
-Releases are manual: dispatch `.github/workflows/release.yml` from the verified release-bearing
+The runbook has the full procedure, including recovery. In short: releases are manual —
+dispatch `.github/workflows/release.yml` from the verified release-bearing
 `main` commit and explicitly select either `publish` or `dry_run`. Ordinary pushes never create an
 intermediate tag or GitHub Release. The workflow installs the verification dependencies, runs
 `python scripts/run_all_checks.py`, and creates an annotated `vX.Y.Z` tag only when that tag is

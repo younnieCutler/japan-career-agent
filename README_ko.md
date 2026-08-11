@@ -67,37 +67,62 @@ flowchart LR
 
 ## 설치
 
-### plugin host 없이 쓰기
+### 한 번만 실행하기
 
-두 명령은 같은 Python 프로그램을 설치해 실행합니다. 이미 갖고 있는 runner를 쓰세요.
+두 명령은 같은 Python 프로그램을 설치해 실행하고, PATH에는 아무것도 남기지 않습니다. 이미 갖고
+있는 runner를 쓰세요.
 
 ```bash
-npx japan-career-agent init     # npm 경유
-uvx japan-career-agent init     # uv 경유, 또는: pipx run japan-career-agent init
+npx japan-career-agent setup    # npm 경유
+uvx japan-career-agent setup    # uv 경유, 또는: pipx run japan-career-agent setup
 ```
 
-`npx`가 받는 것은 설치기뿐이고 runtime은 들어 있지 않습니다. `uv`나 `pipx`를 찾아 해당 버전의
-PyPI 릴리스를 설치한 뒤 실행을 넘깁니다. `npm install` 시점에는 아무것도 실행되지 않고, 두 경로
-모두 이미 쓰고 있는 Python을 건드리지 않습니다.
+`setup`은 Career Vault를 만들고, 추론할 수 없는 것만 묻습니다. 첫 실행은 이걸로 끝입니다. 설정
+파일도, 미리 찾아둬야 할 식별자도 없습니다.
+
+`npx`는 runtime이 아니라 진입점입니다. 받는 것은 설치기뿐이고 제품 코드는 들어 있지 않습니다.
+`uv`나 `pipx`를 찾아 해당 버전의 PyPI 릴리스를 설치한 뒤 실행을 넘깁니다. **canonical runtime은
+Python**이며, 어느 진입점으로 들어와도 같은 프로그램이 같은 Career Vault를 다룹니다.
 
 Python 3.11 이상이 필요합니다. `uv`는 맞는 interpreter를 직접 내려받고, `pipx`는 이미 설치된
 Python을 씁니다. 둘 다 없으면 `npx`는 설치 방법을 안내하고 아무것도 바꾸지 않습니다.
 
-### Claude Code
+### 설치해서 계속 쓰기
 
-사용 중인 host에 plugin을 설치하세요.
+위 명령은 일회성입니다. 내려받아 실행하고 버립니다. 손에 남겨두고 쓰려면 설치하세요.
+
+```bash
+uv tool install japan-career-agent
+# 또는
+pipx install japan-career-agent
+```
+
+설치하면 명령이 PATH에 올라가고, 짧은 이름도 동작합니다.
+
+```bash
+japan-career-agent setup
+career-agent status
+```
+
+### 추가로 쓸 수 있는 통합
+
+선택 사항입니다. 이미 Claude Code나 Codex를 쓰고 있다면, plugin이 같은 core 위에 skill discovery,
+host native 대화 workflow, host의 status context를 얹어 줍니다.
 
 ```bash
 claude plugin marketplace add younnieCutler/japan-career-agent
 claude plugin install japan-career-agent@japan-career-agent
 ```
 
-### Codex
-
 ```bash
 codex plugin marketplace add younnieCutler/japan-career-agent
 codex plugin add japan-career-agent@japan-career-agent
 ```
+
+plugin이 경력 사실을 따로 보관하는 일은 없습니다. Vault, 근거 ledger, 승인과 복구, readiness,
+JD별 근거 선택, 결정적 문서 게이트, HTML 생성은 모두 host 없이 동작합니다. plugin이 바꾸는 것은
+도달하는 방식이지 답의 내용이 아닙니다. 어느 쪽이 어느 쪽인지는
+[`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md)에 정리돼 있습니다.
 
 ### 릴리스 채널
 
@@ -118,7 +143,7 @@ git clone https://github.com/younnieCutler/japan-career-agent.git
 
 ### 2.0.x에서 올라오는 경우 — 이전 이름은 `japan-recruit-ai-agent`
 
-2.1.1에서 이름이 바뀌었습니다. GitHub이 이전 저장소 URL을 redirect하므로 기존 clone과 remote는
+2.1.0에서 이름이 바뀌었습니다. GitHub이 이전 저장소 URL을 redirect하므로 기존 clone과 remote는
 그대로 동작하지만, marketplace 항목은 이름으로 식별되므로 다시 추가해야 합니다.
 
 ```bash
@@ -134,7 +159,15 @@ Career Vault는 아무것도 바뀌지 않습니다. vault 경로, event ledger,
 
 ## Quick Start
 
-설치한 뒤 Claude Code나 Codex에 평소 말하듯 요청하세요.
+일어나는 일은 세 가지, 이 순서입니다. 첫 세션에서 값을 얻는 데 이 외에는 필요하지 않습니다.
+
+1. **기록한다.** 해온 일을 자기 말로 이야기합니다.
+2. **확인한다.** 이해한 내용과 확인되지 않은 지점을 보여줍니다. 당신이 그렇다고 하기 전까지는
+   아무것도 저장되지 않습니다.
+3. **지원할 때 재사용한다.** 확정된 기록은 채용공고 요건에 맞춰 고쳐 쓰이지 않고 그대로 답이
+   됩니다.
+
+plugin host에서는 평소 말하듯 요청하면 됩니다.
 
 ```text
 일본 이직 준비를 시작하고 싶어.
@@ -143,7 +176,16 @@ Career Vault는 아무것도 바뀌지 않습니다. vault 경로, event ledger,
 이 職務経歴書를 검토하되 없는 경력은 만들지 마.
 ```
 
-처음부터 `proposal_id`, `CAREER_VAULT`, `data/pipeline.yml`을 알 필요는 없습니다. 첫 요청은 자연어로 시작하고, 아래의 고급 local workflow에서 필요한 경우에만 이 개념을 사용하면 됩니다.
+터미널에서도 같은 세 단계입니다.
+
+```bash
+japan-career-agent setup --track chuto --target-role "Platform Engineer"
+japan-career-agent guided       # 기록하고 확인하는 과정을 한 흐름으로
+japan-career-agent status       # 무엇이 확정됐고 무엇이 Unknown인지
+```
+
+처음부터 `proposal_id`, `CAREER_VAULT`, `data/pipeline.yml`을 알 필요는 없습니다. 첫 요청은
+자연어로 시작하고, 아래의 고급 local workflow에서 필요할 때만 이 개념을 씁니다.
 
 ## 할 수 있는 일
 

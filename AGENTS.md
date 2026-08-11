@@ -75,6 +75,9 @@ metadata; do not create a second state store when runtime configuration is missi
 | learning from mistakes | `_shared/agent_context/learning.md` |
 | repository implementation | `_shared/agent_context/development.md` |
 | repository layout | `_shared/agent_context/architecture.md` |
+| moving code between career-agent modules | `docs/ARCHITECTURE_BOUNDARIES.md` |
+| what runs without a plugin host | `docs/CAPABILITY_MATRIX.md` |
+| verification, release, schema migration | `docs/MAINTAINER_RUNBOOK.md` |
 | job-seeker work | `skills/job-seeker-agent/SKILL.md` and only the requested reference |
 
 Do not recreate routing, market, persistence, development, or decision-philosophy copies in another

@@ -165,6 +165,18 @@ def install_and_smoke(wheel: Path, root: Path) -> None:
     if chat.get("mode") != "chat":
         raise RuntimeError("chat routing failed from the installed wheel")
 
+    # `status` and `guided` are the two commands a first-run user reaches for next, and both cross
+    # more of the runtime than `doctor` does: status projects the workspace, guided assembles a menu
+    # from several read paths at once. Running them here is what proves the wheel carries the whole
+    # application layer rather than the modules the earlier commands happen to touch.
+    status = _run_json([agent, "status", "--vault", str(vault), "--format", "json"], cwd=workspace)
+    if status.get("profile", {}).get("track") != "chuto":
+        raise RuntimeError("status did not project the profile from the installed wheel")
+
+    guided = _run_json([agent, "guided", "--vault", str(vault), "--format", "json"], cwd=workspace)
+    if guided.get("mode") != "guided" or not guided.get("guided", {}).get("available_actions"):
+        raise RuntimeError("guided returned no actions from the installed wheel")
+
     templates = _run(
         [
             str(_executable(venv, "python")),

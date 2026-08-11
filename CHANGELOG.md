@@ -20,6 +20,45 @@
   a script that treated a new warning as a crash would stop working the day one appeared, while
   `document-check` failing its gate exits 2, because being gated on is what it is for. The split
   briefly collapsed the two and nothing but this test would have noticed.
+- Close the canonical write schemas and leave the read path open. Every object in
+  `_shared/schemas.yml` carried `additionalProperties: true`, so `decison_status: proceed` validated
+  and was stored as a key nothing would ever read again. `validate_new_write` now checks a strict
+  schema derived from the tolerant one in code — `additionalProperties: true` *evaluates* unknown
+  keys, so `unevaluatedProperties` would be a no-op and the permissive setting has to be replaced.
+  One catalog, two validators, nothing to keep in sync.
+- Promote the documented fields from the prose sections into `$defs`, without types. Both
+  validators read one property list, so adding a type would newly reject historical records that
+  hold a different shape. The schema stops shape drift; value rules stay where they already are.
+- Fix three schema-versus-code disagreements that surfaced the moment RULES was validated at all:
+  `$defs.RULES` declared an array while `calibrate.py` and `status_bar.py` have always written and
+  read a `{rules: [...]}` mapping, `source: observed_workflow` was missing from the enum, and
+  `action_items[].checked_at`, written by `check_action.py`, was undeclared. `rules.yml` had never
+  been validated, because `mutate()` only checked `pipeline.yml`.
+- Reject frozen legacy fields at any depth. MATCH_HISTORY is an array and a pipeline's retired
+  scores live inside a company entry, so the top-level-only check reported success while writing
+  exactly what it exists to refuse.
+- Add `_shared/tests/fixtures/legacy/`: four historical shapes that must keep reading forever. The
+  suite asserts they read and that at least one is refused as a new write, so they cannot quietly
+  become documents that pass either way.
+- Make the first-run vocabulary a contract. `effect_label` returned its input unchanged for anything
+  it did not recognize, printing `canonical state` at a user instead of a translation. A test now
+  walks `ux.py` for every string reaching `changed=`/`unchanged=` and asserts each has a catalog
+  entry, and a second test asserts a `setup → record → status → guided` transcript carries no
+  proposal id, event id, store filename or internal term while the JSON keeps them all.
+- Lead with `npx japan-career-agent setup` and `uvx japan-career-agent setup` in all three READMEs,
+  and separate running once from installing. `npx` is an entrypoint; the canonical runtime is
+  Python. The plugins move from a peer install option to `Enhanced integrations`, with what they add
+  stated and what works without them stated too.
+- Add `docs/CAPABILITY_MATRIX.md`, `docs/ARCHITECTURE_BOUNDARIES.md` and
+  `docs/MAINTAINER_RUNBOOK.md`. The matrix is checked, not asserted: every `core` row names a
+  command `build_parser()` defines, and `scripts/check_capability_matrix.py` fails the build if one
+  does not. Rows that are not equal say so rather than being smoothed over.
+- Enforce the three READMEs' shape, not just their contents. `check_readme_consistency.py` was
+  substring-only, so a section added to one language passed; it now compares heading-level sequences
+  and the install order, and refuses `init` as the first command shown.
+- Correct the rename version: 2.1.0, not 2.1.1, which is what `verify_release.py` has always said.
+- Extend the wheel smoke to `status` and `guided`. Both cross more of the runtime than `doctor`
+  does, so they are what proves an arbitrary-CWD install carries the whole application layer.
 
 ## [2.1.1] - 2026-08-11
 
