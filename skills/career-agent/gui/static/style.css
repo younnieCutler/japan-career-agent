@@ -140,6 +140,20 @@ h2 { max-width: 18ch; font-size: clamp(2rem, 5vw, 4rem); }
 .field-status { border-block: 1px solid var(--line); padding-block: 0.75rem; }
 .field-status .status-row { margin: 0.25rem 0; }
 .form-message { min-height: 1.6rem; color: var(--muted); }
+.profile-list { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+.profile-list li { margin-block: 0.35rem; }
+.profile-unknown { color: var(--muted); font-style: italic; }
+.self-analysis-grid { align-items: start; }
+.handoff-panel { margin-block: 2rem 3rem; }
+.handoff-command {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  padding: 1rem;
+  background: #fff;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .primary-button,
 .secondary-button {
   min-height: 44px;

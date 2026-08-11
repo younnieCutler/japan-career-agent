@@ -35,7 +35,7 @@
 
 ---
 
-Current release: `2.5.1`.
+Current release: `2.6.0`.
 
 **In three steps:**
 
@@ -137,7 +137,7 @@ work with no host installed; the plugin changes how you reach them, never what t
 
 The repository version can be ahead of the stable marketplace channel while a release is being
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
-follows `main`. Source metadata is `2.5.1` while the stable marketplace ref is still `v2.1.1`,
+follows `main`. Source metadata is `2.6.0` while the stable marketplace ref is still `v2.1.1`,
 because the release workflow has not published a tag for this source yet. Installing from the
 marketplace therefore gives you `2.1.1` today. The gap closes when the release workflow publishes
 the next tag and this ref is updated. `uvx` and `npx` are not affected either way, since they

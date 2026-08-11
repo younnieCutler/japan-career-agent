@@ -86,3 +86,16 @@ shown. These routes do not write the Vault and POST returns `405 Allow: GET`.
 `POST /api/draft`; proposal creation and approval are separate actions. The explicit `non_work`
 checkbox selects an experience event, and no text inference changes its meaning. Missing fields are
 shown independently (`Unknown` remains visible); no completion percentage is calculated.
+
+## Self-analysis slice
+
+The self-analysis screen reads only the canonical `data/self_analysis_profile.yml` workspace
+projection after strict `SELF_ANALYSIS_PROFILE v2` validation. Missing values stay `Unknown`, an
+explicitly reviewed empty list stays `Reviewed empty`, and the screen never calculates a completion
+score or turns a hypothesis into a recommendation. Raw checklist submissions and internal episode
+references are refused or removed before the browser projection.
+
+The screen is read-only. If a valid profile exists, it displays the user-owned
+`career-agent propose-context` command as a handoff with an explicit approval gate; the browser
+does not run it and no canonical career context is written. If no valid profile exists, it points
+back to the user-led `jiko-bunseki` flow.

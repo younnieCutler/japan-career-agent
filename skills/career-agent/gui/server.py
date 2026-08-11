@@ -10,6 +10,7 @@ from typing import Any
 
 from gui.security import SESSION_COOKIE, SecurityState
 import gui.tanaoroshi as tanaoroshi
+from self_analysis import profile_payload
 from gui.templates import render_shell, static_asset
 from gui.views_read import home_payload, timeline_payload
 
@@ -118,7 +119,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/static/style.css":
             self._send(HTTPStatus.OK, static_asset("style.css"), "text/css; charset=utf-8")
             return
-        if path in {"/api/home", "/api/timeline"}:
+        if path in {"/api/home", "/api/timeline", "/api/self-analysis"}:
             self._read_api(path)
             return
         if path == "/api/tanaoroshi":
@@ -133,7 +134,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/session":
             self._exchange_session()
             return
-        if path in {"/api/home", "/api/timeline"}:
+        if path in {"/api/home", "/api/timeline", "/api/self-analysis"}:
             self._send(
                 HTTPStatus.METHOD_NOT_ALLOWED,
                 b"read-only route",
@@ -153,19 +154,20 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if not self.server.security.authenticated(self.headers, require_csrf=False):
             self._error(HTTPStatus.FORBIDDEN, "session required")
             return
-        if self.server.home is None:
+        if path != "/api/self-analysis" and self.server.home is None:
             self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
             return
         try:
-            payload = (
-                home_payload(
+            if path == "/api/self-analysis":
+                payload = profile_payload(self.server.workspace)
+            elif path == "/api/home":
+                payload = home_payload(
                     self.server.home,
                     workspace=self.server.workspace,
                     as_of=self.server.as_of,
                 )
-                if path == "/api/home"
-                else timeline_payload(self.server.home, as_of=self.server.as_of)
-            )
+            else:
+                payload = timeline_payload(self.server.home, as_of=self.server.as_of)
         except Exception:  # Keep read failures inside the HTTP boundary without leaking paths.
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "read model unavailable")
             return

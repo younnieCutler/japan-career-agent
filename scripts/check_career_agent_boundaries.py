@@ -36,6 +36,7 @@ DOMAIN_MODULES = (
     "approvals",
     "guided_flow",
     "sessions",
+    "self_analysis",
     "dispatch",
     "command_line",
     "runtime",
@@ -64,7 +65,7 @@ CLI_MODULES = {"command_line", "dispatch"}
 APPLICATION_MODULES = {
     "diagnostics", "onboarding", "ingest", "experiences",
     "documents", "views", "approvals", "guided_flow",
-    "sessions",
+    "sessions", "self_analysis",
     "gui.templates", "gui.views_read", "gui.tanaoroshi",
 }
 GUI_MODULES = {"gui.server", "gui.security", "gui.templates", "gui.views_read", "gui.tanaoroshi"}

@@ -38,6 +38,104 @@
 
   const listValue = (value) => String(value || "").split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
 
+  const readable = (item) => {
+    if (item === null || item === undefined || item === "") return "Unknown";
+    if (Array.isArray(item)) return item.length ? item.map(readable).join(", ") : "Reviewed empty";
+    if (typeof item === "object") {
+      return Object.entries(item).map(([key, child]) => `${key}: ${readable(child)}`).join(" · ");
+    }
+    return String(item);
+  };
+
+  const appendValues = (parent, raw, formatter = readable) => {
+    if (raw === null || raw === undefined) {
+      parent.append(element("p", "Unknown", "profile-unknown"));
+      return;
+    }
+    if (Array.isArray(raw) && raw.length === 0) {
+      parent.append(element("p", "Reviewed empty", "profile-unknown"));
+      return;
+    }
+    const values = Array.isArray(raw) ? raw : [raw];
+    const list = element("ul", "", "profile-list");
+    values.forEach((item) => list.append(element("li", formatter(item))));
+    parent.append(list);
+  };
+
+  const profileFieldLabel = (name) => name.replaceAll("_", " ");
+
+  const renderHandoff = (payload) => {
+    const handoff = payload.handoff || {};
+    const panel = section("HANDOFF", "The next move stays yours.");
+    panel.className += " handoff-panel";
+    panel.append(element("p", value(handoff.instruction), "lede"));
+    if (handoff.command) {
+      const command = element("pre", "", "handoff-command");
+      command.append(element("code", handoff.command));
+      panel.append(command);
+    }
+    if (handoff.approval_required) {
+      panel.append(element("p", "Approval required. The GUI has not written canonical context.", "status-row"));
+    }
+    return panel;
+  };
+
+  const renderSelfAnalysis = (payload) => {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+    main.replaceChildren();
+    const navigation = element("nav", "", "view-nav");
+    navigation.setAttribute("aria-label", "Views");
+    navigation.append(
+      button("Home", () => fetchView("/api/home", renderHome)),
+      button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      element("span", "자기분석", "nav-current"),
+      button("棚卸し", openTanaoroshi),
+    );
+    main.append(navigation);
+    main.append(element("p", "SELF-ANALYSIS / HYPOTHESES", "section-label"));
+    main.append(element("h2", "자기분석을 검토하기"));
+    main.append(element("p", "가설과 Unknown을 분리해서 봅니다. GUI는 프로필을 확정하거나 저장하지 않습니다.", "lede"));
+
+    if (payload.state !== "available") {
+      const state = section("PROFILE", payload.state === "invalid" ? "Canonical profile unavailable." : "No reviewed profile yet.");
+      state.append(element("p", value(payload.reason, "Run the user-led jiko-bunseki flow first."), "profile-unknown"));
+      main.append(state, renderHandoff(payload));
+      return;
+    }
+
+    const profile = payload.profile || {};
+    const identity = section("PROFILE", value(profile.candidate_name, "Candidate"));
+    identity.append(element("p", `Track: ${value(profile.track)} · Language: ${value(profile.language_preference)}`));
+    const fieldStatus = element("div", "", "field-status");
+    (payload.field_status || []).forEach((item) => {
+      fieldStatus.append(element("p", `${profileFieldLabel(item.field)}: ${item.status}`, "status-row"));
+    });
+    identity.append(fieldStatus);
+    main.append(identity);
+
+    const grid = element("div", "", "dashboard-grid self-analysis-grid");
+    const blocks = [
+      ["INTEREST HYPOTHESES", "Interest hypotheses", profile.interest_hypotheses, (item) => `${readable(item.activity)}: ${readable(item.response_basis)} (${readable(item.confidence)})`],
+      ["BEHAVIOR", "Behavior tendencies", profile.behavior_tendencies, (item) => `${readable(item.name)}: ${readable(item.response_basis)} (${readable(item.confidence)})`],
+      ["EPISODES", "Evidence episodes", profile.evidence_episodes, (item) => `${readable(item.experience_type)}: ${readable(item.situation)} · ${readable(item.action)} · ${readable(item.energy_effect)}`],
+      ["BARRIERS", "Perceived barriers", profile.perceived_barriers],
+      ["SUPPORTS", "Perceived supports", profile.perceived_supports],
+      ["VALUES", "Value candidates", profile.value_candidates],
+      ["AVOIDS", "Avoid candidates", profile.avoid_candidates],
+      ["QUESTIONS", "Verification questions", profile.verification_questions],
+    ];
+    blocks.forEach(([label, title, raw, formatter]) => {
+      const block = section(label, title);
+      appendValues(block, raw, formatter);
+      grid.append(block);
+    });
+    const environment = section("ENVIRONMENT", "Environment preferences stay independent.");
+    appendValues(environment, profile.environment_preferences);
+    grid.append(environment);
+    main.append(grid, renderHandoff(payload));
+  };
+
   const renderTanaoroshi = (payload) => {
     const main = document.getElementById("main-content");
     if (!main) return;
@@ -52,6 +150,7 @@
     navigation.append(
       button("Home", () => fetchView("/api/home", renderHome)),
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       element("span", "棚卸し", "nav-current"),
     );
     main.append(navigation);
@@ -208,6 +307,7 @@
     navigation.append(
       button("Home", () => renderHome(payload)),
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       button("棚卸し", openTanaoroshi),
     );
     main.append(navigation);
@@ -251,7 +351,12 @@
     main.replaceChildren();
     const navigation = element("nav", "", "view-nav");
     navigation.setAttribute("aria-label", "Views");
-    navigation.append(button("Home", () => fetchView("/api/home", renderHome)), element("span", "Timeline", "nav-current"));
+    navigation.append(
+      button("Home", () => fetchView("/api/home", renderHome)),
+      element("span", "Timeline", "nav-current"),
+      button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
+      button("棚卸し", openTanaoroshi),
+    );
     main.append(navigation);
     main.append(element("h2", "Timeline"));
     const list = element("div", "", "timeline-list");
