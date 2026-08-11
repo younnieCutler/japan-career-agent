@@ -96,7 +96,7 @@ CHECKS = (
 
 
 # Temporary isolation: run only the new session contract on the matrix.
-CHECKS = (("diagnostic sessions", (PYTHON, "skills/career-agent/test_sessions.py")),)
+CHECKS = (("diagnostic tanaoroshi", (PYTHON, "skills/career-agent/gui/test_tanaoroshi.py")),)
 
 
 def _report_ci_failure(label: str) -> None:
