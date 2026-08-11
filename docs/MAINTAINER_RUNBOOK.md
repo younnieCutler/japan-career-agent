@@ -24,6 +24,20 @@ the check and stops; everything after it is unrun, not passing.
 Install the hash-pinned locks, not `requirements.txt`. The loose `ruff` range there resolves a
 different linter version than CI, so local and CI disagree for reasons unrelated to the change.
 
+**Before pushing anything that touches a test, reproduce CI's tree.** Your working tree is not a
+checkout: it has ignored files CI will not have, and CI has nothing else. Both directions have
+caused real failures — a test asserting on `/data/pipeline.yml`, which is ignored working state,
+passed locally and failed on all three runners; and `ruff` linting a plugin host's skills failed
+locally while CI was clean.
+
+```bash
+git clone --local --no-hardlinks --branch <your-branch> . /tmp/cleanclone
+cd /tmp/cleanclone && python scripts/run_all_checks.py
+```
+
+`--local` makes this a few seconds, and ignored files do not come along. If a test references a
+repository file, `git ls-files <path>` first: an untracked path is a path CI does not have.
+
 **If ruff fails on files you did not write.** `ruff check .` walks the working tree and honours
 `.gitignore`. A plugin host that installs skills into `.agents/skills/` is ignored by name; a host
 that installs somewhere else is not. Add the path to `.gitignore` rather than deleting the files.
