@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -94,6 +97,35 @@ CHECKS = (
 )
 
 
+def _report_ci_failure(label: str) -> None:
+    token = os.environ.get("GITHUB_TOKEN")
+    repository = os.environ.get("GITHUB_REPOSITORY")
+    sha = os.environ.get("GITHUB_SHA")
+    if not token or not repository or not sha:
+        return
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{repository}/statuses/{sha}",
+        data=json.dumps(
+            {
+                "state": "failure",
+                "context": "jca/temporary-check-diagnostic",
+                "description": label[:140],
+            }
+        ).encode("utf-8"),
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5):
+            pass
+    except Exception:
+        pass
+
+
 def main() -> int:
     for label, command in CHECKS:
         print(f"\n==> {label}: {' '.join(command)}", flush=True)
@@ -101,9 +133,11 @@ def main() -> int:
             result = subprocess.run(command, cwd=ROOT, check=False)
         except OSError as exc:
             print(f"{label} could not start: {exc}", file=sys.stderr, flush=True)
+            _report_ci_failure(label)
             return 1
         if result.returncode:
             print(f"FAILED: {label} (exit {result.returncode})", file=sys.stderr, flush=True)
+            _report_ci_failure(label)
             return result.returncode
     print(f"\nAll {len(CHECKS)} repository checks passed.", flush=True)
     return 0
