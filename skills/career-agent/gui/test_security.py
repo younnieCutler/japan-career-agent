@@ -24,7 +24,7 @@ REQUIRED_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Content-Security-Policy": (
-        "default-src 'none'; style-src 'self'; script-src 'self'; "
+        "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
         "form-action 'self'; frame-ancestors 'none'"
     ),
 }
@@ -173,6 +173,38 @@ class GuiSecurityTests(unittest.TestCase):
             )
             self.assertEqual(status, 403)
             self.assertNotIn("Set-Cookie", headers)
+
+    def test_csp_permits_every_browser_capability_the_shipped_client_uses(self):
+        """Compare what the assets actually do against what the policy allows.
+
+        A directive absent from the CSP falls back to `default-src 'none'`, so the browser blocks
+        it. `http.client` enforces no CSP, which is why every other test in this file passes while
+        a real browser would render an empty shell. Pinning the header string cannot catch this
+        either: the pin is satisfied by the wrong value as long as nobody changes it.
+        """
+        module = _server_module()
+        directives = {}
+        for chunk in module.CONTENT_SECURITY_POLICY.split(";"):
+            name, _, value = chunk.strip().partition(" ")
+            if name:
+                directives[name] = value
+        shell = module.render_shell()
+        bootstrap = module.static_asset("bootstrap.js").decode("utf-8")
+        used = {
+            "connect-src": "fetch(" in bootstrap or "XMLHttpRequest" in bootstrap,
+            "script-src": '<script src="/static/bootstrap.js"' in shell,
+            "style-src": 'rel="stylesheet"' in shell,
+        }
+
+        self.assertEqual(directives.get("default-src"), "'none'")
+        for directive, is_used in used.items():
+            with self.subTest(directive=directive):
+                if is_used:
+                    self.assertIn(
+                        "'self'",
+                        directives.get(directive, ""),
+                        f"the shipped client uses {directive} but the CSP does not allow it",
+                    )
 
     def test_all_responses_carry_the_fixed_security_headers(self):
         with running_server() as server:

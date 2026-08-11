@@ -11,8 +11,12 @@ from gui.security import SESSION_COOKIE, SecurityState
 from gui.templates import render_shell, static_asset
 
 
+# `default-src 'none'` denies anything a later directive does not name, so every capability the
+# shipped client uses has to appear here. `connect-src` is what lets `bootstrap.js` reach
+# `/session` and the read APIs; without it the browser renders the shell and then blocks every
+# fetch, which no `http.client` test can observe.
 CONTENT_SECURITY_POLICY = (
-    "default-src 'none'; style-src 'self'; script-src 'self'; "
+    "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
     "form-action 'self'; frame-ancestors 'none'"
 )
 
