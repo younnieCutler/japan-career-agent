@@ -16,7 +16,7 @@ Command line     command_line.py    │  the parser, and the one place a result 
                  dispatch.py        │  command → owner, and nothing else
                                     ▼
 Application      onboarding · diagnostics · views · experiences · documents
-                 guided_flow · approvals · ingest · sessions
+                 guided_flow · approvals · ingest · sessions · case_store · artifact_store
                                     ▼
 Domain           models · validation · persistence · vault · routing · proposals
                  lifecycle · projection · document · render · personal_timeline
@@ -35,6 +35,11 @@ canonical writer or a hidden CLI dependency.
 translates semantic form actions into that owner; it does not own the files. A draft or checkpoint
 can be written to the transient capture area, but only the existing `approvals.approve` →
 `lifecycle.approve` path can append canonical evidence.
+
+`case_store.py` and `artifact_store.py` own durable GUI metadata under `03-active/gui/`. The
+`gui.cases` and `gui.artifacts` modules are adapters: they never import persistence or Vault
+directly. Case/archive/delete and artifact version operations are metadata-only; the canonical
+ledger and the company-scoped `data/pipeline.yml` projection remain separate.
 
 Dependencies point down. Application modules may call each other sideways; the graph stays acyclic.
 Nothing at any layer imports an entry point, and the domain does not know that a CLI exists.

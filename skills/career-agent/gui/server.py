@@ -8,6 +8,8 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+import gui.artifacts as artifacts
+import gui.cases as cases
 from gui.security import SESSION_COOKIE, SecurityState
 import gui.tanaoroshi as tanaoroshi
 from self_analysis import profile_payload
@@ -119,7 +121,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/static/style.css":
             self._send(HTTPStatus.OK, static_asset("style.css"), "text/css; charset=utf-8")
             return
-        if path in {"/api/home", "/api/timeline", "/api/self-analysis"}:
+        if path in {"/api/home", "/api/timeline", "/api/self-analysis", "/api/cases"}:
             self._read_api(path)
             return
         if path == "/api/tanaoroshi":
@@ -145,7 +147,19 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if not self.server.security.authenticated(self.headers, require_csrf=True):
             self._error(HTTPStatus.FORBIDDEN, "session and CSRF token required")
             return
-        if path in {"/api/tanaoroshi", "/api/draft", "/api/checkpoint", "/api/proposal", "/api/approve"}:
+        if path in {
+            "/api/tanaoroshi",
+            "/api/draft",
+            "/api/checkpoint",
+            "/api/proposal",
+            "/api/approve",
+            "/api/cases",
+            "/api/cases/archive",
+            "/api/cases/delete",
+            "/api/artifacts",
+            "/api/artifacts/update",
+            "/api/artifacts/delete",
+        }:
             self._write_tanaoroshi(path)
             return
         self._error(HTTPStatus.NOT_FOUND, "not found")
@@ -160,6 +174,8 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         try:
             if path == "/api/self-analysis":
                 payload = profile_payload(self.server.workspace)
+            elif path == "/api/cases":
+                payload = cases.payload(self.server.home)
             elif path == "/api/home":
                 payload = home_payload(
                     self.server.home,
@@ -212,10 +228,32 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                 result = tanaoroshi.checkpoint(self.server.home, payload["session_id"], payload)
             elif path == "/api/proposal":
                 result = tanaoroshi.submit(self.server.home, payload["session_id"])
-            else:
+            elif path == "/api/approve":
                 result = tanaoroshi.approve_session(
                     self.server.home, payload["session_id"], payload["proposal_id"]
                 )
+            elif path == "/api/cases":
+                result = self._create_case(payload)
+            elif path == "/api/cases/archive":
+                result = cases.archive_case(self.server.home, payload["case_id"])
+            elif path == "/api/cases/delete":
+                result = cases.delete_case(self.server.home, payload["case_id"])
+            elif path == "/api/artifacts":
+                result = artifacts.register_artifact(
+                    self.server.home,
+                    case_ref=payload["case_ref"],
+                    kind=payload["kind"],
+                    body=payload["body"],
+                    evidence_refs=payload.get("evidence_refs"),
+                    source_refs=payload.get("source_refs"),
+                    generated_by=payload.get("generated_by"),
+                )
+            elif path == "/api/artifacts/update":
+                result = artifacts.update_artifact(
+                    self.server.home, payload["artifact_id"], body=payload["body"]
+                )
+            else:
+                result = artifacts.delete_artifact(self.server.home, payload["artifact_id"])
         except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
             self._error(HTTPStatus.BAD_REQUEST, "invalid 棚卸し request")
             return
@@ -223,6 +261,29 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "棚卸し write unavailable")
             return
         self._json(result)
+
+    def _create_case(self, payload: dict[str, Any]) -> dict[str, Any]:
+        kind = payload.get("kind")
+        if kind == "company":
+            return cases.create_company(
+                self.server.home,
+                payload["label"],
+                pipeline_slug=payload.get("pipeline_slug"),
+                business=payload.get("business"),
+                products=payload.get("products"),
+                source_refs=payload.get("source_refs"),
+            )
+        if kind == "application":
+            return cases.create_application(
+                self.server.home,
+                payload["parent_ref"],
+                payload["label"],
+                jd=payload.get("jd"),
+                evidence_refs=payload.get("evidence_refs"),
+                document_kinds=payload.get("document_kinds"),
+                source_refs=payload.get("source_refs"),
+            )
+        raise ValueError("unsupported case kind")
 
     def _exchange_session(self) -> None:
         try:
