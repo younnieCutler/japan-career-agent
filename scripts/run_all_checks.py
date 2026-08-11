@@ -96,7 +96,7 @@ CHECKS = (
 
 
 def main() -> int:
-    for label, command in CHECKS:
+    for check_index, (label, command) in enumerate(CHECKS, 1):
         print(f"\n==> {label}: {' '.join(command)}", flush=True)
         try:
             result = subprocess.run(command, cwd=ROOT, check=False)
@@ -111,7 +111,8 @@ def main() -> int:
                     flush=True,
                 )
             print(f"FAILED: {label} (exit {result.returncode})", file=sys.stderr, flush=True)
-            return result.returncode
+            # Temporary CI diagnostic: the matrix annotation exposes only the process exit code.
+            return check_index
     print(f"\nAll {len(CHECKS)} repository checks passed.", flush=True)
     return 0
 
