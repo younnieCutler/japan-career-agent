@@ -8,6 +8,8 @@
 <p align="center">
   <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
   <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
+  <a href="https://pypi.org/project/japan-career-agent/"><img src="https://img.shields.io/pypi/v/japan-career-agent?style=for-the-badge&color=3775a9&logo=pypi&logoColor=white" alt="PyPI"></a>
+  <a href="https://www.npmjs.com/package/japan-career-agent"><img src="https://img.shields.io/npm/v/japan-career-agent?style=for-the-badge&color=cb3837&logo=npm&logoColor=white" alt="npm"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
@@ -104,11 +106,11 @@ codex plugin add japan-career-agent@japan-career-agent
 
 リリース準備中は、リポジトリのバージョンが stable marketplace チャンネルより先に進む
 ことがあります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを
-参照し、`main` は追跡しません。現在はソースメタデータが `2.1.1` である一方、stable marketplace
-ref はまだ `v1.18.1` です。新しいソースに対するタグをリリース workflow がまだ公開していない
-ためで、marketplace から入れると今日は `1.18.1` が入ります。次のタグが公開され ref が更新され
-れば差は閉じます。`uvx` と `npx` はこの ref ではなく公開済みパッケージのバージョンを解決する
-ので影響を受けません。
+参照し、`main` は追跡しません。現在はリリース workflow がこの commit から `v2.1.1` を
+公開したため、ソースメタデータ `2.1.1` と stable marketplace ref `v2.1.1` が一致して
+います。次の挙動変更で再び差が開き、次のタグ公開と ref 更新で再び一致します。`uvx` と `npx`
+はこの ref ではなく公開済みパッケージのバージョンを解決するので、どちらの場合も影響を
+受けません。
 
 ### ローカル fallback
 

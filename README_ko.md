@@ -8,6 +8,8 @@
 <p align="center">
   <a href="https://github.com/younnieCutler/japan-career-agent/releases"><img src="https://img.shields.io/github/v/release/younnieCutler/japan-career-agent?style=for-the-badge&color=0b7285" alt="Latest release"></a>
   <a href="https://github.com/younnieCutler/japan-career-agent/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/younnieCutler/japan-career-agent/test.yml?branch=main&style=for-the-badge&label=checks" alt="Repository checks"></a>
+  <a href="https://pypi.org/project/japan-career-agent/"><img src="https://img.shields.io/pypi/v/japan-career-agent?style=for-the-badge&color=3775a9&logo=pypi&logoColor=white" alt="PyPI"></a>
+  <a href="https://www.npmjs.com/package/japan-career-agent"><img src="https://img.shields.io/npm/v/japan-career-agent?style=for-the-badge&color=cb3837&logo=npm&logoColor=white" alt="npm"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange?style=for-the-badge" alt="Changelog"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License"></a>
@@ -103,10 +105,10 @@ codex plugin add japan-career-agent@japan-career-agent
 
 릴리스를 준비하는 동안 저장소의 버전이 stable marketplace 채널보다 앞설 수 있습니다.
 stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지
-않습니다. 지금은 소스 메타데이터가 `2.1.1`인데 stable marketplace ref는 아직 `v1.18.1`입니다.
-새 소스에 대한 태그를 릴리스 workflow가 아직 발행하지 않았기 때문이며, 따라서 marketplace로
-설치하면 오늘은 `1.18.1`이 설치됩니다. 다음 태그가 발행되고 ref가 갱신되면 차이가 닫힙니다.
-`uvx`와 `npx`는 이 ref가 아니라 발행된 패키지 버전을 해석하므로 영향을 받지 않습니다.
+않습니다. 지금은 릴리스 workflow가 이 commit에서 `v2.1.1`을 발행했으므로 소스 메타데이터
+`2.1.1`과 stable marketplace ref `v2.1.1`이 일치합니다. 다음 동작 변경에서 다시 차이가
+생기고, 다음 태그가 발행되고 ref가 갱신되면 다시 일치합니다. `uvx`와 `npx`는 이 ref가 아니라
+발행된 패키지 버전을 해석하므로 어느 경우든 영향을 받지 않습니다.
 
 ### 로컬 fallback
 
