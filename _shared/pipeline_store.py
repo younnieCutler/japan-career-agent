@@ -134,18 +134,27 @@ LEGACY_WRITE_FIELDS = {
 }
 
 
-def _company_entry_properties() -> frozenset[str]:
-    """The field names a company entry may carry, read from the shared catalog.
+COMPANY_ENTRY = ("properties", "companies", "items")
 
-    Taken from the schema rather than restated here, so a field added to `schemas.yml` is writable
-    without a second edit, and a field that was never added is not writable at all. This is the
-    check that turns a typo into an error instead of into a key nothing will ever read again.
+
+def _validate_new_entry_fields(fields: dict[str, Any]) -> None:
+    """Reject a key the catalog does not name, at any depth of what is being written.
+
+    Only the incoming fragment is checked, never the merged entry: an entry already on disk may
+    hold keys from an older version of this suite, and rejecting those would make an existing
+    pipeline unwritable rather than upgradeable. A top-level-only check is not enough either —
+    `jd_requirements`, `action_items` and `history` are lists of objects, and a typo one level down
+    is the same silent loss as a typo at the top.
     """
-    from schema_contract import load_catalog
+    from schema_contract import SchemaContractError, validate_new_fragment
 
-    catalog = load_catalog()
-    entry = catalog["$defs"]["PIPELINE"]["properties"]["companies"]["items"]
-    return frozenset(entry["properties"])
+    try:
+        validate_new_fragment("PIPELINE", fields, at=COMPANY_ENTRY)
+    except SchemaContractError as exc:
+        raise ValueError(
+            f"{exc}. Add the field to $defs.PIPELINE in _shared/schemas.yml if it is real; "
+            "otherwise this is a typo, and writing it would store a value nothing reads."
+        ) from exc
 
 
 def _validate_fields(fields: dict[str, Any]) -> None:
@@ -163,13 +172,7 @@ def _validate_fields(fields: dict[str, Any]) -> None:
             f"legacy_v1 fields are frozen and cannot be written: {', '.join(frozen)}. "
             "Use decision_status (+ match_model_version=evidence_based_v3) from _shared/matching_v3.py."
         )
-    unknown = sorted(set(fields) - _company_entry_properties())
-    if unknown:
-        raise ValueError(
-            f"unknown company fields: {', '.join(unknown)}. "
-            "Add the field to $defs.PIPELINE in _shared/schemas.yml if it is real; "
-            "otherwise this is a typo, and writing it would store a value nothing reads."
-        )
+    _validate_new_entry_fields(fields)
     if "stage" in fields and (not isinstance(fields["stage"], int) or not 0 <= fields["stage"] <= 7):
         raise ValueError("stage must be an integer from 0 to 7")
 
@@ -254,6 +257,9 @@ def _append_history_idempotent(entry: dict[str, Any], history: dict[str, Any] | 
         return
     if not isinstance(history, dict):
         raise ValueError("history must be an object")
+    # A history row arrives as its own argument rather than inside `fields`, so it never reached
+    # the field gate. Same document, same catalog, same rule: a typo here is a row nothing reads.
+    _validate_new_entry_fields({"history": [history]})
     hist_id = history.get("event_id") or history.get("id")
     if "id" in history:
         history = {key: value for key, value in history.items() if key != "id"}

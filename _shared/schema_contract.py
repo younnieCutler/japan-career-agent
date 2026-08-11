@@ -61,7 +61,22 @@ def load_catalog(path: Path = SCHEMA_PATH) -> dict[str, Any]:
 
 
 def _closed(schema: Any) -> Any:
-    """Close every object in a schema so an unnamed property is rejected.
+    """Close an object exactly when the catalog declares what belongs in it.
+
+    The rule is `properties` is declared, not "this looks like an object". Both other readings are
+    wrong in a way that shows up as a wrong answer rather than as an error:
+
+    - Closing on `type: object` alone closes the objects the catalog deliberately leaves shapeless.
+      `work_style_reflection` is `{type: object}` with no properties and is *required* on every
+      CANDIDATE_PROFILE, so closing it rejects every profile that has one filled in.
+    - Closing on the declared type at all misses `type: [object, 'null']`, which is how every
+      nullable object in this catalog is written.
+
+    Keying on `properties` gets both: a field gains strictness the moment its shape is written
+    down, in whichever way its type is spelled, and an intentionally opaque field stays open. The
+    opaque ones are not unvalidated -- `portable_skill_allocation` is checked by
+    `matching_v3.validate_allocation`, the v2 profile by `self_analysis_profile.py` -- they are
+    validated by the code that knows their rules rather than by a shape the catalog does not state.
 
     `additionalProperties: true` does not merely permit unknown keys, it *evaluates* them, which is
     why `unevaluatedProperties` would be a no-op here and the permissive setting has to be replaced
@@ -73,9 +88,32 @@ def _closed(schema: Any) -> Any:
     if not isinstance(schema, dict):
         return schema
     closed = {key: _closed(value) for key, value in schema.items()}
-    if "properties" in closed or closed.get("type") == "object":
+    if "properties" in closed:
         closed["additionalProperties"] = False
     return closed
+
+
+def closed_object_paths(*, path: Path = SCHEMA_PATH) -> tuple[tuple[str, ...], ...]:
+    """Every object the strict schema closes, as a JSON pointer path.
+
+    Exposed so a test can pin the list. Which objects are strict is a contract, and a field that
+    silently joined or left the set would change what a write is allowed to contain without anyone
+    reading a diff of this file.
+    """
+    found: list[tuple[str, ...]] = []
+
+    def walk(node: Any, pointer: tuple[str, ...]) -> None:
+        if isinstance(node, dict):
+            if node.get("additionalProperties") is False:
+                found.append(pointer)
+            for key, value in node.items():
+                walk(value, (*pointer, key))
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                walk(value, (*pointer, str(index)))
+
+    walk(_closed(load_catalog(path)["$defs"]), ())
+    return tuple(found)
 
 
 @lru_cache(maxsize=None)
@@ -129,6 +167,46 @@ def _check(name: str, value: Any, validator: jsonschema.Draft202012Validator) ->
 def validate_document(name: str, value: Any, *, path: Path = SCHEMA_PATH) -> Any:
     """The tolerant read path: shape is checked, unknown properties are kept."""
     return _check(name, value, _validator(name, path))
+
+
+def _without_required(schema: Any) -> Any:
+    if isinstance(schema, list):
+        return [_without_required(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    return {key: _without_required(value) for key, value in schema.items() if key != "required"}
+
+
+@lru_cache(maxsize=None)
+def _fragment_validator(name: str, pointer: tuple[str, ...], path: Path) -> jsonschema.Draft202012Validator:
+    catalog = load_catalog(path)
+    if name not in catalog["$defs"]:
+        raise SchemaContractError(f"unknown canonical schema: {name}")
+    node: Any = catalog["$defs"][name]
+    for step in pointer:
+        try:
+            node = node[step]
+        except (KeyError, TypeError) as exc:
+            raise SchemaContractError(f"no such schema location: {name}/{'/'.join(pointer)}") from exc
+    strict = _without_required(_closed(copy.deepcopy(node)))
+    return jsonschema.Draft202012Validator({"$schema": catalog["$schema"], **strict})
+
+
+def validate_new_fragment(
+    name: str, value: Any, *, at: tuple[str, ...] = (), path: Path = SCHEMA_PATH
+) -> Any:
+    """Validate the part of a document a write is adding, strictly and at every depth.
+
+    A writer that merges fields into an existing record cannot be checked by validating the merged
+    result: the record may already hold keys from an older version, and rejecting those would make
+    an existing file unwritable rather than upgradeable. So the *fragment* is what gets checked —
+    what this write is introducing — while whatever was already on disk is left alone.
+
+    `required` is dropped for the same reason: a partial update legitimately carries two fields out
+    of thirty. Presence rules belong to the whole document; this answers the narrower question of
+    whether every key being written is a key the catalog knows about.
+    """
+    return _check(name, value, _fragment_validator(name, tuple(at), path))
 
 
 @lru_cache(maxsize=None)

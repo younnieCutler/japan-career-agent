@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "_shared"))
 FIXTURES = ROOT / "_shared" / "tests" / "fixtures" / "legacy"
 
 from schema_contract import SchemaContractError, load_catalog, validate_document, validate_new_write  # noqa: E402
+import schema_contract  # noqa: E402
 import pipeline_store  # noqa: E402
 
 
@@ -136,6 +137,96 @@ class StrictWriteTests(unittest.TestCase):
         validate_new_write("PIPELINE", {"companies": [entry]})
 
 
+class ClosureContractTests(unittest.TestCase):
+    """Which objects are strict is a contract, so it is written down rather than inferred."""
+
+    CLOSED = {
+        ("SELF_ANALYSIS_PROFILE",),
+        ("CANDIDATE_PROFILE",),
+        ("COMPANY_PROFILE",),
+        ("MATCH_HISTORY", "items"),
+        ("PIPELINE",),
+        ("PIPELINE", "properties", "companies", "items"),
+        ("PIPELINE", "properties", "companies", "items", "properties", "jd_requirements", "items"),
+        ("PIPELINE", "properties", "companies", "items", "properties", "action_items", "items"),
+        ("PIPELINE", "properties", "companies", "items", "properties", "history", "items"),
+        ("RULES",),
+        ("RULES", "properties", "rules", "items"),
+    }
+
+    def test_exactly_these_objects_are_closed(self) -> None:
+        self.assertEqual(set(schema_contract.closed_object_paths()), self.CLOSED)
+
+    def test_an_object_with_no_declared_shape_stays_open(self) -> None:
+        """`work_style_reflection` is `{type: object}` with no properties, and required on every
+        CANDIDATE_PROFILE. Closing an object the catalog never described would reject the content
+        it was always meant to hold."""
+        validate_new_write("CANDIDATE_PROFILE", dict(
+            VALID_CANDIDATE,
+            work_style_reflection={"creation": 5.0, "result": 7.0, "primary_trait": "builder"},
+            portable_skill_allocation={"current_state_assessment": 4},
+        ))
+
+    def test_declaring_a_shape_is_what_makes_it_strict(self) -> None:
+        """The same field would be closed the moment its properties are written down."""
+        opaque = {"type": "object"}
+        described = {"type": ["object", "null"], "properties": {"a": {}}}
+        self.assertNotIn("additionalProperties", schema_contract._closed(opaque))
+        self.assertIs(schema_contract._closed(described)["additionalProperties"], False)
+
+
+class FrozenFieldContractTests(unittest.TestCase):
+    """The prose and the gate have to name the same fields, or one of them is a lie."""
+
+    def setUp(self) -> None:
+        self.policy = yaml.safe_load(
+            (ROOT / "_shared" / "schemas.yml").read_text(encoding="utf-8")
+        )["legacy_field_policy"]
+
+    def test_the_flat_list_is_the_union_of_the_per_schema_lists(self) -> None:
+        union = {field for fields in self.policy["by_schema"].values() for field in fields}
+        self.assertEqual(set(self.policy["fields"]), union)
+
+    def test_every_frozen_field_is_a_declared_property(self) -> None:
+        """A frozen field that no schema names would be rejected on write and unreachable on read
+        for the wrong reason -- the tolerant catch-all rather than a field the catalog knows."""
+        declared: set[str] = set()
+
+        def walk(node: object) -> None:
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key == "properties" and isinstance(value, dict):
+                        declared.update(value)
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+
+        walk(load_catalog()["$defs"])
+        self.assertEqual(sorted(set(self.policy["fields"]) - declared), [])
+
+    def test_the_v1_self_analysis_fields_the_prose_calls_read_only_are_refused(self) -> None:
+        """These were documented as legacy and were writable anyway until the lists were joined."""
+        for field in ("top_strengths", "strength_clusters", "work_style", "wellbeing_priorities",
+                      "preferred_role_environment", "risk_flags"):
+            with self.subTest(field=field):
+                with self.assertRaises(SchemaContractError):
+                    validate_new_write("SELF_ANALYSIS_PROFILE", dict(VALID_PROFILE, **{field: {}}))
+                validate_document("SELF_ANALYSIS_PROFILE", dict(VALID_PROFILE, **{field: {}}))
+
+    def test_the_legacy_candidate_and_company_aliases_are_refused(self) -> None:
+        for name, valid, field in (
+            ("CANDIDATE_PROFILE", VALID_CANDIDATE, "portable_skills"),
+            ("CANDIDATE_PROFILE", VALID_CANDIDATE, "spi3"),
+            ("COMPANY_PROFILE", VALID_COMPANY, "wellbeing_scores"),
+            ("COMPANY_PROFILE", VALID_COMPANY, "top_performer_spi3"),
+        ):
+            with self.subTest(schema=name, field=field):
+                with self.assertRaises(SchemaContractError):
+                    validate_new_write(name, dict(valid, **{field: {}}))
+                validate_document(name, dict(valid, **{field: {}}))
+
+
 class LegacyReadTests(unittest.TestCase):
     """Historical shapes on disk. Every one of these must keep reading, forever."""
 
@@ -198,6 +289,55 @@ class ProducerContractTests(unittest.TestCase):
 
             block = status_bar.build_status(written, {"rules": []}, dt.date(2026, 8, 11))
             self.assertIn("Aozora Systems", block)
+
+    def test_the_writer_refuses_a_typo_at_every_depth_it_can_reach(self) -> None:
+        """Through `upsert_company`, not through the schema helper.
+
+        Validating a document the test built itself only proves the helper works. Each of these
+        went in through the real writer and came back out of `load()` before this: the field gate
+        checked the top level of the entry, and `jd_requirements`, `action_items` and `history` are
+        lists of objects it never looked inside.
+        """
+        cases = {
+            "top level": {"name": "A", "decison_status": "proceed"},
+            "jd requirement": {"name": "A", "jd_requirements": [{"text": "K8s", "evidence_id": "e1"}]},
+            "action item": {"name": "A", "action_items": [{"id": "x", "text": "t", "chekced": True}]},
+            "history row": {"name": "A", "history": [{"date": "2026-08-11", "evnet": "applied"}]},
+        }
+        for label, fields in cases.items():
+            with self.subTest(depth=label), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "pipeline.yml"
+                with self.assertRaises(ValueError):
+                    pipeline_store.upsert_company(path, "a", fields)
+                self.assertFalse(path.exists(), "a refused write must not create the file")
+
+    def test_the_writer_refuses_a_typo_in_the_history_argument(self) -> None:
+        """`history=` arrives beside `fields`, so it bypassed the field gate entirely."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pipeline.yml"
+            with self.assertRaises(ValueError):
+                pipeline_store.upsert_company(
+                    path, "a", {"name": "A"}, history={"date": "2026-08-11", "evnet": "applied"},
+                )
+
+    def test_the_writer_still_accepts_every_declared_shape(self) -> None:
+        """The other half: strictness that rejected a legitimate write would be worse than none."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pipeline.yml"
+            pipeline_store.upsert_company(path, "a", {
+                "name": "A", "stage": 3, "decision_status": "review",
+                "jd_requirements": [{"text": "K8s", "kind": "required", "status": "Unknown",
+                                     "evidence_ids": ["evt-1"]}],
+                "action_items": [{"id": "x", "text": "send", "checked": True,
+                                  "created": "2026-08-11", "checked_at": "2026-08-11"}],
+            }, history={"date": "2026-08-11", "event": "applied", "event_id": "evt-1"})
+            # A legacy history row carries `id`; the writer normalizes it to `event_id`.
+            pipeline_store.upsert_company(
+                path, "a", {"name": "A"}, history={"date": "2026-08-12", "event": "interview", "id": "evt-2"},
+            )
+            entry = pipeline_store.load(path)["companies"][0]
+            self.assertEqual([row.get("event_id") for row in entry["history"]], ["evt-1", "evt-2"])
+            validate_new_write("PIPELINE", pipeline_store.load(path))
 
     def test_a_frozen_field_is_refused_for_being_frozen_and_not_for_being_unknown(self) -> None:
         """Five of the seven frozen score fields are deliberately absent from the schema, so an

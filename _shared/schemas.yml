@@ -17,19 +17,35 @@ schema_version: "2.5"
 # field meaning and legacy policy; these Draft 2020-12 definitions provide a machine-checkable
 # shape at every serialization boundary without changing the existing YAML contract.
 #
-# Two validators are built from this one catalog (_shared/schema_contract.py):
+# Three validators are built from this one catalog (_shared/schema_contract.py):
 #
-#   validate_document   the tolerant READ path. Unknown properties are accepted, because a record
-#                       written by an older version of this suite must stay readable forever.
-#   validate_new_write  the strict WRITE path. Every object below is closed by a transform in code
-#                       that replaces `additionalProperties: true` with `false`, so a typo like
-#                       `decison_status` is rejected at the moment it would be written.
+#   validate_document      the tolerant READ path. Unknown properties are accepted, because a
+#                          record written by an older version of this suite must stay readable.
+#   validate_new_write     the strict WRITE path for a whole document.
+#   validate_new_fragment  the strict WRITE path for the part of a document a write is adding.
+#                          This is what `pipeline_store` uses: an entry already on disk may hold
+#                          keys from an older version, and rejecting those would make an existing
+#                          pipeline unwritable rather than upgradeable, so only what the write
+#                          introduces is checked.
 #
-# Because the two share one property list, every field a writer may legitimately produce has to be
-# named here. Fields promoted from the prose sections below carry NO type constraint on purpose:
-# both validators read this list, so adding a type would newly reject historical records that hold
-# a different shape. The schema's job here is to stop shape drift; value rules stay in the Python
-# validators that already own them (`_shared/pipeline_store.py`, `_shared/self_analysis_profile.py`,
+# WHAT IS STRICT, EXACTLY. An object is closed when this catalog declares its `properties`, and not
+# otherwise. Declaring a shape is what makes it enforceable, so:
+#
+#   - `work_style_reflection`, `conditions`, `portable_skill_allocation`, `career_self_efficacy`,
+#     `requirements`, `mhlw_mapping` and the other bare `{type: object}` / `{type: [object, 'null']}`
+#     fields are deliberately opaque HERE. They are not unvalidated: `matching_v3.validate_allocation`
+#     and `_shared/self_analysis_profile.py` own their rules. They are validated by the code that
+#     knows them rather than by a shape this file never stated.
+#   - Write a field's `properties` down and it becomes strict automatically, at any depth.
+#
+# `scripts/test_schema_contract.py` pins the exact list of closed objects, so a field joining or
+# leaving that set is a visible diff rather than a quiet change to what a write may contain.
+#
+# Because the read and write paths share one property list, every field a writer may legitimately
+# produce has to be named here. Fields promoted from the prose sections below carry NO type
+# constraint on purpose: adding a type would newly reject historical records that hold a different
+# shape. The schema's job is to stop shape drift; value rules stay in the Python validators that
+# already own them (`_shared/pipeline_store.py`, `_shared/self_analysis_profile.py`,
 # `skills/career-agent/validation.py`).
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://github.com/younnieCutler/japan-career-agent/shared-schemas"
@@ -160,6 +176,8 @@ $defs:
         conflicts: {}
         missing_information: {}
         # legacy_v1 history. Present on entries written before evidence_based_v3, never on new ones.
+        screening_probability: {}
+        platform_probability: {}
         recruit_style_score: {}
         persol_style_score: {}
         culture_fit_score: {}
@@ -256,7 +274,12 @@ $defs:
                   # Legacy history rows carry `id`; readers accept it, writers use `event_id`.
                   id: {}
                 additionalProperties: true
-            # legacy_v1, frozen. Readable on existing entries; `_validate_fields` refuses new ones.
+            # legacy_v1, frozen. Readable on existing entries; the write gate refuses new ones.
+            culture_fit_score: {}
+            overall_score: {}
+            overall_grade: {}
+            screening_probability: {}
+            platform_probability: {}
             match_score: {}
             predicted_tier: {}
           additionalProperties: true
@@ -288,24 +311,77 @@ $defs:
           additionalProperties: true
     additionalProperties: true
 
+# Read forever, never written again. `validate_new_write` and `validate_new_fragment` refuse every
+# name below at any depth; `validate_document` accepts them all, because they are on disk already.
+#
+# `fields` is the flat list every writer is checked against, and it is what the descriptive
+# "read-only" and "legacy_v1" notes further down this file actually mean. Those notes used to name
+# fields the gate did not know about -- `top_strengths`, `work_style`, `portable_skills` and the
+# rest were documented as legacy and were still writable -- so `by_schema` records which document
+# each one belongs to and `fields` is derived from it by the test that checks the two agree.
 legacy_field_policy:
   readable: true
   writable: false
+  by_schema:
+    SELF_ANALYSIS_PROFILE:
+      # legacy v1 self-analysis. `legacy_self_analysis_profile_v1.readable_fields` below is the
+      # descriptive copy of this list; a v2 producer never recreates any of them.
+      - top_strengths
+      - strength_clusters
+      - work_style
+      - wellbeing_priorities
+      - preferred_role_environment
+      - risk_flags
+      - preferred_company_type
+    CANDIDATE_PROFILE:
+      - spi3
+      - portable_skills
+      - target_company_type
+      - preferred_company_type
+    COMPANY_PROFILE:
+      - top_performer_spi3
+      - top_performer_portable_skills
+      - wellbeing_scores
+    MATCH_HISTORY:
+      - recruit_style_score
+      - persol_style_score
+      - culture_fit_score
+      - overall_score
+      - overall_grade
+      - screening_probability
+      - platform_probability
+    PIPELINE:
+      - match_score
+      - predicted_tier
+      - culture_fit_score
+      - screening_probability
+      - platform_probability
+      - overall_score
+      - overall_grade
+    RULES: []
   fields:
-    - match_score
-    - predicted_tier
     - culture_fit_score
-    - screening_probability
-    - platform_probability
-    - overall_score
+    - match_score
     - overall_grade
-    - recruit_style_score
+    - overall_score
     - persol_style_score
-    - spi3
+    - platform_probability
+    - portable_skills
     - preferred_company_type
+    - preferred_role_environment
+    - predicted_tier
+    - recruit_style_score
+    - risk_flags
+    - screening_probability
+    - spi3
+    - strength_clusters
     - target_company_type
-    - top_performer_spi3
     - top_performer_portable_skills
+    - top_performer_spi3
+    - top_strengths
+    - wellbeing_priorities
+    - wellbeing_scores
+    - work_style
   migration: "Preserve existing values verbatim. Do not backfill, reinterpret, or convert them into v3 fields."
 
 # ─────────────────────────────────────────────

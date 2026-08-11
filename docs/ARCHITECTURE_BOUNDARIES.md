@@ -64,14 +64,24 @@ projector. The approval rules themselves stay in `lifecycle`.
 `THIN_FACADES` names that one pair explicitly rather than allowing "any one-line wrapper anywhere",
 because the general version of this exception is how ownership erodes.
 
-## The monkeypatch surface
+## The monkeypatch surface, and what changed in 2.2.0
 
-`approvals.pipeline_file` is a binding integration tests patch to redirect where a projection lands.
-The writer resolves that name in `approvals`, so patching a re-export of it elsewhere — including
-`career_agent.pipeline_file` — has no effect on the write. `runtime`/`career_agent` still re-export
-the name for callers that only read it.
+`approvals.pipeline_file` is the binding that decides where an approval's projection lands. Patch
+that one. Patching a re-export of the name elsewhere — including `career_agent.pipeline_file` —
+rebinds an attribute nothing reads, and the write goes to the real path.
 
-This is worth knowing before moving `_pipeline_writer_for`: the test that catches the mistake is a
+**This is a behaviour change, stated rather than implied.** Before 2.2.0 the approval writer lived
+in `runtime` and resolved `pipeline_file` as its own module global, so patching `career_agent`
+worked. It no longer does. A name resolving and a binding redirecting are different promises, and
+only the first one survived the split — an owner module that reached back through the façade to
+resolve its imports would reintroduce the dependency the boundary rules exist to prevent.
+
+The claim is narrowed on purpose rather than restored: the only patchers were this repository's own
+tests, and `career_agent.pipeline_file` was a test seam, not a documented integration API. If that
+turns out to be wrong for someone, the fix is a documented seam in `approvals`, not a global whose
+value silently disagrees with the module that uses it.
+
+Worth knowing before moving `_pipeline_writer_for` again: the test that catches this mistake is a
 pipeline-content assertion several steps later, not an import error.
 
 ## The compatibility surface

@@ -81,8 +81,9 @@ npx japan-career-agent setup    # via npm
 uvx japan-career-agent setup    # via uv, or: pipx run japan-career-agent setup
 ```
 
-`setup` creates your Career Vault and asks the few things it cannot infer. That is the whole first
-run: no configuration file, no identifiers to look up.
+`setup` creates your Career Vault. Give it what it cannot infer on the command line, or run it
+bare and it tells you which flags are still missing. That is the whole first run: no configuration
+file, no identifiers to look up.
 
 `npx` is an entrypoint, not the runtime. It ships an installer and no product code: it locates `uv`
 or `pipx`, installs the matching PyPI release, and hands over. **The canonical runtime is Python**,
@@ -183,13 +184,17 @@ Help me prepare for next week's interview.
 Review this 職務経歴書 without inventing evidence.
 ```
 
-From a terminal, the same three steps:
+From a terminal, the same three steps. This is the run-once form, so it works straight after the
+Quick Start above with nothing installed:
 
 ```bash
-japan-career-agent setup --track chuto --target-role "Platform Engineer"
-japan-career-agent guided       # record, then confirm, in one guided flow
-japan-career-agent status       # what is confirmed, and what is still Unknown
+npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
+npx japan-career-agent guided    # record, then confirm, in one guided flow
+npx japan-career-agent status    # what is confirmed, and what is still Unknown
 ```
+
+Swap `npx` for `uvx`, or drop the prefix entirely once you have run `uv tool install` or
+`pipx install` — the three commands are the same program either way.
 
 You do not need to learn `proposal_id`, `CAREER_VAULT`, or `data/pipeline.yml` before your first
 request. Those details belong to the advanced local workflow below.

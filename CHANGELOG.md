@@ -15,6 +15,13 @@
 - Keep the whole historical import surface. `runtime.__all__` names all 226 exports explicitly, so
   removing one is a visible edit instead of a side effect of moving code. `runtime.main`,
   `runtime.build_parser`, `career_agent.pipeline_file` and `career_agent.os` all still resolve.
+- **Narrow one compatibility promise, rather than let it read as broken.** A name resolving through
+  `career_agent` and a *binding* redirecting the module that uses it are different promises, and
+  only the first survives the split. `patch("career_agent.pipeline_file")` no longer changes where
+  an approval writes; patch `approvals.pipeline_file`, the module that resolves it. The only
+  patchers were this repository's own tests, so this is stated as a change rather than restored —
+  an owner reaching back through the façade for its imports would reintroduce exactly the
+  dependency the boundary rules exist to prevent.
 - Pin the exit-code contract in a test. A command that answers a question reports the answer in its
   exit code; a command that describes the Vault does not. `doctor` finding problems exits 0, because
   a script that treated a new warning as a crash would stop working the day one appeared, while
@@ -26,6 +33,23 @@
   schema derived from the tolerant one in code — `additionalProperties: true` *evaluates* unknown
   keys, so `unevaluatedProperties` would be a no-op and the permissive setting has to be replaced.
   One catalog, two validators, nothing to keep in sync.
+- Check the fragment a write introduces, at every depth, rather than the merged result. A top-level
+  field check let `jd_requirements`, `action_items` and `history` — all lists of objects — keep a
+  typo one level down, and `history=` arrives as its own argument so it bypassed the field gate
+  entirely. Validating the merged entry instead would reject keys an older version already wrote,
+  making an existing pipeline unwritable rather than upgradeable, so only what the write adds is
+  checked and `required` is dropped for the partial update.
+- Close an object exactly when the catalog declares its `properties`. Closing on `type: object`
+  alone closed the objects the catalog deliberately leaves shapeless — `work_style_reflection` is
+  required on every CANDIDATE_PROFILE and any real content in it was being rejected — while missing
+  `type: [object, 'null']`, which is how every nullable object here is written. Opaque fields are
+  not unvalidated: `matching_v3.validate_allocation` and `self_analysis_profile.py` own their rules.
+  The exact set of closed objects is pinned by a test so it cannot drift silently.
+- Make the frozen-field list say what the prose already claimed. `top_strengths`, `work_style`,
+  `portable_skills`, `wellbeing_scores` and five others were documented as legacy read-only and were
+  writable anyway, because the gate reads one flat list that never named them. The list is now
+  recorded per schema, every frozen field is a declared property, and a test derives one from the
+  other so the two cannot disagree again.
 - **Behaviour change worth knowing about:** `scripts/pipeline.py upsert|update --json` passes its
   payload straight to the write gate, so a field the schema does not name is now refused instead of
   silently stored. Existing files are unaffected — this is the write path only, and the error names

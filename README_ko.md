@@ -79,8 +79,9 @@ npx japan-career-agent setup    # npm 경유
 uvx japan-career-agent setup    # uv 경유, 또는: pipx run japan-career-agent setup
 ```
 
-`setup`은 Career Vault를 만들고, 추론할 수 없는 것만 묻습니다. 첫 실행은 이걸로 끝입니다. 설정
-파일도, 미리 찾아둬야 할 식별자도 없습니다.
+`setup`은 Career Vault를 만듭니다. 추론할 수 없는 값은 명령줄로 주거나, 그냥 실행하면 어떤
+플래그가 빠졌는지 알려줍니다. 첫 실행은 이걸로 끝입니다. 설정 파일도, 미리 찾아둬야 할 식별자도
+없습니다.
 
 `npx`는 runtime이 아니라 진입점입니다. 받는 것은 설치기뿐이고 제품 코드는 들어 있지 않습니다.
 `uv`나 `pipx`를 찾아 해당 버전의 PyPI 릴리스를 설치한 뒤 실행을 넘깁니다. **canonical runtime은
@@ -178,13 +179,17 @@ plugin host에서는 평소 말하듯 요청하면 됩니다.
 이 職務経歴書를 검토하되 없는 경력은 만들지 마.
 ```
 
-터미널에서도 같은 세 단계입니다.
+터미널에서도 같은 세 단계입니다. 아래는 일회성 형태라, 위 Quick Start 다음에 아무것도 설치하지
+않은 상태에서 그대로 실행됩니다.
 
 ```bash
-japan-career-agent setup --track chuto --target-role "Platform Engineer"
-japan-career-agent guided       # 기록하고 확인하는 과정을 한 흐름으로
-japan-career-agent status       # 무엇이 확정됐고 무엇이 Unknown인지
+npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
+npx japan-career-agent guided    # 기록하고 확인하는 과정을 한 흐름으로
+npx japan-career-agent status    # 무엇이 확정됐고 무엇이 Unknown인지
 ```
+
+`npx` 대신 `uvx`를 써도 되고, `uv tool install`이나 `pipx install`로 설치했다면 앞의 접두사를
+빼면 됩니다. 어느 쪽이든 같은 프로그램입니다.
 
 처음부터 `proposal_id`, `CAREER_VAULT`, `data/pipeline.yml`을 알 필요는 없습니다. 첫 요청은
 자연어로 시작하고, 아래의 고급 local workflow에서 필요할 때만 이 개념을 씁니다.
