@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.5.1] - 2026-08-12
+
+- Make the runtime Vault lock file portable on Windows by keeping a lockable byte and resetting
+  the lock offset before acquire/release. This keeps resumable GUI sessions serialized across
+  platforms.
+
 ## [2.5.0] - 2026-08-12
 
 - Add the resumable local GUI 棚卸し vertical slice. Autosaved drafts and semantic checkpoints

@@ -146,6 +146,10 @@ class VaultLockCoverageTests(unittest.TestCase):
     def test_run_index_waits_for_vault_lock(self) -> None:
         self._assert_blocks_then_completes(lambda: career_agent.run_index(self.home))
 
+    def test_vault_lock_keeps_a_lockable_runtime_byte(self) -> None:
+        with career_agent.vault_lock(self.home):
+            self.assertGreaterEqual((self.home.runtime / "lock").stat().st_size, 1)
+
     def test_restore_state_waits_for_vault_lock(self) -> None:
         self.home.write_state({"track": "chuto", "stage": "s0"})
         version = self.home.save_state({"track": "chuto", "stage": "s0"})
