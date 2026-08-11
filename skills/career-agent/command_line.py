@@ -79,6 +79,12 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--graduation-year", type=int)
     setup_parser.add_argument("--language", default=None)
     add_output_format(setup_parser)
+    ui_parser = subparsers.add_parser(
+        "ui", help="start the local loopback GUI; no career data is written by this command",
+    )
+    ui_parser.add_argument("--port", type=int, default=0, help="loopback port; 0 chooses a free port")
+    ui_parser.add_argument("--no-browser", action="store_true", help="print the launch URL without opening a browser")
+    add_output_format(ui_parser)
     for command, field in (("set-job-search", "job_search"), ("set-employment-status", "employment_status")):
         axis_parser = subparsers.add_parser(
             command,

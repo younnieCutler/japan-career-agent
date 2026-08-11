@@ -25,6 +25,12 @@ Domain           models · validation · persistence · vault · routing · prop
 Local data       Career Vault · event ledger · private store · data/pipeline.yml
 ```
 
+The local GUI is a peer entrypoint, not a CLI frontend. `career-agent ui` has one directional
+bridge in `dispatch.py` to `gui.server`; GUI modules do not import `command_line`, `dispatch`,
+`runtime`, or domain modules directly. `gui.templates` is the application-owned adapter that
+reuses the domain renderer's escaped slots. This keeps the browser surface from becoming a second
+canonical writer or a hidden CLI dependency.
+
 Dependencies point down. Application modules may call each other sideways; the graph stays acyclic.
 Nothing at any layer imports an entry point, and the domain does not know that a CLI exists.
 

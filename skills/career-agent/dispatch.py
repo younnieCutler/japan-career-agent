@@ -30,6 +30,7 @@ from experiences import (
     work_events,
 )
 from guided_flow import run_guided
+from gui.server import serve as serve_gui
 from ingest import read_stdin_utf8, run_discover, run_heartbeat, run_index
 from lifecycle import restore_state, review_work_event
 from models import CareerError
@@ -119,6 +120,8 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
         result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
         context["ok_is_exit_status"] = True
         return result
+    if args.command == "ui":
+        return serve_gui(port=args.port, no_browser=args.no_browser)
     if args.command == "guided":
         vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
         guided_home = CareerVault(vault_path)

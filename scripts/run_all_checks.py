@@ -48,6 +48,7 @@ CHECKS = (
     ("career-agent boundary imports", (PYTHON, "skills/career-agent/test_boundary_imports.py")),
     ("career-agent architecture boundary", (PYTHON, "scripts/check_career_agent_boundaries.py")),
     ("career-agent architecture boundary tests", (PYTHON, "scripts/test_career_agent_boundaries.py")),
+    ("career-agent GUI security", (PYTHON, "skills/career-agent/gui/test_security.py")),
     ("career-agent private store", (PYTHON, "skills/career-agent/test_private_store.py")),
     ("career-agent personal timeline", (PYTHON, "skills/career-agent/test_personal_timeline.py")),
     ("career-agent fact promotion", (PYTHON, "skills/career-agent/test_fact_promotion.py")),

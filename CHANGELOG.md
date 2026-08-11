@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.0] - 2026-08-11
+
+- Add the local-first loopback GUI foundation with a data-free shell, fragment bootstrap token,
+  Host and Origin checks, strict session/CSRF boundary, fixed response headers, and packaged
+  vanilla static assets. The `career-agent ui` command does not write career data.
+- Record the GUI architecture and frontend design decisions, including the peer-entrypoint
+  boundary and the stdlib-only implementation constraint.
+
 ## [2.2.0] - 2026-08-11
 
 - Split `skills/career-agent/runtime.py` into owner modules. The file held the argument parser, the

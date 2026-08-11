@@ -38,6 +38,11 @@ DOMAIN_MODULES = (
     "dispatch",
     "command_line",
     "runtime",
+    # GUI modules are included in the graph so a new cross-layer import cannot hide in a
+    # subpackage the original flat-module checker never visited.
+    "gui.server",
+    "gui.security",
+    "gui.templates",
 )
 
 # The first extraction PRs intentionally leave the not-yet-moved compatibility files in place.
@@ -56,7 +61,11 @@ CLI_MODULES = {"command_line", "dispatch"}
 APPLICATION_MODULES = {
     "diagnostics", "onboarding", "ingest", "experiences",
     "documents", "views", "approvals", "guided_flow",
+    "gui.templates",
 }
+GUI_MODULES = {"gui.server", "gui.security", "gui.templates"}
+# The dispatcher is the sole entrypoint bridge that starts the GUI. GUI modules never import it.
+GUI_LAUNCH_IMPORTS = {("dispatch", "gui.server")}
 # The only places an owned symbol may be re-declared, and then only as a single delegating call.
 # `approvals.approve` injects the pipeline writer and the state projector into `lifecycle.approve`;
 # the approval rules stay in `lifecycle`. Listing the pair explicitly keeps this from becoming a
@@ -169,22 +178,32 @@ class BoundaryError(RuntimeError):
 
 
 def _module_tree(module: str) -> ast.Module:
-    return ast.parse((CAREER_ROOT / f"{module}.py").read_text(encoding="utf-8"))
+    path = CAREER_ROOT.joinpath(*module.split("."))
+    source = path.with_suffix(".py") if path.with_suffix(".py").is_file() else path / "__init__.py"
+    return ast.parse(source.read_text(encoding="utf-8"))
 
 
 def _root_module(name: str | None) -> str | None:
     return name.split(".", 1)[0] if name else None
 
 
+def _import_name(name: str | None) -> str | None:
+    if not name:
+        return None
+    if name.startswith(("gui.", "http.", "urllib.")):
+        return name
+    return _root_module(name)
+
+
 def _imports(tree: ast.Module) -> set[str]:
     modules: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            modules.update(_root_module(alias.name) for alias in node.names)
+            modules.update(_import_name(alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            root = _root_module(node.module)
-            if root:
-                modules.add(root)
+            imported = _import_name(node.module)
+            if imported:
+                modules.add(imported)
     return {module for module in modules if module}
 
 
@@ -286,6 +305,43 @@ def validate() -> list[str]:
         reaching_up = sorted(imports[module] & CLI_MODULES)
         if reaching_up:
             errors.append(f"{module}.py imports the CLI layer: {', '.join(reaching_up)}")
+
+    for module in sorted(GUI_MODULES):
+        reaching_up = sorted(imports[module] & CLI_MODULES)
+        if reaching_up:
+            errors.append(f"{module}.py imports the CLI layer: {', '.join(reaching_up)}")
+        forbidden = sorted(
+            imported
+            for imported in imports[module]
+            if imported in {"socket", "subprocess", "http.client"}
+            or imported == "urllib"
+            or imported.startswith("urllib.")
+        )
+        if forbidden:
+            errors.append(f"{module}.py imports forbidden GUI transport modules: {', '.join(forbidden)}")
+        if "webbrowser" in imports[module] and module != "gui.server":
+            errors.append(f"webbrowser is only allowed in gui.server.py, found in {module}.py")
+        if module != "gui.templates":
+            direct_domain = sorted(
+                imported
+                for imported in imports[module]
+                if imported in DOMAIN_MODULES and imported not in GUI_MODULES
+            )
+            if direct_domain:
+                errors.append(f"{module}.py imports domain modules directly: {', '.join(direct_domain)}")
+
+    for module in (module for module in DOMAIN_MODULES if module not in GUI_MODULES):
+        gui_imports = imports[module] & GUI_MODULES
+        disallowed = sorted(
+            (module, imported)
+            for imported in gui_imports
+            if (module, imported) not in GUI_LAUNCH_IMPORTS
+        )
+        if disallowed:
+            errors.append(
+                "only dispatch may launch the GUI; disallowed imports: "
+                + ", ".join(f"{owner} -> {child}" for owner, child in disallowed)
+            )
 
     graph = {
         module: {child for child in imports[module] if child in DOMAIN_MODULES}
