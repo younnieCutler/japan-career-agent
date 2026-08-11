@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0] - 2026-08-12
+
+- Add a read-only self-analysis view for canonical `SELF_ANALYSIS_PROFILE v2` data, preserving
+  independent Unknown states and reviewed-empty lists without a completion score.
+- Show a user-owned `jiko-bunseki` or approval-gated `propose-context` handoff; the GUI never
+  writes the profile or canonical career context.
+
 ## [2.5.1] - 2026-08-12
 
 - Keep the verification matrix's output portable on Windows for the resumable GUI session checks

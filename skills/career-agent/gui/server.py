@@ -10,6 +10,7 @@ from typing import Any
 
 from gui.security import SESSION_COOKIE, SecurityState
 import gui.tanaoroshi as tanaoroshi
+from self_analysis import profile_payload
 from gui.templates import render_shell, static_asset
 from gui.views_read import home_payload, timeline_payload
 
@@ -122,7 +123,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/static/style.css":
             self._send(HTTPStatus.OK, static_asset("style.css"), "text/css; charset=utf-8")
             return
-        if path in {"/api/home", "/api/timeline", "/api/sessions"}:
+        if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis"}:
             self._read_api(path)
             return
         if path == "/api/tanaoroshi":
@@ -137,7 +138,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/session":
             self._exchange_session()
             return
-        if path in {"/api/home", "/api/timeline", "/api/sessions"}:
+        if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis"}:
             self._send(
                 HTTPStatus.METHOD_NOT_ALLOWED,
                 b"read-only route",
@@ -157,7 +158,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if not self.server.security.authenticated(self.headers, require_csrf=False):
             self._error(HTTPStatus.FORBIDDEN, "session required")
             return
-        if self.server.home is None:
+        if path != "/api/self-analysis" and self.server.home is None:
             self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
             return
         readers = {
@@ -166,6 +167,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             ),
             "/api/timeline": lambda: timeline_payload(self.server.home, as_of=self.server.as_of),
             "/api/sessions": lambda: tanaoroshi.active(self.server.home),
+            "/api/self-analysis": lambda: profile_payload(self.server.workspace),
         }
         try:
             payload = readers[path]()
