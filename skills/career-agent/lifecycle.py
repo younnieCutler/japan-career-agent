@@ -117,7 +117,8 @@ def vault_lock(home: CareerVault) -> Iterator[None]:
     """Serialize read-modify-write sections against other processes on one Vault."""
     home.ensure_runtime()
     lock_path = home.runtime / "lock"
-    lock_path.touch(exist_ok=True)
+    if not lock_path.exists():
+        lock_path.write_bytes(b"\0")
     with lock_path.open("r+b") as handle:
         # msvcrt.locking refuses a zero-length range on some Windows runners. Keep one stable
         # byte in the runtime-only lock file and always lock from offset zero.
