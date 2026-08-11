@@ -2,9 +2,8 @@
 
 ## [2.5.1] - 2026-08-12
 
-- Make the runtime Vault lock file portable on Windows by keeping a lockable byte and resetting
-  the lock offset before acquire/release. This keeps resumable GUI sessions serialized across
-  platforms.
+- Keep the verification matrix's output portable on Windows for the resumable GUI session checks
+  and preserve the data-free empty-Vault GUI route contract.
 
 ## [2.5.0] - 2026-08-12
 
