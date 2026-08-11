@@ -88,6 +88,16 @@ def _validators(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         for name in catalog["$defs"]
     }
     strict_defs = _closed(copy.deepcopy(catalog["$defs"]))
+    # The derived schema is checked too. `_closed` walks a JSON Schema as plain nested data, so a
+    # canonical object that ever declares a property named `properties` would have the transform
+    # rewrite its property map instead of the object. No definition does today; this is what turns
+    # that from a silent corruption into an error naming the file.
+    try:
+        jsonschema.Draft202012Validator.check_schema(
+            {"$schema": catalog["$schema"], "$defs": strict_defs}
+        )
+    except jsonschema.exceptions.SchemaError as exc:
+        raise SchemaContractError(f"strict schema derivation produced invalid JSON Schema: {exc.message}") from exc
     strict = {
         name: jsonschema.Draft202012Validator(
             {"$schema": catalog["$schema"], "$ref": f"#/$defs/{name}", "$defs": strict_defs}
