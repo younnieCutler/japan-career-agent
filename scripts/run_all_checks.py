@@ -112,7 +112,7 @@ def main() -> int:
                 )
             print(f"FAILED: {label} (exit {result.returncode})", file=sys.stderr, flush=True)
             # Temporary CI diagnostic: the matrix annotation exposes only the process exit code.
-            return check_index
+            return 100 + check_index
     print(f"\nAll {len(CHECKS)} repository checks passed.", flush=True)
     return 0
 
