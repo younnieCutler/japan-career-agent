@@ -74,6 +74,43 @@ h2 { max-width: 18ch; font-size: clamp(2rem, 5vw, 4rem); }
 
 .empty-state p:last-child { max-width: 45rem; color: var(--muted); }
 
+.view-nav {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.75rem;
+}
+
+.nav-button,
+.nav-current {
+  min-height: 44px;
+  border: 1px solid var(--ink);
+  padding: 0.55rem 0.8rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.nav-button { cursor: pointer; }
+.nav-button:hover { background: var(--ink); color: var(--paper); }
+
+.dashboard-section {
+  border-top: 0.2rem solid var(--ink);
+  padding-block: 1.5rem 2rem;
+}
+
+.dashboard-section h2 { font-size: clamp(1.75rem, 4vw, 3rem); }
+.dashboard-grid { display: grid; gap: 1rem; }
+.status-row { border-bottom: 1px solid var(--line); padding-bottom: 0.45rem; }
+.timeline-list { border-top: 0.2rem solid var(--ink); }
+.timeline-item { border-bottom: 1px solid var(--line); padding-block: 1.5rem; }
+.timeline-item h3 { margin: 0; font-size: clamp(1.4rem, 3vw, 2.2rem); }
+.timeline-period,
+.timeline-entry { color: var(--muted); }
+.timeline-entry { margin: 0.35rem 0 0; }
+
 :focus-visible {
   outline: 0.2rem solid var(--focus);
   outline-offset: 0.25rem;
@@ -84,6 +121,7 @@ h2 { max-width: 18ch; font-size: clamp(2rem, 5vw, 4rem); }
   main { width: min(100% - 4rem, 72rem); }
   .empty-state { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
   .empty-state .section-label { grid-row: span 2; }
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

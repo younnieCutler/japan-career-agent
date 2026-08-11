@@ -35,7 +35,7 @@
 
 ---
 
-Current release: `2.3.0`.
+Current release: `2.4.0`.
 
 **In three steps:**
 
@@ -45,7 +45,7 @@ Current release: `2.3.0`.
 
 It runs as a Claude Code and Codex plugin/skill suite, or as a standalone command, over a local Career Agent runtime — for job seekers and hiring teams.
 
-Use it to sort out a career direction, prepare a resume or 職務経歴書, read a job description or company evidence, compare opportunities, practise an interview, and keep track of the next step. It is a plugin and local runtime, not a hosted SaaS or standalone GUI.
+Use it to sort out a career direction, prepare a resume or 職務経歴書, read a job description or company evidence, compare opportunities, practise an interview, and keep track of the next step. It is a plugin and local runtime with an optional read-only local GUI, not a hosted SaaS.
 
 ## Why this is different
 
@@ -137,7 +137,7 @@ work with no host installed; the plugin changes how you reach them, never what t
 
 The repository version can be ahead of the stable marketplace channel while a release is being
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
-follows `main`. Source metadata is `2.3.0` while the stable marketplace ref is still `v2.1.1`,
+follows `main`. Source metadata is `2.4.0` while the stable marketplace ref is still `v2.1.1`,
 because the release workflow has not published a tag for this source yet. Installing from the
 marketplace therefore gives you `2.1.1` today. The gap closes when the release workflow publishes
 the next tag and this ref is updated. `uvx` and `npx` are not affected either way, since they

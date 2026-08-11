@@ -43,6 +43,7 @@ DOMAIN_MODULES = (
     "gui.server",
     "gui.security",
     "gui.templates",
+    "gui.views_read",
 )
 
 # The first extraction PRs intentionally leave the not-yet-moved compatibility files in place.
@@ -61,9 +62,9 @@ CLI_MODULES = {"command_line", "dispatch"}
 APPLICATION_MODULES = {
     "diagnostics", "onboarding", "ingest", "experiences",
     "documents", "views", "approvals", "guided_flow",
-    "gui.templates",
+    "gui.templates", "gui.views_read",
 }
-GUI_MODULES = {"gui.server", "gui.security", "gui.templates"}
+GUI_MODULES = {"gui.server", "gui.security", "gui.templates", "gui.views_read"}
 # The dispatcher is the sole entrypoint bridge that starts the GUI. GUI modules never import it.
 GUI_LAUNCH_IMPORTS = {("dispatch", "gui.server")}
 # The only places an owned symbol may be re-declared, and then only as a single delegating call.
@@ -325,7 +326,9 @@ def validate() -> list[str]:
             direct_domain = sorted(
                 imported
                 for imported in imports[module]
-                if imported in DOMAIN_MODULES and imported not in GUI_MODULES
+                if imported in DOMAIN_MODULES
+                and imported not in GUI_MODULES
+                and imported not in APPLICATION_MODULES
             )
             if direct_domain:
                 errors.append(f"{module}.py imports domain modules directly: {', '.join(direct_domain)}")

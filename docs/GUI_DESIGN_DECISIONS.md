@@ -58,3 +58,11 @@ PR1 writes no career data. Draft/session storage is transient; `case` and artifa
 durable; canonical evidence remains in `02-state` and can only be changed by the existing strict
 approval path. The exact durable directory for the latter two is intentionally decided by tests at
 PR3, before those records exist.
+
+## Read-only slice
+
+PR2 adds Home and Timeline as authenticated GET views. They compose the existing application read
+models only: status, readiness, evidence pool, weekly review, Context → Experience → Evidence,
+project timelines, and guided actions. The browser receives no internal identifiers unless
+`JAPAN_CAREER_GUI_DEBUG=1`; readiness dimensions remain independent and no composite percentage is
+shown. These routes do not write the Vault and POST returns `405 Allow: GET`.
