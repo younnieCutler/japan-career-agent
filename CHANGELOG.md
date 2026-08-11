@@ -26,6 +26,11 @@
   schema derived from the tolerant one in code — `additionalProperties: true` *evaluates* unknown
   keys, so `unevaluatedProperties` would be a no-op and the permissive setting has to be replaced.
   One catalog, two validators, nothing to keep in sync.
+- **Behaviour change worth knowing about:** `scripts/pipeline.py upsert|update --json` passes its
+  payload straight to the write gate, so a field the schema does not name is now refused instead of
+  silently stored. Existing files are unaffected — this is the write path only, and the error names
+  the file to add the field to if it is real. A field that was never declared was also never read by
+  anything, which is what made the typo invisible.
 - Promote the documented fields from the prose sections into `$defs`, without types. Both
   validators read one property list, so adding a type would newly reject historical records that
   hold a different shape. The schema stops shape drift; value rules stay where they already are.

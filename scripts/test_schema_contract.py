@@ -174,17 +174,32 @@ class LegacyReadTests(unittest.TestCase):
 
 
 class ProducerContractTests(unittest.TestCase):
-    """Each producer with a Python write path, run for real and validated as a new write."""
+    """Each producer with a Python write path: run it, validate the write, then read it back.
 
-    def test_pipeline_store_upsert_produces_a_strictly_valid_document(self) -> None:
+    Validating a producer's output alone would only prove it matches the schema. The consumer leg is
+    what proves the schema describes the thing the consumer actually reads -- a producer and a
+    consumer can agree with a schema and still disagree with each other.
+    """
+
+    def test_pipeline_store_upsert_produces_a_document_the_status_bar_can_read(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "pipeline.yml"
             pipeline_store.upsert_company(path, "aozora", {
                 "name": "Aozora Systems", "stage": 3, "decision_status": "review",
                 "match_model_version": "evidence_based_v3", "next_action": "一次面接の準備",
+                "deadline": "2026-09-01",
                 "jd_requirements": [{"text": "Kubernetes", "kind": "required", "status": "Unknown"}],
             })
-            validate_new_write("PIPELINE", pipeline_store.load(path))
+            written = pipeline_store.load(path)
+            validate_new_write("PIPELINE", written)
+
+            sys.path.insert(0, str(ROOT / "scripts"))
+            import datetime as dt  # noqa: PLC0415
+
+            import status_bar  # noqa: PLC0415
+
+            block = status_bar.build_status(written, {"rules": []}, dt.date(2026, 8, 11))
+            self.assertIn("Aozora Systems", block)
 
     def test_pipeline_store_refuses_a_field_the_schema_does_not_name(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -219,6 +234,17 @@ class ProducerContractTests(unittest.TestCase):
             written = yaml.safe_load((data / "rules.yml").read_text(encoding="utf-8"))
             validate_new_write("RULES", written)
             self.assertEqual(written["rules"][0]["source"], "observed_workflow")
+
+            # The consumer leg: status_bar is what re-surfaces a rule before an interview, and it
+            # reads the mapping shape the schema was wrong about until this release.
+            sys.path.insert(0, str(ROOT / "scripts"))
+            import datetime as dt  # noqa: PLC0415
+
+            import status_bar  # noqa: PLC0415
+
+            pipeline = yaml.safe_load((data / "pipeline.yml").read_text(encoding="utf-8"))
+            block = status_bar.build_status(pipeline, written, dt.date(2026, 8, 11))
+            self.assertIn("エピソードに必ず数値を入れる", block)
 
     def test_the_career_agent_projects_a_strictly_valid_pipeline_entry(self) -> None:
         """The end of the real path: approve an event, then validate what landed on disk."""
