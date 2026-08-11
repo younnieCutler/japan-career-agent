@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.0] - 2026-08-12
+
+- Add a read-only local GUI Home and Timeline. It composes the existing status, readiness,
+  evidence-pool, weekly-review, Context → Experience → Evidence, project-timeline, and guided
+  action projections without creating a parser, a score, or a second store.
+- Protect read routes with the local session, keep them GET-only, hide internal identifiers unless
+  `JAPAN_CAREER_GUI_DEBUG=1`, and keep the browser rendering accessible and data-safe.
+
 ## [2.3.0] - 2026-08-11
 
 - Add the local-first loopback GUI foundation with a data-free shell, fragment bootstrap token,

@@ -121,7 +121,14 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
         context["ok_is_exit_status"] = True
         return result
     if args.command == "ui":
-        return serve_gui(port=args.port, no_browser=args.no_browser)
+        ui_vault = CareerVault(Path(args.vault).expanduser()) if args.vault else CareerVault(DEFAULT_VAULT_PATH)
+        return serve_gui(
+            port=args.port,
+            no_browser=args.no_browser,
+            home=ui_vault,
+            workspace=args.workspace,
+            as_of=args.as_of,
+        )
     if args.command == "guided":
         vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
         guided_home = CareerVault(vault_path)

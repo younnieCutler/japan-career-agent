@@ -6,9 +6,11 @@ import json
 import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 from gui.security import SESSION_COOKIE, SecurityState
 from gui.templates import render_shell, static_asset
+from gui.views_read import home_payload, timeline_payload
 
 
 CONTENT_SECURITY_POLICY = (
@@ -21,9 +23,19 @@ class GuiServer(ThreadingHTTPServer):
     allow_reuse_address = True
     daemon_threads = True
 
-    def __init__(self, port: int) -> None:
+    def __init__(
+        self,
+        port: int,
+        *,
+        home: Any = None,
+        workspace: str | None = None,
+        as_of: str | None = None,
+    ) -> None:
         super().__init__(("127.0.0.1", port), GuiRequestHandler)
         self.security = SecurityState(self.server_address[1])
+        self.home = home
+        self.workspace = workspace
+        self.as_of = as_of
 
     @property
     def bootstrap_token(self) -> str:
@@ -81,6 +93,9 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/static/style.css":
             self._send(HTTPStatus.OK, static_asset("style.css"), "text/css; charset=utf-8")
             return
+        if path in {"/api/home", "/api/timeline"}:
+            self._read_api(path)
+            return
         self._error(HTTPStatus.NOT_FOUND, "not found")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
@@ -90,10 +105,44 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/session":
             self._exchange_session()
             return
+        if path in {"/api/home", "/api/timeline"}:
+            self._send(
+                HTTPStatus.METHOD_NOT_ALLOWED,
+                b"read-only route",
+                "text/plain; charset=utf-8",
+                extra={"Allow": "GET"},
+            )
+            return
         if not self.server.security.authenticated(self.headers, require_csrf=True):
             self._error(HTTPStatus.FORBIDDEN, "session and CSRF token required")
             return
         self._error(HTTPStatus.NOT_FOUND, "not found")
+
+    def _read_api(self, path: str) -> None:
+        if not self.server.security.authenticated(self.headers, require_csrf=False):
+            self._error(HTTPStatus.FORBIDDEN, "session required")
+            return
+        if self.server.home is None:
+            self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
+            return
+        try:
+            payload = (
+                home_payload(
+                    self.server.home,
+                    workspace=self.server.workspace,
+                    as_of=self.server.as_of,
+                )
+                if path == "/api/home"
+                else timeline_payload(self.server.home, as_of=self.server.as_of)
+            )
+        except Exception:  # Keep read failures inside the HTTP boundary without leaking paths.
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "read model unavailable")
+            return
+        self._send(
+            HTTPStatus.OK,
+            json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            "application/json; charset=utf-8",
+        )
 
     def _exchange_session(self) -> None:
         try:
@@ -120,14 +169,27 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         )
 
 
-def create_server(*, port: int = 0) -> GuiServer:
+def create_server(
+    *,
+    port: int = 0,
+    home: Any = None,
+    workspace: str | None = None,
+    as_of: str | None = None,
+) -> GuiServer:
     """Bind only to loopback; port 0 lets the OS choose a free port."""
-    return GuiServer(port)
+    return GuiServer(port, home=home, workspace=workspace, as_of=as_of)
 
 
-def serve(*, port: int = 0, no_browser: bool = False) -> dict[str, str]:
+def serve(
+    *,
+    port: int = 0,
+    no_browser: bool = False,
+    home: Any = None,
+    workspace: str | None = None,
+    as_of: str | None = None,
+) -> dict[str, str]:
     """Run the server until interrupted and return its launch metadata."""
-    server = create_server(port=port)
+    server = create_server(port=port, home=home, workspace=workspace, as_of=as_of)
     url = server.bootstrap_url
     print(f"Japan Career Agent GUI: {url}", flush=True)
     if not no_browser:

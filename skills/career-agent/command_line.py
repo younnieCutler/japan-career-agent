@@ -82,6 +82,9 @@ def build_parser() -> argparse.ArgumentParser:
     ui_parser = subparsers.add_parser(
         "ui", help="start the local loopback GUI; no career data is written by this command",
     )
+    add_vault_argument(ui_parser)
+    add_workspace_argument(ui_parser)
+    add_as_of_argument(ui_parser)
     ui_parser.add_argument("--port", type=int, default=0, help="loopback port; 0 chooses a free port")
     ui_parser.add_argument("--no-browser", action="store_true", help="print the launch URL without opening a browser")
     add_output_format(ui_parser)
