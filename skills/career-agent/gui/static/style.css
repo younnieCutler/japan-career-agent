@@ -103,6 +103,9 @@ h2 { max-width: 18ch; font-size: clamp(2rem, 5vw, 4rem); }
 
 .dashboard-section h2 { font-size: clamp(1.75rem, 4vw, 3rem); }
 .dashboard-grid { display: grid; gap: 1rem; }
+.case-grid { margin-block: 2rem 3rem; }
+.case-card { min-width: 0; }
+.case-forms { display: grid; gap: 1rem; }
 .status-row { border-bottom: 1px solid var(--line); padding-bottom: 0.45rem; }
 .timeline-list { border-top: 0.2rem solid var(--ink); }
 .timeline-item { border-bottom: 1px solid var(--line); padding-block: 1.5rem; }

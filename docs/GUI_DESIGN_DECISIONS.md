@@ -58,8 +58,10 @@ PR1 writes no career data. PR3 fixes the four lifetimes before durable records e
 
 - `01-capture/gui/sessions/` and `01-capture/gui/drafts/` are transient user work. They may be
   interrupted, discarded, or expired and are not a second evidence ledger.
-- `case` and artifact metadata are durable, but are not created by the 棚卸し vertical slice. Their
-  storage root remains a later PR decision.
+- `case` and artifact metadata are durable and separate from transient 棚卸し work. They live under
+  the existing Vault directory `03-active/gui/{cases,artifacts}`; no new Vault root is introduced.
+- Artifact bodies live below `03-active/gui/artifacts/career-docs/` and use the existing digest-named,
+  never-overwrite rule. Case/artifact metadata never writes `02-state` or `data/pipeline.yml`.
 - canonical evidence remains in `02-state` and can only be changed by the existing strict path:
   `approvals.approve` → `lifecycle.approve`.
 
@@ -99,3 +101,16 @@ The screen is read-only. If a valid profile exists, it displays the user-owned
 `career-agent propose-context` command as a handoff with an explicit approval gate; the browser
 does not run it and no canonical career context is written. If no valid profile exists, it points
 back to the user-led `jiko-bunseki` flow.
+
+## Company / Application / Artifact slice
+
+The Cases screen keeps one Company case separate from each Application case. Applications point to
+their Company with `parent_ref`, so multiple positions do not require a position axis in the
+company-scoped `data/pipeline.yml` projection. Company and Application metadata may be archived or
+tombstoned without changing canonical evidence.
+
+Artifacts carry `evidence_refs`, `source_refs`, `version`, `status`, and
+`generated_by.entrypoint/workflow`. Updating an artifact creates a new digest-named body and
+supersedes the old metadata; deleting it leaves the body and references intact. The GUI may register
+metadata and user-provided text, but it does not run a research engine, submit an application, or
+promote artifact text into canonical evidence.

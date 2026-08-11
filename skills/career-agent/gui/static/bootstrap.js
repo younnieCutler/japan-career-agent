@@ -91,6 +91,7 @@
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
       element("span", "자기분석", "nav-current"),
       button("棚卸し", openTanaoroshi),
+      button("Cases", () => fetchView("/api/cases", renderCases)),
     );
     main.append(navigation);
     main.append(element("p", "SELF-ANALYSIS / HYPOTHESES", "section-label"));
@@ -151,6 +152,7 @@
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
       button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       element("span", "棚卸し", "nav-current"),
+      button("Cases", () => fetchView("/api/cases", renderCases)),
     );
     main.append(navigation);
     main.append(element("p", "EXPERIENCE / EVIDENCE", "section-label"));
@@ -355,6 +357,168 @@
     });
   };
 
+  const renderCases = (payload) => {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+    main.replaceChildren();
+    const navigation = element("nav", "", "view-nav");
+    navigation.setAttribute("aria-label", "Views");
+    navigation.append(
+      button("Home", () => fetchView("/api/home", renderHome)),
+      button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
+      button("棚卸し", openTanaoroshi),
+      element("span", "Cases", "nav-current"),
+    );
+    main.append(navigation);
+    main.append(element("p", "COMPANY / APPLICATION / ARTIFACT", "section-label"));
+    main.append(element("h2", "Keep each application in its own case."));
+    main.append(element("p", "Company context is shared; application material stays scoped to one application. No canonical evidence is changed here.", "lede"));
+
+    const caseRows = payload.cases || [];
+    const artifactRows = payload.artifacts || [];
+    const casesById = new Map(caseRows.map((item) => [item.case_id, item]));
+    const grid = element("div", "", "dashboard-grid case-grid");
+    caseRows.forEach((item) => {
+      const card = section(item.kind === "company" ? "COMPANY" : "APPLICATION", value(item.label));
+      card.className += " case-card";
+      card.append(element("p", `Status: ${value(item.status)}`, "status-row"));
+      if (item.parent_ref) {
+        card.append(element("p", `Company: ${value(casesById.get(item.parent_ref)?.label)}`, "status-row"));
+      }
+      const attached = artifactRows.filter((artifact) => artifact.case_ref === item.case_id);
+      card.append(element("p", `Artifacts: ${attached.length}`, "status-row"));
+      attached.forEach((artifact) => {
+        card.append(element("p", `${value(artifact.kind)} · v${value(artifact.version)} · ${value(artifact.status)}`, "status-row"));
+      });
+      if (item.status === "active") {
+        const archive = button("Archive case", () => postJson("/api/cases/archive", { case_id: item.case_id })
+          .then(() => fetchView("/api/cases", renderCases))
+          .catch(() => { status.textContent = "Case archive failed."; }));
+        archive.className = "secondary-button";
+        card.append(archive);
+      }
+      grid.append(card);
+    });
+    if (!caseRows.length) grid.append(element("p", "No company or application cases yet.", "lede"));
+    main.append(grid);
+
+    const handoff = section("RESEARCH HANDOFF", "Run research in the CLI, then register the result.");
+    handoff.append(element("p", "The GUI does not browse, call an LLM, or execute a command. Use your existing company-research workflow and bring its reviewed text back to the registration form.", "lede"));
+    const command = element("pre", "", "handoff-command");
+    command.append(element("code", "career-agent guided --message \"company research\" --vault \"$CAREER_VAULT\""));
+    handoff.append(command);
+    main.append(handoff);
+
+    const forms = element("div", "", "case-forms");
+    const status = element("p", "", "form-message");
+    status.setAttribute("role", "status");
+
+    const caseForm = element("form", "", "inventory-form");
+    caseForm.append(element("p", "NEW CASE", "section-label"));
+    const caseKind = element("select");
+    [["company", "Company"], ["application", "Application"]].forEach(([key, label]) => {
+      const option = element("option", label);
+      option.value = key;
+      caseKind.append(option);
+    });
+    const caseKindLabel = element("label", "", "form-field");
+    caseKindLabel.append(element("span", "Case type"), caseKind);
+    caseForm.append(caseKindLabel);
+    const caseLabel = element("input");
+    caseLabel.type = "text";
+    caseLabel.required = true;
+    const caseLabelField = element("label", "", "form-field");
+    caseLabelField.append(element("span", "Company or application name"), caseLabel);
+    caseForm.append(caseLabelField);
+    const parent = element("select");
+    const noParent = element("option", "Select a company for an application");
+    noParent.value = "";
+    parent.append(noParent);
+    caseRows.filter((item) => item.kind === "company" && item.status !== "deleted").forEach((item) => {
+      const option = element("option", item.label);
+      option.value = item.case_id;
+      parent.append(option);
+    });
+    const parentField = element("label", "", "form-field");
+    parentField.append(element("span", "Parent company (application only)"), parent);
+    caseForm.append(parentField);
+    const jd = element("textarea");
+    const jdField = element("label", "", "form-field");
+    jdField.append(element("span", "JD text or source note (application only)"), jd);
+    caseForm.append(jdField);
+    const applicationEvidence = element("textarea");
+    const applicationEvidenceField = element("label", "", "form-field");
+    applicationEvidenceField.append(element("span", "Evidence refs (one per line, application only)"), applicationEvidence);
+    caseForm.append(applicationEvidenceField);
+    const caseSubmit = button("Create case", () => {});
+    caseSubmit.type = "submit";
+    caseSubmit.className = "primary-button";
+    caseForm.append(caseSubmit);
+    caseForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const body = { kind: caseKind.value, label: caseLabel.value };
+      if (caseKind.value === "application") {
+        body.parent_ref = parent.value;
+        body.jd = jd.value ? { text: jd.value } : {};
+        body.evidence_refs = listValue(applicationEvidence.value);
+      }
+      postJson("/api/cases", body)
+        .then(() => { status.textContent = "Case created."; return fetchView("/api/cases", renderCases); })
+        .catch(() => { status.textContent = "Case could not be created. Check the parent company."; });
+    });
+
+    const artifactForm = element("form", "", "inventory-form");
+    artifactForm.append(element("p", "REGISTER ARTIFACT", "section-label"));
+    const artifactCase = element("select");
+    caseRows.filter((item) => item.status !== "deleted").forEach((item) => {
+      const option = element("option", `${item.kind}: ${item.label}`);
+      option.value = item.case_id;
+      artifactCase.append(option);
+    });
+    const artifactCaseField = element("label", "", "form-field");
+    artifactCaseField.append(element("span", "Attach to case"), artifactCase);
+    artifactForm.append(artifactCaseField);
+    const artifactKind = element("input");
+    artifactKind.type = "text";
+    artifactKind.value = "company_research";
+    artifactKind.required = true;
+    const artifactKindField = element("label", "", "form-field");
+    artifactKindField.append(element("span", "Artifact kind"), artifactKind);
+    artifactForm.append(artifactKindField);
+    const artifactBody = element("textarea");
+    artifactBody.required = true;
+    const artifactBodyField = element("label", "", "form-field");
+    artifactBodyField.append(element("span", "Artifact body"), artifactBody);
+    artifactForm.append(artifactBodyField);
+    const artifactEvidence = element("textarea");
+    const artifactEvidenceField = element("label", "", "form-field");
+    artifactEvidenceField.append(element("span", "Evidence refs (one per line)"), artifactEvidence);
+    artifactForm.append(artifactEvidenceField);
+    const artifactSources = element("textarea");
+    const artifactSourcesField = element("label", "", "form-field");
+    artifactSourcesField.append(element("span", "Source refs (one per line)"), artifactSources);
+    artifactForm.append(artifactSourcesField);
+    const artifactSubmit = button("Register artifact", () => {});
+    artifactSubmit.type = "submit";
+    artifactSubmit.className = "primary-button";
+    artifactForm.append(artifactSubmit);
+    artifactForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      postJson("/api/artifacts", {
+        case_ref: artifactCase.value,
+        kind: artifactKind.value,
+        body: artifactBody.value,
+        evidence_refs: listValue(artifactEvidence.value),
+        source_refs: listValue(artifactSources.value),
+      })
+        .then(() => { status.textContent = "Artifact registered as a new digest-named version."; return fetchView("/api/cases", renderCases); })
+        .catch(() => { status.textContent = "Artifact could not be registered."; });
+    });
+    forms.append(caseForm, artifactForm, status);
+    main.append(forms);
+  };
+
   const renderHome = (payload) => {
     const main = document.getElementById("main-content");
     if (!main) return;
@@ -367,6 +531,7 @@
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
       button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       button("棚卸し", openTanaoroshi),
+      button("Cases", () => fetchView("/api/cases", renderCases)),
     );
     main.append(navigation);
 
@@ -414,6 +579,7 @@
       element("span", "Timeline", "nav-current"),
       button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       button("棚卸し", openTanaoroshi),
+      button("Cases", () => fetchView("/api/cases", renderCases)),
     );
     main.append(navigation);
     main.append(element("h2", "Timeline"));

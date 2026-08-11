@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.0] - 2026-08-12
+
+- Add durable Company and Application case metadata under `03-active/gui/`, keeping multiple
+  applications separate without changing the company-scoped `data/pipeline.yml` schema.
+- Register digest-named, versioned artifact bodies with evidence/source references and generator
+  metadata; archive/delete operations tombstone GUI metadata only and never alter canonical evidence.
+- Add authenticated GUI case creation, archival, and artifact registration routes with the same
+  local session/CSRF boundary as the existing write screens.
+
 ## [2.6.0] - 2026-08-12
 
 - Add a read-only self-analysis view for canonical `SELF_ANALYSIS_PROFILE v2` data, preserving
