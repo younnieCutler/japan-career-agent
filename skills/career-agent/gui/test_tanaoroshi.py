@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import tempfile
 import unittest
@@ -25,6 +26,24 @@ class TanaoroshiGuiTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
+
+    def test_every_api_path_the_client_calls_is_served(self) -> None:
+        """A route the client calls but the server does not answer is a 404 only a browser sees.
+
+        The same shape as the CSP gap: each side is self-consistent, and nothing compares them.
+        """
+        script = static_asset("bootstrap.js").decode("utf-8")
+        called = set(re.findall(r'["\'`](/api/[a-z/-]+)', script))
+        source = Path(__file__).with_name("server.py").read_text(encoding="utf-8")
+        served = set(re.findall(r'"(/api/[a-z/-]+)"', source))
+
+        self.assertIn("/api/sessions", called)
+        self.assertEqual(called - served, set())
+
+    def test_resuming_does_not_depend_on_client_side_memory(self) -> None:
+        script = static_asset("bootstrap.js").decode("utf-8")
+        self.assertNotIn("localStorage.getItem", script)
+        self.assertNotIn("localStorage.setItem", script)
 
     def test_adapter_exposes_semantic_state_and_explicit_unknowns(self) -> None:
         payload = tanaoroshi.start(self.home)

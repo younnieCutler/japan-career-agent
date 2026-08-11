@@ -9,9 +9,15 @@ from sessions import (
     checkpoint_session,
     create_proposal,
     create_session,
+    list_sessions,
     resume_session,
     save_draft,
 )
+
+
+def active(home: Any) -> dict[str, Any]:
+    """Resumable sessions from disk. The client cannot remember an id across a restart."""
+    return list_sessions(home)
 
 
 def start(home: Any, *, case_ref: str | None = None) -> dict[str, Any]:

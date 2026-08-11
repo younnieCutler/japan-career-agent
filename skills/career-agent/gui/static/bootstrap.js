@@ -45,7 +45,6 @@
     const session = payload.session || {};
     const draft = payload.draft || {};
     const sessionId = session.session_id;
-    if (sessionId) window.localStorage.setItem("jca.tanaoroshi.session", sessionId);
 
     const navigation = element("nav", "", "view-nav");
     navigation.setAttribute("aria-label", "Views");
@@ -184,18 +183,26 @@
     main.append(form);
   };
 
+  // The server binds port 0, so every run is a different origin and localStorage starts empty.
+  // Asking the server which sessions are resumable is the only way the browser can find work it
+  // left behind. A completed session is not listed, so approving one leads to a fresh start.
   const openTanaoroshi = () => {
-    const saved = window.localStorage.getItem("jca.tanaoroshi.session");
-    if (saved) {
-      fetchView(`/api/tanaoroshi?session_id=${encodeURIComponent(saved)}`, renderTanaoroshi);
-      return;
-    }
-    postJson("/api/tanaoroshi", {})
-      .then(renderTanaoroshi)
-      .catch(() => {
-        const status = document.getElementById("session-status");
-        if (status) status.textContent = "棚卸し 세션을 시작할 수 없습니다.";
-      });
+    fetchView("/api/sessions", (payload) => {
+      const active = (payload.sessions || [])[0];
+      if (active && active.session_id) {
+        fetchView(
+          `/api/tanaoroshi?session_id=${encodeURIComponent(active.session_id)}`,
+          renderTanaoroshi,
+        );
+        return;
+      }
+      postJson("/api/tanaoroshi", {})
+        .then(renderTanaoroshi)
+        .catch(() => {
+          const status = document.getElementById("session-status");
+          if (status) status.textContent = "棚卸し 세션을 시작할 수 없습니다.";
+        });
+    });
   };
 
   const renderHome = (payload) => {

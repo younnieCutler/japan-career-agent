@@ -126,6 +126,81 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(len(persistence.read_jsonl(self.home.events)), 1)
         self.assertEqual(sessions.load_session(self.home, created["session_id"])["stage"], "completed")
 
+    def test_editing_a_draft_reproposes_it_instead_of_returning_the_stale_snapshot(self) -> None:
+        """What the screen shows and what approval writes have to be the same text.
+
+        A proposal is a snapshot of the draft at one moment. If the draft moves afterwards and the
+        proposal does not, the user reads the new version and the ledger records the old one --
+        a silent wrong fact in an evidence-first product.
+        """
+        created = sessions.create_session(self.home)
+        session_id = created["session_id"]
+        base = {
+            "evidence": ["incident review"],
+            "role": "운영 담당",
+            "direct_actions": ["로그를 확인했다"],
+            "non_work": False,
+        }
+        sessions.save_draft(self.home, session_id, {**base, "summary": "배포 장애를 복구했다"})
+        first = sessions.create_proposal(self.home, session_id)
+
+        sessions.save_draft(self.home, session_id, {**base, "summary": "결제 지연을 복구했다"})
+        second = sessions.create_proposal(self.home, session_id)
+
+        self.assertEqual(second["proposal"]["event"]["summary"], "결제 지연을 복구했다")
+        approved = sessions.approve_proposal(self.home, session_id, second["proposal"]["id"])
+        self.assertEqual(approved["event"]["summary"], "결제 지연을 복구했다")
+        self.assertEqual(len(persistence.read_jsonl(self.home.events)), 1)
+        self.assertEqual(first["proposal"]["id"], second["proposal"]["id"])
+
+    def test_an_unchanged_draft_reuses_the_pending_proposal(self) -> None:
+        created = sessions.create_session(self.home)
+        session_id = created["session_id"]
+        sessions.save_draft(
+            self.home,
+            session_id,
+            {"summary": "배포 장애를 복구했다", "evidence": ["incident review"], "non_work": False},
+        )
+
+        first = sessions.create_proposal(self.home, session_id)
+        second = sessions.create_proposal(self.home, session_id)
+
+        self.assertEqual(first["proposal"]["id"], second["proposal"]["id"])
+        self.assertEqual(first["proposal"]["created_at"], second["proposal"]["created_at"])
+        self.assertEqual(len(sessions._proposal_rows(self.home)), 1)
+
+    def test_an_approved_session_is_closed_to_further_drafts_and_proposals(self) -> None:
+        """The next experience belongs in the next session, not on top of an approved one."""
+        created = sessions.create_session(self.home)
+        session_id = created["session_id"]
+        sessions.save_draft(
+            self.home,
+            session_id,
+            {"summary": "배포 장애를 복구했다", "evidence": ["incident review"], "non_work": False},
+        )
+        proposal = sessions.create_proposal(self.home, session_id)
+        sessions.approve_proposal(self.home, session_id, proposal["proposal"]["id"])
+
+        with self.assertRaises(CareerError) as saving:
+            sessions.save_draft(self.home, session_id, {"summary": "다른 경험", "non_work": False})
+        with self.assertRaises(CareerError) as proposing:
+            sessions.create_proposal(self.home, session_id)
+
+        self.assertEqual(saving.exception.code, "SESSION_COMPLETED")
+        self.assertEqual(proposing.exception.code, "SESSION_COMPLETED")
+        self.assertEqual(len(persistence.read_jsonl(self.home.events)), 1)
+
+    def test_active_sessions_are_discoverable_without_client_side_memory(self) -> None:
+        """A random port gives the browser a new origin, so localStorage cannot carry the id."""
+        first = sessions.create_session(self.home)
+        sessions.save_draft(
+            self.home, first["session_id"], {"summary": "배포 장애를 복구했다", "non_work": False}
+        )
+
+        listed = sessions.list_sessions(CareerVault(self.vault_path))
+
+        self.assertEqual([row["session_id"] for row in listed["sessions"]], [first["session_id"]])
+
     def test_rejected_approval_leaves_canonical_state_unchanged(self) -> None:
         created = sessions.create_session(self.home)
         sessions.save_draft(self.home, created["session_id"], {"summary": "증거 없는 메모"})

@@ -122,7 +122,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/static/style.css":
             self._send(HTTPStatus.OK, static_asset("style.css"), "text/css; charset=utf-8")
             return
-        if path in {"/api/home", "/api/timeline"}:
+        if path in {"/api/home", "/api/timeline", "/api/sessions"}:
             self._read_api(path)
             return
         if path == "/api/tanaoroshi":
@@ -137,7 +137,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/session":
             self._exchange_session()
             return
-        if path in {"/api/home", "/api/timeline"}:
+        if path in {"/api/home", "/api/timeline", "/api/sessions"}:
             self._send(
                 HTTPStatus.METHOD_NOT_ALLOWED,
                 b"read-only route",
@@ -160,16 +160,15 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if self.server.home is None:
             self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
             return
+        readers = {
+            "/api/home": lambda: home_payload(
+                self.server.home, workspace=self.server.workspace, as_of=self.server.as_of
+            ),
+            "/api/timeline": lambda: timeline_payload(self.server.home, as_of=self.server.as_of),
+            "/api/sessions": lambda: tanaoroshi.active(self.server.home),
+        }
         try:
-            payload = (
-                home_payload(
-                    self.server.home,
-                    workspace=self.server.workspace,
-                    as_of=self.server.as_of,
-                )
-                if path == "/api/home"
-                else timeline_payload(self.server.home, as_of=self.server.as_of)
-            )
+            payload = readers[path]()
         except Exception:  # Keep read failures inside the HTTP boundary without leaking paths.
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "read model unavailable")
             return

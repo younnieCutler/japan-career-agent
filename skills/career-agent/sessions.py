@@ -298,6 +298,24 @@ def load_session(home: CareerVault, session_id: str) -> dict[str, Any]:
     return _read_session(home, session_id)
 
 
+def list_sessions(home: CareerVault) -> dict[str, Any]:
+    """Every resumable session, so a client never has to remember an id across restarts.
+
+    The server binds port 0, so each run gives the browser a different origin and localStorage
+    starts empty. The sessions on disk are the only thing that survives; without this the user
+    cannot reach work that is sitting there intact.
+    """
+    rows: list[dict[str, Any]] = []
+    for path in sorted(storage_paths(home)["sessions"].glob("session-*.json")):
+        if SESSION_ID.fullmatch(path.stem) is None:
+            continue
+        session = _read_session(home, path.stem)
+        if session["stage"] != "completed":
+            rows.append(session)
+    rows.sort(key=lambda item: (item["updated_at"], item["session_id"]), reverse=True)
+    return {"mode": "sessions", "sessions": rows, "count": len(rows), "read_only": True}
+
+
 def missing_fields(draft: dict[str, Any]) -> list[str]:
     _draft_values(draft)
     missing: list[str] = []
@@ -334,6 +352,7 @@ def field_status(draft: dict[str, Any]) -> list[dict[str, str]]:
 def save_draft(home: CareerVault, session_id: str, draft: dict[str, Any]) -> dict[str, Any]:
     with vault_lock(home):
         session = _read_session(home, session_id)
+        _refuse_completed_session(session, "record another experience")
         values = _draft_values(draft)
         record = {
             "session_id": session_id,
@@ -425,48 +444,94 @@ def _proposal_rows(home: CareerVault) -> list[dict[str, Any]]:
     return read_jsonl(home.proposals)
 
 
+def _refuse_completed_session(session: dict[str, Any], action: str) -> None:
+    """An approved session is a closed record; the next experience needs its own session.
+
+    Without this a completed session keeps accepting drafts, and the proposal it already had
+    approved is the one the next approval finds.
+    """
+    if session.get("stage") == "completed":
+        raise CareerError(
+            f"this 棚卸し session is already approved; start a new session to {action}",
+            code="SESSION_COMPLETED",
+        )
+
+
 def _proposal_response(proposal: dict[str, Any], session_id: str) -> dict[str, Any]:
+    # The event travels with the response so the screen can show what approval will write. An
+    # approval button next to text the caller never received is a button the user cannot check.
     return {
         "mode": "tanaoroshi-proposal",
         "session_id": session_id,
-        "proposal": {"id": proposal["id"], "status": proposal["status"]},
+        "proposal": {
+            "id": proposal["id"],
+            "status": proposal["status"],
+            "created_at": proposal.get("created_at", ""),
+            "draft_updated_at": proposal.get("draft_updated_at", ""),
+            "event": proposal.get("event", {}),
+        },
         "ok": True,
     }
+
+
+def _proposal_event(draft: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    values = _draft_values(draft, allow_empty_summary=False)
+    event = make_work_event(str(values["summary"]), non_work=values.get("non_work", False))
+    event["evidence"] = list(values.get("evidence", []))
+    payload = {key: item for key, item in values.items() if key not in {"summary", "evidence", "non_work"}}
+    event["experience" if values.get("non_work", False) else "work_event"] = payload
+    validate_event(event)
+    return event, values
 
 
 def create_proposal(home: CareerVault, session_id: str) -> dict[str, Any]:
     with vault_lock(home):
         session = _read_session(home, session_id)
+        _refuse_completed_session(session, "propose from")
         proposal_id = f"proposal-{session_id.removeprefix('session-')}"
+        draft_record = _read_draft(home, session_id)
+        draft_stamp = str(draft_record.get("updated_at") or "")
         existing = [
             row
             for row in _proposal_rows(home)
-            if row.get("id") in session["proposal_refs"] or row.get("session_id") == session_id
+            if (row.get("id") in session["proposal_refs"] or row.get("session_id") == session_id)
+            and row.get("status") == "pending"
         ]
         if existing:
             proposal = existing[-1]
-            if proposal["id"] not in session["proposal_refs"]:
-                _checkpoint_unlocked(
-                    home,
-                    session,
-                    stage="review",
-                    current_item_ref=session["current_item_ref"] or "new_experience",
-                    proposal_refs=[*session["proposal_refs"], proposal["id"]],
-                )
+            if proposal.get("draft_updated_at") == draft_stamp:
+                if proposal["id"] not in session["proposal_refs"]:
+                    _checkpoint_unlocked(
+                        home,
+                        session,
+                        stage="review",
+                        current_item_ref=session["current_item_ref"] or "new_experience",
+                        proposal_refs=[*session["proposal_refs"], proposal["id"]],
+                    )
+                return _proposal_response(proposal, session_id)
+            # The draft moved after this proposal was taken. Re-snapshot in place rather than
+            # leaving a pending proposal that no longer matches what the user is looking at.
+            event, values = _proposal_event(draft_record.get("draft", {}))
+            proposal = home.replace_proposal(
+                proposal["id"], event=event, draft_updated_at=draft_stamp
+            )
+            _checkpoint_unlocked(
+                home,
+                session,
+                stage="review",
+                current_item_ref=values.get("experience_ref") or "new_experience",
+                missing=missing_fields(values),
+                proposal_refs=session["proposal_refs"],
+            )
             return _proposal_response(proposal, session_id)
-        draft = _read_draft(home, session_id).get("draft", {})
-        values = _draft_values(draft, allow_empty_summary=False)
-        event = make_work_event(str(values["summary"]), non_work=values.get("non_work", False))
-        event["evidence"] = list(values.get("evidence", []))
-        payload = {key: item for key, item in values.items() if key not in {"summary", "evidence", "non_work"}}
-        event["experience" if values.get("non_work", False) else "work_event"] = payload
-        validate_event(event)
+        event, values = _proposal_event(draft_record.get("draft", {}))
         proposal = {
             "id": proposal_id,
             "kind": "event",
             "status": "pending",
             "created_at": utc_now(),
             "session_id": session_id,
+            "draft_updated_at": draft_stamp,
             "next_action": "approve this proposal after checking the evidence and contribution",
             "event": event,
         }
