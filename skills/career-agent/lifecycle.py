@@ -117,7 +117,14 @@ def vault_lock(home: CareerVault) -> Iterator[None]:
     """Serialize read-modify-write sections against other processes on one Vault."""
     home.ensure_runtime()
     lock_path = home.runtime / "lock"
-    with lock_path.open("a+") as handle:
+    with lock_path.open("a+b") as handle:
+        # msvcrt.locking refuses a zero-length range on some Windows runners. Keep one stable
+        # byte in the runtime-only lock file and always lock from offset zero.
+        handle.seek(0, 2)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
         if fcntl is not None:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
         elif msvcrt is not None:
@@ -128,6 +135,7 @@ def vault_lock(home: CareerVault) -> Iterator[None]:
             if fcntl is not None:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
             elif msvcrt is not None:
+                handle.seek(0)
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -96,27 +95,16 @@ CHECKS = (
 
 
 def main() -> int:
-    for check_index, (label, command) in enumerate(CHECKS, 1):
+    for label, command in CHECKS:
         print(f"\n==> {label}: {' '.join(command)}", flush=True)
-        if os.environ.get("GITHUB_ACTIONS") == "true":
-            (ROOT / "ci-check-marker.txt").write_text(
-                f"{check_index}\t{label}\n", encoding="utf-8"
-            )
         try:
             result = subprocess.run(command, cwd=ROOT, check=False)
         except OSError as exc:
             print(f"{label} could not start: {exc}", file=sys.stderr, flush=True)
-            return 200 + check_index
+            return 1
         if result.returncode:
-            if os.environ.get("GITHUB_ACTIONS") == "true":
-                print(
-                    f"::error file=scripts/run_all_checks.py,line=1,title=repository-check::"
-                    f"{label} failed (exit {result.returncode})",
-                    flush=True,
-                )
             print(f"FAILED: {label} (exit {result.returncode})", file=sys.stderr, flush=True)
-            # Temporary CI diagnostic: the matrix annotation exposes only the process exit code.
-            return 100 + check_index
+            return result.returncode
     print(f"\nAll {len(CHECKS)} repository checks passed.", flush=True)
     return 0
 
