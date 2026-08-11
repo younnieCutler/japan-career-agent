@@ -63,6 +63,39 @@ class CareerAgentBoundaryTests(unittest.TestCase):
                 imports = boundaries._imports(boundaries._module_tree(module))
                 self.assertEqual(imports & boundaries.CLI_MODULES, set())
 
+    def test_every_parser_command_has_a_dispatch_branch(self) -> None:
+        """A subcommand added to the parser without a branch falls through to `args.mode` and
+        raises AttributeError, which reads like a runtime bug rather than a missing branch. The
+        reverse is worth catching too: a branch for a command the parser no longer defines is dead
+        code that still looks like coverage."""
+        import argparse
+
+        sys.path.insert(0, str(boundaries.CAREER_ROOT))
+        from command_line import build_parser  # noqa: PLC0415
+
+        commands = {
+            name
+            for action in build_parser()._actions  # noqa: SLF001
+            if isinstance(action, argparse._SubParsersAction)  # noqa: SLF001
+            for name in action.choices
+        }
+        branches: set[str] = set()
+        for node in ast.walk(boundaries._module_tree("dispatch")):
+            if not (isinstance(node, ast.Compare)
+                    and isinstance(node.left, ast.Attribute)
+                    and node.left.attr == "command"):
+                continue
+            for comparator in node.comparators:
+                if isinstance(comparator, ast.Constant):
+                    branches.add(comparator.value)
+                elif isinstance(comparator, (ast.Tuple, ast.List, ast.Set)):
+                    branches.update(
+                        element.value for element in comparator.elts
+                        if isinstance(element, ast.Constant)
+                    )
+        self.assertEqual(sorted(commands - branches), [], "parser commands with no dispatch branch")
+        self.assertEqual(sorted(branches - commands), [], "dispatch branches with no parser command")
+
     def test_a_definition_reappearing_in_the_facade_is_reported(self) -> None:
         """Guard the guard: the façade rule must fail on a real definition, not just pass today."""
         tree = ast.parse("import os\n\n\ndef doctor():\n    return {}\n")

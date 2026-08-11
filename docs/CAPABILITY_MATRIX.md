@@ -19,7 +19,7 @@ persistent install. Those four are the same program.
 ## The record
 
 | Capability | Class | Command | Local CLI | Claude plugin | Codex plugin |
-|---|---|---|---|:--:|:--:|:--:|
+|---|---|---|---|:--:|:--:|
 | Create a Career Vault | `core` | `setup` | ✅ | ✅ | ✅ |
 | Diagnose a Vault, repair its structure | `core` | `doctor` | ✅ | ✅ | ✅ |
 | See what is confirmed and what is pending | `core` | `status` | ✅ | ✅ | ✅ |

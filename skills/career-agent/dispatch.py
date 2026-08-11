@@ -118,7 +118,6 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
             recover_approval(setup_home)
         result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
         context["ok_is_exit_status"] = True
-        context["result"] = result
         return result
     if args.command == "guided":
         vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
@@ -148,7 +147,6 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
             language=args.language,
         )
         context["ok_is_exit_status"] = True
-        context["result"] = result
         return result
     # AC-23: the private store is independent of the Vault, so these branch above the Vault
     # requirement. A user checking whether a resume is about to be committed must not first be
@@ -156,7 +154,6 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
     if args.command in ("private-doctor", "private-import", "private-list"):
         result = run_private_command(args)
         context["ok_is_exit_status"] = True
-        context["result"] = result
         return result
     # These two read a model file that was already produced from the Vault, so requiring one
     # again would only ask for a path the answer does not depend on. The gate in particular
@@ -170,7 +167,6 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
                 humanized_path=args.humanized,
             )
         context["ok_is_exit_status"] = True
-        context["result"] = result
         return result
     if not args.vault:
         raise CareerError("--vault or CAREER_VAULT is required; the runtime never defaults to the current directory")
@@ -179,13 +175,11 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
     context["output_home"] = home
     if args.command == "init":
         result = initialize_vault(home.path)
-        context["result"] = result
         return result
     home.require_initialized()
     if _requires_approval_recovery(args):
         recover_approval(home, workspace=getattr(args, "workspace", None))
     result = _run_vault_command(args, home, skills_root)
-    context["result"] = result
     return result
 
 

@@ -26,13 +26,25 @@ ROW = re.compile(r"^\|(?P<capability>[^|]+)\|(?P<klass>[^|]+)\|(?P<commands>[^|]
 
 
 def parser_commands() -> set[str]:
+    """The subcommand names the parser actually defines.
+
+    argparse exposes no public way to enumerate subcommands, so this reads the action list. It is
+    written to fail loudly rather than return an empty set: an empty set would mark every `core`
+    row as unbacked, which reads as a matrix problem when it is an argparse-internals problem.
+    """
+    import argparse  # noqa: PLC0415
+
     from command_line import build_parser  # noqa: PLC0415 -- needs the sys.path insert above
 
-    actions = [
-        action for action in build_parser()._subparsers._group_actions  # noqa: SLF001
-        if hasattr(action, "choices")
-    ]
-    return {name for action in actions for name in action.choices}
+    commands = {
+        name
+        for action in build_parser()._actions  # noqa: SLF001
+        if isinstance(action, argparse._SubParsersAction)  # noqa: SLF001
+        for name in action.choices
+    }
+    if not commands:
+        raise RuntimeError("could not read subcommands from build_parser(); argparse internals moved")
+    return commands
 
 
 def rows(text: str) -> list[tuple[str, str, str]]:
