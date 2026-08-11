@@ -98,11 +98,15 @@ CHECKS = (
 def main() -> int:
     for check_index, (label, command) in enumerate(CHECKS, 1):
         print(f"\n==> {label}: {' '.join(command)}", flush=True)
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            (ROOT / "ci-check-marker.txt").write_text(
+                f"{check_index}\t{label}\n", encoding="utf-8"
+            )
         try:
             result = subprocess.run(command, cwd=ROOT, check=False)
         except OSError as exc:
             print(f"{label} could not start: {exc}", file=sys.stderr, flush=True)
-            return 1
+            return 200 + check_index
         if result.returncode:
             if os.environ.get("GITHUB_ACTIONS") == "true":
                 print(
