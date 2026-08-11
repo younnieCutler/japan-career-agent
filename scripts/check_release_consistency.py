@@ -28,6 +28,43 @@ README_RELEASE_PATTERNS = {
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 CHANGELOG_HEADING = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
 
+# The release-channel section names two moving numbers in prose: the source version and the ref the
+# stable marketplace channel points at. It sat stale for two releases, telling readers the two
+# matched while the marketplace actually installed something older — the one thing that section
+# exists to answer. Both numbers are now read from the files that own them.
+MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
+RELEASE_CHANNEL_HEADINGS = {
+    ROOT / "README.md": "### Release channels",
+    ROOT / "README_ko.md": "### 릴리스 채널",
+    ROOT / "README_ja.md": "### リリースチャンネル",
+}
+
+
+def _section(text: str, heading: str) -> str | None:
+    start = text.find(heading)
+    if start < 0:
+        return None
+    body = text[start + len(heading):]
+    ends = [position for position in (body.find("\n### "), body.find("\n## ")) if position >= 0]
+    return body if not ends else body[: min(ends)]
+
+
+def _names(section: str, value: str) -> bool:
+    """Whether the section names this exact version or ref, not one it is a prefix of.
+
+    `v1.18.1` is a substring of `v1.18.10`, so a plain containment test would report a section
+    that has already moved ahead of the file it is being compared against as still matching.
+    """
+    return re.search(rf"(?<![\w.]){re.escape(value)}(?![\w.])", section) is not None
+
+
+def _marketplace_ref() -> str | None:
+    try:
+        source = json.loads(MARKETPLACE.read_text(encoding="utf-8"))["plugins"][0]["source"]
+        return source["ref"] if isinstance(source, dict) else None
+    except (OSError, json.JSONDecodeError, KeyError, IndexError, TypeError):
+        return None
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -80,6 +117,23 @@ def main() -> int:
         elif release_version is not None and match.group(1) != release_version:
             errors.append(
                 f"{path.name}: current release {match.group(1)!r} != manifest {release_version!r}"
+            )
+
+    marketplace_ref = _marketplace_ref()
+    if marketplace_ref is None:
+        errors.append(f"{MARKETPLACE.relative_to(ROOT)}: cannot read the stable marketplace ref")
+    for path, heading in RELEASE_CHANNEL_HEADINGS.items():
+        section = _section(path.read_text(encoding="utf-8"), heading)
+        if section is None:
+            errors.append(f"{path.name}: missing release-channel section {heading!r}")
+            continue
+        if marketplace_ref is not None and not _names(section, marketplace_ref):
+            errors.append(
+                f"{path.name}: release-channel section does not name the marketplace ref {marketplace_ref!r}"
+            )
+        if release_version is not None and not _names(section, release_version):
+            errors.append(
+                f"{path.name}: release-channel section does not name the source version {release_version!r}"
             )
 
     if args.require_tag and release_version is not None:

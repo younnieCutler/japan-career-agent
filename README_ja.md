@@ -31,7 +31,7 @@
 
 ---
 
-現在のリリース: `2.1.0`。
+現在のリリース: `2.1.1`。
 
 **3つのステップ:**
 
@@ -104,9 +104,11 @@ codex plugin add japan-career-agent@japan-career-agent
 
 リリース準備中は、リポジトリのバージョンが stable marketplace チャンネルより先に進む
 ことがあります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを
-参照し、`main` は追跡しません。現在はリリース workflow がこの commit から `v1.18.1` を
-公開したため、ソースメタデータ `1.18.1` と stable marketplace ref `v1.18.1` が一致して
-います。次の挙動変更で再び差が開き、次のタグ公開と ref 更新で再び一致します。
+参照し、`main` は追跡しません。現在はソースメタデータが `2.1.1` である一方、stable marketplace
+ref はまだ `v1.18.1` です。新しいソースに対するタグをリリース workflow がまだ公開していない
+ためで、marketplace から入れると今日は `1.18.1` が入ります。次のタグが公開され ref が更新され
+れば差は閉じます。`uvx` と `npx` はこの ref ではなく公開済みパッケージのバージョンを解決する
+ので影響を受けません。
 
 ### ローカル fallback
 
@@ -118,7 +120,7 @@ git clone https://github.com/younnieCutler/japan-career-agent.git
 
 ### 2.0.x からの移行 — 旧名は `japan-recruit-ai-agent`
 
-2.1.0 で名称を変更しました。GitHub が旧リポジトリ URL を redirect するため既存の clone と remote は
+2.1.1 で名称を変更しました。GitHub が旧リポジトリ URL を redirect するため既存の clone と remote は
 そのまま動きますが、marketplace の項目は名前で識別されるため追加し直す必要があります。
 
 ```bash

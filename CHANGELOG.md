@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.1.0] - 2026-08-11
+## [2.1.1] - 2026-08-11
 
 - Rename the project to `japan-career-agent`. The old name described the work as recruiting, which
   is what the other side of the table does; what this actually holds is one person's career record.
@@ -30,6 +30,12 @@
   that both console scripts work and that `routing.yml` and the built-in templates still resolve.
   `scripts/test_npm_bootstrapper.py` asserts the npm package declares no install-time hook and
   cannot drift from the release version.
+- Read the installed package version instead of repeating it in the launcher. A literal that has
+  to be kept in step with six other files by hand is the copy that ends up wrong.
+- Check the release-channel section of each README against the files that own its numbers. It
+  claimed the source version and the stable marketplace ref matched while the marketplace was
+  two releases behind, which is the one thing that section exists to answer. Bumping the
+  marketplace ref without updating the READMEs now fails.
 
 ## [2.0.0] - 2026-08-10
 
