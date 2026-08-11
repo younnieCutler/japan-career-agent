@@ -199,6 +199,18 @@ class ProducerContractTests(unittest.TestCase):
             block = status_bar.build_status(written, {"rules": []}, dt.date(2026, 8, 11))
             self.assertIn("Aozora Systems", block)
 
+    def test_a_frozen_field_is_refused_for_being_frozen_and_not_for_being_unknown(self) -> None:
+        """Five of the seven frozen score fields are deliberately absent from the schema, so an
+        unknown-key check running first would answer a caller still writing `overall_score` with
+        "unknown field" -- true, but not the reason, and not what to write instead."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pipeline.yml"
+            for field in ("overall_score", "match_score"):
+                with self.subTest(field=field):
+                    with self.assertRaises(ValueError) as caught:
+                        pipeline_store.upsert_company(path, "a", {"name": "A", field: 80})
+                    self.assertIn("legacy_v1 fields are frozen", str(caught.exception))
+
     def test_pipeline_store_refuses_a_field_the_schema_does_not_name(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "pipeline.yml"

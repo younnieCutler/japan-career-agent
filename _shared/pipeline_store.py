@@ -153,6 +153,16 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         raise ValueError("company fields must be a JSON object")
     if "slug" in fields:
         raise ValueError("slug is the command argument, not an editable field")
+    # The frozen-field message comes first. Five of the seven legacy score fields are deliberately
+    # absent from the schema, so an unknown-key check running ahead of this one would answer a
+    # caller still writing `overall_score` with "unknown field" -- true, but not the reason, and
+    # not the sentence that tells them what to write instead.
+    frozen = sorted(LEGACY_WRITE_FIELDS.intersection(fields))
+    if frozen:
+        raise ValueError(
+            f"legacy_v1 fields are frozen and cannot be written: {', '.join(frozen)}. "
+            "Use decision_status (+ match_model_version=evidence_based_v3) from _shared/matching_v3.py."
+        )
     unknown = sorted(set(fields) - _company_entry_properties())
     if unknown:
         raise ValueError(
@@ -215,14 +225,6 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         raise ValueError(f"match_model_version must be one of {sorted(MATCH_MODEL_VERSIONS)}")
     if version == "legacy_v1":
         raise ValueError("new legacy_v1 pipeline writes are refused; existing history is read-only")
-    # Legacy values remain readable on existing entries, but every new write is rejected. This
-    # prevents a retired numeric field from being placed beside a v3 decision.
-    forbidden = sorted(LEGACY_WRITE_FIELDS.intersection(fields))
-    if forbidden:
-        raise ValueError(
-            f"legacy_v1 fields are frozen and cannot be written: {', '.join(forbidden)}. "
-            "Use decision_status (+ match_model_version=evidence_based_v3) from _shared/matching_v3.py."
-        )
 
 
 CLEARABLE_FIELDS = {
