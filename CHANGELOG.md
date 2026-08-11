@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.5.0] - 2026-08-12
+
+- Add the resumable local GUI 棚卸し vertical slice. Autosaved drafts and semantic checkpoints
+  live in transient `01-capture/gui/` storage and recover after restart without writing canonical
+  evidence.
+- Create proposals from explicit work/non-work form input and route approval through the existing
+  strict `approvals.approve` → `lifecycle.approve` path. Add strict session schema-version refusal
+  and the migration hook for a later v0→v1 migration.
+
 ## [2.4.0] - 2026-08-12
 
 - Add a read-only local GUI Home and Timeline. It composes the existing status, readiness,

@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from gui.security import SESSION_COOKIE, SecurityState
+import gui.tanaoroshi as tanaoroshi
 from gui.templates import render_shell, static_asset
 from gui.views_read import home_payload, timeline_payload
 
@@ -71,6 +72,30 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
     def _error(self, status: int, message: str) -> None:
         self._send(status, message.encode("utf-8"), "text/plain; charset=utf-8")
 
+    def _json(self, value: Any) -> None:
+        self._send(
+            HTTPStatus.OK,
+            json.dumps(value, ensure_ascii=False).encode("utf-8"),
+            "application/json; charset=utf-8",
+        )
+
+    def _json_body(self, limit: int = 131072) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length < 0 or length > limit:
+            raise ValueError("request body is too large")
+        value = json.loads(self.rfile.read(length).decode("utf-8"))
+        if not isinstance(value, dict):
+            raise ValueError("request body must be an object")
+        return value
+
+    def _query_value(self, name: str) -> str | None:
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        for part in query.split("&"):
+            key, separator, value = part.partition("=")
+            if separator and key == name:
+                return value
+        return None
+
     def _guard(self) -> bool:
         if not self.server.security.host_allowed(self.headers.get("Host")):
             self._error(HTTPStatus.MISDIRECTED_REQUEST, "invalid Host")
@@ -96,6 +121,9 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path in {"/api/home", "/api/timeline"}:
             self._read_api(path)
             return
+        if path == "/api/tanaoroshi":
+            self._resume_tanaoroshi()
+            return
         self._error(HTTPStatus.NOT_FOUND, "not found")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
@@ -115,6 +143,9 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             return
         if not self.server.security.authenticated(self.headers, require_csrf=True):
             self._error(HTTPStatus.FORBIDDEN, "session and CSRF token required")
+            return
+        if path in {"/api/tanaoroshi", "/api/draft", "/api/checkpoint", "/api/proposal", "/api/approve"}:
+            self._write_tanaoroshi(path)
             return
         self._error(HTTPStatus.NOT_FOUND, "not found")
 
@@ -143,6 +174,52 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             json.dumps(payload, ensure_ascii=False).encode("utf-8"),
             "application/json; charset=utf-8",
         )
+
+    def _resume_tanaoroshi(self) -> None:
+        if not self.server.security.authenticated(self.headers, require_csrf=False):
+            self._error(HTTPStatus.FORBIDDEN, "session required")
+            return
+        if self.server.home is None:
+            self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
+            return
+        session_id = self._query_value("session_id")
+        if not session_id:
+            self._error(HTTPStatus.BAD_REQUEST, "session_id is required")
+            return
+        try:
+            self._json(tanaoroshi.resume(self.server.home, session_id))
+        except ValueError:
+            self._error(HTTPStatus.BAD_REQUEST, "session could not be resumed")
+        except Exception:
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "session unavailable")
+
+    def _write_tanaoroshi(self, path: str) -> None:
+        if self.server.home is None:
+            self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
+            return
+        try:
+            payload = self._json_body()
+            if path == "/api/tanaoroshi":
+                result = tanaoroshi.start(self.server.home, case_ref=payload.get("case_ref"))
+            elif path == "/api/draft":
+                result = tanaoroshi.autosave(
+                    self.server.home, payload["session_id"], payload.get("draft", {})
+                )
+            elif path == "/api/checkpoint":
+                result = tanaoroshi.checkpoint(self.server.home, payload["session_id"], payload)
+            elif path == "/api/proposal":
+                result = tanaoroshi.submit(self.server.home, payload["session_id"])
+            else:
+                result = tanaoroshi.approve_session(
+                    self.server.home, payload["session_id"], payload["proposal_id"]
+                )
+        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            self._error(HTTPStatus.BAD_REQUEST, "invalid 棚卸し request")
+            return
+        except Exception:
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "棚卸し write unavailable")
+            return
+        self._json(result)
 
     def _exchange_session(self) -> None:
         try:

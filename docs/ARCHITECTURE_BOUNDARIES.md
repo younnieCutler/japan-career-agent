@@ -16,7 +16,7 @@ Command line     command_line.py    │  the parser, and the one place a result 
                  dispatch.py        │  command → owner, and nothing else
                                     ▼
 Application      onboarding · diagnostics · views · experiences · documents
-                 guided_flow · approvals · ingest
+                 guided_flow · approvals · ingest · sessions
                                     ▼
 Domain           models · validation · persistence · vault · routing · proposals
                  lifecycle · projection · document · render · personal_timeline
@@ -30,6 +30,11 @@ bridge in `dispatch.py` to `gui.server`; GUI modules do not import `command_line
 `runtime`, or domain modules directly. `gui.templates` is the application-owned adapter that
 reuses the domain renderer's escaped slots. This keeps the browser surface from becoming a second
 canonical writer or a hidden CLI dependency.
+
+`sessions.py` is the shared APPLICATION owner for resumable workflow state. `gui.tanaoroshi.py`
+translates semantic form actions into that owner; it does not own the files. A draft or checkpoint
+can be written to the transient capture area, but only the existing `approvals.approve` →
+`lifecycle.approve` path can append canonical evidence.
 
 Dependencies point down. Application modules may call each other sideways; the graph stays acyclic.
 Nothing at any layer imports an entry point, and the domain does not know that a CLI exists.

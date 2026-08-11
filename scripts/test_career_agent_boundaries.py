@@ -38,10 +38,18 @@ class CareerAgentBoundaryTests(unittest.TestCase):
         gui_modules = getattr(boundaries, "GUI_MODULES", set())
         self.assertEqual(
             gui_modules,
-            {"gui.server", "gui.security", "gui.templates", "gui.views_read"},
+            {
+                "gui.server",
+                "gui.security",
+                "gui.templates",
+                "gui.views_read",
+                "gui.tanaoroshi",
+            },
         )
         self.assertIn("gui.templates", boundaries.APPLICATION_MODULES)
         self.assertIn("gui.views_read", boundaries.APPLICATION_MODULES)
+        self.assertIn("gui.tanaoroshi", boundaries.APPLICATION_MODULES)
+        self.assertIn("sessions", boundaries.APPLICATION_MODULES)
         self.assertEqual(
             getattr(boundaries, "GUI_LAUNCH_IMPORTS", set()),
             {("dispatch", "gui.server")},

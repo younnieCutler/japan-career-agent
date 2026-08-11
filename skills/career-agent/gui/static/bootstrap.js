@@ -23,6 +23,181 @@
     return node;
   };
 
+  const postJson = (path, payload) => fetch(path, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": window.japanCareerAgentCsrfToken || "",
+    },
+    body: JSON.stringify(payload),
+  }).then((response) => {
+    if (!response.ok) throw new Error("Local write unavailable");
+    return response.json();
+  });
+
+  const listValue = (value) => String(value || "").split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+
+  const renderTanaoroshi = (payload) => {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+    main.replaceChildren();
+    const session = payload.session || {};
+    const draft = payload.draft || {};
+    const sessionId = session.session_id;
+    if (sessionId) window.localStorage.setItem("jca.tanaoroshi.session", sessionId);
+
+    const navigation = element("nav", "", "view-nav");
+    navigation.setAttribute("aria-label", "Views");
+    navigation.append(
+      button("Home", () => fetchView("/api/home", renderHome)),
+      button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      element("span", "棚卸し", "nav-current"),
+    );
+    main.append(navigation);
+    main.append(element("p", "EXPERIENCE / EVIDENCE", "section-label"));
+    main.append(element("h2", "棚卸しを続ける"));
+    main.append(element("p", "保存は下書きです。確定するまで Career Vault の証拠は変わりません.", "lede"));
+
+    const form = element("form", "", "inventory-form");
+    const controls = {};
+    const addControl = (label, name, value, type = "text") => {
+      const id = `tanaoroshi-${name.replaceAll(".", "-")}`;
+      const wrapper = element("label", "", "form-field");
+      wrapper.htmlFor = id;
+      wrapper.append(element("span", label));
+      const control = type === "textarea" ? element("textarea") : element("input");
+      control.id = id;
+      control.name = name;
+      control.value = value || "";
+      if (type !== "textarea") control.type = type;
+      controls[name] = control;
+      wrapper.append(control);
+      form.append(wrapper);
+    };
+    addControl("무슨 일이었나요?", "summary", draft.summary, "textarea");
+    addControl("역할", "role", draft.role);
+    addControl("개인 기여", "individual_contribution", draft.individual_contribution, "textarea");
+    addControl("행동 (쉼표 또는 줄바꿈)", "direct_actions", (draft.direct_actions || []).join("\n"), "textarea");
+    addControl("결과 수치 (쉼표 또는 줄바꿈)", "metrics", (draft.metrics || []).join("\n"), "textarea");
+    addControl("근거 (쉼표 또는 줄바꿈)", "evidence", (draft.evidence || []).join("\n"), "textarea");
+
+    const nonWorkLabel = element("label", "", "checkbox-field");
+    const nonWork = element("input");
+    nonWork.type = "checkbox";
+    nonWork.checked = draft.non_work === true;
+    nonWork.name = "non_work";
+    controls.non_work = nonWork;
+    nonWorkLabel.append(nonWork, element("span", "직무 경험이 아님 (학업·동아리·봉사 등)"));
+    form.append(nonWorkLabel);
+
+    const confidentialLabel = element("label", "", "checkbox-field");
+    const confidential = element("input");
+    confidential.type = "checkbox";
+    confidential.checked = draft.confidentiality?.contains_confidential === true;
+    controls.contains_confidential = confidential;
+    confidentialLabel.append(confidential, element("span", "기밀 정보가 포함됨"));
+    form.append(confidentialLabel);
+
+    const external = element("select");
+    external.name = "external_use";
+    ["unknown", "allowed", "blocked"].forEach((state) => {
+      const option = element("option", state);
+      option.value = state;
+      option.selected = state === (draft.confidentiality?.external_use || "unknown");
+      external.append(option);
+    });
+    controls.external_use = external;
+    const externalLabel = element("label", "", "form-field");
+    externalLabel.append(element("span", "외부 공개 가능 여부"), external);
+    form.append(externalLabel);
+
+    const status = element("div", "", "field-status");
+    status.setAttribute("aria-live", "polite");
+    (payload.field_status || []).forEach((item) => {
+      status.append(element("p", `${item.status === "Confirmed" ? "✓" : "?"} ${item.label}`, "status-row"));
+    });
+    form.append(status);
+
+    const message = element("p", "", "form-message");
+    message.id = "tanaoroshi-status";
+    message.setAttribute("role", "status");
+    form.append(message);
+
+    const collect = () => ({
+      summary: controls.summary.value,
+      role: controls.role.value,
+      individual_contribution: controls.individual_contribution.value,
+      direct_actions: listValue(controls.direct_actions.value),
+      metrics: listValue(controls.metrics.value),
+      evidence: listValue(controls.evidence.value),
+      non_work: controls.non_work.checked,
+      confidentiality: {
+        contains_confidential: controls.contains_confidential.checked,
+        external_use: controls.external_use.value,
+      },
+    });
+    let autosaveTimer;
+    const scheduleAutosave = () => {
+      window.clearTimeout(autosaveTimer);
+      autosaveTimer = window.setTimeout(() => {
+        postJson("/api/draft", { session_id: sessionId, draft: collect() })
+          .then(() => { message.textContent = "초안이 저장되었습니다."; })
+          .catch(() => { message.textContent = "초안 저장에 실패했습니다. 입력은 화면에 남아 있습니다."; });
+      }, 800);
+    };
+    Object.values(controls).forEach((control) => control.addEventListener("input", scheduleAutosave));
+    Object.values(controls).forEach((control) => control.addEventListener("change", scheduleAutosave));
+
+    const checkpoint = button("체크포인트 저장", () => {
+      postJson("/api/checkpoint", {
+        session_id: sessionId,
+        stage: "experience_evidence",
+        current_item_ref: "new_experience",
+        missing_fields: payload.missing_fields || [],
+        completed: [],
+      })
+        .then(() => { message.textContent = "완료된 지점이 저장되었습니다."; })
+        .catch(() => { message.textContent = "체크포인트를 저장할 수 없습니다."; });
+    });
+    checkpoint.className = "secondary-button";
+    form.append(checkpoint);
+
+    const submit = button("제안 만들기", () => {
+      postJson("/api/draft", { session_id: sessionId, draft: collect() })
+        .then(() => postJson("/api/proposal", { session_id: sessionId }))
+        .then((result) => {
+          message.textContent = "제안이 만들어졌습니다. 아래에서 확인 후 승인하세요.";
+          const approve = button("승인", () => postJson("/api/approve", {
+            session_id: sessionId,
+            proposal_id: result.proposal.id,
+          }).then(() => { message.textContent = "승인되었습니다."; }).catch(() => {
+            message.textContent = "승인할 수 없습니다. 근거와 입력을 확인하세요.";
+          }));
+          approve.className = "primary-button";
+          form.append(approve);
+        })
+        .catch(() => { message.textContent = "제안을 만들 수 없습니다. 비어 있는 항목을 확인하세요."; });
+    });
+    submit.className = "primary-button";
+    form.append(submit);
+    main.append(form);
+  };
+
+  const openTanaoroshi = () => {
+    const saved = window.localStorage.getItem("jca.tanaoroshi.session");
+    if (saved) {
+      fetchView(`/api/tanaoroshi?session_id=${encodeURIComponent(saved)}`, renderTanaoroshi);
+      return;
+    }
+    postJson("/api/tanaoroshi", {})
+      .then(renderTanaoroshi)
+      .catch(() => {
+        const status = document.getElementById("session-status");
+        if (status) status.textContent = "棚卸し 세션을 시작할 수 없습니다.";
+      });
+  };
+
   const renderHome = (payload) => {
     const main = document.getElementById("main-content");
     if (!main) return;
@@ -33,6 +208,7 @@
     navigation.append(
       button("Home", () => renderHome(payload)),
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      button("棚卸し", openTanaoroshi),
     );
     main.append(navigation);
 

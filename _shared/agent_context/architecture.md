@@ -15,5 +15,10 @@ skills/                    # stage-specific user workflows and lazy references
 hooks/                     # prompt-time status-bar integration
 ```
 
+The local GUI is a peer entrypoint. Its resumable 棚卸し session store belongs to the
+APPLICATION owner `skills/career-agent/sessions.py`; `gui/tanaoroshi.py` is only the deterministic
+form adapter. Transient drafts live under `01-capture/gui/`, while canonical evidence remains an
+approval-gated `02-state` write.
+
 The active default is evidence-based diagnosis. Legacy numeric data remains readable for
 reproducibility but is deprecated, read-only, and never merged into a v3 result.

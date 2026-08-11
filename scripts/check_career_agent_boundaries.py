@@ -35,6 +35,7 @@ DOMAIN_MODULES = (
     "views",
     "approvals",
     "guided_flow",
+    "sessions",
     "dispatch",
     "command_line",
     "runtime",
@@ -44,6 +45,7 @@ DOMAIN_MODULES = (
     "gui.security",
     "gui.templates",
     "gui.views_read",
+    "gui.tanaoroshi",
 )
 
 # The first extraction PRs intentionally leave the not-yet-moved compatibility files in place.
@@ -62,9 +64,10 @@ CLI_MODULES = {"command_line", "dispatch"}
 APPLICATION_MODULES = {
     "diagnostics", "onboarding", "ingest", "experiences",
     "documents", "views", "approvals", "guided_flow",
-    "gui.templates", "gui.views_read",
+    "sessions",
+    "gui.templates", "gui.views_read", "gui.tanaoroshi",
 }
-GUI_MODULES = {"gui.server", "gui.security", "gui.templates", "gui.views_read"}
+GUI_MODULES = {"gui.server", "gui.security", "gui.templates", "gui.views_read", "gui.tanaoroshi"}
 # The dispatcher is the sole entrypoint bridge that starts the GUI. GUI modules never import it.
 GUI_LAUNCH_IMPORTS = {("dispatch", "gui.server")}
 # The only places an owned symbol may be re-declared, and then only as a single delegating call.
@@ -167,6 +170,22 @@ OWNED_SYMBOLS = {
     "workspace_summary": "views",
     "recover_approval": "approvals",
     "run_guided": "guided_flow",
+    "transient_root": "sessions",
+    "storage_paths": "sessions",
+    "storage_lifetime": "sessions",
+    "session_path": "sessions",
+    "draft_path": "sessions",
+    "register_session_migration": "sessions",
+    "create_session": "sessions",
+    "load_session": "sessions",
+    "missing_fields": "sessions",
+    "field_status": "sessions",
+    "save_draft": "sessions",
+    "resume_session": "sessions",
+    "checkpoint_session": "sessions",
+    "create_proposal": "sessions",
+    "approve_proposal": "sessions",
+    "SESSION_SCHEMA_VERSION": "sessions",
     "run_command": "dispatch",
     "run_private_command": "dispatch",
     "build_parser": "command_line",
