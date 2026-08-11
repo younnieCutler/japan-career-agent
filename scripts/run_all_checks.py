@@ -94,6 +94,9 @@ CHECKS = (
 )
 
 
+CHECKS = (("diagnostic security", (PYTHON, "skills/career-agent/gui/test_security.py")),)
+
+
 def main() -> int:
     for label, command in CHECKS:
         print(f"\n==> {label}: {' '.join(command)}", flush=True)
