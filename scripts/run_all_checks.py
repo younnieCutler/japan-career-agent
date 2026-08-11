@@ -85,16 +85,12 @@ CHECKS = (
     ("synthetic demo workspace", (PYTHON, "examples/test_demo_workspace.py")),
     ("mock-interviewer contract", (PYTHON, "skills/mock-interviewer/tests/test_contract.py")),
     ("behavior eval runner", (PYTHON, "scripts/test_behavior_eval_runner.py")),
-    (
-        "behavior eval contract scenarios",
-        (PYTHON, "scripts/run_behavior_evals.py", "--schema", "_shared/behavior_eval_schema.yml"),
-    ),
+    ("behavior eval contract scenarios", (PYTHON, "scripts/run_behavior_evals.py", "--schema", "_shared/behavior_eval_schema.yml")),
     ("Jiko source contract", (PYTHON, "skills/jiko-bunseki/tests/test_checklist_contract.py")),
     ("Jiko executable export", ("node", "skills/jiko-bunseki/tests/test_checklist_runtime.js")),
 )
 
-
-CHECKS = (("diagnostic security", (PYTHON, "skills/career-agent/gui/test_security.py")),)
+CHECKS = (("diagnostic read parity", (PYTHON, "skills/career-agent/gui/test_read_parity.py")),)
 
 
 def main() -> int:
