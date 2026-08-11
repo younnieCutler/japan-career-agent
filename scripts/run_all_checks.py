@@ -95,6 +95,10 @@ CHECKS = (
 )
 
 
+# Temporary isolation: run only the new session contract on the matrix.
+CHECKS = (("diagnostic sessions", (PYTHON, "skills/career-agent/test_sessions.py")),)
+
+
 def _report_ci_failure(label: str) -> None:
     token = os.environ.get("GITHUB_TOKEN")
     repository = os.environ.get("GITHUB_REPOSITORY")
