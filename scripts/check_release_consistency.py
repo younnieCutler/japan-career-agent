@@ -45,8 +45,25 @@ def _section(text: str, heading: str) -> str | None:
     if start < 0:
         return None
     body = text[start + len(heading):]
-    end = body.find("\n### ")
-    return body if end < 0 else body[:end]
+    ends = [position for position in (body.find("\n### "), body.find("\n## ")) if position >= 0]
+    return body if not ends else body[: min(ends)]
+
+
+def _names(section: str, value: str) -> bool:
+    """Whether the section names this exact version or ref, not one it is a prefix of.
+
+    `v1.18.1` is a substring of `v1.18.10`, so a plain containment test would report a section
+    that has already moved ahead of the file it is being compared against as still matching.
+    """
+    return re.search(rf"(?<![\w.]){re.escape(value)}(?![\w.])", section) is not None
+
+
+def _marketplace_ref() -> str | None:
+    try:
+        source = json.loads(MARKETPLACE.read_text(encoding="utf-8"))["plugins"][0]["source"]
+        return source["ref"] if isinstance(source, dict) else None
+    except (OSError, json.JSONDecodeError, KeyError, IndexError, TypeError):
+        return None
 
 
 def main() -> int:
@@ -102,17 +119,19 @@ def main() -> int:
                 f"{path.name}: current release {match.group(1)!r} != manifest {release_version!r}"
             )
 
-    marketplace_ref = json.loads(MARKETPLACE.read_text(encoding="utf-8"))["plugins"][0]["source"]["ref"]
+    marketplace_ref = _marketplace_ref()
+    if marketplace_ref is None:
+        errors.append(f"{MARKETPLACE.relative_to(ROOT)}: cannot read the stable marketplace ref")
     for path, heading in RELEASE_CHANNEL_HEADINGS.items():
         section = _section(path.read_text(encoding="utf-8"), heading)
         if section is None:
             errors.append(f"{path.name}: missing release-channel section {heading!r}")
             continue
-        if marketplace_ref not in section:
+        if marketplace_ref is not None and not _names(section, marketplace_ref):
             errors.append(
                 f"{path.name}: release-channel section does not name the marketplace ref {marketplace_ref!r}"
             )
-        if release_version is not None and release_version not in section:
+        if release_version is not None and not _names(section, release_version):
             errors.append(
                 f"{path.name}: release-channel section does not name the source version {release_version!r}"
             )
