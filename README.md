@@ -82,8 +82,10 @@ uvx japan-career-agent setup    # via uv, or: pipx run japan-career-agent setup
 ```
 
 `setup` creates your Career Vault. Give it what it cannot infer on the command line, or run it
-bare and it tells you which flags are still missing. That is the whole first run: no configuration
-file, no identifiers to look up.
+bare and it tells you which flags are still missing — but the command it prints assumes
+`japan-career-agent` is on your PATH, which a run through `npx` or `uvx` does not leave behind; put
+the same `npx`/`uvx` prefix back in front of it yourself. That is the whole first run otherwise: no
+configuration file, no identifiers to look up.
 
 `npx` is an entrypoint, not the runtime. It ships an installer and no product code: it locates `uv`
 or `pipx`, installs the matching PyPI release, and hands over. **The canonical runtime is Python**,
