@@ -1,5 +1,94 @@
 # Changelog
 
+## [2.2.0] - 2026-08-11
+
+- Split `skills/career-agent/runtime.py` into owner modules. The file held the argument parser, the
+  dispatch chain, onboarding, diagnostics, the career views and the experience, document and guided
+  orchestration, so every new command had to be added there. It is now imports and re-exports:
+  `command_line` owns the parser and the single place a result becomes bytes, `dispatch` maps a
+  command to its owner, and `diagnostics`, `onboarding`, `ingest`, `experiences`, `documents`,
+  `views`, `approvals` and `guided_flow` own the commands themselves.
+- Enforce the façade rather than describe it. `check_career_agent_boundaries.py` now fails if
+  `runtime.py` defines a function or a class at all, and if an owner module imports the parser or
+  the dispatcher. Checking for definitions instead of for size is deliberate: a line budget is
+  satisfied by reformatting, this is not.
+- Keep the whole historical import surface. `runtime.__all__` names all 226 exports explicitly, so
+  removing one is a visible edit instead of a side effect of moving code. `runtime.main`,
+  `runtime.build_parser`, `career_agent.pipeline_file` and `career_agent.os` all still resolve.
+- **Narrow one compatibility promise, rather than let it read as broken.** A name resolving through
+  `career_agent` and a *binding* redirecting the module that uses it are different promises, and
+  only the first survives the split. `patch("career_agent.pipeline_file")` no longer changes where
+  an approval writes; patch `approvals.pipeline_file`, the module that resolves it. The only
+  patchers were this repository's own tests, so this is stated as a change rather than restored —
+  an owner reaching back through the façade for its imports would reintroduce exactly the
+  dependency the boundary rules exist to prevent.
+- Pin the exit-code contract in a test. A command that answers a question reports the answer in its
+  exit code; a command that describes the Vault does not. `doctor` finding problems exits 0, because
+  a script that treated a new warning as a crash would stop working the day one appeared, while
+  `document-check` failing its gate exits 2, because being gated on is what it is for. The split
+  briefly collapsed the two and nothing but this test would have noticed.
+- Close the canonical write schemas and leave the read path open. Every object in
+  `_shared/schemas.yml` carried `additionalProperties: true`, so `decison_status: proceed` validated
+  and was stored as a key nothing would ever read again. `validate_new_write` now checks a strict
+  schema derived from the tolerant one in code — `additionalProperties: true` *evaluates* unknown
+  keys, so `unevaluatedProperties` would be a no-op and the permissive setting has to be replaced.
+  One catalog, two validators, nothing to keep in sync.
+- Check the fragment a write introduces, at every depth, rather than the merged result. A top-level
+  field check let `jd_requirements`, `action_items` and `history` — all lists of objects — keep a
+  typo one level down, and `history=` arrives as its own argument so it bypassed the field gate
+  entirely. Validating the merged entry instead would reject keys an older version already wrote,
+  making an existing pipeline unwritable rather than upgradeable, so only what the write adds is
+  checked and `required` is dropped for the partial update.
+- Close an object exactly when the catalog declares its `properties`. Closing on `type: object`
+  alone closed the objects the catalog deliberately leaves shapeless — `work_style_reflection` is
+  required on every CANDIDATE_PROFILE and any real content in it was being rejected — while missing
+  `type: [object, 'null']`, which is how every nullable object here is written. Opaque fields are
+  not unvalidated: `matching_v3.validate_allocation` and `self_analysis_profile.py` own their rules.
+  The exact set of closed objects is pinned by a test so it cannot drift silently.
+- Make the frozen-field list say what the prose already claimed. `top_strengths`, `work_style`,
+  `portable_skills`, `wellbeing_scores` and five others were documented as legacy read-only and were
+  writable anyway, because the gate reads one flat list that never named them. The list is now
+  recorded per schema, every frozen field is a declared property, and a test derives one from the
+  other so the two cannot disagree again.
+- **Behaviour change worth knowing about:** `scripts/pipeline.py upsert|update --json` passes its
+  payload straight to the write gate, so a field the schema does not name is now refused instead of
+  silently stored. Existing files are unaffected — this is the write path only, and the error names
+  the file to add the field to if it is real. A field that was never declared was also never read by
+  anything, which is what made the typo invisible.
+- Promote the documented fields from the prose sections into `$defs`, without types. Both
+  validators read one property list, so adding a type would newly reject historical records that
+  hold a different shape. The schema stops shape drift; value rules stay where they already are.
+- Fix three schema-versus-code disagreements that surfaced the moment RULES was validated at all:
+  `$defs.RULES` declared an array while `calibrate.py` and `status_bar.py` have always written and
+  read a `{rules: [...]}` mapping, `source: observed_workflow` was missing from the enum, and
+  `action_items[].checked_at`, written by `check_action.py`, was undeclared. `rules.yml` had never
+  been validated, because `mutate()` only checked `pipeline.yml`.
+- Reject frozen legacy fields at any depth. MATCH_HISTORY is an array and a pipeline's retired
+  scores live inside a company entry, so the top-level-only check reported success while writing
+  exactly what it exists to refuse.
+- Add `_shared/tests/fixtures/legacy/`: four historical shapes that must keep reading forever. The
+  suite asserts they read and that at least one is refused as a new write, so they cannot quietly
+  become documents that pass either way.
+- Make the first-run vocabulary a contract. `effect_label` returned its input unchanged for anything
+  it did not recognize, printing `canonical state` at a user instead of a translation. A test now
+  walks `ux.py` for every string reaching `changed=`/`unchanged=` and asserts each has a catalog
+  entry, and a second test asserts a `setup → record → status → guided` transcript carries no
+  proposal id, event id, store filename or internal term while the JSON keeps them all.
+- Lead with `npx japan-career-agent setup` and `uvx japan-career-agent setup` in all three READMEs,
+  and separate running once from installing. `npx` is an entrypoint; the canonical runtime is
+  Python. The plugins move from a peer install option to `Enhanced integrations`, with what they add
+  stated and what works without them stated too.
+- Add `docs/CAPABILITY_MATRIX.md`, `docs/ARCHITECTURE_BOUNDARIES.md` and
+  `docs/MAINTAINER_RUNBOOK.md`. The matrix is checked, not asserted: every `core` row names a
+  command `build_parser()` defines, and `scripts/check_capability_matrix.py` fails the build if one
+  does not. Rows that are not equal say so rather than being smoothed over.
+- Enforce the three READMEs' shape, not just their contents. `check_readme_consistency.py` was
+  substring-only, so a section added to one language passed; it now compares heading-level sequences
+  and the install order, and refuses `init` as the first command shown.
+- Correct the rename version: 2.1.0, not 2.1.1, which is what `verify_release.py` has always said.
+- Extend the wheel smoke to `status` and `guided`. Both cross more of the runtime than `doctor`
+  does, so they are what proves an arbitrary-CWD install carries the whole application layer.
+
 ## [2.1.1] - 2026-08-11
 
 - Rename the project to `japan-career-agent`. The old name described the work as recruiting, which

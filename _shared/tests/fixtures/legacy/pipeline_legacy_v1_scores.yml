@@ -1,0 +1,28 @@
+schema: PIPELINE
+writable: false
+why: >
+  A pipeline written before evidence_based_v3, carrying the retired 0-100 numbers and the grade
+  derived from them. legacy_calibrate.py still displays these against reached_stage; nothing
+  backfills, recomputes or deletes them, and no new write may create one.
+value:
+  updated: "2026-03-14"
+  companies:
+    - slug: sakura-tech
+      name: Sakura Tech
+      stage: 5
+      status: 二次面接 scheduled
+      channel: agent
+      match_model_version: legacy_v1
+      match_score: 78
+      predicted_tier: B
+      reached_stage: 5
+      feedback_obtained: true
+      agent_feedback: 技術的な深さは十分だが、チームリードの経験が足りないとのことでした
+      root_cause: 数値なしエピソード
+      closed: true
+      closed_reason: お見送り
+      history:
+        - date: "2026-02-01"
+          event: 書類通過
+        - date: "2026-03-14"
+          event: お見送り

@@ -35,7 +35,7 @@
 
 ---
 
-Current release: `2.1.1`.
+Current release: `2.2.0`.
 
 **In three steps:**
 
@@ -71,48 +71,77 @@ flowchart LR
 
 ## Install
 
-### Without a plugin host
+### Run it once
 
-Both commands install and run the same Python program. Pick whichever runner you already have.
+Both commands install and run the same Python program, then leave nothing on your PATH. Pick
+whichever runner you already have.
 
 ```bash
-npx japan-career-agent init     # via npm
-uvx japan-career-agent init     # via uv, or: pipx run japan-career-agent init
+npx japan-career-agent setup    # via npm
+uvx japan-career-agent setup    # via uv, or: pipx run japan-career-agent setup
 ```
 
-`npx` ships an installer and no runtime: it locates `uv` or `pipx`, installs the matching PyPI
-release, and hands over. Nothing runs at `npm install` time, and neither path writes into a Python
-you already depend on.
+`setup` creates your Career Vault. Give it what it cannot infer on the command line, or run it
+bare and it tells you which flags are still missing — but the command it prints assumes
+`japan-career-agent` is on your PATH, which a run through `npx` or `uvx` does not leave behind; put
+the same `npx`/`uvx` prefix back in front of it yourself. That is the whole first run otherwise: no
+configuration file, no identifiers to look up.
+
+`npx` is an entrypoint, not the runtime. It ships an installer and no product code: it locates `uv`
+or `pipx`, installs the matching PyPI release, and hands over. **The canonical runtime is Python**,
+and every entry point runs that same program against the same Career Vault.
 
 Python 3.11 or newer is required. `uv` downloads a matching interpreter by itself; `pipx` uses one
 that is already installed. With neither runner present, `npx` prints how to install one and changes
 nothing.
 
-### Claude Code
+### Keep it installed
 
-Install the plugin into the host you already use.
+The commands above are run-once: they download, execute, and discard. To keep the tool available,
+install it:
+
+```bash
+uv tool install japan-career-agent
+# or
+pipx install japan-career-agent
+```
+
+Then the command is on your PATH, and the short name works too:
+
+```bash
+japan-career-agent setup
+career-agent status
+```
+
+### Enhanced integrations
+
+Optional. If you already use Claude Code or Codex, the plugin adds skill discovery, a host-native
+conversational workflow, and host status context on top of the same core.
 
 ```bash
 claude plugin marketplace add younnieCutler/japan-career-agent
 claude plugin install japan-career-agent@japan-career-agent
 ```
 
-### Codex
-
 ```bash
 codex plugin marketplace add younnieCutler/japan-career-agent
 codex plugin add japan-career-agent@japan-career-agent
 ```
 
+A plugin never holds its own copy of your career facts. The Vault, the evidence ledger, approval and
+recovery, readiness, JD evidence selection, the deterministic document gate and HTML rendering all
+work with no host installed; the plugin changes how you reach them, never what they say.
+[`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) lists which is which.
+
 ### Release channels
 
 The repository version can be ahead of the stable marketplace channel while a release is being
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
-follows `main`. Source metadata `2.1.1` and the stable marketplace ref `v2.1.1` currently match,
-because the release workflow published that tag from this commit. The gap reopens on the next
-behavior change, and closes again when the following tag is published and this ref is updated.
-`uvx` and `npx` are not affected either way, since they resolve a published package version rather
-than this ref.
+follows `main`. Source metadata is `2.2.0` while the stable marketplace ref is still `v2.1.1`,
+because the release workflow has not published a tag for this source yet. Installing from the
+marketplace therefore gives you `2.1.1` today. The gap closes when the release workflow publishes
+the next tag and this ref is updated. `uvx` and `npx` are not affected either way, since they
+resolve a published package version rather than this ref.
 
 ### Local fallback
 
@@ -124,7 +153,7 @@ git clone https://github.com/younnieCutler/japan-career-agent.git
 
 ### Upgrading from 2.0.x, when this was `japan-recruit-ai-agent`
 
-The project was renamed in 2.1.1. GitHub redirects the old repository URL, so an existing clone or
+The project was renamed in 2.1.0. GitHub redirects the old repository URL, so an existing clone or
 remote keeps working, but the marketplace entry is matched by name and has to be re-added:
 
 ```bash
@@ -140,7 +169,15 @@ published under the old name remain verifiable with `scripts/verify_release.py`.
 
 ## Quick start
 
-After installation, start with a normal request in Claude Code or Codex:
+Three things happen, in this order. Nothing else is required to get value out of the first session.
+
+1. **You record something.** Tell it about work you have done, in your own words.
+2. **You confirm it.** It shows you what it understood and what it could not verify. Nothing is
+   stored until you say yes.
+3. **You reuse it when you apply.** A confirmed record answers a job posting's requirements without
+   being rewritten to fit them.
+
+In a plugin host, that is a normal request:
 
 ```text
 I want to start preparing for a job change in Japan.
@@ -149,7 +186,22 @@ Help me prepare for next week's interview.
 Review this 職務経歴書 without inventing evidence.
 ```
 
-You do not need to learn `proposal_id`, `CAREER_VAULT`, or `data/pipeline.yml` before making a first request. Those details are for the advanced local workflow below.
+From a terminal, the same three steps. This is the run-once form, so it works straight after the
+Quick Start above with nothing installed:
+
+```bash
+npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
+npx japan-career-agent guided    # record, then confirm, in one guided flow
+```
+
+`guided` also reports what is confirmed and what is still `Unknown` — that is the same information
+a separate `status` command would show, so no third command is needed here. (`status` itself is a
+normal command; like every command below `guided`, it takes `--vault` explicitly rather than
+guessing one.) Swap `npx` for `uvx`, or drop the prefix entirely once you have run
+`uv tool install` or `pipx install` — the two commands are the same program either way.
+
+You do not need to learn `proposal_id`, `CAREER_VAULT`, or `data/pipeline.yml` before your first
+request. Those details belong to the advanced local workflow below.
 
 ## What it can help with
 

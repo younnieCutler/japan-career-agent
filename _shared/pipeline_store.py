@@ -98,14 +98,23 @@ def extract_workspace_flag(argv: list[str]) -> tuple[list[str], str | None]:
     return argv[:index] + argv[index + 2:], value
 
 
+VALIDATED_FILES = {"pipeline.yml": "PIPELINE", "rules.yml": "RULES"}
+
+
 def mutate(path: Path, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
     """Load, apply fn(data) -> data, write back — all under one exclusive lock."""
     with locked(path):
         data = fn(load(path))
-        if path.name == "pipeline.yml":
+        schema = VALIDATED_FILES.get(path.name)
+        if schema:
             from schema_contract import validate_document
 
-            validate_document("PIPELINE", data)
+            # Deliberately the tolerant validator, even though this is a write. `mutate` rewrites
+            # the whole file, including the parts it did not touch, and one of its callers migrates
+            # legacy documents by carrying unknown keys forward on purpose. Rejecting them here
+            # would make an old pipeline unusable rather than upgradeable. New *fields* are gated
+            # strictly one level down, in `_validate_fields`.
+            validate_document(schema, data)
         atomic_write(path, data)
         return data
 
@@ -125,11 +134,45 @@ LEGACY_WRITE_FIELDS = {
 }
 
 
+COMPANY_ENTRY = ("properties", "companies", "items")
+
+
+def _validate_new_entry_fields(fields: dict[str, Any]) -> None:
+    """Reject a key the catalog does not name, at any depth of what is being written.
+
+    Only the incoming fragment is checked, never the merged entry: an entry already on disk may
+    hold keys from an older version of this suite, and rejecting those would make an existing
+    pipeline unwritable rather than upgradeable. A top-level-only check is not enough either —
+    `jd_requirements`, `action_items` and `history` are lists of objects, and a typo one level down
+    is the same silent loss as a typo at the top.
+    """
+    from schema_contract import SchemaContractError, validate_new_fragment
+
+    try:
+        validate_new_fragment("PIPELINE", fields, at=COMPANY_ENTRY)
+    except SchemaContractError as exc:
+        raise ValueError(
+            f"{exc}. Add the field to $defs.PIPELINE in _shared/schemas.yml if it is real; "
+            "otherwise this is a typo, and writing it would store a value nothing reads."
+        ) from exc
+
+
 def _validate_fields(fields: dict[str, Any]) -> None:
     if not isinstance(fields, dict):
         raise ValueError("company fields must be a JSON object")
     if "slug" in fields:
         raise ValueError("slug is the command argument, not an editable field")
+    # The frozen-field message comes first. Five of the seven legacy score fields are deliberately
+    # absent from the schema, so an unknown-key check running ahead of this one would answer a
+    # caller still writing `overall_score` with "unknown field" -- true, but not the reason, and
+    # not the sentence that tells them what to write instead.
+    frozen = sorted(LEGACY_WRITE_FIELDS.intersection(fields))
+    if frozen:
+        raise ValueError(
+            f"legacy_v1 fields are frozen and cannot be written: {', '.join(frozen)}. "
+            "Use decision_status (+ match_model_version=evidence_based_v3) from _shared/matching_v3.py."
+        )
+    _validate_new_entry_fields(fields)
     if "stage" in fields and (not isinstance(fields["stage"], int) or not 0 <= fields["stage"] <= 7):
         raise ValueError("stage must be an integer from 0 to 7")
 
@@ -185,14 +228,6 @@ def _validate_fields(fields: dict[str, Any]) -> None:
         raise ValueError(f"match_model_version must be one of {sorted(MATCH_MODEL_VERSIONS)}")
     if version == "legacy_v1":
         raise ValueError("new legacy_v1 pipeline writes are refused; existing history is read-only")
-    # Legacy values remain readable on existing entries, but every new write is rejected. This
-    # prevents a retired numeric field from being placed beside a v3 decision.
-    forbidden = sorted(LEGACY_WRITE_FIELDS.intersection(fields))
-    if forbidden:
-        raise ValueError(
-            f"legacy_v1 fields are frozen and cannot be written: {', '.join(forbidden)}. "
-            "Use decision_status (+ match_model_version=evidence_based_v3) from _shared/matching_v3.py."
-        )
 
 
 CLEARABLE_FIELDS = {
@@ -222,6 +257,9 @@ def _append_history_idempotent(entry: dict[str, Any], history: dict[str, Any] | 
         return
     if not isinstance(history, dict):
         raise ValueError("history must be an object")
+    # A history row arrives as its own argument rather than inside `fields`, so it never reached
+    # the field gate. Same document, same catalog, same rule: a typo here is a row nothing reads.
+    _validate_new_entry_fields({"history": [history]})
     hist_id = history.get("event_id") or history.get("id")
     if "id" in history:
         history = {key: value for key, value in history.items() if key != "id"}

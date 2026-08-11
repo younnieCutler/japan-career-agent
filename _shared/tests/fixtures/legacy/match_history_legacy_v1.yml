@@ -1,0 +1,30 @@
+schema: MATCH_HISTORY
+writable: false
+why: >
+  Append-only history holding one legacy_v1 entry beside one evidence_based_v3 entry. The two
+  shapes coexist and are distinguished by model_version; they are never sorted, ranked or averaged
+  together, because one of them measures something that was never validated.
+value:
+  - date: "2026-02-11"
+    model_version: legacy_v1
+    candidate_name: 박민준
+    company_name: Sakura Tech
+    position_title: Backend Engineer
+    platform: doda
+    recruit_style_score: 71
+    persol_style_score: 64
+    culture_fit_score: 58
+    overall_score: 66
+    overall_grade: B
+  - date: "2026-07-02"
+    model_version: evidence_based_v3
+    candidate_name: 박민준
+    company_name: Aozora Systems
+    position_title: SRE
+    decision_status: review
+    required_coverage: 0.6
+    required_coverage_status: available
+    portable_skill_status: unmapped
+    conflicts: []
+    missing_information:
+      - Kubernetes運用の規模が求人票から読み取れない

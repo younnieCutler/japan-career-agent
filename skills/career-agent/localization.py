@@ -587,28 +587,34 @@ def state_label(language: Any, state: Any) -> str:
     return text(language, f"state.{state}" if f"state.{state}" in UX_TEXT["en"] else "state.blocked")
 
 
+# Every string a command may put in `effects.changed` / `effects.unchanged`, mapped to the phrase
+# the user reads. Module level rather than local so `test_ux.py` can assert that ux.py produces
+# nothing outside this map: an effect without an entry is returned unchanged, which prints an
+# internal term like `canonical state` in place of a translation and fails no other check.
+EFFECT_ALIASES = {
+    "canonical state": "effect.canonical_state",
+    "canonical state until approval": "effect.canonical_state",
+    "canonical career state": "effect.career_state",
+    "canonical career facts": "effect.career_state",
+    "approved event/canonical state": "effect.approved_event_canonical",
+    "approved event": "effect.approved_event",
+    "workspace pipeline": "effect.workspace_pipeline",
+    "original private document": "effect.original_document",
+    "current state snapshot": "effect.current_snapshot",
+    "events.jsonl": "effect.events",
+    "proposals.jsonl": "effect.proposals",
+    "vault/profile setup": "effect.vault_profile",
+    "profile setup": "effect.profile_setup",
+    "guided-selected operation": "effect.guided_operation",
+    "private-store copy and metadata": "effect.private_store",
+    "original source file": "effect.source_file",
+    "personal profile and canonical state": "effect.personal_profile_canonical",
+}
+
+
 def effect_label(language: Any, value: Any) -> str:
     raw = str(value)
-    aliases = {
-        "canonical state": "effect.canonical_state",
-        "canonical state until approval": "effect.canonical_state",
-        "canonical career state": "effect.career_state",
-        "canonical career facts": "effect.career_state",
-        "approved event/canonical state": "effect.approved_event_canonical",
-        "approved event": "effect.approved_event",
-        "workspace pipeline": "effect.workspace_pipeline",
-        "original private document": "effect.original_document",
-        "current state snapshot": "effect.current_snapshot",
-        "events.jsonl": "effect.events",
-        "proposals.jsonl": "effect.proposals",
-        "vault/profile setup": "effect.vault_profile",
-        "profile setup": "effect.profile_setup",
-        "guided-selected operation": "effect.guided_operation",
-        "private-store copy and metadata": "effect.private_store",
-        "original source file": "effect.source_file",
-        "personal profile and canonical state": "effect.personal_profile_canonical",
-    }
-    return text(language, aliases[raw]) if raw in aliases else raw
+    return text(language, EFFECT_ALIASES[raw]) if raw in EFFECT_ALIASES else raw
 
 
 def error_message(language: Any, code: str | None, fallback: str | None = None) -> str:

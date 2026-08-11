@@ -33,7 +33,7 @@
 
 ---
 
-現在のリリース: `2.1.1`。
+現在のリリース: `2.2.0`。
 
 **3つのステップ:**
 
@@ -69,48 +69,75 @@ flowchart LR
 
 ## インストール
 
-### plugin host なしで使う
+### 一度だけ実行する
 
-どちらのコマンドも同じ Python プログラムを導入して実行します。すでに手元にある runner を選んで
-ください。
+どちらのコマンドも同じ Python プログラムを導入して実行し、PATH には何も残しません。すでに手元に
+ある runner を選んでください。
 
 ```bash
-npx japan-career-agent init     # npm 経由
-uvx japan-career-agent init     # uv 経由、または: pipx run japan-career-agent init
+npx japan-career-agent setup    # npm 経由
+uvx japan-career-agent setup    # uv 経由、または: pipx run japan-career-agent setup
 ```
 
-`npx` が取得するのはインストーラだけで、runtime は含まれません。`uv` か `pipx` を見つけて同じ
-バージョンの PyPI リリースを導入し、実行を委ねます。`npm install` の時点では何も実行されず、
-どちらの経路も既に使っている Python には手を触れません。
+`setup` は Career Vault を作ります。推測できない値はコマンドラインで渡すか、そのまま実行すれば
+どのフラグが足りないかを返します——ただし表示される次のコマンドは `japan-career-agent` が PATH に
+ある前提で書かれており、`npx` や `uvx` 経由の実行はそれを残しません。表示されたコマンドの前に、
+同じ `npx`/`uvx` を自分で付け直してください。それ以外は初回はこれで終わりです。設定ファイルも、
+調べておく識別子もありません。
+
+`npx` は runtime ではなく入口です。取得するのはインストーラだけで製品コードは含まれません。`uv`
+か `pipx` を見つけて同じバージョンの PyPI リリースを導入し、実行を委ねます。**canonical runtime は
+Python** であり、どの入口から入っても同じプログラムが同じ Career Vault を扱います。
 
 Python 3.11 以降が必要です。`uv` は適合する interpreter を自分で取得し、`pipx` は導入済みの
 Python を使います。どちらも無い場合、`npx` は導入方法を案内し、何も変更しません。
 
-### Claude Code
+### 常時使えるようにする
 
-普段使っている host に plugin を追加します。
+上のコマンドは一度きりです。取得して実行し、破棄します。手元に残して使うなら導入します。
+
+```bash
+uv tool install japan-career-agent
+# または
+pipx install japan-career-agent
+```
+
+導入後はコマンドが PATH に入り、短い名前でも動きます。
+
+```bash
+japan-career-agent setup
+career-agent status
+```
+
+### 追加で使える統合
+
+任意です。すでに Claude Code か Codex を使っているなら、plugin が同じ core の上に skill discovery、
+host native な会話 workflow、host の status context を追加します。
 
 ```bash
 claude plugin marketplace add younnieCutler/japan-career-agent
 claude plugin install japan-career-agent@japan-career-agent
 ```
 
-### Codex
-
 ```bash
 codex plugin marketplace add younnieCutler/japan-career-agent
 codex plugin add japan-career-agent@japan-career-agent
 ```
 
+plugin がキャリアの事実を独自に持つことはありません。Vault、根拠の ledger、承認と復旧、readiness、
+JD ごとの根拠選択、決定的な書類ゲート、HTML 生成はいずれも host 無しで動きます。plugin が変えるの
+は到達の仕方だけで、答えの中身ではありません。どれがどちらかは
+[`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) に一覧があります。
+
 ### リリースチャンネル
 
 リリース準備中は、リポジトリのバージョンが stable marketplace チャンネルより先に進む
 ことがあります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを
-参照し、`main` は追跡しません。現在はリリース workflow がこの commit から `v2.1.1` を
-公開したため、ソースメタデータ `2.1.1` と stable marketplace ref `v2.1.1` が一致して
-います。次の挙動変更で再び差が開き、次のタグ公開と ref 更新で再び一致します。`uvx` と `npx`
-はこの ref ではなく公開済みパッケージのバージョンを解決するので、どちらの場合も影響を
-受けません。
+参照し、`main` は追跡しません。現在はソースメタデータが `2.2.0` である一方、stable marketplace
+ref はまだ `v2.1.1` です。このソースに対するタグをリリース workflow がまだ公開していないためで、
+marketplace から入れると今日は `2.1.1` が入ります。次のタグが公開され ref が更新されれば差は
+閉じます。`uvx` と `npx` はこの ref ではなく公開済みパッケージのバージョンを解決するので、
+どちらの場合も影響を受けません。
 
 ### ローカル fallback
 
@@ -122,7 +149,7 @@ git clone https://github.com/younnieCutler/japan-career-agent.git
 
 ### 2.0.x からの移行 — 旧名は `japan-recruit-ai-agent`
 
-2.1.1 で名称を変更しました。GitHub が旧リポジトリ URL を redirect するため既存の clone と remote は
+2.1.0 で名称を変更しました。GitHub が旧リポジトリ URL を redirect するため既存の clone と remote は
 そのまま動きますが、marketplace の項目は名前で識別されるため追加し直す必要があります。
 
 ```bash
@@ -138,7 +165,15 @@ Career Vault は何も変わりません。vault のパス、event ledger、生�
 
 ## Quick Start
 
-インストール後、Claude Code または Codex に普段の言葉で依頼してください。
+起きることは三つ、この順番です。最初のセッションで価値を得るのに、これ以外は必要ありません。
+
+1. **記録する。** やってきた仕事を、自分の言葉で伝えます。
+2. **確認する。** 理解した内容と、裏付けが取れなかった点が提示されます。あなたが「はい」と言うまで
+   何も保存されません。
+3. **応募のときに再利用する。** 確定した記録は、求人票の要件に合わせて書き換えられることなく、
+   そのまま答えになります。
+
+plugin host では、普段の言葉で依頼するだけです。
 
 ```text
 日本での転職準備を始めたいです。
@@ -147,7 +182,22 @@ Career Vault は何も変わりません。vault のパス、event ledger、生�
 この職務経歴書を、ない根拠を足さずにレビューしてください。
 ```
 
-最初から `proposal_id`、`CAREER_VAULT`、`data/pipeline.yml` を理解する必要はありません。まず依頼を一文で書き、必要になったときだけ下のローカル向け workflow を使います。
+ターミナルからでも同じ三段階です。以下は一度きりの形なので、上の Quick Start のあと何も導入して
+いない状態でそのまま実行できます。
+
+```bash
+npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
+npx japan-career-agent guided    # 記録して確認するまでを一つの流れで
+```
+
+`guided` は何が確定し、何がまだ `Unknown` かも表示します。別に `status` コマンドを呼んでも同じ
+内容が返るので、ここでは三つ目のコマンドは不要です（`status` 自体は通常のコマンドで、`guided` から
+下のコマンドと同じく `--vault` を明示的に渡します。推測はしません）。`npx` は `uvx` に置き換え
+られます。`uv tool install` か `pipx install` で導入済みなら接頭辞ごと外してください。どちらでも
+同じプログラムです。
+
+最初から `proposal_id`、`CAREER_VAULT`、`data/pipeline.yml` を理解する必要はありません。まず依頼を
+一文で書き、必要になったときだけ下のローカル向け workflow を使います。
 
 ## できること
 
