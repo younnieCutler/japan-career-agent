@@ -53,6 +53,7 @@ CHECKS = (
     ("career-agent self-analysis", (PYTHON, "skills/career-agent/test_self_analysis.py")),
     ("career-agent GUI self-analysis", (PYTHON, "skills/career-agent/gui/test_self_analysis.py")),
     ("career-agent GUI cases and artifacts", (PYTHON, "skills/career-agent/gui/test_cases_artifacts.py")),
+    ("career-agent GUI projects", (PYTHON, "skills/career-agent/gui/test_projects.py")),
     ("career-agent sessions", (PYTHON, "skills/career-agent/test_sessions.py")),
     ("career-agent GUI tanaoroshi", (PYTHON, "skills/career-agent/gui/test_tanaoroshi.py")),
     ("career-agent private store", (PYTHON, "skills/career-agent/test_private_store.py")),

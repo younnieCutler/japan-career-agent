@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0] - 2026-08-12
+
+- Add a read-only Projects / 재직 중 GUI view that composes confirmed project timelines with the
+  user's declared employment and job-search state.
+- Protect `/api/projects` with the existing local session boundary and keep it GET-only; the GUI
+  does not infer employment, write project history, or expose internal identifiers by default.
+
 ## [2.7.0] - 2026-08-12
 
 - Add durable Company and Application case metadata under `03-active/gui/`, keeping multiple

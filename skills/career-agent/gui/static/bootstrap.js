@@ -89,6 +89,7 @@
     navigation.append(
       button("Home", () => fetchView("/api/home", renderHome)),
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      button("Projects / 재직 중", () => fetchView("/api/projects", renderProjects)),
       element("span", "자기분석", "nav-current"),
       button("棚卸し", openTanaoroshi),
       button("Cases", () => fetchView("/api/cases", renderCases)),
@@ -151,6 +152,7 @@
       button("Home", () => fetchView("/api/home", renderHome)),
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
       button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
+      button("Projects / 재직 중", () => fetchView("/api/projects", renderProjects)),
       element("span", "棚卸し", "nav-current"),
       button("Cases", () => fetchView("/api/cases", renderCases)),
     );
@@ -368,6 +370,7 @@
       button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
       button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       button("棚卸し", openTanaoroshi),
+      button("Projects / 재직 중", () => fetchView("/api/projects", renderProjects)),
       element("span", "Cases", "nav-current"),
     );
     main.append(navigation);
@@ -519,6 +522,63 @@
     main.append(forms);
   };
 
+  const renderProjects = (payload) => {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+    main.replaceChildren();
+    const navigation = element("nav", "", "view-nav");
+    navigation.setAttribute("aria-label", "Views");
+    navigation.append(
+      button("Home", () => fetchView("/api/home", renderHome)),
+      button("Timeline", () => fetchView("/api/timeline", renderTimeline)),
+      button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
+      button("棚卸し", openTanaoroshi),
+      button("Cases", () => fetchView("/api/cases", renderCases)),
+      element("span", "Projects / 재직 중", "nav-current"),
+    );
+    main.append(navigation);
+
+    const employment = payload.employment || {};
+    const employmentPanel = section("EMPLOYMENT", "재직 중 상태는 사용자의 선언입니다.");
+    employmentPanel.append(
+      element(
+        "p",
+        "Employment: " + value(employment.employment_status) + " · Search: " + value(employment.job_search),
+        "lede",
+      ),
+      element(
+        "p",
+        "Career status: " + value(employment.career_status) + " · Target role: " + value(employment.target_role),
+      ),
+      element("p", "GUI는 재직 여부를 추정하거나 변경하지 않습니다.", "status-row"),
+    );
+    main.append(employmentPanel);
+
+    const list = element("div", "", "dashboard-grid projects-grid");
+    (payload.projects || []).forEach((project) => {
+      const card = section("PROJECT", value(project.title));
+      card.className += " project-card";
+      card.append(element("p", "Status: " + value(project.status), "status-row"));
+      if (project.role) card.append(element("p", "Role: " + value(project.role), "status-row"));
+      if (project.scope) card.append(element("p", "Scope: " + value(project.scope), "status-row"));
+      const period = project.period?.from
+        ? project.period.from + " → " + value(project.period.to, "present")
+        : "Period Unknown";
+      card.append(element("p", period, "timeline-period"));
+      if (project.summary) card.append(element("p", value(project.summary), "lede"));
+      (project.timeline || []).forEach((entry) => {
+        card.append(element("p", value(entry.date) + " · " + value(entry.title), "timeline-entry"));
+      });
+      list.append(card);
+    });
+    if (!list.children.length) list.append(element("p", "No confirmed projects yet.", "lede"));
+    main.append(list);
+
+    const readOnly = section("READ-ONLY", "Project history stays in the approval path.");
+    readOnly.append(element("p", "This screen only reads confirmed project and work-event projections. Additions and employment changes remain user-owned CLI workflows.", "lede"));
+    main.append(readOnly);
+  };
+
   const renderHome = (payload) => {
     const main = document.getElementById("main-content");
     if (!main) return;
@@ -532,6 +592,7 @@
       button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       button("棚卸し", openTanaoroshi),
       button("Cases", () => fetchView("/api/cases", renderCases)),
+      button("Projects / 재직 중", () => fetchView("/api/projects", renderProjects)),
     );
     main.append(navigation);
 
@@ -580,6 +641,7 @@
       button("자기분석", () => fetchView("/api/self-analysis", renderSelfAnalysis)),
       button("棚卸し", openTanaoroshi),
       button("Cases", () => fetchView("/api/cases", renderCases)),
+      button("Projects / 재직 중", () => fetchView("/api/projects", renderProjects)),
     );
     main.append(navigation);
     main.append(element("h2", "Timeline"));

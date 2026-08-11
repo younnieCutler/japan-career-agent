@@ -14,7 +14,7 @@ from gui.security import SESSION_COOKIE, SecurityState
 import gui.tanaoroshi as tanaoroshi
 from self_analysis import profile_payload
 from gui.templates import render_shell, static_asset
-from gui.views_read import home_payload, timeline_payload
+from gui.views_read import home_payload, projects_payload, timeline_payload
 
 
 # `default-src 'none'` denies anything a later directive does not name, so every capability the
@@ -125,7 +125,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/static/style.css":
             self._send(HTTPStatus.OK, static_asset("style.css"), "text/css; charset=utf-8")
             return
-        if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis", "/api/cases"}:
+        if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis", "/api/cases", "/api/projects"}:
             self._read_api(path)
             return
         if path == "/api/tanaoroshi":
@@ -140,7 +140,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/session":
             self._exchange_session()
             return
-        if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis"}:
+        if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis", "/api/projects"}:
             self._send(
                 HTTPStatus.METHOD_NOT_ALLOWED,
                 b"read-only route",
@@ -183,6 +183,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/sessions": lambda: tanaoroshi.active(self.server.home),
             "/api/self-analysis": lambda: profile_payload(self.server.workspace),
             "/api/cases": lambda: cases.payload(self.server.home),
+            "/api/projects": lambda: projects_payload(self.server.home),
         }
         try:
             payload = readers[path]()

@@ -119,6 +119,36 @@ def home_payload(
     return _public(raw, debug=_debug_enabled())
 
 
+def projects_payload(home: Any) -> dict[str, Any]:
+    """Return project references together with the user's declared employment state."""
+    status_result = status(home)
+    profile = status_result.get("profile") if isinstance(status_result, Mapping) else {}
+    profile = profile if isinstance(profile, Mapping) else {}
+    projects_result = list_projects(home)
+    project_rows = projects_result.get("projects", []) if isinstance(projects_result, Mapping) else []
+    projects: list[dict[str, Any]] = []
+    for project in project_rows:
+        if not isinstance(project, Mapping) or not project.get("id"):
+            continue
+        timeline_result = show_project_timeline(home, str(project["id"]))
+        timeline = timeline_result.get("timeline", []) if isinstance(timeline_result, Mapping) else []
+        projects.append({**project, "timeline": timeline})
+
+    raw = {
+        "mode": "projects",
+        "employment": {
+            "career_status": profile.get("career_status"),
+            "employment_status": profile.get("employment_status", "unknown"),
+            "job_search": profile.get("job_search"),
+            "target_role": profile.get("target_role"),
+        },
+        "projects": projects,
+        "read_only": True,
+        "no_total_by_design": True,
+    }
+    return _public(raw, debug=_debug_enabled())
+
+
 def _period_from(row: Mapping[str, Any]) -> str:
     period = row.get("period")
     if isinstance(period, Mapping):

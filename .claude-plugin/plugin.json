@@ -1,6 +1,6 @@
 {
   "name": "japan-career-agent",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
   "author": { "name": "younnieCutler" },
   "homepage": "https://github.com/younnieCutler/japan-career-agent",

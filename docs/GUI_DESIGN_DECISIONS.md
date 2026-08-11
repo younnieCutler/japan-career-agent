@@ -114,3 +114,12 @@ Artifacts carry `evidence_refs`, `source_refs`, `version`, `status`, and
 supersedes the old metadata; deleting it leaves the body and references intact. The GUI may register
 metadata and user-provided text, but it does not run a research engine, submit an application, or
 promote artifact text into canonical evidence.
+
+## Project / employment slice
+
+The Projects / 재직 중 screen is a read-only projection over the existing `experiences` application
+owner. It composes confirmed project records and their work-event timelines with the user's
+declared `employment_status`, `career_status`, `job_search`, and `target_role`; it never infers
+whether the user is currently employed. `/api/projects` requires the local session and accepts
+GET only. Internal project and work-event identifiers are removed before browser delivery unless
+`JAPAN_CAREER_GUI_DEBUG=1`; project history changes stay on the existing approval-gated CLI path.
