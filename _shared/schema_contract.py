@@ -206,14 +206,30 @@ def validate_new_fragment(
     of thirty. Presence rules belong to the whole document; this answers the narrower question of
     whether every key being written is a key the catalog knows about.
     """
-    return _check(name, value, _fragment_validator(name, tuple(at), path))
+    _check(name, value, _fragment_validator(name, tuple(at), path))
+    # A frozen field is refused here too. `pipeline_store` keeps its own check for the message it
+    # writes, but a caller reaching this function directly must not get a weaker guarantee than
+    # `validate_new_write` gives for the same document.
+    forbidden = sorted(set(_frozen_in(value, _legacy_fields(name, path))))
+    if forbidden:
+        raise SchemaContractError(f"{name} cannot write legacy fields: {', '.join(forbidden)}")
+    return value
 
 
 @lru_cache(maxsize=None)
-def _legacy_fields(path: Path) -> frozenset[str]:
+def _legacy_fields(name: str, path: Path) -> frozenset[str]:
+    """The fields frozen *for this document*, which is not the same as frozen everywhere.
+
+    A name can be retired in one schema and current in another. `wellbeing_priorities` is a v1
+    self-analysis field no v2 producer recreates, and at the same time a live optional field of
+    CANDIDATE_PROFILE — so a global list would refuse a legitimate candidate profile in order to
+    protect a different document. The policy is recorded per schema for exactly that reason, and
+    read per schema here.
+    """
     catalog = yaml.safe_load(path.read_text(encoding="utf-8"))
     policy = catalog.get("legacy_field_policy", {}) if isinstance(catalog, dict) else {}
-    return frozenset(str(field) for field in policy.get("fields", []))
+    by_schema = policy.get("by_schema") or {}
+    return frozenset(str(field) for field in by_schema.get(name, ()))
 
 
 def _frozen_in(value: Any, legacy: frozenset[str]) -> list[str]:
@@ -237,7 +253,7 @@ def _frozen_in(value: Any, legacy: frozenset[str]) -> list[str]:
 def validate_new_write(name: str, value: Any, *, path: Path = SCHEMA_PATH) -> Any:
     """Validate a new document strictly and reject frozen legacy fields at any depth."""
     _check(name, value, _validator(name, path, strict=True))
-    forbidden = sorted(set(_frozen_in(value, _legacy_fields(path))))
+    forbidden = sorted(set(_frozen_in(value, _legacy_fields(name, path))))
     if forbidden:
         raise SchemaContractError(f"{name} cannot write legacy fields: {', '.join(forbidden)}")
     return value

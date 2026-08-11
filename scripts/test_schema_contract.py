@@ -214,6 +214,15 @@ class FrozenFieldContractTests(unittest.TestCase):
                     validate_new_write("SELF_ANALYSIS_PROFILE", dict(VALID_PROFILE, **{field: {}}))
                 validate_document("SELF_ANALYSIS_PROFILE", dict(VALID_PROFILE, **{field: {}}))
 
+    def test_a_name_retired_in_one_schema_stays_live_in_another(self) -> None:
+        """`wellbeing_priorities` is a v1 self-analysis field no v2 producer recreates, and at the
+        same time a documented optional field of CANDIDATE_PROFILE. A single global frozen list
+        would refuse a legitimate candidate profile in order to protect a different document, which
+        is why the policy is recorded and enforced per schema."""
+        validate_new_write("CANDIDATE_PROFILE", dict(VALID_CANDIDATE, wellbeing_priorities={"autonomy": 5}))
+        with self.assertRaises(SchemaContractError):
+            validate_new_write("SELF_ANALYSIS_PROFILE", dict(VALID_PROFILE, wellbeing_priorities={}))
+
     def test_the_legacy_candidate_and_company_aliases_are_refused(self) -> None:
         for name, valid, field in (
             ("CANDIDATE_PROFILE", VALID_CANDIDATE, "portable_skills"),
