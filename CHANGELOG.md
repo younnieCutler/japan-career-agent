@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.2] - 2026-08-12
+
+- Even out eight 棚卸し/Projects screen status lines that read as machine-translated:
+  failure messages that all shared one template, a passive-voice "제안이 만들어졌습니다",
+  and two pairs of lines that were literal duplicates of each other's phrasing.
+  Approval-gate promise wording and paired-verb negatives that may define the GUI's
+  no-op contract are left unchanged.
+
 ## [2.9.1] - 2026-08-12
 
 - Write the 棚卸し screen in the language its shell declares. The heading and lede were Japanese
