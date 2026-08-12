@@ -233,6 +233,21 @@ class ProjectCaseTests(unittest.TestCase):
         # The screen must not offer a path that writes a confirmed fact without the approval step.
         self.assertNotIn("/api/approve", renderer)
 
+    def test_the_client_reads_the_case_shape_the_server_actually_returns(self) -> None:
+        """`/api/cases` returns the case flat, not wrapped.
+
+        Reading `created.case.case_id` from a flat body yields undefined and the chained request
+        fails in the browser only — every Python test here calls the adapter directly and never
+        sees the response shape the client parses.
+        """
+        script = (RUNTIME_ROOT / "gui" / "static" / "bootstrap.js").read_text(encoding="utf-8")
+        served = cases.create_project(self.home, "Shape check")
+
+        self.assertIn("case_id", served)
+        self.assertNotIn("case", served)
+        self.assertNotIn(".case.case_id", script)
+        self.assertIn("created.case_id", script)
+
     def test_a_project_cannot_be_parented_and_keeps_its_own_kind(self) -> None:
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
         with self.assertRaises(CareerError):

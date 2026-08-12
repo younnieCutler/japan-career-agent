@@ -641,7 +641,7 @@
         label: labelInput.value,
         external_use: disclosureSelect.value,
       })
-        .then((created) => postJson("/api/tanaoroshi", { case_ref: created.case.case_id }))
+        .then((created) => postJson("/api/tanaoroshi", { case_ref: created.case_id }))
         .then(renderTanaoroshi)
         .catch(() => { projectStatus.textContent = "프로젝트 기록을 시작할 수 없습니다."; });
     }));
