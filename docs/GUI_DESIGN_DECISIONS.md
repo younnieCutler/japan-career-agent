@@ -99,10 +99,18 @@ explicitly reviewed empty list stays `Reviewed empty`, and the screen never calc
 score or turns a hypothesis into a recommendation. Raw checklist submissions and internal episode
 references are refused or removed before the browser projection.
 
-The screen is read-only. If a valid profile exists, it displays the user-owned
+The screen reads; it does not write. If a valid profile exists, it displays the user-owned
 `career-agent propose-context` command as a handoff with an explicit approval gate; the browser
-does not run it and no canonical career context is written. If no valid profile exists, it points
-back to the user-led `jiko-bunseki` flow.
+does not run it and no canonical career context is written.
+
+The structured form is `jiko-bunseki`'s existing `checklist.html`, served at `/jiko/checklist.html`
+rather than rebuilt. `SELF_ANALYSIS_PROFILE v2` is valid only with all thirteen required fields
+present, so a smaller GUI form could not produce a profile the validator accepts, and a full one
+would leave two 44 KB forms to keep in step. The checklist predates the GUI and uses inline style,
+one inline script and inline handlers, so it is served under its own policy that allows those and
+omits `connect-src`: the file makes no network call, and without `connect-src` the page cannot send
+career answers anywhere. The wheel ships `skills/jiko-bunseki` for this file; its tests are excluded
+as usual.
 
 ## Company / Application / Artifact slice
 
@@ -124,4 +132,14 @@ owner. It composes confirmed project records and their work-event timelines with
 declared `employment_status`, `career_status`, `job_search`, and `target_role`; it never infers
 whether the user is currently employed. `/api/projects` requires the local session and accepts
 GET only. Internal project and work-event identifiers are removed before browser delivery unless
-`JAPAN_CAREER_GUI_DEBUG=1`; project history changes stay on the existing approval-gated CLI path.
+`JAPAN_CAREER_GUI_DEBUG=1`.
+
+Work in progress is recorded as a third `case` kind. A `project` case has no parent, carries the
+optional `project_id` that links it to the confirmed project projection, and carries the user's
+stated `external_use` — `unknown` until they answer, which is what keeps an unreviewed project out
+of the documents a company sees. Retrospectives, result drafts and closing summaries attach to it
+as artifacts. None of that is career evidence: a project case reaches the canonical ledger only by
+starting a 棚卸し session against its `case_ref` and going through the same proposal and approval
+path as any other experience, which is what makes a record written today reusable in an application
+years later. The `case-<kind>-<hex>` id pattern is derived from `CASE_KINDS` rather than spelled out
+again, because the two lists disagreeing is exactly how the first attempt at this failed.

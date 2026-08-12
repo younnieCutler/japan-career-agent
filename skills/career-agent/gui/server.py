@@ -13,7 +13,7 @@ import gui.cases as cases
 from gui.security import SESSION_COOKIE, SecurityState
 import gui.tanaoroshi as tanaoroshi
 from self_analysis import profile_payload
-from gui.templates import render_shell, static_asset
+from gui.templates import JIKO_ASSETS, jiko_asset, render_shell, static_asset
 from gui.views_read import home_payload, projects_payload, timeline_payload
 
 
@@ -24,6 +24,18 @@ from gui.views_read import home_payload, projects_payload, timeline_payload
 CONTENT_SECURITY_POLICY = (
     "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
     "form-action 'self'; frame-ancestors 'none'"
+)
+
+# The jiko-bunseki checklist is a self-contained form that predates the GUI: inline style, one
+# inline script and inline handlers. Under the policy above the browser would render it and run
+# nothing, which is the same failure the missing `connect-src` caused. It gets its own policy
+# instead of being rewritten. `connect-src` is deliberately absent here — the file makes no
+# network call, so with no connect-src the page cannot send anything anywhere, which is the
+# guarantee that matters when the alternative is loosening script-src for the whole GUI.
+CHECKLIST_SECURITY_POLICY = (
+    "default-src 'none'; style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+    "form-action 'none'; frame-ancestors 'none'"
 )
 
 
@@ -61,13 +73,15 @@ class GuiServer(ThreadingHTTPServer):
 class GuiRequestHandler(BaseHTTPRequestHandler):
     server: GuiServer
 
-    def _send(self, status: int, body: bytes, content_type: str, *, extra=None) -> None:
+    def _send(
+        self, status: int, body: bytes, content_type: str, *, extra=None, policy: str | None = None
+    ) -> None:
         self.send_response(status)
         self.send_header("Cache-Control", "no-store")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        self.send_header("Content-Security-Policy", policy or CONTENT_SECURITY_POLICY)
         self.send_header("Content-Type", content_type)
         if extra:
             for name, value in extra.items():
@@ -131,6 +145,9 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/artifact-body":
             self._artifact_body()
             return
+        if path in {"/jiko/checklist.html", "/jiko/checklist_runtime.js"}:
+            self._checklist(path.rsplit("/", 1)[1])
+            return
         if path == "/api/tanaoroshi":
             self._resume_tanaoroshi()
             return
@@ -173,6 +190,18 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             self._write_tanaoroshi(path)
             return
         self._error(HTTPStatus.NOT_FOUND, "not found")
+
+    def _checklist(self, name: str) -> None:
+        """Serve the jiko-bunseki self-analysis form. It writes nothing: the user copies its output."""
+        if not self.server.security.authenticated(self.headers, require_csrf=False):
+            self._error(HTTPStatus.FORBIDDEN, "session required")
+            return
+        try:
+            body = jiko_asset(name)
+        except (FileNotFoundError, OSError):
+            self._error(HTTPStatus.NOT_FOUND, "the self-analysis checklist is not installed")
+            return
+        self._send(HTTPStatus.OK, body, JIKO_ASSETS[name], policy=CHECKLIST_SECURITY_POLICY)
 
     def _artifact_body(self) -> None:
         """Serve one artifact's stored text. Read-only: opening a document changes nothing."""
@@ -312,6 +341,15 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                 jd=payload.get("jd"),
                 evidence_refs=payload.get("evidence_refs"),
                 document_kinds=payload.get("document_kinds"),
+                source_refs=payload.get("source_refs"),
+            )
+        if kind == "project":
+            return cases.create_project(
+                self.server.home,
+                payload["label"],
+                project_id=payload.get("project_id"),
+                external_use=payload.get("external_use"),
+                evidence_refs=payload.get("evidence_refs"),
                 source_refs=payload.get("source_refs"),
             )
         raise ValueError("unsupported case kind")

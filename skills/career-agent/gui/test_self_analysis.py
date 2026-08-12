@@ -17,7 +17,7 @@ if str(RUNTIME_ROOT) not in sys.path:
     sys.path.insert(0, str(RUNTIME_ROOT))
 
 from gui.server import create_server  # noqa: E402
-from gui.templates import static_asset  # noqa: E402
+from gui.templates import jiko_asset, static_asset  # noqa: E402
 
 
 @contextmanager
@@ -47,6 +47,40 @@ def request(server, method: str, path: str, *, headers: dict[str, str] | None = 
 
 
 class SelfAnalysisGuiTests(unittest.TestCase):
+    def test_the_structured_form_is_the_existing_checklist_not_a_second_one(self) -> None:
+        """A profile is valid only with all thirteen required fields, so there is no partial form.
+
+        Rebuilding a smaller one in the GUI could not produce a profile the validator accepts, and
+        rebuilding the whole thing would leave two 44KB forms to keep in step. The GUI serves the
+        one jiko-bunseki already ships and that its contract test already covers.
+        """
+        served = jiko_asset("checklist.html").decode("utf-8")
+        source = (
+            Path(__file__).resolve().parents[2] / "jiko-bunseki" / "checklist.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertEqual(served, source)
+        self.assertIn("/jiko/checklist.html", static_asset("bootstrap.js").decode("utf-8"))
+        with self.assertRaises(FileNotFoundError):
+            jiko_asset("../../../etc/passwd")
+
+    def test_the_checklist_may_run_inline_but_may_not_transmit(self) -> None:
+        """It predates the GUI and uses inline script, style and handlers.
+
+        Under the main policy the browser would render it and run none of it — the same failure the
+        missing connect-src caused. It gets its own policy, and the absence of connect-src there is
+        what keeps a locally-running form from sending career answers anywhere.
+        """
+        source = Path(__file__).with_name("server.py").read_text(encoding="utf-8")
+        checklist = jiko_asset("checklist.html").decode("utf-8")
+        runtime = jiko_asset("checklist_runtime.js").decode("utf-8")
+        policy = source.split("CHECKLIST_SECURITY_POLICY = (", 1)[1].split(")", 1)[0]
+
+        self.assertIn("'unsafe-inline'", policy)
+        self.assertNotIn("connect-src", policy)
+        for call in ("fetch(", "XMLHttpRequest", "sendBeacon"):
+            self.assertNotIn(call, checklist + runtime, call)
+
     def test_browser_contract_has_a_read_route_and_visible_handoff(self) -> None:
         script = static_asset("bootstrap.js").decode("utf-8")
 

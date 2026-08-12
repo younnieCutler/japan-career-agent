@@ -18,6 +18,12 @@ RUNTIME_ROOT = Path(__file__).resolve().parents[1]
 if str(RUNTIME_ROOT) not in sys.path:
     sys.path.insert(0, str(RUNTIME_ROOT))
 
+import persistence  # noqa: E402
+import sessions  # noqa: E402
+from gui import artifacts, cases, tanaoroshi  # noqa: E402
+from models import CareerError  # noqa: E402
+from vault import CareerVault, initialize_vault  # noqa: E402
+
 
 def _sample_reads() -> dict:
     return {
@@ -128,6 +134,110 @@ def request(server, method: str, path: str, *, headers: dict[str, str] | None = 
     result = response.status, dict(response.getheaders()), payload
     connection.close()
     return result
+
+
+class ProjectCaseTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.vault_path = Path(self.tempdir.name) / "vault"
+        initialize_vault(self.vault_path)
+        self.home = CareerVault(self.vault_path)
+
+    def tearDown(self) -> None:
+        self.tempdir.cleanup()
+
+    def test_a_project_case_holds_notes_and_documents_without_touching_the_ledger(self) -> None:
+        """A project someone is living through is not yet career evidence.
+
+        Retrospectives and drafts belong beside the project while it runs; only approval turns any
+        of it into a confirmed fact, so writing them must leave the canonical ledger alone.
+        """
+        before = {
+            path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()
+        }
+        project = cases.create_project(
+            self.home, "Payment Platform Migration", project_id="proj-payments",
+        )
+        retrospective = artifacts.register_artifact(
+            self.home, case_ref=project["case_id"], kind="project_review", body="회고 초안",
+        )
+
+        self.assertEqual(project["kind"], "project")
+        self.assertIsNone(project["parent_ref"])
+        self.assertEqual(project["metadata"]["project_id"], "proj-payments")
+        self.assertEqual(
+            [item["artifact_id"] for item in artifacts.list_artifacts(self.home, case_ref=project["case_id"])],
+            [retrospective["artifact_id"]],
+        )
+        self.assertEqual(
+            before,
+            {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()},
+        )
+        self.assertFalse(self.home.events.exists())
+
+    def test_a_project_case_is_isolated_from_application_cases(self) -> None:
+        project = cases.create_project(self.home, "Payment Platform Migration")
+        company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
+        application = cases.create_application(self.home, company["case_id"], "Backend")
+        artifacts.register_artifact(
+            self.home, case_ref=project["case_id"], kind="project_review", body="project only",
+        )
+
+        visible = artifacts.list_artifacts(self.home, case_ref=application["case_id"])
+
+        self.assertEqual(visible, [])
+        self.assertEqual([item["case_id"] for item in cases.list_cases(self.home, kind="project")],
+                         [project["case_id"]])
+
+    def test_a_finished_project_reaches_canonical_evidence_only_through_approval(self) -> None:
+        """Record now, approve later, reuse in an application years on — the whole point of this.
+
+        The session carries the project's case_ref so the confirmed event can be traced back to
+        the work it came from, and nothing reaches the ledger until the user approves it.
+        """
+        project = cases.create_project(self.home, "Payment Platform Migration")
+        started = tanaoroshi.start(self.home, case_ref=project["case_id"])
+        session_id = started["session"]["session_id"]
+        tanaoroshi.autosave(
+            self.home,
+            session_id,
+            {
+                "summary": "결제 배치 지연을 줄였다",
+                "evidence": ["runbook"],
+                "role": "owner",
+                "direct_actions": ["알람을 재설계했다"],
+                "non_work": False,
+            },
+        )
+        proposal = tanaoroshi.submit(self.home, session_id)
+
+        self.assertEqual(started["session"]["case_ref"], project["case_id"])
+        self.assertFalse(self.home.events.exists())
+
+        tanaoroshi.approve_session(self.home, session_id, proposal["proposal"]["id"])
+        events = persistence.read_jsonl(self.home.events)
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["summary"], "결제 배치 지연을 줄였다")
+        self.assertEqual(
+            sessions.load_session(self.home, session_id)["case_ref"], project["case_id"]
+        )
+
+    def test_the_project_screen_records_through_the_case_and_session_routes(self) -> None:
+        script = (RUNTIME_ROOT / "gui" / "static" / "bootstrap.js").read_text(encoding="utf-8")
+        renderer = script.split("const renderProjects", 1)[1].split("const renderHome", 1)[0]
+
+        self.assertIn('kind: "project"', renderer)
+        self.assertIn("external_use", renderer)
+        self.assertIn("/api/tanaoroshi", renderer)
+        # The screen must not offer a path that writes a confirmed fact without the approval step.
+        self.assertNotIn("/api/approve", renderer)
+
+    def test_a_project_cannot_be_parented_and_keeps_its_own_kind(self) -> None:
+        company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
+        with self.assertRaises(CareerError):
+            cases.create_application(self.home, company["case_id"], "Backend",
+                                     case_id=cases.create_project(self.home, "P")["case_id"])
 
 
 class ProjectsRouteTests(unittest.TestCase):

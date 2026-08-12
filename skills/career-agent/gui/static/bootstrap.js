@@ -77,6 +77,14 @@
     if (handoff.approval_required) {
       panel.append(element("p", "Approval required. The GUI has not written canonical context.", "status-row"));
     }
+    // The checklist is jiko-bunseki's own form, served as-is. A profile needs all thirteen
+    // required fields at once, so a smaller GUI form could not produce a valid one; this opens
+    // the form that can. It saves nothing on its own — the user carries its output to approval.
+    const form = element("a", "자기분석 체크리스트 열기", "nav-button");
+    form.href = "/jiko/checklist.html";
+    form.target = "_blank";
+    form.rel = "noopener noreferrer";
+    panel.append(form);
     return panel;
   };
 
@@ -596,8 +604,53 @@
     if (!list.children.length) list.append(element("p", "No confirmed projects yet.", "lede"));
     main.append(list);
 
-    const readOnly = section("READ-ONLY", "Project history stays in the approval path.");
-    readOnly.append(element("p", "This screen only reads confirmed project and work-event projections. Additions and employment changes remain user-owned CLI workflows.", "lede"));
+    // Recording work in progress is not the same as claiming it happened. A project case holds
+    // notes, retrospectives and drafts; only the 棚卸し approval path turns any of it into a
+    // confirmed fact, which is why this section creates a case and a session but never an event.
+    const record = section("CURRENT WORK", "지금 하는 일을 기록해 두기");
+    record.append(element("p", "프로젝트 기록은 초안입니다. 승인 전까지 Career Vault의 확정 사실은 바뀌지 않습니다.", "lede"));
+
+    const projectForm = element("form", "", "inventory-form");
+    const label = element("label", "", "form-field");
+    label.append(element("span", "프로젝트 이름"));
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.name = "project-label";
+    label.append(labelInput);
+
+    const disclosure = element("label", "", "form-field");
+    disclosure.append(element("span", "외부 공개 가능 여부"));
+    const disclosureSelect = document.createElement("select");
+    [["unknown", "Unknown"], ["allowed", "가능"], ["blocked", "불가"]].forEach(([id, text]) => {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = text;
+      disclosureSelect.append(option);
+    });
+    disclosure.append(disclosureSelect);
+
+    const projectStatus = element("p", "", "status-row");
+    projectForm.append(label, disclosure);
+    projectForm.append(button("프로젝트 기록 시작", () => {
+      if (!labelInput.value.trim()) {
+        projectStatus.textContent = "프로젝트 이름을 입력해 주세요.";
+        return;
+      }
+      postJson("/api/cases", {
+        kind: "project",
+        label: labelInput.value,
+        external_use: disclosureSelect.value,
+      })
+        .then((created) => postJson("/api/tanaoroshi", { case_ref: created.case.case_id }))
+        .then(renderTanaoroshi)
+        .catch(() => { projectStatus.textContent = "프로젝트 기록을 시작할 수 없습니다."; });
+    }));
+    projectForm.append(projectStatus);
+    record.append(projectForm);
+    main.append(record);
+
+    const readOnly = section("READ-ONLY", "Confirmed history stays in the approval path.");
+    readOnly.append(element("p", "위 목록은 확정된 프로젝트와 work-event 투영만 읽습니다. 새 기록은 승인 후에 여기에 나타납니다.", "lede"));
     main.append(readOnly);
   };
 

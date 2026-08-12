@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from importlib.resources import files
+from pathlib import Path
 
 from render import fill_slots
 
@@ -46,3 +47,19 @@ def static_asset(name: str) -> bytes:
     if name not in {"bootstrap.js", "style.css"}:
         raise FileNotFoundError(name)
     return files("gui.static").joinpath(name).read_bytes()
+
+
+# The self-analysis form is `jiko-bunseki`'s, not the GUI's. A profile is only valid with all
+# thirteen required fields present, so there is no partial form to build: a smaller GUI form
+# could not produce a profile the validator accepts. Serving the existing dependency-free
+# checklist keeps one implementation and one contract test instead of two that drift.
+JIKO_ASSETS = {"checklist.html": "text/html; charset=utf-8",
+               "checklist_runtime.js": "text/javascript; charset=utf-8"}
+
+
+def jiko_asset(name: str) -> bytes:
+    """Read one packaged jiko-bunseki checklist file. The name is never taken from a request."""
+    if name not in JIKO_ASSETS:
+        raise FileNotFoundError(name)
+    root = Path(__file__).resolve().parents[2] / "jiko-bunseki"
+    return (root / name).read_bytes()

@@ -8,15 +8,21 @@ from pathlib import Path
 from typing import Any
 
 from lifecycle import vault_lock
-from models import CareerError
+from models import EXTERNAL_USE_STATES, CareerError
 from persistence import read_json, write_json
 from vault import CareerVault, utc_now
 
 
 DURABLE_GUI_ROOT = ("03-active", "gui")
-CASE_KINDS = frozenset({"company", "application"})
+# A project is a case the user is living through, not one they are applying to. It gets the same
+# container as a company so notes, retrospectives and drafts hang off it and stay out of the
+# canonical ledger until approval — the point of the project screen is that nothing written while
+# the work is happening becomes a career fact by itself.
+CASE_KINDS = frozenset({"company", "application", "project"})
 CASE_STATUSES = frozenset({"active", "archived", "deleted"})
-CASE_ID = re.compile(r"^case-(?:company|application)-[a-f0-9]{16}$")
+# Derived from CASE_KINDS rather than spelled out again: the two lists disagreeing is exactly how
+# adding `project` first failed, with a kind that could be created and then never read back.
+CASE_ID = re.compile(rf"^case-(?:{'|'.join(sorted(CASE_KINDS))})-[a-f0-9]{{16}}$")
 MAX_LABEL_LENGTH = 240
 
 
@@ -117,8 +123,8 @@ def _create(
 ) -> dict[str, Any]:
     if kind not in CASE_KINDS:
         raise CareerError("unsupported case kind", code="INVALID_INPUT")
-    if kind == "company" and parent_ref is not None:
-        raise CareerError("company cases cannot have a parent", code="INVALID_INPUT")
+    if kind in {"company", "project"} and parent_ref is not None:
+        raise CareerError(f"{kind} cases cannot have a parent", code="INVALID_INPUT")
     if kind == "application":
         if parent_ref is None:
             raise CareerError("application cases require a company parent", code="INVALID_INPUT")
@@ -196,6 +202,40 @@ def create_application(
         label=label,
         parent_ref=parent_ref,
         metadata=metadata,
+        source_refs=source_refs,
+        case_id=case_id,
+    )
+
+
+def create_project(
+    home: CareerVault,
+    label: str,
+    *,
+    project_id: str | None = None,
+    external_use: str | None = None,
+    evidence_refs: Any = None,
+    source_refs: Any = None,
+    case_id: str | None = None,
+) -> dict[str, Any]:
+    """A case for work in progress. `project_id` links it to the confirmed project projection."""
+    if external_use is not None and external_use not in EXTERNAL_USE_STATES:
+        raise CareerError(
+            f"external_use must be one of: {', '.join(sorted(EXTERNAL_USE_STATES))}",
+            code="INVALID_INPUT",
+        )
+    metadata = {
+        "project_id": project_id,
+        # Whether this may leave the vault is the user's answer, not an inference. Unknown until
+        # they say, and unknown is what keeps it out of the documents a company sees.
+        "external_use": external_use or "unknown",
+        "evidence_refs": _strings(evidence_refs, "evidence_refs"),
+    }
+    return _create(
+        home,
+        kind="project",
+        label=label,
+        parent_ref=None,
+        metadata={key: value for key, value in metadata.items() if value is not None},
         source_refs=source_refs,
         case_id=case_id,
     )

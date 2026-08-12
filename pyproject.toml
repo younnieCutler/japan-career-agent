@@ -48,7 +48,15 @@ career-agent = "japan_career_agent.cli:main"
 # `sources` rather than `force-include`: force-included paths bypass file selection entirely, so
 # `exclude` below would be silently ignored and every `test_*.py` would ship.
 [tool.hatch.build.targets.wheel]
-only-include = ["packaging/japan_career_agent", "_shared", "skills/career-agent"]
+# `skills/jiko-bunseki` ships for its checklist form only: the GUI serves that file rather than
+# reimplementing the same 13 required profile fields a second time. `exclude` below drops its
+# tests, and SKILL.md travels with it as the prompt the CLI handoff refers to.
+only-include = [
+  "packaging/japan_career_agent",
+  "_shared",
+  "skills/career-agent",
+  "skills/jiko-bunseki",
+]
 
 # The runtime's tests live beside the modules they exercise. They are part of the repository
 # contract, not of what an installed user runs; `scripts/test_pyproject_install.py` asserts they
@@ -59,12 +67,14 @@ exclude = ["test_*.py", "tests", "__pycache__"]
 "packaging" = ""
 "_shared" = "japan_career_agent/_shared"
 "skills/career-agent" = "japan_career_agent/skills/career-agent"
+"skills/jiko-bunseki" = "japan_career_agent/skills/jiko-bunseki"
 
 [tool.hatch.build.targets.sdist]
 include = [
   "/packaging/japan_career_agent",
   "/_shared",
   "/skills/career-agent",
+  "/skills/jiko-bunseki",
   "/README.md",
   "/LICENSE",
   "/CHANGELOG.md",
