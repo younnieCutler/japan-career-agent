@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
 
 from gui import tanaoroshi  # noqa: E402
-from gui.templates import static_asset  # noqa: E402
+from gui.templates import render_shell, static_asset  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
 
 
@@ -39,6 +39,31 @@ class TanaoroshiGuiTests(unittest.TestCase):
 
         self.assertIn("/api/sessions", called)
         self.assertEqual(called - served, set())
+
+    def test_the_screen_is_written_in_the_language_the_shell_declares(self) -> None:
+        """The shell sends `<html lang="ko">`, so its sentences have to be Korean.
+
+        The 棚卸し screen had a Japanese heading and lede sitting above Korean field labels. A
+        screen reader announces the whole document with the declared language, so it read those
+        two lines as Korean; a reader who does not know Japanese simply could not use them.
+
+        The product's own terms are removed first and whatever kana is left is a sentence. That
+        order matters: 棚卸し carries a し, so testing for kana alone would flag the term this
+        product is named after, which the Korean README prints as it is.
+        """
+        shell = render_shell()
+        script = static_asset("bootstrap.js").decode("utf-8")
+        kana = re.compile(r"[぀-ゟ゠-ヿ]")
+        offenders = []
+        for line in script.splitlines():
+            without_terms = line
+            for term in ("棚卸し", "職務経歴書", "履歴書", "自己PR"):
+                without_terms = without_terms.replace(term, "")
+            if kana.search(without_terms):
+                offenders.append(line.strip())
+
+        self.assertIn('lang="ko"', shell)
+        self.assertEqual(offenders, [], "Japanese sentences in a ko-declared screen")
 
     def test_resuming_does_not_depend_on_client_side_memory(self) -> None:
         script = static_asset("bootstrap.js").decode("utf-8")

@@ -166,8 +166,8 @@
     );
     main.append(navigation);
     main.append(element("p", "EXPERIENCE / EVIDENCE", "section-label"));
-    main.append(element("h2", "棚卸しを続ける"));
-    main.append(element("p", "保存は下書きです。確定するまで Career Vault の証拠は変わりません.", "lede"));
+    main.append(element("h2", "棚卸し 이어가기"));
+    main.append(element("p", "저장한 내용은 초안입니다. 확정하기 전까지 Career Vault의 근거는 바뀌지 않습니다.", "lede"));
 
     const form = element("form", "", "inventory-form");
     const controls = {};
