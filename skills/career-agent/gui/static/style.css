@@ -1,0 +1,220 @@
+:root {
+  color-scheme: light;
+  --ink: #18181b;
+  --muted: #3f3f46;
+  --paper: #fafafa;
+  --accent: #ec4899;
+  --line: #d4d4d8;
+  --focus: #075985;
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; background: var(--paper); }
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Avenir Next", system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.skip-link {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 10;
+  padding: 0.65rem 0.9rem;
+  background: var(--ink);
+  color: #fff;
+  transform: translateY(-180%);
+}
+
+.skip-link:focus { transform: translateY(0); }
+
+.masthead,
+main {
+  width: min(100% - 2rem, 72rem);
+  margin-inline: auto;
+}
+
+.masthead { padding-block: clamp(1.5rem, 4vw, 3rem) 2rem; }
+
+/* The masthead h1 is the product name, shown on every screen. The page's own title is the h2
+   below it, which keeps the display size. At the shared h1 scale the name alone filled the
+   viewport and pushed the navigation below the fold. */
+.masthead h1 {
+  max-width: none;
+  font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+  letter-spacing: -0.02em;
+}
+
+.eyebrow,
+.section-label {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+h1,
+h2 { margin: 0; letter-spacing: -0.04em; line-height: 1.05; }
+
+h1 { max-width: 10ch; font-size: clamp(3.25rem, 13vw, 9rem); }
+
+h2 { max-width: 18ch; font-size: clamp(2rem, 5vw, 4rem); }
+
+.lede {
+  max-width: 38rem;
+  margin: 1.5rem 0 0;
+  color: var(--muted);
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+}
+
+.empty-state {
+  border-top: 0.25rem solid var(--ink);
+  border-bottom: 1px solid var(--line);
+  padding-block: 2rem 3rem;
+}
+
+.empty-state p:last-child { max-width: 45rem; color: var(--muted); }
+
+.view-nav {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.75rem;
+}
+
+.nav-button,
+.nav-current {
+  min-height: 44px;
+  border: 1px solid var(--ink);
+  padding: 0.55rem 0.8rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.nav-button { cursor: pointer; }
+.nav-button:hover { background: var(--ink); color: var(--paper); }
+
+/* The current view needs a mark hover does not also produce, or the screen under the pointer
+   reads as the screen you are on. Weight and an underline stay legible without colour. */
+.nav-current {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+  cursor: default;
+}
+
+.dashboard-section {
+  border-top: 0.2rem solid var(--ink);
+  padding-block: 1.5rem 2rem;
+}
+
+.dashboard-section h2 { font-size: clamp(1.75rem, 4vw, 3rem); }
+.dashboard-grid { display: grid; gap: 1rem; }
+.case-grid { margin-block: 2rem 3rem; }
+.case-card { min-width: 0; }
+.projects-grid { margin-block: 2rem 3rem; }
+.project-card { min-width: 0; }
+.case-forms { display: grid; gap: 1rem; }
+.status-row { border-bottom: 1px solid var(--line); padding-bottom: 0.45rem; }
+.timeline-list { border-top: 0.2rem solid var(--ink); }
+.timeline-item { border-bottom: 1px solid var(--line); padding-block: 1.5rem; }
+.timeline-item h3 { margin: 0; font-size: clamp(1.4rem, 3vw, 2.2rem); }
+.timeline-period,
+.timeline-entry { color: var(--muted); }
+.timeline-entry { margin: 0.35rem 0 0; }
+
+.inventory-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 52rem;
+  border-top: 0.2rem solid var(--ink);
+  padding-block: 1.5rem 3rem;
+}
+
+.form-field,
+.checkbox-field { display: grid; gap: 0.35rem; font-weight: 700; }
+.form-field input,
+.form-field textarea,
+.form-field select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  padding: 0.65rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+}
+.form-field textarea { min-height: 5rem; resize: vertical; }
+.checkbox-field { display: flex; align-items: center; min-height: 44px; }
+.checkbox-field input { width: 1.25rem; height: 1.25rem; }
+.field-status { border-block: 1px solid var(--line); padding-block: 0.75rem; }
+.field-status .status-row { margin: 0.25rem 0; }
+.form-message { min-height: 1.6rem; color: var(--muted); }
+.proposal-review:not(:empty) {
+  margin-block-start: 1.5rem;
+  border: 1px solid var(--ink);
+  padding: 1rem;
+}
+.proposal-detail { margin: 0.5rem 0 1rem; }
+.proposal-detail dt { color: var(--muted); font-size: 0.85rem; margin-block-start: 0.6rem; }
+.proposal-detail dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
+.profile-list { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+.profile-list li { margin-block: 0.35rem; }
+.profile-unknown { color: var(--muted); font-style: italic; }
+.self-analysis-grid { align-items: start; }
+.handoff-panel { margin-block: 2rem 3rem; }
+.handoff-command {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  padding: 1rem;
+  background: #fff;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.primary-button,
+.secondary-button {
+  min-height: 44px;
+  border: 1px solid var(--ink);
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.primary-button { background: var(--ink); color: var(--paper); }
+.secondary-button { background: transparent; color: var(--ink); }
+
+:focus-visible {
+  outline: 0.2rem solid var(--focus);
+  outline-offset: 0.25rem;
+}
+
+@media (min-width: 48rem) {
+  .masthead,
+  main { width: min(100% - 4rem, 72rem); }
+  .empty-state { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
+  .empty-state .section-label { grid-row: span 2; }
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

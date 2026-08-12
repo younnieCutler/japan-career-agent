@@ -1,0 +1,145 @@
+# Local GUI design decisions
+
+This document is the source of truth for the local-first GUI. It records decisions that must stay
+true while the seven stacked PRs are built.
+
+## Foundation
+
+1. The GUI uses the Python standard library only: `ThreadingHTTPServer`, server-rendered HTML,
+   and small vanilla CSS/JavaScript. FastAPI, Flask, React, npm, bundlers, and new runtime
+   dependencies would conflict with the repository's lock, SBOM, and wheel contract.
+2. The GUI container is called a `case`. The existing `workspace` meaning is already occupied by
+   the job-search projection and CLI compatibility surface.
+3. The GUI does not call an LLM. Structured fields belong to deterministic screens; adaptive
+   interview work is handed off by displaying a command for the user to run.
+4. GUI and CLI are peer entrypoints. They share application owners, never import each other, and
+   never let the GUI reach directly into domain modules. The dispatcher has the one directional
+   launch bridge for `career-agent ui`.
+5. A company and an application are separate `case` records. The pipeline projection remains
+   company-scoped and its schema is unchanged.
+
+## Visual direction
+
+The frontend skill review selected exaggerated minimalism: editorial black and warm paper, one
+bright accent, strong type scale, and generous whitespace. The local shell uses:
+
+- ink `#18181B`, muted text `#3F3F46`, paper `#FAFAFA`, accent `#EC4899`;
+- a readable local font stack with Atkinson Hyperlegible first when installed, without fetching a
+  web font at runtime;
+- semantic HTML before ARIA, a skip link, visible `:focus-visible`, keyboard-order parity, and
+  no emoji icons;
+- mobile-first layout with no horizontal overflow, a readable body size, and responsive checks at
+  320/375/414/768/1024/1440 widths;
+- `prefers-reduced-motion: reduce`, 150–300ms interaction motion when motion is added, and no
+  scroll-jacking;
+- form labels, semantic input types, inline validation, 44px minimum touch targets, and explicit
+  loading/success/error feedback in the write screens introduced later.
+
+These rules are adapted from the reviewed `frontend-design`, `design-first-ui-prompting`, and
+`ui-ux-pro-max` guidance. The repository's stdlib-only and security contracts take precedence over
+any framework, hosted-font, or component-library suggestion.
+
+## Security boundary
+
+- Bind loopback only and let port `0` choose a free port.
+- Accept only `127.0.0.1:<port>` or `localhost:<port>` in `Host`.
+- If an `Origin` header exists, accept only the matching local origin; never emit CORS headers.
+- Put the one-time bootstrap token in the URL fragment. The server never receives it in the
+  request target. External `static/bootstrap.js` exchanges it for an `HttpOnly; SameSite=Strict;
+  Path=/` session cookie, then removes the fragment with `history.replaceState`.
+- Every future state-changing route requires both the session cookie and `X-CSRF-Token`.
+- Every response carries the fixed no-store, referrer, content-type, frame, and CSP headers.
+- The initial `/` response is a career-data-free shell. All values inserted into templates pass
+  through the existing escaped slot renderer; the GUI does not create another template language.
+
+## Persistence boundary
+
+PR1 writes no career data. PR3 fixes the four lifetimes before durable records exist:
+
+- `01-capture/gui/sessions/` and `01-capture/gui/drafts/` are transient user work. They may be
+  interrupted, discarded, or expired and are not a second evidence ledger.
+- `case` and artifact metadata are durable and separate from transient 棚卸し work. They live under
+  the existing Vault directory `03-active/gui/{cases,artifacts}`; no new Vault root is introduced.
+- Artifact bodies live below `03-active/gui/artifacts/career-docs/` and use the existing digest-named,
+  never-overwrite rule. Case/artifact metadata never writes `02-state` or `data/pipeline.yml`.
+- canonical evidence remains in `02-state` and can only be changed by the existing strict path:
+  `approvals.approve` → `lifecycle.approve`.
+
+All session and draft writes use the existing atomic writer. A session checkpoint stores semantic
+stage/item state, never a page number. An autosaved draft may be newer than the last completed
+checkpoint; resume exposes that as unconfirmed input rather than silently promoting it.
+
+The session schema version is strict: current versions load, future or missing versions refuse with
+upgrade guidance, and older versions call an explicit migration hook. PR7 registers the v0→v1 hook:
+it maps only the legacy semantic `page` value to `stage`, rejects unsupported or conflicting values,
+and never rewrites the stored record. `career-agent sessions --format json` reads the same
+APPLICATION-owned store without importing `gui/`; the GUI and CLI therefore resume from one source.
+
+## Read-only slice
+
+PR2 adds Home and Timeline as authenticated GET views. They compose the existing application read
+models only: status, readiness, evidence pool, weekly review, Context → Experience → Evidence,
+project timelines, and guided actions. The browser receives no internal identifiers unless
+`JAPAN_CAREER_GUI_DEBUG=1`; readiness dimensions remain independent and no composite percentage is
+shown. These routes do not write the Vault and POST returns `405 Allow: GET`.
+
+## Resumable 棚卸し slice
+
+`skills/career-agent/sessions.py` owns the workflow store in the APPLICATION layer. The GUI adapter
+`gui/tanaoroshi.py` owns only form and route translation. Autosave uses an 800ms client debounce and
+`POST /api/draft`; proposal creation and approval are separate actions. The explicit `non_work`
+checkbox selects an experience event, and no text inference changes its meaning. Missing fields are
+shown independently (`Unknown` remains visible); no completion percentage is calculated.
+
+## Self-analysis slice
+
+The self-analysis screen reads only the canonical `data/self_analysis_profile.yml` workspace
+projection after strict `SELF_ANALYSIS_PROFILE v2` validation. Missing values stay `Unknown`, an
+explicitly reviewed empty list stays `Reviewed empty`, and the screen never calculates a completion
+score or turns a hypothesis into a recommendation. Raw checklist submissions and internal episode
+references are refused or removed before the browser projection.
+
+The screen reads; it does not write. If a valid profile exists, it displays the user-owned
+`career-agent propose-context` command as a handoff with an explicit approval gate; the browser
+does not run it and no canonical career context is written.
+
+The structured form is `jiko-bunseki`'s existing `checklist.html`, served at `/jiko/checklist.html`
+rather than rebuilt. `SELF_ANALYSIS_PROFILE v2` is valid only with all thirteen required fields
+present, so a smaller GUI form could not produce a profile the validator accepts, and a full one
+would leave two 44 KB forms to keep in step. The checklist predates the GUI and uses inline style,
+one inline script and inline handlers, so it is served under its own policy that allows those and
+omits `connect-src`: the file makes no network call, and without `connect-src` the page cannot send
+career answers anywhere. The wheel ships `skills/jiko-bunseki` for this file; its tests are excluded
+as usual.
+
+## Company / Application / Artifact slice
+
+The Cases screen keeps one Company case separate from each Application case. Applications point to
+their Company with `parent_ref`, so multiple positions do not require a position axis in the
+company-scoped `data/pipeline.yml` projection. Company and Application metadata may be archived or
+tombstoned without changing canonical evidence.
+
+Artifacts carry `evidence_refs`, `source_refs`, `version`, `status`, and
+`generated_by.entrypoint/workflow`. Updating an artifact creates a new digest-named body and
+supersedes the old metadata; deleting it leaves the body and references intact. The GUI may register
+metadata and user-provided text, but it does not run a research engine, submit an application, or
+promote artifact text into canonical evidence.
+
+## Project / employment slice
+
+The Projects / 재직 중 screen is a read-only projection over the existing `experiences` application
+owner. It composes confirmed project records and their work-event timelines with the user's
+declared `employment_status`, `career_status`, `job_search`, and `target_role`; it never infers
+whether the user is currently employed. `/api/projects` requires the local session and accepts
+GET only. Internal project and work-event identifiers are removed before browser delivery unless
+`JAPAN_CAREER_GUI_DEBUG=1`.
+
+Work in progress is recorded as a third `case` kind. A `project` case has no parent, carries the
+optional `project_id` that links it to the confirmed project projection, and carries the user's
+stated `external_use` — `unknown` until they answer, which is what keeps an unreviewed project out
+of the documents a company sees. Retrospectives, result drafts and closing summaries attach to it
+as artifacts. None of that is career evidence: a project case reaches the canonical ledger only by
+starting a 棚卸し session against its `case_ref` and going through the same proposal and approval
+path as any other experience, which is what makes a record written today reusable in an application
+years later. The `case-<kind>-<hex>` id pattern is derived from `CASE_KINDS` rather than spelled out
+again, because the two lists disagreeing is exactly how the first attempt at this failed.

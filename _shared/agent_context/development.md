@@ -15,10 +15,17 @@ decision philosophy; `_shared/decision_philosophy.md` and `_shared/schemas.yml` 
 - `skills/career-agent/vault.py`: Vault paths, metadata indexing, trusted-context selection, and
   canonical Vault state facade.
 - `skills/career-agent/proposals.py`: approval-gated event/context proposal creation and listing.
+- `skills/career-agent/sessions.py`: APPLICATION-owned transient 棚卸し sessions, drafts,
+  checkpoints, and the read-only CLI session listing/migration path.
 - `skills/career-agent/lifecycle.py`: Vault locking, approval, retry-safe checkpoints, recovery,
   and safe-stop trajectories.
 - `skills/career-agent/projection.py`: company slugs, workspace resolution, pipeline projection,
   event-to-state projection, and legacy pipeline migration.
+- `skills/career-agent/case_store.py` / `artifact_store.py`: durable GUI Company/Application case
+  and artifact metadata under `03-active/gui/`; they do not write canonical evidence or alter the
+  company-scoped pipeline schema.
+- `skills/career-agent/gui/cases.py` / `gui/artifacts.py`: GUI adapters over those owners; they do
+  not access Vault files directly.
 - `_shared/pipeline_store.py`: the lock + atomic writer for `data/pipeline.yml`; legacy fields are
   readable but new legacy writes are rejected.
 - `_shared/matching_v3.py`: independent-axis `evidence_based_v3`; no composite score, probability,

@@ -52,6 +52,7 @@ from private_store import (
     resolve_private_home,
 )
 from proposals import list_proposals, propose_career_context, propose_fact, review_proposal, run_chat
+from sessions import list_sessions
 from vault import CareerVault, initialize_vault
 from views import (
     evidence_pool,
@@ -119,6 +120,17 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
         result = setup(vault_path, args.track, args.target_role, args.graduation_year, args.language)
         context["ok_is_exit_status"] = True
         return result
+    if args.command == "ui":
+        from gui.server import serve as serve_gui
+
+        ui_vault = CareerVault(Path(args.vault).expanduser()) if args.vault else CareerVault(DEFAULT_VAULT_PATH)
+        return serve_gui(
+            port=args.port,
+            no_browser=args.no_browser,
+            home=ui_vault,
+            workspace=args.workspace,
+            as_of=args.as_of,
+        )
     if args.command == "guided":
         vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
         guided_home = CareerVault(vault_path)
@@ -251,6 +263,8 @@ def _run_vault_command(
         )
     if args.command == "status":
         return status(home, workspace=args.workspace)
+    if args.command == "sessions":
+        return list_sessions(home)
     if args.command == "proposals":
         if args.limit is not None and args.limit < 1:
             raise CareerError("--limit must be a positive integer")

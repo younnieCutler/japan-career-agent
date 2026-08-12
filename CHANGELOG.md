@@ -1,5 +1,65 @@
 # Changelog
 
+## [2.9.0] - 2026-08-12
+
+- Register the explicit v0→v1 session migration from the legacy semantic `page` field to the
+  current `stage` field without rewriting the stored session.
+- Add the read-only `career-agent sessions --format json` view over the shared APPLICATION session
+  store, keeping CLI and GUI resume state on the same files without importing GUI modules.
+
+## [2.8.0] - 2026-08-12
+
+- Add a read-only Projects / 재직 중 GUI view that composes confirmed project timelines with the
+  user's declared employment and job-search state.
+- Protect `/api/projects` with the existing local session boundary and keep it GET-only; the GUI
+  does not infer employment, write project history, or expose internal identifiers by default.
+
+## [2.7.0] - 2026-08-12
+
+- Add durable Company and Application case metadata under `03-active/gui/`, keeping multiple
+  applications separate without changing the company-scoped `data/pipeline.yml` schema.
+- Register digest-named, versioned artifact bodies with evidence/source references and generator
+  metadata; archive/delete operations tombstone GUI metadata only and never alter canonical evidence.
+- Add authenticated GUI case creation, archival, and artifact registration routes with the same
+  local session/CSRF boundary as the existing write screens.
+
+## [2.6.0] - 2026-08-12
+
+- Add a read-only self-analysis view for canonical `SELF_ANALYSIS_PROFILE v2` data, preserving
+  independent Unknown states and reviewed-empty lists without a completion score.
+- Show a user-owned `jiko-bunseki` or approval-gated `propose-context` handoff; the GUI never
+  writes the profile or canonical career context.
+
+## [2.5.1] - 2026-08-12
+
+- Keep the verification matrix's output portable on Windows for the resumable GUI session checks
+  and preserve the data-free empty-Vault GUI route contract.
+
+## [2.5.0] - 2026-08-12
+
+- Add the resumable local GUI 棚卸し vertical slice. Autosaved drafts and semantic checkpoints
+  live in transient `01-capture/gui/` storage and recover after restart without writing canonical
+  evidence.
+- Create proposals from explicit work/non-work form input and route approval through the existing
+  strict `approvals.approve` → `lifecycle.approve` path. Add strict session schema-version refusal
+  and the migration hook for a later v0→v1 migration.
+
+## [2.4.0] - 2026-08-12
+
+- Add a read-only local GUI Home and Timeline. It composes the existing status, readiness,
+  evidence-pool, weekly-review, Context → Experience → Evidence, project-timeline, and guided
+  action projections without creating a parser, a score, or a second store.
+- Protect read routes with the local session, keep them GET-only, hide internal identifiers unless
+  `JAPAN_CAREER_GUI_DEBUG=1`, and keep the browser rendering accessible and data-safe.
+
+## [2.3.0] - 2026-08-11
+
+- Add the local-first loopback GUI foundation with a data-free shell, fragment bootstrap token,
+  Host and Origin checks, strict session/CSRF boundary, fixed response headers, and packaged
+  vanilla static assets. The `career-agent ui` command does not write career data.
+- Record the GUI architecture and frontend design decisions, including the peer-entrypoint
+  boundary and the stdlib-only implementation constraint.
+
 ## [2.2.0] - 2026-08-11
 
 - Split `skills/career-agent/runtime.py` into owner modules. The file held the argument parser, the

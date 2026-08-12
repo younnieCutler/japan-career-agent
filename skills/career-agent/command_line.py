@@ -79,6 +79,23 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--graduation-year", type=int)
     setup_parser.add_argument("--language", default=None)
     add_output_format(setup_parser)
+    ui_parser = subparsers.add_parser(
+        "ui",
+        help="start the local loopback GUI. Starting the server writes nothing; the GUI it serves "
+             "saves drafts, cases and artifacts, and can approve evidence into the Career Vault "
+             "with your confirmation",
+    )
+    add_vault_argument(ui_parser)
+    add_workspace_argument(ui_parser)
+    add_as_of_argument(ui_parser)
+    ui_parser.add_argument("--port", type=int, default=0, help="loopback port; 0 chooses a free port")
+    ui_parser.add_argument("--no-browser", action="store_true", help="print the launch URL without opening a browser")
+    add_output_format(ui_parser)
+    sessions_parser = subparsers.add_parser(
+        "sessions", help="list resumable 棚卸し sessions; this command is read-only",
+    )
+    add_vault_argument(sessions_parser)
+    add_output_format(sessions_parser)
     for command, field in (("set-job-search", "job_search"), ("set-employment-status", "employment_status")):
         axis_parser = subparsers.add_parser(
             command,

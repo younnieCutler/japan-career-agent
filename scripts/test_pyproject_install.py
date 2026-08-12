@@ -32,6 +32,12 @@ REQUIRED_MEMBERS = (
     f"{PACKAGE_NAME}/skills/career-agent/runtime.py",
     f"{PACKAGE_NAME}/skills/career-agent/references/routing.yml",
     f"{PACKAGE_NAME}/skills/career-agent/templates/standard-chuto.html",
+    f"{PACKAGE_NAME}/skills/career-agent/gui/server.py",
+    f"{PACKAGE_NAME}/skills/career-agent/gui/tanaoroshi.py",
+    f"{PACKAGE_NAME}/skills/career-agent/gui/views_read.py",
+    f"{PACKAGE_NAME}/skills/career-agent/gui/static/bootstrap.js",
+    f"{PACKAGE_NAME}/skills/career-agent/gui/static/style.css",
+    f"{PACKAGE_NAME}/skills/career-agent/sessions.py",
 )
 
 

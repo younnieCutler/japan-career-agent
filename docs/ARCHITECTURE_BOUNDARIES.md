@@ -16,7 +16,7 @@ Command line     command_line.py    │  the parser, and the one place a result 
                  dispatch.py        │  command → owner, and nothing else
                                     ▼
 Application      onboarding · diagnostics · views · experiences · documents
-                 guided_flow · approvals · ingest
+                 guided_flow · approvals · ingest · sessions · case_store · artifact_store
                                     ▼
 Domain           models · validation · persistence · vault · routing · proposals
                  lifecycle · projection · document · render · personal_timeline
@@ -24,6 +24,24 @@ Domain           models · validation · persistence · vault · routing · prop
                                     ▼
 Local data       Career Vault · event ledger · private store · data/pipeline.yml
 ```
+
+The local GUI is a peer entrypoint, not a CLI frontend. `career-agent ui` has one directional
+bridge in `dispatch.py` to `gui.server`; GUI modules do not import `command_line`, `dispatch`,
+`runtime`, or domain modules directly. `gui.templates` is the application-owned adapter that
+reuses the domain renderer's escaped slots. This keeps the browser surface from becoming a second
+canonical writer or a hidden CLI dependency.
+
+`sessions.py` is the shared APPLICATION owner for resumable workflow state. `gui.tanaoroshi.py`
+translates semantic form actions into that owner; it does not own the files. A draft or checkpoint
+can be written to the transient capture area, but only the existing `approvals.approve` →
+`lifecycle.approve` path can append canonical evidence. The CLI `sessions` command reads this owner
+directly for resume inspection; it does not import the GUI adapter, while `ui` remains the only
+entrypoint bridge that launches `gui.server`.
+
+`case_store.py` and `artifact_store.py` own durable GUI metadata under `03-active/gui/`. The
+`gui.cases` and `gui.artifacts` modules are adapters: they never import persistence or Vault
+directly. Case/archive/delete and artifact version operations are metadata-only; the canonical
+ledger and the company-scoped `data/pipeline.yml` projection remain separate.
 
 Dependencies point down. Application modules may call each other sideways; the graph stays acyclic.
 Nothing at any layer imports an entry point, and the domain does not know that a CLI exists.

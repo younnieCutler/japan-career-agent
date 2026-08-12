@@ -34,6 +34,31 @@ class CareerAgentBoundaryTests(unittest.TestCase):
         self.assertEqual(boundaries.OWNED_SYMBOLS["readiness"], "views")
         self.assertTrue(boundaries._is_thin_facade(boundaries._module_tree("approvals"), "approve"))
 
+    def test_gui_modules_are_declared_and_keep_the_entrypoint_direction(self) -> None:
+        gui_modules = getattr(boundaries, "GUI_MODULES", set())
+        self.assertEqual(
+            gui_modules,
+            {
+                "gui.server",
+                "gui.security",
+                "gui.templates",
+                "gui.views_read",
+                "gui.tanaoroshi",
+                "gui.cases",
+                "gui.artifacts",
+            },
+        )
+        self.assertIn("gui.templates", boundaries.APPLICATION_MODULES)
+        self.assertIn("gui.views_read", boundaries.APPLICATION_MODULES)
+        self.assertIn("gui.tanaoroshi", boundaries.APPLICATION_MODULES)
+        self.assertIn("gui.cases", boundaries.APPLICATION_MODULES)
+        self.assertIn("gui.artifacts", boundaries.APPLICATION_MODULES)
+        self.assertIn("sessions", boundaries.APPLICATION_MODULES)
+        self.assertEqual(
+            getattr(boundaries, "GUI_LAUNCH_IMPORTS", set()),
+            {("dispatch", "gui.server")},
+        )
+
     def test_the_facade_defines_nothing(self) -> None:
         """The executable form of 'a new command needs no change to runtime.py'."""
         tree = boundaries._module_tree(boundaries.FACADE_MODULE)

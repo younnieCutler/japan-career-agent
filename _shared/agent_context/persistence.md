@@ -16,6 +16,18 @@ workspace pipeline is the per-company projection. Approval projects confirmed st
 history but does not overwrite domain-owned decision, channel, legitimacy, interest, outcome, or
 frozen legacy fields.
 
+Resumable GUI 棚卸し sessions and drafts are transient workflow material under
+`01-capture/gui/{sessions,drafts}` and use the existing atomic writer. They are not canonical
+evidence and do not belong under `.career-agent/` or `02-state/`; the read-only
+`career-agent sessions --format json` command reads the session records from this same location;
+only proposal approval may create confirmed evidence in the latter.
+
+Durable GUI case and artifact metadata use the existing `03-active` Vault directory:
+`03-active/gui/cases/*.json` and `03-active/gui/artifacts/*.json`; artifact bodies are below
+`03-active/gui/artifacts/career-docs/` with digest-named filenames. These records are not a second
+evidence ledger: archive/delete is a metadata tombstone, artifact updates create a new version, and
+none of these operations changes `02-state` or `data/pipeline.yml`.
+
 `interest_level` is recorded independently and is not a priority signal. No skill combines it with
 deadline, stage, or fit. Rules are read-only to domain skills and are promoted only through
 approval-gated `career-agent` events.
