@@ -54,10 +54,13 @@ class SelfAnalysisGuiTests(unittest.TestCase):
         rebuilding the whole thing would leave two 44KB forms to keep in step. The GUI serves the
         one jiko-bunseki already ships and that its contract test already covers.
         """
-        served = jiko_asset("checklist.html").decode("utf-8")
+        # Compared as bytes on both sides. The server sends bytes, and reading the same file as
+        # text translates CRLF to LF on Windows, which made this fail there for a difference the
+        # browser never sees.
+        served = jiko_asset("checklist.html")
         source = (
             Path(__file__).resolve().parents[2] / "jiko-bunseki" / "checklist.html"
-        ).read_text(encoding="utf-8")
+        ).read_bytes()
 
         self.assertEqual(served, source)
         self.assertIn("/jiko/checklist.html", static_asset("bootstrap.js").decode("utf-8"))
