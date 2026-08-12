@@ -244,6 +244,17 @@ python skills/career-agent/career_agent.py guided --vault "$VAULT" --format huma
 
 `guided` shows setup status, pending proposals, `Unknown` and `Conflict` counts, workspace metadata, and valid next actions. Use `--choice <id-or-number>` for scripted input. A write-capable action also requires `--confirm`; guided mode does not approve proposals automatically or read private note bodies.
 
+The local GUI is one more command from the same runtime. It binds to loopback on a random port and
+prints a URL carrying a single-use token; `--no-browser` prints that URL instead of opening a
+browser. Starting the server writes nothing, and what the GUI saves — drafts, cases, artifact
+metadata — stays out of the canonical ledger until you approve it. `sessions` reads the same
+resumable session store from the terminal, so neither entry point owns it:
+
+```bash
+python skills/career-agent/career_agent.py ui --vault "$VAULT" --port 0
+python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format human
+```
+
 ### Recover past experience, then write for one target
 
 If the Vault is empty, `readiness` says so and nothing is assumed from it:

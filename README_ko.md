@@ -239,6 +239,17 @@ python skills/career-agent/career_agent.py guided --vault "$VAULT" --format huma
 
 `guided`는 setup 상태, pending proposal, `Unknown`·`Conflict` 개수, workspace metadata, 가능한 다음 행동을 보여줍니다. 스크립트에서는 `--choice <id-or-number>`를 사용할 수 있습니다. 쓰기가 발생하는 action에는 `--confirm`이 필요하며, guided mode가 proposal을 자동 승인하거나 개인 note 본문을 읽지는 않습니다.
 
+로컬 GUI도 같은 runtime의 명령 하나입니다. loopback의 임의 포트에 bind하고 일회용 token이 담긴
+URL을 출력합니다. `--no-browser`를 주면 브라우저를 열지 않고 그 URL만 출력합니다. 서버를 켜는 것
+자체는 아무것도 쓰지 않으며, GUI가 저장하는 draft·case·artifact metadata는 승인하기 전까지
+canonical ledger에 들어가지 않습니다. `sessions`는 같은 resumable session 저장소를 터미널에서
+읽습니다. 어느 entry point도 그 저장소를 소유하지 않습니다:
+
+```bash
+python skills/career-agent/career_agent.py ui --vault "$VAULT" --port 0
+python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format human
+```
+
 
 ### 과거 경험 복원하고, 지원처별로 문서 만들기
 
