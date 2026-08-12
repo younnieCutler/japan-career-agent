@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.9.1] - 2026-08-12
+
+- Write the 棚卸し screen in the language its shell declares. The heading and lede were Japanese
+  above Korean field labels, and a screen reader announces the whole document as `lang="ko"`.
+  棚卸し itself is unchanged: it is the product's term, printed as-is in the Korean README.
+- Refuse an approval whose proposal no longer matches the draft on disk (`PROPOSAL_STALE`), and
+  render the proposal snapshot beside the button that approves it. The proposal id is stable for a
+  session, so an approve call stayed valid across an autosave and could write the older wording.
+
 ## [2.9.0] - 2026-08-12
 
 - Register the explicit v0→v1 session migration from the legacy semantic `page` field to the
