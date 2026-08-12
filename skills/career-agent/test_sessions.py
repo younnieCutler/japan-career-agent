@@ -153,6 +153,53 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(len(persistence.read_jsonl(self.home.events)), 1)
         self.assertEqual(first["proposal"]["id"], second["proposal"]["id"])
 
+    def test_approving_a_snapshot_the_draft_has_outgrown_is_refused(self) -> None:
+        """Re-proposing is a path, not a guarantee -- nothing forces a caller down it.
+
+        The proposal id is stable for the session, so the approve button a client rendered before
+        an autosave stays callable afterwards. Without a check at approval the older wording lands
+        in the ledger while the newer one is what the user is reading.
+        """
+        created = sessions.create_session(self.home)
+        session_id = created["session_id"]
+        base = {"evidence": ["incident review"], "role": "운영 담당", "non_work": False}
+        sessions.save_draft(self.home, session_id, {**base, "summary": "배포 장애를 복구했다"})
+        proposal_id = sessions.create_proposal(self.home, session_id)["proposal"]["id"]
+
+        sessions.save_draft(self.home, session_id, {**base, "summary": "결제 지연을 복구했다"})
+
+        with self.assertRaises(CareerError) as refused:
+            sessions.approve_proposal(self.home, session_id, proposal_id)
+
+        self.assertEqual(refused.exception.code, "PROPOSAL_STALE")
+        self.assertFalse(self.home.events.exists())
+        self.assertEqual(sessions.load_session(self.home, session_id)["stage"], "review")
+
+        renewed = sessions.create_proposal(self.home, session_id)
+        approved = sessions.approve_proposal(self.home, session_id, renewed["proposal"]["id"])
+
+        self.assertEqual(approved["event"]["summary"], "결제 지연을 복구했다")
+        self.assertEqual(len(persistence.read_jsonl(self.home.events)), 1)
+
+    def test_the_screen_shows_the_snapshot_it_asks_the_user_to_approve(self) -> None:
+        """The server sends the event; a button beside text the user never saw is unreviewable.
+
+        And the snapshot has to leave the screen when the draft moves, so the browser cannot keep
+        offering an approval the server will now refuse.
+        """
+        script = (Path(__file__).parent / "gui" / "static" / "bootstrap.js").read_text(encoding="utf-8")
+        renderer = script.split("const renderProposal", 1)[1].split("const submit", 1)[0]
+
+        self.assertIn("proposal.event", renderer)
+        self.assertIn("event.summary", renderer)
+        self.assertIn("event.evidence", renderer)
+        self.assertIn("event.work_event || event.experience", renderer)
+        # The approve button is built inside the renderer, so it cannot exist without the snapshot.
+        self.assertIn("/api/approve", renderer)
+        self.assertNotIn("/api/approve", script.split("const renderProposal", 1)[0])
+        autosave = script.split("const scheduleAutosave", 1)[1].split("const checkpoint", 1)[0]
+        self.assertIn("clearReview()", autosave)
+
     def test_an_unchanged_draft_reuses_the_pending_proposal(self) -> None:
         created = sessions.create_session(self.home)
         session_id = created["session_id"]

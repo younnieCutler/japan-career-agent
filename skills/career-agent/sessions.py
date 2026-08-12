@@ -592,6 +592,18 @@ def approve_proposal(home: CareerVault, session_id: str, proposal_id: str) -> di
         return _approved_result(home, proposal)
     if proposal.get("status") != "pending":
         raise CareerError("proposal is not pending", code="PROPOSAL_NOT_PENDING")
+    # A proposal is a snapshot of the draft at one moment, and `create_proposal` re-snapshots when
+    # the draft has moved. Nothing forces a caller through that path, though: the approve button
+    # the browser already rendered carries an id that stays valid across an autosave. Comparing
+    # here is what makes the guarantee independent of the client -- approval writes the text the
+    # snapshot holds, so if that is no longer the draft, refuse rather than record the older
+    # wording as a confirmed fact.
+    draft_stamp = str(_read_draft(home, session_id).get("updated_at") or "")
+    if str(proposal.get("draft_updated_at") or "") != draft_stamp:
+        raise CareerError(
+            "the draft changed after this proposal was created; create the proposal again",
+            code="PROPOSAL_STALE",
+        )
     event = proposal.get("event")
     if not isinstance(event, dict):
         raise CareerError("proposal event is invalid", code="PROPOSAL_INVALID")

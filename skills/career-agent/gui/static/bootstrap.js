@@ -38,6 +38,17 @@
 
   const listValue = (value) => String(value || "").split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
 
+  const readable = (item) => {
+    if (item === null || item === undefined || item === "") return "Unknown";
+    if (Array.isArray(item)) return item.length ? item.map(readable).join(", ") : "Reviewed empty";
+    if (typeof item === "object") {
+      return Object.entries(item).map(([key, child]) => `${key}: ${readable(child)}`).join(" · ");
+    }
+    return String(item);
+  };
+
+  const profileFieldLabel = (name) => name.replaceAll("_", " ");
+
   const renderTanaoroshi = (payload) => {
     const main = document.getElementById("main-content");
     if (!main) return;
@@ -136,12 +147,29 @@
         external_use: controls.external_use.value,
       },
     });
+    // What approval writes has to be on screen before the button that writes it. The proposal is
+    // a snapshot of the draft, so editing the draft leaves the snapshot behind: the button is
+    // removed the moment the user types, not 800ms later when the autosave lands.
+    const review = element("div", "", "proposal-review");
+    review.setAttribute("aria-live", "polite");
+    let proposalInvalidated = false;
+    const clearReview = () => {
+      if (!review.firstChild) return;
+      review.replaceChildren();
+      proposalInvalidated = true;
+    };
+
     let autosaveTimer;
     const scheduleAutosave = () => {
+      clearReview();
       window.clearTimeout(autosaveTimer);
       autosaveTimer = window.setTimeout(() => {
         postJson("/api/draft", { session_id: sessionId, draft: collect() })
-          .then(() => { message.textContent = "초안이 저장되었습니다."; })
+          .then(() => {
+            message.textContent = proposalInvalidated
+              ? "초안이 저장되었습니다. 이전 제안은 무효이니 제안을 다시 만드세요."
+              : "초안이 저장되었습니다.";
+          })
           .catch(() => { message.textContent = "초안 저장에 실패했습니다. 입력은 화면에 남아 있습니다."; });
       }, 800);
     };
@@ -162,24 +190,58 @@
     checkpoint.className = "secondary-button";
     form.append(checkpoint);
 
+    const proposalLabels = {
+      evidence: "근거",
+      role: "역할",
+      scope: "범위",
+      problem: "문제",
+      direct_actions: "행동",
+      individual_contribution: "개인 기여",
+      team_result: "팀 성과",
+      metrics: "결과 수치",
+      confidentiality: "기밀·외부 공개",
+      work_date: "시점",
+    };
+
+    const renderProposal = (result) => {
+      const proposal = result.proposal || {};
+      const event = proposal.event || {};
+      review.replaceChildren();
+      proposalInvalidated = false;
+      review.append(element("p", "PROPOSAL / 승인하면 아래 내용이 확정 사실이 됩니다.", "section-label"));
+      review.append(element("p", value(event.summary), "lede"));
+      const detail = element("dl", "", "proposal-detail");
+      const payload = event.work_event || event.experience || {};
+      [["evidence", event.evidence], ...Object.entries(payload)].forEach(([key, item]) => {
+        detail.append(element("dt", proposalLabels[key] || profileFieldLabel(key)));
+        detail.append(element("dd", readable(item)));
+      });
+      review.append(detail);
+      const approve = button("승인", () => postJson("/api/approve", {
+        session_id: sessionId,
+        proposal_id: proposal.id,
+      }).then(() => {
+        review.replaceChildren();
+        message.textContent = "승인되었습니다.";
+      }).catch(() => {
+        message.textContent = "승인할 수 없습니다. 초안이 바뀌었다면 제안을 다시 만드세요.";
+      }));
+      approve.className = "primary-button";
+      review.append(approve);
+    };
+
     const submit = button("제안 만들기", () => {
       postJson("/api/draft", { session_id: sessionId, draft: collect() })
         .then(() => postJson("/api/proposal", { session_id: sessionId }))
         .then((result) => {
           message.textContent = "제안이 만들어졌습니다. 아래에서 확인 후 승인하세요.";
-          const approve = button("승인", () => postJson("/api/approve", {
-            session_id: sessionId,
-            proposal_id: result.proposal.id,
-          }).then(() => { message.textContent = "승인되었습니다."; }).catch(() => {
-            message.textContent = "승인할 수 없습니다. 근거와 입력을 확인하세요.";
-          }));
-          approve.className = "primary-button";
-          form.append(approve);
+          renderProposal(result);
         })
         .catch(() => { message.textContent = "제안을 만들 수 없습니다. 비어 있는 항목을 확인하세요."; });
     });
     submit.className = "primary-button";
     form.append(submit);
+    form.append(review);
     main.append(form);
   };
 

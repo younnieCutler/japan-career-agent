@@ -140,6 +140,14 @@ h2 { max-width: 18ch; font-size: clamp(2rem, 5vw, 4rem); }
 .field-status { border-block: 1px solid var(--line); padding-block: 0.75rem; }
 .field-status .status-row { margin: 0.25rem 0; }
 .form-message { min-height: 1.6rem; color: var(--muted); }
+.proposal-review:not(:empty) {
+  margin-block-start: 1.5rem;
+  border: 1px solid var(--ink);
+  padding: 1rem;
+}
+.proposal-detail { margin: 0.5rem 0 1rem; }
+.proposal-detail dt { color: var(--muted); font-size: 0.85rem; margin-block-start: 0.6rem; }
+.proposal-detail dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
 .primary-button,
 .secondary-button {
   min-height: 44px;
