@@ -167,7 +167,7 @@
     main.append(navigation);
     main.append(element("p", "EXPERIENCE / EVIDENCE", "section-label"));
     main.append(element("h2", "棚卸し 이어가기"));
-    main.append(element("p", "저장한 내용은 초안입니다. 확정하기 전까지 Career Vault의 근거는 바뀌지 않습니다.", "lede"));
+    main.append(element("p", "저장한 내용은 초안입니다. Career Vault의 근거는 확정하기 전까지 바뀌지 않습니다.", "lede"));
 
     const form = element("form", "", "inventory-form");
     const controls = {};
@@ -267,7 +267,7 @@
         postJson("/api/draft", { session_id: sessionId, draft: collect() })
           .then(() => {
             message.textContent = proposalInvalidated
-              ? "초안이 저장되었습니다. 이전 제안은 무효이니 제안을 다시 만드세요."
+              ? "초안이 저장되었습니다. 이전 제안은 무효이니 제안을 새로 만드세요."
               : "초안이 저장되었습니다.";
           })
           .catch(() => { message.textContent = "초안 저장에 실패했습니다. 입력은 화면에 남아 있습니다."; });
@@ -285,7 +285,7 @@
         completed: [],
       })
         .then(() => { message.textContent = "완료된 지점이 저장되었습니다."; })
-        .catch(() => { message.textContent = "체크포인트를 저장할 수 없습니다."; });
+        .catch(() => { message.textContent = "체크포인트 저장에 실패했습니다."; });
     });
     checkpoint.className = "secondary-button";
     form.append(checkpoint);
@@ -334,7 +334,7 @@
       postJson("/api/draft", { session_id: sessionId, draft: collect() })
         .then(() => postJson("/api/proposal", { session_id: sessionId }))
         .then((result) => {
-          message.textContent = "제안이 만들어졌습니다. 아래에서 확인 후 승인하세요.";
+          message.textContent = "제안을 만들었습니다. 아래에서 확인 후 승인하세요.";
           renderProposal(result);
         })
         .catch(() => { message.textContent = "제안을 만들 수 없습니다. 비어 있는 항목을 확인하세요."; });
@@ -362,7 +362,7 @@
         .then(renderTanaoroshi)
         .catch(() => {
           const status = document.getElementById("session-status");
-          if (status) status.textContent = "棚卸し 세션을 시작할 수 없습니다.";
+          if (status) status.textContent = "棚卸し 세션을 시작하지 못했습니다.";
         });
     });
   };
@@ -580,7 +580,7 @@
         "p",
         "Career status: " + value(employment.career_status) + " · Target role: " + value(employment.target_role),
       ),
-      element("p", "GUI는 재직 여부를 추정하거나 변경하지 않습니다.", "status-row"),
+      element("p", "GUI는 재직 여부를 추정하지도 변경하지도 않습니다.", "status-row"),
     );
     main.append(employmentPanel);
 
@@ -643,14 +643,14 @@
       })
         .then((created) => postJson("/api/tanaoroshi", { case_ref: created.case_id }))
         .then(renderTanaoroshi)
-        .catch(() => { projectStatus.textContent = "프로젝트 기록을 시작할 수 없습니다."; });
+        .catch(() => { projectStatus.textContent = "프로젝트 기록을 시작하지 못했습니다."; });
     }));
     projectForm.append(projectStatus);
     record.append(projectForm);
     main.append(record);
 
     const readOnly = section("READ-ONLY", "Confirmed history stays in the approval path.");
-    readOnly.append(element("p", "위 목록은 확정된 프로젝트와 work-event 투영만 읽습니다. 새 기록은 승인 후에 여기에 나타납니다.", "lede"));
+    readOnly.append(element("p", "위 목록에는 확정된 프로젝트와 work-event 투영만 표시됩니다. 새 기록은 승인 후에 여기에 나타납니다.", "lede"));
     main.append(readOnly);
   };
 
