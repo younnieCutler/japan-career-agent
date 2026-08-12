@@ -80,7 +80,10 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("--language", default=None)
     add_output_format(setup_parser)
     ui_parser = subparsers.add_parser(
-        "ui", help="start the local loopback GUI; no career data is written by this command",
+        "ui",
+        help="start the local loopback GUI. Starting the server writes nothing; the GUI it serves "
+             "saves drafts, cases and artifacts, and can approve evidence into the Career Vault "
+             "with your confirmation",
     )
     add_vault_argument(ui_parser)
     add_workspace_argument(ui_parser)

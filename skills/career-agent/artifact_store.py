@@ -99,6 +99,42 @@ def get_artifact(home: CareerVault, artifact_id: str) -> dict[str, Any]:
     return _read_artifact(home, artifact_id)
 
 
+def _read_body_strict(home: CareerVault, artifact_id: str) -> dict[str, Any]:
+    """One artifact's stored text, with its digest re-checked against the metadata.
+
+    `body_ref` is a value this process wrote, but it is read back from a file the user or another
+    tool can edit, so it is resolved and confined to the artifact tree rather than trusted. The
+    digest comparison is not integrity theatre either: a hand-edited body is a document whose text
+    no longer matches the artifact record, and the screen should say so instead of showing it as
+    the version that was generated.
+    """
+    record = _read_artifact(home, artifact_id)
+    root = (artifacts_root(home) / "career-docs").resolve()
+    path = (home.path / str(record.get("body_ref", ""))).resolve()
+    if root not in path.parents or not path.is_file():
+        raise CareerError("artifact body is missing", code="ARTIFACT_BODY_MISSING")
+    body = path.read_text(encoding="utf-8")
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return {
+        "artifact": record,
+        "body": body,
+        "body_sha256": digest,
+        "matches_record": digest == record.get("body_sha256"),
+    }
+
+
+def artifact_body(home: CareerVault, artifact_id: str) -> dict[str, Any] | None:
+    """The artifact's text, or None when there is nothing to show.
+
+    Returning None rather than raising keeps the domain error type out of the GUI, which may not
+    import it. "Nothing to show" is all the caller needs to choose a 404.
+    """
+    try:
+        return _read_body_strict(home, artifact_id)
+    except CareerError:
+        return None
+
+
 def _body_ref(home: CareerVault, case_ref: str, kind: str, body: str) -> tuple[str, str]:
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     filename = f"{kind}-{utc_now()[:10].replace('-', '')}-{digest[:16]}.md"
@@ -152,11 +188,11 @@ def register_artifact(
             if item["case_ref"] == case_ref and item["kind"] == kind
         ]
         version = max((item["version"] for item in previous), default=0) + 1
-        for item in previous:
-            if item["status"] == "current":
-                item["status"] = "superseded"
-                item["updated_at"] = now
-                write_json(artifact_path(home, item["artifact_id"]), item)
+        # Write the new version first, demote the old one last. Each file write is atomic on its
+        # own, but the transition across several files is not, so the order decides what a kill
+        # in the middle leaves behind. Demoting first can leave the kind with no current artifact
+        # at all -- the user's document vanishes from the screen while its body is still on disk.
+        # This way the worst case is two rows marked current, and `version` says which is newer.
         _write_body(home, body_ref, body)
         record = {
             "artifact_id": f"art-{uuid.uuid4().hex[:16]}",
@@ -174,6 +210,11 @@ def register_artifact(
         }
         _validate_artifact(record)
         write_json(artifact_path(home, record["artifact_id"]), record)
+        for item in previous:
+            if item["status"] == "current":
+                item["status"] = "superseded"
+                item["updated_at"] = now
+                write_json(artifact_path(home, item["artifact_id"]), item)
     return record
 
 

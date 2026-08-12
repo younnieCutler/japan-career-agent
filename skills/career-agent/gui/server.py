@@ -128,6 +128,9 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis", "/api/cases", "/api/projects"}:
             self._read_api(path)
             return
+        if path == "/api/artifact-body":
+            self._artifact_body()
+            return
         if path == "/api/tanaoroshi":
             self._resume_tanaoroshi()
             return
@@ -140,7 +143,10 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path == "/session":
             self._exchange_session()
             return
-        if path in {"/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis", "/api/projects"}:
+        if path in {
+            "/api/home", "/api/timeline", "/api/sessions", "/api/self-analysis",
+            "/api/projects", "/api/artifact-body",
+        }:
             self._send(
                 HTTPStatus.METHOD_NOT_ALLOWED,
                 b"read-only route",
@@ -167,6 +173,28 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             self._write_tanaoroshi(path)
             return
         self._error(HTTPStatus.NOT_FOUND, "not found")
+
+    def _artifact_body(self) -> None:
+        """Serve one artifact's stored text. Read-only: opening a document changes nothing."""
+        if not self.server.security.authenticated(self.headers, require_csrf=False):
+            self._error(HTTPStatus.FORBIDDEN, "session required")
+            return
+        if self.server.home is None:
+            self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Career Vault is not configured")
+            return
+        artifact_id = self._query_value("artifact_id")
+        if not artifact_id:
+            self._error(HTTPStatus.BAD_REQUEST, "artifact_id is required")
+            return
+        try:
+            payload = artifacts.artifact_body(self.server.home, artifact_id)
+        except Exception:
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "artifact body unavailable")
+            return
+        if payload is None:
+            self._error(HTTPStatus.NOT_FOUND, "artifact body not found")
+            return
+        self._json({"mode": "artifact-body", "read_only": True, **payload})
 
     def _read_api(self, path: str) -> None:
         if not self.server.security.authenticated(self.headers, require_csrf=False):

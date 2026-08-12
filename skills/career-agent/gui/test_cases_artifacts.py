@@ -9,11 +9,13 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
 
+import artifact_store  # noqa: E402
 from gui import artifacts, cases  # noqa: E402
 from gui.server import create_server  # noqa: E402
 from gui.templates import static_asset  # noqa: E402
@@ -63,6 +65,52 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertEqual(cases.delete_case(self.home, application["case_id"])["status"], "deleted")
         self.assertEqual(before, self._canonical_bytes())
         self.assertFalse(self.home.events.exists())
+
+    def test_an_artifact_body_can_be_opened_and_a_hand_edit_is_reported(self) -> None:
+        """Grouping documents by case is only useful if one of them can be read.
+
+        A metadata list tells the user a 職務経歴書 exists; it does not let them look at it.
+        """
+        company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
+        artifact = artifacts.register_artifact(
+            self.home, case_ref=company["case_id"], kind="company_research", body="調査メモ",
+        )
+
+        opened = artifacts.artifact_body(self.home, artifact["artifact_id"])
+        self.assertEqual(opened["body"], "調査メモ")
+        self.assertTrue(opened["matches_record"])
+
+        (self.home.path / artifact["body_ref"]).write_text("손으로 고친 내용", encoding="utf-8")
+        edited = artifacts.artifact_body(self.home, artifact["artifact_id"])
+        self.assertEqual(edited["body"], "손으로 고친 내용")
+        self.assertFalse(edited["matches_record"])
+
+        self.assertIsNone(artifacts.artifact_body(self.home, "art-" + "0" * 16))
+
+    def test_a_crash_mid_update_never_leaves_a_kind_without_a_current_artifact(self) -> None:
+        """Each file write is atomic; the transition across several files is not.
+
+        Demoting the old version before the new one exists opens a window where a kill leaves the
+        case with no current artifact at all — the user's document gone from the screen while both
+        the old body and the old metadata are still on disk.
+        """
+        company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
+        application = cases.create_application(self.home, company["case_id"], "Backend")
+        first = artifacts.register_artifact(
+            self.home, case_ref=application["case_id"], kind="interview_script", body="v1 body",
+        )
+
+        with patch.object(artifact_store, "_write_body", side_effect=OSError("killed")):
+            with self.assertRaises(OSError):
+                artifacts.update_artifact(self.home, first["artifact_id"], body="v2 body")
+
+        current = [
+            item
+            for item in artifacts.list_artifacts(self.home, case_ref=application["case_id"])
+            if item["status"] == "current"
+        ]
+        self.assertEqual([item["artifact_id"] for item in current], [first["artifact_id"]])
+        self.assertEqual(artifacts.get_artifact(self.home, first["artifact_id"])["status"], "current")
 
     def test_application_artifacts_are_scoped_to_their_application_case(self) -> None:
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")

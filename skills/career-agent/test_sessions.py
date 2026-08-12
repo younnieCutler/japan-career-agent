@@ -326,6 +326,31 @@ class SessionTests(unittest.TestCase):
         self.assertNotIn("page", resumed["session"])
         self.assertEqual(path.read_bytes(), legacy_bytes)
 
+    def test_a_v0_session_resumes_with_its_own_v0_draft(self) -> None:
+        """A real v0 vault has a v0 draft too; migrating only the session strands the pair.
+
+        The session migration is worth nothing if `resume_session` then refuses the draft written
+        beside it — which is what happens when the fixture bumps only one of the two files.
+        """
+        created = sessions.create_session(self.home)
+        session_id = created["session_id"]
+        sessions.save_draft(self.home, session_id, {"summary": "배포 장애를 복구했다", "non_work": False})
+
+        for path, changes in (
+            (sessions.session_path(self.home, session_id), {"page": "review"}),
+            (sessions.draft_path(self.home, session_id), {}),
+        ):
+            record = json.loads(path.read_text(encoding="utf-8"))
+            record["session_schema_version"] = 0
+            record.pop("stage", None)
+            record.update(changes)
+            path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+        resumed = sessions.resume_session(self.home, session_id)
+
+        self.assertEqual(resumed["session"]["stage"], "review")
+        self.assertEqual(resumed["draft"]["summary"], "배포 장애를 복구했다")
+
 
 if __name__ == "__main__":
     unittest.main()

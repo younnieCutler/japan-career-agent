@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from artifact_store import (
+    artifact_body,
     artifact_path,
     delete_artifact,
     get_artifact,
@@ -12,6 +13,7 @@ from artifact_store import (
 )
 
 __all__ = [
+    "artifact_body",
     "artifact_path",
     "delete_artifact",
     "get_artifact",

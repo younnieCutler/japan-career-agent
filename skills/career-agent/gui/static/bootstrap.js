@@ -392,7 +392,29 @@
       const attached = artifactRows.filter((artifact) => artifact.case_ref === item.case_id);
       card.append(element("p", `Artifacts: ${attached.length}`, "status-row"));
       attached.forEach((artifact) => {
-        card.append(element("p", `${value(artifact.kind)} · v${value(artifact.version)} · ${value(artifact.status)}`, "status-row"));
+        const row = element("p", `${value(artifact.kind)} · v${value(artifact.version)} · ${value(artifact.status)}`, "status-row");
+        const open = button("열기", () => {
+          fetchView(
+            `/api/artifact-body?artifact_id=${encodeURIComponent(artifact.artifact_id)}`,
+            (payload) => {
+              const existing = row.parentElement.querySelector(".artifact-body");
+              if (existing) existing.remove();
+              const panel = element("div", "", "artifact-body");
+              if (!payload.matches_record) {
+                panel.append(element(
+                  "p",
+                  "이 문서는 생성된 뒤 편집되었습니다. 화면의 내용이 artifact 기록과 일치하지 않습니다.",
+                  "status-row",
+                ));
+              }
+              panel.append(element("pre", payload.body || ""));
+              row.after(panel);
+            },
+          );
+        });
+        open.className = "secondary-button";
+        row.append(open);
+        card.append(row);
       });
       if (item.status === "active") {
         const archive = button("Archive case", () => postJson("/api/cases/archive", { case_id: item.case_id })

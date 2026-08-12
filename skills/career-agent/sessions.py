@@ -223,6 +223,45 @@ def register_session_migration(
 register_session_migration(0, _migrate_v0_session)
 
 
+def _migrate_v0_draft(record: dict[str, Any]) -> dict[str, Any]:
+    """A v0 draft differs from a v1 draft only by its version stamp.
+
+    The v0→v1 change was to the session record: `page` became a semantic `stage`. Drafts held the
+    user's field values then and hold them now. Stamping the version is the whole migration, and
+    saying so explicitly is what keeps the pair resumable — migrating the session while refusing
+    the draft written beside it leaves a vault that opens halfway.
+    """
+    migrated = dict(record)
+    migrated["session_schema_version"] = CURRENT_SESSION_SCHEMA_VERSION
+    return migrated
+
+
+DRAFT_MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {0: _migrate_v0_draft}
+
+
+def _migrate_draft(record: dict[str, Any]) -> dict[str, Any]:
+    current = record
+    version = current.get("session_schema_version")
+    while isinstance(version, int) and version < CURRENT_SESSION_SCHEMA_VERSION:
+        migration = DRAFT_MIGRATIONS.get(version)
+        if migration is None:
+            raise CareerError(
+                f"draft schema migration is unavailable: v{version} -> v{version + 1}",
+                code="SESSION_MIGRATION_UNAVAILABLE",
+                retryable=False,
+            )
+        migrated = migration(dict(current))
+        if not isinstance(migrated, dict) or migrated.get("session_schema_version") == version:
+            raise CareerError(
+                "draft migration did not advance the schema version; the draft was not changed",
+                code="SESSION_MIGRATION_INVALID",
+                retryable=False,
+            )
+        current = migrated
+        version = current.get("session_schema_version")
+    return current
+
+
 def _read_session(home: CareerVault, session_id: str) -> dict[str, Any]:
     path = session_path(home, session_id)
     record = read_json(path, None)
@@ -281,18 +320,18 @@ def _read_draft(home: CareerVault, session_id: str) -> dict[str, Any]:
             retryable=False,
         )
     version = record["session_schema_version"]
-    if version != CURRENT_SESSION_SCHEMA_VERSION:
-        if isinstance(version, int) and version > CURRENT_SESSION_SCHEMA_VERSION:
-            raise CareerError(
-                "this draft was created by a newer version; upgrade the Career Agent before resuming",
-                code="SESSION_SCHEMA_NEWER",
-                retryable=False,
-            )
+    if isinstance(version, bool) or not isinstance(version, int):
+        raise CareerError("draft session_schema_version must be an integer", code="SESSION_INVALID")
+    if version > CURRENT_SESSION_SCHEMA_VERSION:
         raise CareerError(
-            "draft schema migration is unavailable; the draft was not changed",
-            code="SESSION_MIGRATION_UNAVAILABLE",
+            "this draft was created by a newer version; upgrade the Career Agent before resuming",
+            code="SESSION_SCHEMA_NEWER",
             retryable=False,
         )
+    if version < CURRENT_SESSION_SCHEMA_VERSION:
+        # Same contract as the session record: migrate in memory, leave the file alone. A resume
+        # is a read; rewriting on open would edit the user's work before they asked for anything.
+        record = _migrate_draft(record)
     if record.get("session_id") != session_id or not isinstance(record.get("draft"), dict):
         raise CareerError("draft record does not match its session", code="SESSION_INVALID")
     _draft_values(record["draft"])
