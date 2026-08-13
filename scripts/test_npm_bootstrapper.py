@@ -158,6 +158,10 @@ class NpmBootstrapperContractTests(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory(prefix="japan-career-npm-install-") as temporary:
             root = Path(temporary)
+            npm_environment = dict(os.environ)
+            # npm writes diagnostic logs to its cache even for an offline local tarball. Keeping
+            # that cache inside this fixture makes the smoke test independent of a writable home.
+            npm_environment["npm_config_cache"] = str(root / "npm-cache")
             stub_dir = root / "stub"
             stub_dir.mkdir()
             stub = stub_dir / "uv"
@@ -178,6 +182,7 @@ class NpmBootstrapperContractTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
+                env=npm_environment,
                 check=True,
             )
             tarballs = sorted(root.glob("*.tgz"))
@@ -188,6 +193,7 @@ class NpmBootstrapperContractTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
+                env=npm_environment,
                 check=True,
             )
             shim = project / "node_modules" / ".bin" / "japan-career-agent"

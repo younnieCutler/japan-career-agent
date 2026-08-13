@@ -14,6 +14,7 @@ from models import (
     EXPERIENCE_CONTEXT_KINDS,
     EXPERIENCE_EVENT_TYPE,
     EXPERIENCE_KINDS,
+    OUTCOME_STATES,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
     PROJECT_EVENT_TYPE,
@@ -257,6 +258,25 @@ def month_or_day(value: Any, field: str) -> str | None:
     return value
 
 
+def _validate_period(period: Any, field: str) -> None:
+    if period is None:
+        return
+    if not isinstance(period, dict):
+        raise CareerError(f"{field} must be an object or null")
+    unknown = sorted(set(period) - {"from", "to", "current"})
+    if unknown:
+        raise CareerError(f"{field} has unknown fields: {', '.join(unknown)}")
+    current = period.get("current")
+    if current is not None and not isinstance(current, bool):
+        raise CareerError(f"{field}.current must be a boolean or null")
+    start = month_or_day(period.get("from"), f"{field}.from")
+    end = month_or_day(period.get("to"), f"{field}.to")
+    if current is True and end:
+        raise CareerError(f"{field}.to must be empty while current is true")
+    if start and end and end < start:
+        raise CareerError(f"{field}.to is before period.from")
+
+
 def validate_project(project: Any) -> None:
     """Validate the payload a `project` event carries.
 
@@ -293,18 +313,7 @@ def validate_project(project: Any) -> None:
         raise CareerError(
             f"event.project.status must be one of: {', '.join(sorted(PROJECT_STATUSES))}"
         )
-    period = project.get("period")
-    if period is None:
-        return
-    if not isinstance(period, dict):
-        raise CareerError("event.project.period must be an object or null")
-    unknown = sorted(set(period) - {"from", "to"})
-    if unknown:
-        raise CareerError(f"event.project.period has unknown fields: {', '.join(unknown)}")
-    start = month_or_day(period.get("from"), "event.project.period.from")
-    end = month_or_day(period.get("to"), "event.project.period.to")
-    if start and end and end < start:
-        raise CareerError("event.project.period.to is before period.from")
+    _validate_period(project.get("period"), "event.project.period")
 
 
 def validate_experience_context(context: Any) -> None:
@@ -344,20 +353,7 @@ def validate_experience_context(context: Any) -> None:
             raise CareerError(
                 f"event.experience_context.{field} must be a non-empty string or null"
             )
-    period = context.get("period")
-    if period is None:
-        return
-    if not isinstance(period, dict):
-        raise CareerError("event.experience_context.period must be an object or null")
-    unknown = sorted(set(period) - {"from", "to"})
-    if unknown:
-        raise CareerError(
-            f"event.experience_context.period has unknown fields: {', '.join(unknown)}"
-        )
-    start = month_or_day(period.get("from"), "event.experience_context.period.from")
-    end = month_or_day(period.get("to"), "event.experience_context.period.to")
-    if start and end and end < start:
-        raise CareerError("event.experience_context.period.to is before period.from")
+    _validate_period(context.get("period"), "event.experience_context.period")
 
 
 def claim_surface(event: dict[str, Any]) -> str:
@@ -398,7 +394,7 @@ def validate_work_event(work_event: Any, *, field: str = "event.work_event") -> 
         raise CareerError(f"{field} must be an object or null")
     known = set(WORK_EVENT_TEXT_FIELDS) | set(WORK_EVENT_LIST_FIELDS) | {
         "confidentiality", "primary_project_id", "related_project_ids", "work_date",
-        "context_id", "experience_kind", "experience_ref",
+        "context_id", "experience_kind", "experience_ref", "outcome_state",
     }
     unknown = sorted(set(work_event) - known)
     if unknown:
@@ -443,6 +439,11 @@ def validate_work_event(work_event: Any, *, field: str = "event.work_event") -> 
     # When the work actually happened, which is not when it was written down. Absent stays
     # Unknown: a note captured today about last June says June only if the user said June.
     month_or_day(work_event.get("work_date"), f"{field}.work_date")
+    outcome_state = work_event.get("outcome_state")
+    if outcome_state is not None and outcome_state not in OUTCOME_STATES:
+        raise CareerError(
+            f"{field}.outcome_state must be one of: {', '.join(sorted(OUTCOME_STATES))}"
+        )
     for name in WORK_EVENT_TEXT_FIELDS:
         value = work_event.get(name)
         if value is None:

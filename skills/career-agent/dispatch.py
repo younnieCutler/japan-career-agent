@@ -52,7 +52,18 @@ from private_store import (
     resolve_private_home,
 )
 from proposals import list_proposals, propose_career_context, propose_fact, review_proposal, run_chat
-from sessions import list_sessions
+from sessions import (
+    approve_proposal as approve_workflow_proposal,
+    archive_session,
+    checkpoint_session,
+    create_proposal as create_workflow_proposal,
+    create_session,
+    list_sessions,
+    resume_session,
+    resume_workflow,
+    restore_session,
+    save_draft,
+)
 from vault import CareerVault, initialize_vault
 from views import (
     evidence_pool,
@@ -90,6 +101,8 @@ def run_private_command(args: argparse.Namespace) -> dict[str, Any]:
 
 def _requires_approval_recovery(args: argparse.Namespace) -> bool:
     """Only gate commands that can write; read-only inspection must remain available."""
+    if args.command == "workflow":
+        return args.action != "resume"
     if args.command in {
         "setup", "guided", "approve", "restore-state", "index",
         "propose-fact", "propose-context",
@@ -100,6 +113,126 @@ def _requires_approval_recovery(args: argparse.Namespace) -> bool:
     if args.command == "doctor":
         return bool(args.fix)
     return args.command == "run"
+
+
+def _workflow_resume(args: argparse.Namespace, home: CareerVault, *, archived: bool = False) -> dict[str, Any]:
+    if args.session_ref:
+        return resume_session(home, args.session_ref)
+    if archived:
+        rows = [
+            row
+            for row in list_sessions(
+                home,
+                workflow=args.workflow,
+                include_archived=True,
+                context=args.context,
+            )["sessions"]
+            if row["status"] == "archived"
+        ]
+        if len(rows) != 1:
+            raise CareerError(
+                "choose one archived workflow by its visible context",
+                code="SESSION_NOT_FOUND" if not rows else "SESSION_AMBIGUOUS",
+                details={"choices": rows},
+            )
+        return resume_session(home, rows[0]["session_id"])
+    return resume_workflow(home, workflow=args.workflow, context=args.context)
+
+
+def _json_object(raw: str, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise CareerError(f"{label} must be valid JSON: {exc}", code="INVALID_INPUT") from exc
+    if not isinstance(value, dict):
+        raise CareerError(f"{label} must be a JSON object", code="INVALID_INPUT")
+    return value
+
+
+def _run_workflow(args: argparse.Namespace, home: CareerVault) -> dict[str, Any]:
+    if args.action == "start":
+        if not args.workflow:
+            raise CareerError("workflow start requires --workflow", code="INVALID_INPUT")
+        subject = _json_object(args.subject_json, "--subject-json")
+        session = create_session(
+            home,
+            workflow=args.workflow,
+            entrypoint=args.entrypoint,
+            case_ref=args.case_ref,
+            subject=subject,
+        )
+        return resume_session(home, session["session_id"])
+    resumed = _workflow_resume(args, home, archived=args.action == "restore")
+    if args.action == "resume":
+        return resumed
+    if args.revision is None:
+        raise CareerError(
+            "workflow writes require the revision returned by resume",
+            code="INVALID_INPUT",
+        )
+    session_id = resumed["session"]["session_id"]
+    if args.action == "save":
+        if args.draft_json is None:
+            raise CareerError("workflow save requires --json", code="INVALID_INPUT")
+        raw = sys.stdin.read() if args.draft_json == "-" else args.draft_json
+        draft = _json_object(raw, "--json")
+        if resumed["session"]["workflow"] == "self_analysis" and "self_analysis_version" in draft:
+            draft = {"profile": draft}
+        return save_draft(
+            home,
+            session_id,
+            draft,
+            expected_revision=args.revision,
+            entrypoint=args.entrypoint,
+        )
+    if args.action == "checkpoint":
+        return checkpoint_session(
+            home,
+            session_id,
+            stage=args.stage,
+            current_item_ref=args.current_item,
+            missing=args.missing,
+            completed=args.completed,
+            expected_revision=args.revision,
+            entrypoint=args.entrypoint,
+        )
+    if args.action == "propose":
+        return create_workflow_proposal(
+            home,
+            session_id,
+            expected_revision=args.revision,
+            entrypoint=args.entrypoint,
+        )
+    if args.action == "approve":
+        proposal_id = args.proposal_ref
+        if proposal_id is None:
+            refs = resumed["session"]["proposal_refs"]
+            if len(refs) != 1:
+                raise CareerError(
+                    "choose the reviewed proposal before approval",
+                    code="PROPOSAL_NOT_FOUND" if not refs else "SESSION_AMBIGUOUS",
+                )
+            proposal_id = refs[0]
+        return approve_workflow_proposal(
+            home,
+            session_id,
+            proposal_id,
+            expected_revision=args.revision,
+            entrypoint=args.entrypoint,
+        )
+    if args.action == "archive":
+        return archive_session(
+            home,
+            session_id,
+            expected_revision=args.revision,
+            entrypoint=args.entrypoint,
+        )
+    return restore_session(
+        home,
+        session_id,
+        expected_revision=args.revision,
+        entrypoint=args.entrypoint,
+    )
 
 
 def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, Any]:
@@ -124,13 +257,23 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
         from gui.server import serve as serve_gui
 
         ui_vault = CareerVault(Path(args.vault).expanduser()) if args.vault else CareerVault(DEFAULT_VAULT_PATH)
-        return serve_gui(
-            port=args.port,
-            no_browser=args.no_browser,
-            home=ui_vault,
-            workspace=args.workspace,
-            as_of=args.as_of,
-        )
+        try:
+            return serve_gui(
+                port=args.port,
+                no_browser=args.no_browser,
+                home=ui_vault,
+                workspace=args.workspace,
+                as_of=args.as_of,
+                language=args.language,
+            )
+        except OSError as exc:
+            # The browser cannot display a recovery state before loopback is listening. The
+            # application bridge owns conversion to a stable, localizable runtime error.
+            raise CareerError(
+                "local GUI could not start",
+                code="GUI_START_FAILED",
+                retryable=True,
+            ) from exc
     if args.command == "guided":
         vault_path = Path(args.vault).expanduser() if args.vault else DEFAULT_VAULT_PATH
         guided_home = CareerVault(vault_path)
@@ -264,7 +407,13 @@ def _run_vault_command(
     if args.command == "status":
         return status(home, workspace=args.workspace)
     if args.command == "sessions":
-        return list_sessions(home)
+        return list_sessions(
+            home,
+            workflow=args.workflow,
+            include_archived=args.archived,
+        )
+    if args.command == "workflow":
+        return _run_workflow(args, home)
     if args.command == "proposals":
         if args.limit is not None and args.limit < 1:
             raise CareerError("--limit must be a positive integer")

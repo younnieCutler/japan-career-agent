@@ -9,7 +9,7 @@ the module whose `pipeline_file` binding integration tests patch.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from lifecycle import approve as _lifecycle_approve, read_approval_transaction, recover_pending
 from models import job_search_of
@@ -57,6 +57,8 @@ def approve(
     currency: str | None = None,
     workspace: str | Path | None = None,
     next_action: str | None = None,
+    *,
+    precondition: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """Compatibility facade injecting the runtime-owned projection callbacks."""
     return _lifecycle_approve(
@@ -71,6 +73,7 @@ def approve(
         next_action=next_action,
         pipeline_writer=_pipeline_writer_for(home, workspace),
         state_projector=_state_projector_for(home),
+        precondition=precondition,
     )
 
 

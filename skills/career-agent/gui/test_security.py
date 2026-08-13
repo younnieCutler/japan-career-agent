@@ -88,13 +88,16 @@ class GuiSecurityTests(unittest.TestCase):
     def test_shell_and_bootstrap_assets_are_external_and_data_free(self):
         templates = _server_module()
         html = templates.render_shell()
-        bootstrap = templates.static_asset("bootstrap.js").decode("utf-8")
+        client = b"".join(
+            templates.static_asset(name)
+            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
+        ).decode("utf-8")
         stylesheet = templates.static_asset("style.css").decode("utf-8")
-        self.assertIn('<script src="/static/bootstrap.js" defer></script>', html)
+        self.assertIn('<script type="module" src="/static/bootstrap.js"></script>', html)
         self.assertNotIn("<script>", html)
-        self.assertIn("history.replaceState", bootstrap)
+        self.assertIn("history.replaceState", client)
         self.assertIn("prefers-reduced-motion", stylesheet)
-        self.assertNotIn("career-state.toml", html + bootstrap + stylesheet)
+        self.assertNotIn("career-state.toml", html + client + stylesheet)
 
     def test_root_is_data_free_and_loads_external_bootstrap_only(self):
         with running_server() as server:
@@ -103,7 +106,7 @@ class GuiSecurityTests(unittest.TestCase):
         html = body.decode("utf-8")
         self.assertEqual(status, 200)
         self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
-        self.assertIn('<script src="/static/bootstrap.js" defer></script>', html)
+        self.assertIn('<script type="module" src="/static/bootstrap.js"></script>', html)
         self.assertNotIn("<script>", html)
         self.assertNotIn(server.bootstrap_token, html)
         self.assertNotIn("events.jsonl", html)
@@ -217,7 +220,8 @@ class GuiSecurityTests(unittest.TestCase):
         html = module.render_shell()
 
         self.assertIn("<title>Japan Career Agent</title>", html)
-        self.assertIn("<h1>Japan Career Agent</h1>", html)
+        self.assertIn('<p class="wordmark">Japan Career Agent</p>', html)
+        self.assertIn('<h1 id="welcome-heading">', html)
         self.assertNotIn("{{", html)
         self.assertNotIn("<title></title>", html)
 
@@ -242,10 +246,13 @@ class GuiSecurityTests(unittest.TestCase):
             if name:
                 directives[name] = value
         shell = module.render_shell()
-        bootstrap = module.static_asset("bootstrap.js").decode("utf-8")
+        client = b"".join(
+            module.static_asset(name)
+            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
+        ).decode("utf-8")
         used = {
-            "connect-src": "fetch(" in bootstrap or "XMLHttpRequest" in bootstrap,
-            "script-src": '<script src="/static/bootstrap.js"' in shell,
+            "connect-src": "fetch(" in client or "XMLHttpRequest" in client,
+            "script-src": "/static/bootstrap.js" in shell,
             "style-src": 'rel="stylesheet"' in shell,
         }
 

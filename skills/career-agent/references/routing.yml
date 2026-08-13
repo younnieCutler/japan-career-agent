@@ -8,7 +8,7 @@ track:
   # 既卒 and 第二新卒 as shinsotsu. The "27卒" case is handled by routing.py's bounded
   # graduation_signal() regex instead.
   shinsotsu: ["新卒", "신졸", "학チカ", "학チ카", "学チカ", "졸업", "graduat", "new grad", "spi3", "学生", "就活", "취활"]
-  chuto: ["中途", "중途", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
+  chuto: ["中途", "중途", "경력채용", "경력 채용", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
 
 # First matching entry selects one reference for a chuto message. Keep phrases specific:
 # generic interview, research, and document requests continue to use the stage fallback below.

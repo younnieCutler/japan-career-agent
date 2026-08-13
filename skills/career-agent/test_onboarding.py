@@ -87,7 +87,8 @@ class OnboardingTests(unittest.TestCase):
         result = self.chat("新卒で学チカを整理したい")
         self.assertEqual(result["track"], "shinsotsu")
         self.assertTrue(result["needs_confirmation"])
-        self.assertIn("graduation_year", result["question"])
+        self.assertIn("卒業年", result["question"])
+        self.assertNotIn("graduation_year", result["question"])
         self.assertNotRegex(result["question"], r"20\d{2}")
         self.assertNotIn("graduation_year", self.profile())
 
@@ -98,7 +99,8 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(result["track"], "chuto")
         self.assertTrue(result["needs_confirmation"])
         self.assertNotIn("graduation_year", result["question"])
-        self.assertIn("職務経歴書", result["question"])
+        self.assertIn("직무경력서", result["question"])
+        self.assertNotIn("職務経歴書", result["question"])
         self.assertIsNone(result.get("proposal"))
         self.assertEqual(self.career_status(), "onboarding")
 
@@ -302,7 +304,13 @@ class MaintenanceOnboardingTests(unittest.TestCase):
     def test_the_track_question_still_blocks_everything_else(self) -> None:
         result = self.chat("면접 준비 도와줘")
         self.assertTrue(result["needs_confirmation"])
-        self.assertIn("shinsotsu", result["question"])
+        self.assertIn("신졸", result["question"])
+        self.assertIn("경력채용", result["question"])
+        self.assertNotIn("shinsotsu", result["question"])
+        self.assertNotIn("chuto", result["question"])
+
+        selected = self.chat("경력채용이에요")
+        self.assertEqual(selected["track"], "chuto")
 
     def test_recording_evidence_ends_onboarding_without_choosing_a_track(self) -> None:
         self.chat("업무일지 남겨줘")

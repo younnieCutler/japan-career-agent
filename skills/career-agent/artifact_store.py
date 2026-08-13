@@ -169,8 +169,8 @@ def register_artifact(
     generated_by: Any = None,
 ) -> dict[str, Any]:
     case = get_case(home, case_ref)
-    if case["status"] == "deleted":
-        raise CareerError("cannot attach an artifact to a deleted case", code="INVALID_INPUT")
+    if case["status"] != "active":
+        raise CareerError("cannot attach an artifact to an inactive case", code="INVALID_RELATIONSHIP")
     if not isinstance(kind, str) or not ARTIFACT_KIND.fullmatch(kind):
         raise CareerError("kind must use lowercase artifact naming", code="INVALID_INPUT")
     if not isinstance(body, str) or not body:
@@ -183,6 +183,11 @@ def register_artifact(
     body_ref, digest = _body_ref(home, case_ref, kind, body)
     now = utc_now()
     with vault_lock(home):
+        if get_case(home, case_ref)["status"] != "active":
+            raise CareerError(
+                "cannot attach an artifact to an inactive case",
+                code="INVALID_RELATIONSHIP",
+            )
         previous = [
             item for item in _all_artifacts(home)
             if item["case_ref"] == case_ref and item["kind"] == kind

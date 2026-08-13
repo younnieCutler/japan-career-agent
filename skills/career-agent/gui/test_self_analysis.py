@@ -63,7 +63,7 @@ class SelfAnalysisGuiTests(unittest.TestCase):
         ).read_bytes()
 
         self.assertEqual(served, source)
-        self.assertIn("/jiko/checklist.html", static_asset("bootstrap.js").decode("utf-8"))
+        self.assertIn("/jiko/checklist.html", static_asset("screens.js").decode("utf-8"))
         with self.assertRaises(FileNotFoundError):
             jiko_asset("../../../etc/passwd")
 
@@ -85,12 +85,18 @@ class SelfAnalysisGuiTests(unittest.TestCase):
             self.assertNotIn(call, checklist + runtime, call)
 
     def test_browser_contract_has_a_read_route_and_visible_handoff(self) -> None:
-        script = static_asset("bootstrap.js").decode("utf-8")
+        script = static_asset("screens.js").decode("utf-8")
 
         self.assertIn("/api/self-analysis", script)
-        self.assertIn("renderSelfAnalysis", script)
+        self.assertIn("selfAnalysisScreen", script)
         self.assertIn("handoff", script)
         self.assertIn("textContent", script)
+        self.assertIn("queueMicrotask(() => success.focus())", script)
+        self.assertIn("changesView(options.before, event)", script)
+        self.assertIn("before: proposed.review_before", script)
+        self.assertIn("function containsUnknown", script)
+        self.assertIn('key === "period" && value.current === true', script)
+        self.assertIn('kind === "profile" ? Object.keys(payload || {})', script)
 
     def test_authenticated_self_analysis_route_is_get_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

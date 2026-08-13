@@ -7,7 +7,7 @@ import json
 import sys
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 _SHARED_ROOT = Path(__file__).resolve().parent.parent.parent / "_shared"
 if str(_SHARED_ROOT) not in sys.path:
@@ -505,18 +505,19 @@ def run_chat(
     return result
 
 
-def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
-    """Create an approval-gated proposal from a CWD-relative SELF_ANALYSIS_PROFILE."""
-    source_path = Path(source).expanduser().resolve()
-    if not source_path.exists():
-        raise CareerError(f"career context source not found: {source_path}")
-    try:
-        import yaml
-        raw = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
-    except ImportError as exc:
-        raise CareerError("PyYAML is required to propose career context") from exc
-    except (OSError, yaml.YAMLError) as exc:
-        raise CareerError(f"invalid career context YAML: {source_path}: {exc}") from exc
+def propose_career_context_payload(
+    home: CareerVault,
+    raw: dict[str, Any],
+    *,
+    session_id: str | None = None,
+    draft_updated_at: str | None = None,
+    precondition: Callable[[], None] | None = None,
+) -> dict[str, Any]:
+    """Create a proposal from an already loaded SELF_ANALYSIS_PROFILE.
+
+    File loading belongs to the CLI adapter below. GUI and host-neutral sessions use this same
+    strict validator and proposal writer instead of creating a second profile contract.
+    """
     if not isinstance(raw, dict):
         raise CareerError("career context source root must be an object")
     raw_only = sorted(self_analysis_profile.RAW_ONLY_FIELDS.intersection(raw))
@@ -533,12 +534,26 @@ def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
     payload = validate_career_context(raw)
     digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     with vault_lock(home):
+        if precondition is not None:
+            precondition()
         proposals = read_jsonl(home.proposals)
         for row in proposals:
             if row.get("kind") != "career_context" or row.get("profile_digest") != digest:
                 continue
             if row.get("status") in {"pending", "approved"}:
-                return {"mode": "propose-context", "deduplicated": True, "proposal": row, "source": str(source_path)}
+                bound = row.get("session_id")
+                if session_id and row.get("status") == "pending" and bound not in {None, session_id}:
+                    raise CareerError(
+                        "the same self-analysis is already under review in another workflow",
+                        code="SESSION_AMBIGUOUS",
+                    )
+                if session_id and row.get("status") == "pending" and bound is None:
+                    row = home.replace_proposal(
+                        str(row["id"]),
+                        session_id=session_id,
+                        draft_updated_at=draft_updated_at or "",
+                    )
+                return {"mode": "propose-context", "deduplicated": True, "proposal": row}
         for row in proposals:
             if row.get("kind") == "career_context" and row.get("status") == "pending":
                 row["status"] = "superseded"
@@ -560,7 +575,7 @@ def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
             "summary": "User-confirmed canonical career values",
             "evidence": [f"SELF_ANALYSIS_PROFILE sha256:{digest}"],
             "source": "jiko-bunseki",
-            "next_action": "",
+            "next_action": None,
             "deadline": None,
             "status": "draft",
             "career_context": payload,
@@ -568,8 +583,27 @@ def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
         }
         validate_event(event)
         proposal = {"id": f"proposal-{uuid.uuid4().hex[:12]}", "kind": "career_context", "status": "pending", "created_at": utc_now(), "profile_digest": digest, "event": event}
+        if session_id is not None:
+            proposal["session_id"] = session_id
+            proposal["draft_updated_at"] = draft_updated_at or ""
         write_jsonl(home.proposals, [*proposals, proposal])
-    return {"mode": "propose-context", "deduplicated": False, "proposal": proposal, "source": str(source_path)}
+    return {"mode": "propose-context", "deduplicated": False, "proposal": proposal}
+
+
+def propose_career_context(home: CareerVault, source: str) -> dict[str, Any]:
+    """Create an approval-gated proposal from a CWD-relative SELF_ANALYSIS_PROFILE."""
+    source_path = Path(source).expanduser().resolve()
+    if not source_path.exists():
+        raise CareerError(f"career context source not found: {source_path}")
+    try:
+        import yaml
+        raw = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
+    except ImportError as exc:
+        raise CareerError("PyYAML is required to propose career context") from exc
+    except (OSError, yaml.YAMLError) as exc:
+        raise CareerError(f"invalid career context YAML: {source_path}: {exc}") from exc
+    result = propose_career_context_payload(home, raw)
+    return {**result, "source": str(source_path)}
 
 
 def document_evidence(document_id: str) -> str:

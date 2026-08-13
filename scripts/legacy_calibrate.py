@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 import pipeline_store  # noqa: E402
 from calibrate import load, scored_entries  # noqa: E402
-from status_bar import STAGE_LABELS  # noqa: E402
+from status_bar import stage_label  # noqa: E402
 
 
 def report(pipeline: dict) -> int:
@@ -26,7 +26,7 @@ def report(pipeline: dict) -> int:
     print("legacy_v1 historical tiers (read-only; not a v3 diagnosis or hiring forecast)")
     for entry in sorted(entries, key=lambda item: str(item.get("predicted_tier"))):
         reached = entry.get("reached_stage")
-        label = f"{reached} {STAGE_LABELS.get(reached, '')}".strip()
+        label = stage_label(reached)
         print(
             f"- {str(entry.get('name') or entry.get('slug'))}: "
             f"tier={entry.get('predicted_tier')} reached={label or 'unknown'} "

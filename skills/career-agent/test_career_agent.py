@@ -249,7 +249,8 @@ class CareerAgentTests(unittest.TestCase):
     def test_shinsotsu_requires_graduation_year_then_proposes_event(self) -> None:
         missing = output(run(self.vault, "run", "--mode", "chat", "--track", "shinsotsu", "--message", "신졸이고 가쿠치카 경험을 정리하고 싶어요"))
         self.assertTrue(missing["needs_confirmation"])
-        self.assertIn("graduation_year", missing["question"])
+        self.assertIn("졸업 연도", missing["question"])
+        self.assertNotIn("graduation_year", missing["question"])
         self.assertFalse((self.vault / "02-state" / "proposals.jsonl").exists())
 
         self.set_profile(track="shinsotsu", graduation_year=2027, target_role="LLMOps Engineer", career_status="active")
@@ -725,7 +726,9 @@ class CareerAgentTests(unittest.TestCase):
         output(run(self.vault, "run", "--mode", "chat", "--message", message))
         third = output(run(self.vault, "run", "--mode", "chat", "--message", message))
         self.assertNotIn("asked before", first["question"])
-        self.assertIn("career-profile.toml", third["question"])
+        self.assertIn("졸업 연도", third["question"])
+        self.assertIn("모른다고 답해도", third["question"])
+        self.assertNotIn("career-profile.toml", third["question"])
 
     def test_generic_followup_keeps_current_stage_instead_of_resetting(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")

@@ -20,6 +20,7 @@ from models import (  # noqa: E402
     EXPERIENCE_CONTEXT_EVENT_TYPE,
     PIPELINE_STAGE,
     PROJECT_EVENT_TYPE,
+    USER_CONFIRMATION_EVIDENCE,
     WORK_EVENT_TYPE,
     CareerError,
 )
@@ -222,6 +223,7 @@ def experiences_from_events(events: list[dict[str, Any]]) -> dict[str, Any]:
     projects = projects_from_events(events)
     contexts = contexts_from_events(events)
     experiences: dict[str, dict[str, Any]] = {}
+    claims: list[dict[str, Any]] = []
     unattached: list[str] = []
     for event in events:
         if event.get("type") not in EVIDENCE_EVENT_TYPES or event.get("status") != "confirmed":
@@ -231,6 +233,46 @@ def experiences_from_events(events: list[dict[str, Any]]) -> dict[str, Any]:
             unattached.append(event["id"])
             continue
         payload = evidence_payload(event)
+        confidentiality = payload.get("confidentiality")
+        confidentiality = confidentiality if isinstance(confidentiality, dict) else {}
+        contains_confidential = bool(confidentiality.get("contains_confidential"))
+        material_evidence = [
+            item
+            for item in (event.get("evidence") or [])
+            if item != USER_CONFIRMATION_EVIDENCE
+            and item != "User confirmation in the local Career Agent GUI"
+        ]
+        detail = {
+            field: payload[field]
+            for field in (
+                "role",
+                "scope",
+                "problem",
+                "direct_actions",
+                "individual_contribution",
+                "team_result",
+                "outcome_state",
+                "metrics",
+            )
+            if payload.get(field) not in (None, "", [])
+        }
+        claims.append({
+            "claim_id": event["id"],
+            "experience_id": key,
+            "context_id": payload.get("context_id"),
+            "project_id": payload.get("primary_project_id"),
+            "kind": payload.get("experience_kind"),
+            "label": event.get("summary") or event.get("title"),
+            "work_date": payload.get("work_date"),
+            "evidence_count": len(event.get("evidence") or []),
+            "material_evidence_count": len(material_evidence),
+            "individual_contribution": bool(payload.get("individual_contribution")),
+            "outcome_state": payload.get("outcome_state"),
+            # Confidential narrative never enters summary/detail payloads that the GUI receives.
+            "detail": None if contains_confidential else detail,
+            "contains_confidential": contains_confidential,
+            "external_use": confidentiality.get("external_use"),
+        })
         current = experiences.setdefault(
             key,
             {
@@ -267,6 +309,7 @@ def experiences_from_events(events: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "contexts": contexts,
         "experiences": sorted(experiences.values(), key=lambda item: item["experience_id"]),
+        "claims": sorted(claims, key=lambda item: (str(item.get("work_date") or ""), item["claim_id"])),
         "unattached_evidence_ids": unattached,
     }
 

@@ -21,9 +21,11 @@ def _hook_commands() -> tuple[str, str]:
 
 
 def _run_hook(plugin_root: Path | None, *, script: str | None = None,
-              python_available: bool = True, empty_root: bool = False) -> subprocess.CompletedProcess[str]:
+              python_available: bool = True, empty_root: bool = False,
+              language: str = "ko") -> subprocess.CompletedProcess[str]:
     command, command_windows = _hook_commands()
     env = os.environ.copy()
+    env["JAPAN_CAREER_LANGUAGE"] = language
     if empty_root:
         env["CLAUDE_PLUGIN_ROOT"] = ""
     elif plugin_root is None:
@@ -46,7 +48,12 @@ def _run_hook(plugin_root: Path | None, *, script: str | None = None,
         argv = [powershell, "-NoProfile", "-NonInteractive", "-Command", command_windows]
     else:
         argv = ["/bin/sh", "-c", command]
-    return subprocess.run(argv, cwd=ROOT, env=env, capture_output=True, text=True)
+    # The hook deliberately emits Korean and Japanese recovery copy. Windows defaults its
+    # subprocess reader to a legacy code page, so make this contract read the UTF-8 bytes that the
+    # hook and status bar promise rather than turning a valid localized response into `None`.
+    return subprocess.run(
+        argv, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8"
+    )
 
 
 def _assert_degraded(result: subprocess.CompletedProcess[str]) -> None:
@@ -55,8 +62,8 @@ def _assert_degraded(result: subprocess.CompletedProcess[str]) -> None:
     assert result.stdout.count("<career_status>") == 1
     assert result.stdout.count("</career_status>") == 1
     assert "<career_status>" in result.stdout
-    assert "status_bar: unavailable" in result.stdout
-    assert "Execution gates and deadlines were NOT checked." in result.stdout
+    assert "경력 상태를 표시할 수 없음" in result.stdout
+    assert "실행 조건과 마감을 확인하지 못했습니다." in result.stdout
     assert "can't open file" not in output
     assert "Traceback" not in output
 
@@ -66,7 +73,7 @@ def _assert_normal(result: subprocess.CompletedProcess[str], marker: str) -> Non
     assert result.stdout.count("<career_status>") == 1
     assert result.stdout.count("</career_status>") == 1
     assert marker in result.stdout
-    assert "status_bar: unavailable" not in result.stdout
+    assert "경력 상태를 표시할 수 없음" not in result.stdout
 
 
 def _normal_script(marker: str) -> str:
@@ -101,7 +108,6 @@ def test_python_unavailable_fails_open() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         result = _run_hook(Path(tmp), script="print('should not run')\n", python_available=False)
         _assert_degraded(result)
-        assert "python" in result.stdout.lower()
         assert "should not run" not in result.stdout
 
 
@@ -110,6 +116,18 @@ def test_runtime_failure_fails_open_without_traceback() -> None:
         result = _run_hook(Path(tmp), script="import sys\nprint('partial')\nsys.exit(1)\n")
         _assert_degraded(result)
         assert "partial" not in result.stdout
+
+
+def test_degraded_copy_follows_the_requested_language_without_internal_reason() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        japanese = _run_hook(Path(tmp), language="ja")
+        english = _run_hook(Path(tmp), language="en")
+    assert "ステータス表示を利用できません" in japanese.stdout
+    assert "実行条件と期限を確認できませんでした" in japanese.stdout
+    assert "Career status unavailable" in english.stdout
+    for output in (japanese.stdout, english.stdout):
+        assert "plugin script unavailable" not in output
+        assert "runtime failure" not in output
 
 
 def test_paths_with_spaces_and_unicode_are_safe() -> None:

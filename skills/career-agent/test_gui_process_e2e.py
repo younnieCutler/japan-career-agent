@@ -96,7 +96,7 @@ class GuiProcessE2ETests(unittest.TestCase):
             raise AssertionError("GUI process did not announce a loopback URL")
         if not line:
             stderr = process.stderr.read() if process.stderr is not None else ""
-            if "PermissionError" in stderr and "Operation not permitted" in stderr:
+            if "GUI_START_FAILED" in stderr:
                 if os.environ.get("CI", "").casefold() == "true":
                     raise AssertionError("loopback bind unavailable in CI")
                 raise unittest.SkipTest("loopback bind unavailable in this execution sandbox")
@@ -108,32 +108,35 @@ class GuiProcessE2ETests(unittest.TestCase):
         self.assertIsNotNone(token)
         return process, str(parsed.hostname), int(parsed.port), str(token)
 
-    def test_sigkill_restart_resumes_the_same_tanaoroshi_point(self) -> None:
+    def test_sigkill_restart_discovers_and_resumes_the_same_draft(self) -> None:
         first, host, port, token = self.launch()
         status, headers, raw = request(host, port, "POST", "/session", body={"token": token})
         self.assertEqual(status, 200, raw)
         cookie = headers["Set-Cookie"].split(";", 1)[0]
         csrf = json.loads(raw)["csrf_token"]
 
-        status, _, raw = request(host, port, "POST", "/api/tanaoroshi", body={}, cookie=cookie, csrf=csrf)
-        self.assertEqual(status, 200, raw)
-        session_id = json.loads(raw)["session"]["session_id"]
         status, _, raw = request(
             host,
             port,
             "POST",
-            "/api/checkpoint",
-            body={"session_id": session_id, "stage": "review", "current_item_ref": "new_experience"},
+            "/api/workflows/start",
+            body={"workflow": "career_inventory"},
             cookie=cookie,
             csrf=csrf,
         )
         self.assertEqual(status, 200, raw)
+        started = json.loads(raw)
+        session_ref = started["session"]["session_ref"]
         status, _, raw = request(
             host,
             port,
             "POST",
-            "/api/draft",
-            body={"session_id": session_id, "draft": {"summary": "process E2E", "non_work": False}},
+            "/api/workflows/draft",
+            body={
+                "session_ref": session_ref,
+                "revision": started["revision"],
+                "draft": {"summary": "process E2E", "non_work": False},
+            },
             cookie=cookie,
             csrf=csrf,
         )
@@ -145,10 +148,17 @@ class GuiProcessE2ETests(unittest.TestCase):
         status, headers, raw = request(host, port, "POST", "/session", body={"token": token})
         self.assertEqual(status, 200, raw)
         cookie = headers["Set-Cookie"].split(";", 1)[0]
-        status, _, raw = request(host, port, "GET", f"/api/tanaoroshi?session_id={session_id}", cookie=cookie)
+        status, _, raw = request(host, port, "GET", "/api/sessions", cookie=cookie)
+        self.assertEqual(status, 200, raw)
+        discovered = json.loads(raw)
+        self.assertEqual(len(discovered["sessions"]), 1)
+        self.assertEqual(discovered["sessions"][0]["session_ref"], session_ref)
+        status, _, raw = request(
+            host, port, "GET", f"/api/work?session_ref={session_ref}", cookie=cookie
+        )
         self.assertEqual(status, 200, raw)
         resumed = json.loads(raw)
-        self.assertEqual(resumed["session"]["stage"], "review")
+        self.assertEqual(resumed["session"]["stage"], "experience")
         self.assertEqual(resumed["draft"]["summary"], "process E2E")
         self.assertTrue(resumed["unconfirmed_input"])
 

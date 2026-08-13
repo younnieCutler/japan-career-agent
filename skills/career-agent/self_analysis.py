@@ -12,6 +12,7 @@ if str(_SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(_SHARED_ROOT))
 
 import self_analysis_profile  # noqa: E402
+from models import CareerError  # noqa: E402
 from projection import workspace_path  # noqa: E402
 
 
@@ -144,3 +145,21 @@ def profile_payload(workspace: str | Path | None = None) -> dict[str, Any]:
         "field_status": _field_status(raw),
         "handoff": _handoff(available=True),
     }
+
+
+def workflow_profile(workspace: str | Path | None = None) -> dict[str, Any]:
+    """Load the same reviewed profile for the shared workflow, without a second schema."""
+    path = profile_path(workspace)
+    if not path.is_file():
+        raise CareerError("no reviewed self-analysis profile is available", code="PROFILE_NOT_FOUND")
+    try:
+        import yaml
+    except ImportError as exc:
+        raise CareerError("PyYAML is required to read self-analysis", code="READ_FAILED") from exc
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        self_analysis_profile.validate_self_analysis_profile(raw)
+    except (OSError, UnicodeError, yaml.YAMLError, self_analysis_profile.ProfileValidationError) as exc:
+        raise CareerError("the reviewed self-analysis profile is invalid", code="PROFILE_INVALID") from exc
+    assert isinstance(raw, dict)
+    return raw

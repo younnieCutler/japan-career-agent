@@ -32,10 +32,13 @@ class TanaoroshiGuiTests(unittest.TestCase):
 
         The same shape as the CSP gap: each side is self-consistent, and nothing compares them.
         """
-        script = static_asset("bootstrap.js").decode("utf-8")
-        called = set(re.findall(r'["\'`](/api/[a-z/-]+)', script))
+        script = b"".join(
+            static_asset(name)
+            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
+        ).decode("utf-8")
+        called = set(re.findall(r'["\'`](/api/[a-z0-9/-]+)', script))
         source = Path(__file__).with_name("server.py").read_text(encoding="utf-8")
-        served = set(re.findall(r'"(/api/[a-z/-]+)"', source))
+        served = set(re.findall(r'"(/api/[a-z0-9/-]+)"', source))
 
         self.assertIn("/api/sessions", called)
         self.assertEqual(called - served, set())
@@ -52,7 +55,10 @@ class TanaoroshiGuiTests(unittest.TestCase):
         product is named after, which the Korean README prints as it is.
         """
         shell = render_shell()
-        script = static_asset("bootstrap.js").decode("utf-8")
+        script = b"".join(
+            static_asset(name)
+            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
+        ).decode("utf-8")
         kana = re.compile(r"[぀-ゟ゠-ヿ]")
         offenders = []
         for line in script.splitlines():
@@ -66,32 +72,43 @@ class TanaoroshiGuiTests(unittest.TestCase):
         self.assertEqual(offenders, [], "Japanese sentences in a ko-declared screen")
 
     def test_resuming_does_not_depend_on_client_side_memory(self) -> None:
-        script = static_asset("bootstrap.js").decode("utf-8")
+        script = b"".join(
+            static_asset(name)
+            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
+        ).decode("utf-8")
         self.assertNotIn("localStorage.getItem", script)
         self.assertNotIn("localStorage.setItem", script)
 
     def test_adapter_exposes_semantic_state_and_explicit_unknowns(self) -> None:
         payload = tanaoroshi.start(self.home)
 
-        self.assertEqual(payload["session"]["workflow"], "tanaoroshi")
-        self.assertEqual(payload["session"]["stage"], "experience_evidence")
+        self.assertEqual(payload["session"]["workflow"], "career_inventory")
+        self.assertEqual(payload["session"]["stage"], "experience")
         self.assertIn("individual_contribution", payload["missing_fields"])
         self.assertNotIn("page", payload["session"])
 
     def test_form_contract_uses_debounced_draft_and_explicit_non_work_flag(self) -> None:
-        script = static_asset("bootstrap.js").decode("utf-8")
+        script = static_asset("screens.js").decode("utf-8")
 
-        self.assertIn("/api/draft", script)
-        self.assertIn("800", script)
-        self.assertIn("non_work", script)
-        self.assertIn("experience_evidence", script)
-        self.assertNotIn("window.fetch('/api/approve'", script)
+        editor = script.split("function careerDraftForm", 1)[1].split("function profileSummary", 1)[0]
+        self.assertIn("/api/workflows/draft", editor)
+        self.assertIn("650", editor)
+        self.assertIn("workBreadcrumb", editor)
+        self.assertIn("outcome_state", editor)
+        self.assertIn('outcomeField.hidden = !outcomeKnown', editor)
+        self.assertIn('["qualitative", "quantitative"].includes(outcomeState.value) ? outcome.value.trim() : ""', editor)
+        self.assertNotIn("evidence.required = true", editor)
+        self.assertIn("editVersion += 1", editor)
+        self.assertIn("savingVersion === editVersion", editor)
+        self.assertIn("return saved && dirty ? doSave() : saved", editor)
+        self.assertLess(editor.index("/api/workflows/propose"), editor.index("/api/workflows/approve"))
+        self.assertIn("queueMicrotask(() => success.focus())", editor)
 
     def test_incomplete_browser_controls_are_saved_as_unknown(self) -> None:
         created = tanaoroshi.start(self.home)
         result = tanaoroshi.autosave(
             self.home,
-            created["session"]["session_id"],
+            created["session"]["session_ref"],
             {
                 "summary": "",
                 "role": "",
@@ -102,6 +119,7 @@ class TanaoroshiGuiTests(unittest.TestCase):
                 "non_work": False,
                 "confidentiality": {"contains_confidential": False, "external_use": "unknown"},
             },
+            expected_revision=0,
         )
         self.assertIn("individual_contribution", result["missing_fields"])
 

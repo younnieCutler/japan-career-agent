@@ -31,6 +31,7 @@ from models import (
 from private_store import DOCUMENT_TYPES, PRIVATE_ENV
 from render import available_templates
 from routing import language_for
+from sessions import SESSION_ENTRYPOINTS, SESSION_WORKFLOW_STAGES
 from ux import attach as project_ux, error_payload, render_human
 from vault import CareerVault, today, utc_now
 
@@ -90,12 +91,43 @@ def build_parser() -> argparse.ArgumentParser:
     add_as_of_argument(ui_parser)
     ui_parser.add_argument("--port", type=int, default=0, help="loopback port; 0 chooses a free port")
     ui_parser.add_argument("--no-browser", action="store_true", help="print the launch URL without opening a browser")
+    ui_parser.add_argument("--language", choices=("ko", "ja", "en"), default="ko")
     add_output_format(ui_parser)
     sessions_parser = subparsers.add_parser(
-        "sessions", help="list resumable 棚卸し sessions; this command is read-only",
+        "sessions", help="list resumable workflows with human context; this command is read-only",
     )
     add_vault_argument(sessions_parser)
+    sessions_parser.add_argument("--workflow", choices=sorted(SESSION_WORKFLOW_STAGES))
+    sessions_parser.add_argument("--archived", action="store_true", help="include safely archived work")
     add_output_format(sessions_parser)
+    workflow_parser = subparsers.add_parser(
+        "workflow",
+        help="start, resume, save, review, approve, or archive host-neutral workflow state",
+    )
+    add_vault_argument(workflow_parser)
+    workflow_parser.add_argument(
+        "action",
+        choices=("start", "resume", "save", "checkpoint", "propose", "approve", "archive", "restore"),
+    )
+    workflow_parser.add_argument("--workflow", choices=sorted(SESSION_WORKFLOW_STAGES))
+    workflow_parser.add_argument(
+        "--entrypoint", choices=sorted(SESSION_ENTRYPOINTS - {"unknown"}), default="cli",
+    )
+    workflow_parser.add_argument("--session-ref", help="opaque reference returned after an explicit choice")
+    workflow_parser.add_argument(
+        "--context",
+        help="visible context label, or Employer / Project path, for an id-free exact choice",
+    )
+    workflow_parser.add_argument("--case-ref", help="opaque project reference for a career experience")
+    workflow_parser.add_argument("--subject-json", default="{}", help="human context labels as a JSON object")
+    workflow_parser.add_argument("--json", dest="draft_json", help="workflow draft JSON; '-' reads stdin")
+    workflow_parser.add_argument("--revision", type=int, help="revision returned by resume; required for writes")
+    workflow_parser.add_argument("--proposal-ref", help="opaque reviewed proposal reference")
+    workflow_parser.add_argument("--stage", help="semantic stage for checkpoint")
+    workflow_parser.add_argument("--current-item", help="human-semantic item currently in progress")
+    workflow_parser.add_argument("--missing", action="append")
+    workflow_parser.add_argument("--completed", action="append")
+    add_output_format(workflow_parser)
     for command, field in (("set-job-search", "job_search"), ("set-employment-status", "employment_status")):
         axis_parser = subparsers.add_parser(
             command,
@@ -488,6 +520,10 @@ def _output_language(args: argparse.Namespace, result: Mapping[str, Any] | None 
         return normalize_language((result or {}).get("language") or language_for(message))
     if args.command == "guided" and args.message:
         return language_for(args.message)
+    # The GUI can fail before a Vault/profile is available. Its explicit launch locale must still
+    # determine the recovery message instead of silently falling back to Korean.
+    if args.command == "ui" and args.language:
+        return normalize_language(args.language)
     if args.command == "setup" and args.language:
         return normalize_language(args.language)
     if result and isinstance(result.get("profile"), dict) and result["profile"].get("language"):

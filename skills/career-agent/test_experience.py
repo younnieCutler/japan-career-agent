@@ -121,6 +121,22 @@ class ContextIsNotAlwaysAnEmployerTests(unittest.TestCase):
             context_payload(period={"from": "2022-04", "to": None})
         )
 
+    def test_current_and_unknown_end_are_distinct_honest_period_states(self) -> None:
+        validation.validate_experience_context(
+            context_payload(period={"from": "2022-04", "to": None, "current": True})
+        )
+        validation.validate_experience_context(
+            context_payload(period={"from": "2022-04", "to": None, "current": False})
+        )
+        with self.assertRaises(CareerError):
+            validation.validate_experience_context(
+                context_payload(period={"from": "2022-04", "to": "2023-03", "current": True})
+            )
+        with self.assertRaises(CareerError):
+            validation.validate_experience_context(
+                context_payload(period={"from": "2022-04", "current": "yes"})
+            )
+
     def test_a_context_event_must_carry_its_payload(self) -> None:
         with self.assertRaises(CareerError):
             validation.validate_event(event(type=EXPERIENCE_CONTEXT_EVENT_TYPE))
