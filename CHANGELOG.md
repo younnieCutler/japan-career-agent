@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.10.1] - 2026-08-13
+
+- Return the visible case reference from generic `/api/cases` creation, matching the company and
+  application endpoints and keeping the browser's protected follow-up write usable.
+
 ## [2.10.0] - 2026-08-13
 
 - Make Career History the primary GUI surface: employer or non-work context → project →

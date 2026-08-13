@@ -659,7 +659,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             result = cases.present_review(result)
         elif path == "/api/career/approve":
             result = {"approved": True, "record": cases.present_case(result["case"])}
-        elif path in {"/api/career/contexts", "/api/career/projects", "/api/career/organize", "/api/career/assign-project-context", "/api/applications/companies", "/api/applications/positions"}:
+        elif path in {"/api/career/contexts", "/api/career/projects", "/api/career/organize", "/api/career/assign-project-context", "/api/cases", "/api/applications/companies", "/api/applications/positions"}:
             result = cases.present_case(result)
         elif path in {"/api/applications/research", "/api/applications/documents"}:
             result = {"saved": True}

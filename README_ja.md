@@ -32,7 +32,7 @@
 
 ---
 
-現在のリリース: `2.10.0`。
+現在のリリース: `2.10.1`。
 
 ## これは何か
 
@@ -247,7 +247,7 @@ python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format hu
 あります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを参照し、`main`
 は追跡しません。
 
-現在はソースメタデータが `2.10.0` である一方、stable marketplace ref はまだ `v2.1.1` です。この
+現在はソースメタデータが `2.10.1` である一方、stable marketplace ref はまだ `v2.1.1` です。この
 ソースに対するタグをリリース workflow がまだ公開していないためで、marketplace から入れると今日は
 `2.1.1` が入ります。次のタグが公開されれば差は閉じます。`uvx` と `npx` はこの ref ではなく公開済み
 パッケージのバージョンを解決するので、どちらの場合も影響を受けません。
