@@ -146,6 +146,23 @@ class ProjectCaseTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
+    def _project(self, label: str, **kwargs):
+        context = cases.create_career_context(
+            self.home,
+            "Acme employment",
+            context_kind="company",
+            relationship="employer",
+        )
+        return context, cases.create_project(self.home, context["case_id"], label, **kwargs)
+
+    def _approve_case(self, record: dict) -> dict:
+        proposed = cases.propose_canonical_case(self.home, record["case_id"])
+        return cases.approve_canonical_case(
+            self.home,
+            record["case_id"],
+            proposed["proposal"]["id"],
+        )["case"]
+
     def test_a_project_case_holds_notes_and_documents_without_touching_the_ledger(self) -> None:
         """A project someone is living through is not yet career evidence.
 
@@ -155,15 +172,15 @@ class ProjectCaseTests(unittest.TestCase):
         before = {
             path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()
         }
-        project = cases.create_project(
-            self.home, "Payment Platform Migration", project_id="proj-payments",
+        context, project = self._project(
+            "Payment Platform Migration", project_id="proj-payments",
         )
         retrospective = artifacts.register_artifact(
             self.home, case_ref=project["case_id"], kind="project_review", body="회고 초안",
         )
 
         self.assertEqual(project["kind"], "project")
-        self.assertIsNone(project["parent_ref"])
+        self.assertEqual(project["parent_ref"], context["case_id"])
         self.assertEqual(project["metadata"]["project_id"], "proj-payments")
         self.assertEqual(
             [item["artifact_id"] for item in artifacts.list_artifacts(self.home, case_ref=project["case_id"])],
@@ -176,7 +193,7 @@ class ProjectCaseTests(unittest.TestCase):
         self.assertFalse(self.home.events.exists())
 
     def test_a_project_case_is_isolated_from_application_cases(self) -> None:
-        project = cases.create_project(self.home, "Payment Platform Migration")
+        _, project = self._project("Payment Platform Migration")
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
         application = cases.create_application(self.home, company["case_id"], "Backend")
         artifacts.register_artifact(
@@ -195,10 +212,12 @@ class ProjectCaseTests(unittest.TestCase):
         The session carries the project's case_ref so the confirmed event can be traced back to
         the work it came from, and nothing reaches the ledger until the user approves it.
         """
-        project = cases.create_project(self.home, "Payment Platform Migration")
+        context, project = self._project("Payment Platform Migration")
+        self._approve_case(context)
+        project = self._approve_case(project)
         started = tanaoroshi.start(self.home, case_ref=project["case_id"])
-        session_id = started["session"]["session_id"]
-        tanaoroshi.autosave(
+        session_id = started["session"]["session_ref"]
+        saved = tanaoroshi.autosave(
             self.home,
             session_id,
             {
@@ -206,32 +225,61 @@ class ProjectCaseTests(unittest.TestCase):
                 "evidence": ["runbook"],
                 "role": "owner",
                 "direct_actions": ["알람을 재설계했다"],
-                "non_work": False,
+                "individual_contribution": "알람 기준과 운영 절차를 직접 설계했다",
+                "outcome_state": "qualitative",
+                "team_result": "결제 배치 대응이 안정됐다",
+                "confidentiality": {
+                    "contains_confidential": False,
+                    "external_use": "allowed",
+                },
             },
+            expected_revision=0,
         )
-        proposal = tanaoroshi.submit(self.home, session_id)
+        before_proposal = persistence.read_jsonl(self.home.events)
+        proposal = tanaoroshi.submit(
+            self.home, session_id, expected_revision=saved["revision"]
+        )
 
-        self.assertEqual(started["session"]["case_ref"], project["case_id"])
-        self.assertFalse(self.home.events.exists())
+        self.assertEqual(started["session"]["subject"]["context_label"], "Acme employment")
+        self.assertEqual(
+            started["session"]["subject"]["project_label"], "Payment Platform Migration"
+        )
+        self.assertEqual(persistence.read_jsonl(self.home.events), before_proposal)
 
-        tanaoroshi.approve_session(self.home, session_id, proposal["proposal"]["id"])
+        tanaoroshi.approve_session(
+            self.home,
+            session_id,
+            proposal["proposal"]["id"],
+            expected_revision=proposal["revision"],
+        )
         events = persistence.read_jsonl(self.home.events)
 
-        self.assertEqual(len(events), 1)
-        self.assertEqual(events[0]["summary"], "결제 배치 지연을 줄였다")
+        self.assertEqual(len(events), len(before_proposal) + 1)
+        self.assertEqual(events[-1]["summary"], "결제 배치 지연을 줄였다")
         self.assertEqual(
             sessions.load_session(self.home, session_id)["case_ref"], project["case_id"]
         )
 
     def test_the_project_screen_records_through_the_case_and_session_routes(self) -> None:
-        script = (RUNTIME_ROOT / "gui" / "static" / "bootstrap.js").read_text(encoding="utf-8")
-        renderer = script.split("const renderProjects", 1)[1].split("const renderHome", 1)[0]
+        script = (RUNTIME_ROOT / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
+        renderer = script.split("function createProjectForm", 1)[1].split("function experienceRow", 1)[0]
 
-        self.assertIn('kind: "project"', renderer)
-        self.assertIn("external_use", renderer)
-        self.assertIn("/api/tanaoroshi", renderer)
-        # The screen must not offer a path that writes a confirmed fact without the approval step.
-        self.assertNotIn("/api/approve", renderer)
+        self.assertIn("/api/career/projects", renderer)
+        self.assertNotIn("external_use", renderer)
+        self.assertIn('name: "current"', renderer)
+        self.assertIn("date.end_help", renderer)
+        self.assertNotIn("/api/workflows/approve", renderer)
+
+    def test_career_history_opens_confirmed_experience_detail_and_recovers_drafts(self) -> None:
+        script = (RUNTIME_ROOT / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
+        experience = script.split("function experienceRow", 1)[1].split("function projectTree", 1)[0]
+
+        self.assertIn('el("details", { className: "experience-detail" })', experience)
+        self.assertIn("experience.detail", experience)
+        self.assertIn("evidence.missing_usable", experience)
+        self.assertIn("/api/cases/", script)
+        self.assertIn("case.archive_confirm", script)
+        self.assertIn("success.context_approved_next", script)
 
     def test_the_client_reads_the_case_shape_the_server_actually_returns(self) -> None:
         """`/api/cases` returns the case flat, not wrapped.
@@ -240,19 +288,16 @@ class ProjectCaseTests(unittest.TestCase):
         fails in the browser only — every Python test here calls the adapter directly and never
         sees the response shape the client parses.
         """
-        script = (RUNTIME_ROOT / "gui" / "static" / "bootstrap.js").read_text(encoding="utf-8")
-        served = cases.create_project(self.home, "Shape check")
+        script = (RUNTIME_ROOT / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
 
-        self.assertIn("case_id", served)
-        self.assertNotIn("case", served)
         self.assertNotIn(".case.case_id", script)
-        self.assertIn("created.case_id", script)
+        self.assertIn("organized.ref", script)
+        self.assertIn("result.session", script)
 
     def test_a_project_cannot_be_parented_and_keeps_its_own_kind(self) -> None:
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
         with self.assertRaises(CareerError):
-            cases.create_application(self.home, company["case_id"], "Backend",
-                                     case_id=cases.create_project(self.home, "P")["case_id"])
+            cases.create_project(self.home, company["case_id"], "Wrongly parented")
 
 
 class ProjectsRouteTests(unittest.TestCase):
@@ -277,10 +322,10 @@ class ProjectsRouteTests(unittest.TestCase):
                 self.assertEqual(post[1]["Allow"], "GET")
 
     def test_browser_contract_exposes_projects_and_employment_without_html_injection(self) -> None:
-        script = import_module("gui.templates").static_asset("bootstrap.js").decode("utf-8")
-        self.assertIn("/api/projects", script)
-        self.assertIn("renderProjects", script)
-        self.assertIn("재직 중", script)
+        script = import_module("gui.templates").static_asset("screens.js").decode("utf-8")
+        self.assertIn("/api/career", script)
+        self.assertIn("careerScreen", script)
+        self.assertIn("context_kind.company", script)
         self.assertIn("textContent", script)
         self.assertNotIn("innerHTML", script)
 

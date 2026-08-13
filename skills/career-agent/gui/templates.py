@@ -5,6 +5,7 @@ from __future__ import annotations
 from importlib.resources import files
 from pathlib import Path
 
+from localization import gui_catalog, normalize_language
 from render import fill_slots
 
 
@@ -18,33 +19,59 @@ SHELL_TEMPLATE = """<!doctype html>
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <header class="masthead">
-      <p class="eyebrow">LOCAL / PRIVATE</p>
-      <h1>{{title}}</h1>
-      <p class="lede">A calm place to collect career evidence, one honest step at a time.</p>
-    </header>
-    <main id="main-content" tabindex="-1">
-      <section class="empty-state" aria-labelledby="welcome-heading">
-        <p class="section-label">SECURE SESSION</p>
-        <h2 id="welcome-heading">Your local career case is opening.</h2>
-        <p id="session-status" role="status">Waiting for the browser session handshake.</p>
-      </section>
-    </main>
-    <script src="/static/bootstrap.js" defer></script>
+    <a class="skip-link" href="#main-content">{{skip}}</a>
+    <div id="app-root">
+      <header class="boot-header">
+        <p class="wordmark">{{title}}</p>
+        <p class="privacy-note">{{privacy}}</p>
+      </header>
+      <main id="main-content" tabindex="-1">
+        <section class="state-panel state-panel--loading" aria-labelledby="welcome-heading">
+          <p class="eyebrow">{{tagline}}</p>
+          <h1 id="welcome-heading">{{opening}}</h1>
+          <p id="session-status" role="status">{{loading}}</p>
+          <span id="boot-error-copy" hidden>{{boot_error}}</span>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/static/bootstrap.js"></script>
   </body>
 </html>
 """
 
 
-def render_shell() -> str:
+def render_shell(language: str = "ko") -> str:
     """Render the data-free shell through the existing escaped slot renderer."""
-    return fill_slots(SHELL_TEMPLATE, {"title": "Japan Career Agent", "lang": "ko"})
+    locale = normalize_language(language)
+    catalog = gui_catalog(locale)
+    return fill_slots(
+        SHELL_TEMPLATE,
+        {
+            "title": catalog["app.title"],
+            "lang": locale,
+            "skip": catalog["a11y.skip"],
+            "privacy": catalog["app.privacy"],
+            "tagline": catalog["app.tagline"],
+            "opening": catalog["home.title"],
+            "loading": catalog["state.loading"],
+            "boot_error": catalog["error.BROWSER_SESSION_EXPIRED"],
+        },
+    )
+
+
+def normalize_gui_language(language: object) -> str:
+    """Keep locale policy in the application adapter, outside the HTTP boundary."""
+    return normalize_language(language)
+
+
+def gui_messages(language: object) -> dict[str, str]:
+    """Return one complete locale catalog for the data-free browser client."""
+    return gui_catalog(language)
 
 
 def static_asset(name: str) -> bytes:
     """Read one packaged static asset without accepting a path from the request."""
-    if name not in {"bootstrap.js", "style.css"}:
+    if name not in {"bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js", "style.css"}:
         raise FileNotFoundError(name)
     return files("gui.static").joinpath(name).read_bytes()
 

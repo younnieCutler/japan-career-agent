@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from localization import action_label, normalize_language, state_label, text
+from localization import action_label, domain_label, normalize_language, state_label, text
 
 
 def _action(
@@ -303,7 +303,11 @@ def render_human(result: Mapping[str, Any]) -> str:
     ux = result.get("ux") if isinstance(result.get("ux"), Mapping) else {}
     language = normalize_language(ux.get("language") or summary.get("language"))
     lines = [text(language, "summary.guided_title"), f"{text(language, 'section.state')}: {state_label(language, guided.get('state', 'ready'))}", f"{text(language, 'section.current_state')}:"]
-    lines.append(f"- {text(language, 'section.track')}: {summary.get('track') or text(language, 'guided.track_unset')}")
+    track = summary.get("track")
+    lines.append(
+        f"- {text(language, 'section.track')}: "
+        f"{domain_label(language, 'track', track) if track else text(language, 'guided.track_unset')}"
+    )
     lines.append(f"- {text(language, 'section.onboarding')}: {text(language, 'guided.onboarding_active' if summary.get('onboarding') else 'guided.onboarding_done')}")
     lines.append(f"- {text(language, 'section.target_role')}: {summary.get('target_role') or text(language, 'guided.target_role_unset')}")
     lines.append(f"- {text(language, 'section.setup')}: {text(language, 'guided.setup_complete' if summary.get('setup_complete') else 'guided.setup_required')}")
@@ -330,7 +334,10 @@ def render_human(result: Mapping[str, Any]) -> str:
             "conflict": text(language, "section.conflict"),
             "workspace": text(language, "section.workspace"),
         }
-        lines.append(f"- {text(language, 'section.problem')}: {', '.join(blocker_labels.get(str(item), str(item)) for item in summary['major_blockers'])}")
+        lines.append(
+            f"- {text(language, 'section.problem')}: "
+            f"{', '.join(blocker_labels.get(str(item), text(language, 'reason.operation_blocked')) for item in summary['major_blockers'])}"
+        )
     lines.append(f"{text(language, 'section.available_actions')}:")
     for index, action in enumerate(actions, start=1):
         suffix = text(language, "guided.confirmation_suffix") if action.get("requires_confirmation") else ""
@@ -346,7 +353,10 @@ def render_human(result: Mapping[str, Any]) -> str:
             "invalid": state_label(language, "blocked"),
             "blocked": state_label(language, "blocked"),
         }
-        lines.append(f"{text(language, 'section.selection')}: {selection_labels.get(str(selection['status']), str(selection['status']))}")
+        lines.append(
+            f"{text(language, 'section.selection')}: "
+            f"{selection_labels.get(str(selection['status']), state_label(language, 'blocked'))}"
+        )
     if result.get("error") and reason.get("message"):
         lines.insert(0, f"{text(language, 'section.problem')}: {reason['message']}")
     return "\n".join(lines)

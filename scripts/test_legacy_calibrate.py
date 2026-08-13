@@ -35,6 +35,7 @@ def test_workspace_flag_resolves_pipeline_path():
             code = legacy_calibrate.main(["--workspace", str(workspace), "--legacy-experimental"])
         assert code == 0
         assert "tier=B" in out.getvalue(), out.getvalue()
+        assert "reached=4 Interview" in out.getvalue(), out.getvalue()
 
 
 def run() -> int:

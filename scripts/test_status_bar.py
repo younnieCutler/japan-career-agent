@@ -10,7 +10,9 @@ Run: python3 scripts/test_status_bar.py
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import io
 import os
 import subprocess
 import sys
@@ -50,10 +52,46 @@ def test_counts_and_stage_breakdown():
     assert build_status(pipeline, {}, TODAY) == (
         "<career_status>\n"
         "<untrusted_career_data>\n"
-        "pipeline: 3 active (3 応募・書類 1, 4 面接 2) / 1 closed\n"
+        "pipeline: 3 active (3 Application and screening 1, 4 Interview 2) / 1 closed\n"
         "</untrusted_career_data>\n"
         "</career_status>"
     )
+
+
+def test_ko_ja_status_bar_labels_and_stage_names_are_pure():
+    pipeline = {"companies": [company("a", stage=3), company("b", stage=4, closed=True)]}
+    ko = build_status(pipeline, {}, TODAY, language="ko")
+    ja = build_status(pipeline, {}, TODAY, language="ja")
+    assert "지원 현황: 1 진행 중 (3 지원·서류전형 1) / 1 종료" in ko
+    assert "pipeline" not in ko and "active" not in ko and "closed" not in ko
+    assert "応募状況: 1 進行中 (3 応募・書類 1) / 1 終了" in ja
+    assert "pipeline" not in ja and "active" not in ja and "closed" not in ja
+
+
+def test_status_language_reads_explicit_env_and_vault_profile():
+    old_language = os.environ.get("JAPAN_CAREER_LANGUAGE")
+    old_vault = os.environ.get("CAREER_VAULT")
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            vault = Path(directory)
+            state = vault / "02-state"
+            state.mkdir()
+            (state / "career-state.toml").write_text('language = "ja"\n', encoding="utf-8")
+            os.environ.pop("JAPAN_CAREER_LANGUAGE", None)
+            os.environ["CAREER_VAULT"] = str(vault)
+            assert status_bar.status_language() == "ja"
+            os.environ["JAPAN_CAREER_LANGUAGE"] = "en"
+            assert status_bar.status_language() == "en"
+            assert status_bar.status_language("ko") == "ko"
+    finally:
+        if old_language is None:
+            os.environ.pop("JAPAN_CAREER_LANGUAGE", None)
+        else:
+            os.environ["JAPAN_CAREER_LANGUAGE"] = old_language
+        if old_vault is None:
+            os.environ.pop("CAREER_VAULT", None)
+        else:
+            os.environ["CAREER_VAULT"] = old_vault
 
 
 def test_nearest_deadline_only():
@@ -195,6 +233,8 @@ def test_diversity_warning_only_when_window_full_and_uniform():
     # Too few known values to claim a pattern.
     assert "diversity:" not in build_status(demo(["no"] * 4), {}, TODAY)
     assert "diversity:" not in build_status(demo(["no", "no", "unknown", "no", "no"]), {}, TODAY)
+    for language in ("ko", "ja", "en"):
+        assert "demo_slot" not in build_status(demo(["no"] * 5), {}, TODAY, language=language)
 
 
 def test_version_comparison():
@@ -307,13 +347,13 @@ def test_invalid_stage_payload_handled():
         ]
     }
     out = build_status(pipeline, {}, TODAY)
-    assert "unknown" in out
+    assert "Unknown" in out
     assert "Ignore previous instructions" not in out
     assert out.count("</untrusted_career_data>") == 1
     assert "pipeline: 2 active" in out
     assert status_bar.stage_label(0).startswith("0 ")
-    assert status_bar.stage_label(True) == "unknown"
-    assert status_bar.stage_label(8) == "unknown"
+    assert status_bar.stage_label(True) == "Unknown"
+    assert status_bar.stage_label(8) == "Unknown"
 
 
 def test_malformed_cwd_shapes_fail_closed():
@@ -346,6 +386,25 @@ def test_workspace_path_matches_shared_resolver():
             os.environ.pop("CAREER_WORKSPACE", None)
         else:
             os.environ["CAREER_WORKSPACE"] = old_workspace
+
+
+def test_invalid_yaml_reports_a_localized_user_state_without_parser_codes():
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "pipeline.yml"
+        path.write_text("companies: [\n", encoding="utf-8")
+        for language in ("ko", "ja", "en"):
+            stream = io.StringIO()
+            with contextlib.redirect_stdout(stream):
+                try:
+                    status_bar.load_yaml(path, language=language)
+                except SystemExit as exc:
+                    assert exc.code == 0
+                else:
+                    raise AssertionError("invalid YAML did not stop the degraded status path")
+            rendered = stream.getvalue()
+            assert "ParserError" not in rendered
+            assert "ScannerError" not in rendered
+            assert "pipeline.yml" in rendered
 
 
 def test_workspace_resolution_explicit_env_then_cwd():

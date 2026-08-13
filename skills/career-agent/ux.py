@@ -10,7 +10,15 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from models import CareerError
-from localization import UX_TEXT, action_label, effect_label, normalize_language, state_label, text
+from localization import (
+    UX_TEXT,
+    action_label,
+    domain_label,
+    effect_label,
+    normalize_language,
+    state_label,
+    text,
+)
 
 __all__ = ["UX_TEXT", "attach", "error_payload", "render_human", "text"]
 
@@ -597,6 +605,7 @@ def error_payload(error: CareerError, *, language: str | None = None) -> dict[st
     actions = action_map.get(code, [_action("retry", action_label(language, "retry"), operation_kind="retry")])
     localized_reason = {
         "SETUP_REQUIRED": "reason.setup_required",
+        "GUI_START_FAILED": "reason.gui_start_failed",
         "EVIDENCE_REQUIRED": "action.provide_evidence",
         "EVIDENCE_MISMATCH": "action.provide_matching_evidence",
     }.get(code, "reason.operation_blocked")
@@ -633,6 +642,107 @@ def error_payload(error: CareerError, *, language: str | None = None) -> dict[st
     return payload
 
 
+def _domain_detail_lines(payload: Mapping[str, Any], language: str) -> list[str]:
+    """Render known user concepts only; JSON retains canonical keys and values."""
+    lines: list[str] = []
+    mode = str(payload.get("mode") or "")
+    if mode == "status" or (
+        not mode and {"profile", "state", "workspace", "pending_proposals"}.issubset(payload)
+    ):
+        profile = payload.get("profile") if isinstance(payload.get("profile"), Mapping) else {}
+        state = payload.get("state") if isinstance(payload.get("state"), Mapping) else {}
+        fields = (
+            ("section.track", "track", profile.get("track")),
+            ("section.career_status", "career_status", profile.get("career_status")),
+            ("section.employment_status", "employment", profile.get("employment_status")),
+            ("section.job_search", "job_search", profile.get("job_search")),
+            ("section.career_mode", "career_mode", state.get("career_mode")),
+            ("section.stage", "pipeline_stage", state.get("stage")),
+        )
+        for label_key, namespace, value in fields:
+            if value is not None:
+                lines.append(f"{text(language, label_key)}: {domain_label(language, namespace, value)}")
+    elif mode == "readiness":
+        dimensions = payload.get("dimensions") if isinstance(payload.get("dimensions"), Mapping) else {}
+        if dimensions:
+            lines.append(f"{text(language, 'section.readiness')}:")
+            for name, value in dimensions.items():
+                lines.append(
+                    f"- {domain_label(language, 'readiness_dimension', name)}: "
+                    f"{domain_label(language, 'fact_state', value)}"
+                )
+    elif mode == "weekly-review":
+        groups = payload.get("groups") if isinstance(payload.get("groups"), list) else []
+        if groups:
+            lines.append(f"{text(language, 'section.weekly_review')}:")
+            for group in groups:
+                if not isinstance(group, Mapping):
+                    continue
+                title = str(group.get("title") or text(language, "section.untitled"))
+                lines.append(f"- {title}")
+                for event in group.get("events", []):
+                    if not isinstance(event, Mapping):
+                        continue
+                    event_title = str(event.get("title") or text(language, "section.untitled"))
+                    status = domain_label(language, "event_status", event.get("status"))
+                    gaps = [
+                        domain_label(language, "weekly_gap", gap)
+                        for gap in event.get("gaps", [])
+                    ]
+                    suffix = f" · {text(language, 'section.gaps')}: {', '.join(gaps)}" if gaps else ""
+                    lines.append(f"  - {event_title} · {status}{suffix}")
+    elif mode == "maintenance-check":
+        suggestions = payload.get("suggestions") if isinstance(payload.get("suggestions"), list) else []
+        if suggestions:
+            lines.append(f"{text(language, 'section.suggestions')}:")
+            for suggestion in suggestions:
+                if not isinstance(suggestion, Mapping):
+                    continue
+                label = domain_label(language, "maintenance_suggestion", suggestion.get("kind"))
+                context = suggestion.get("title")
+                lines.append(f"- {label}{f': {context}' if context else ''}")
+    elif mode == "proposals":
+        proposals = payload.get("proposals") if isinstance(payload.get("proposals"), list) else []
+        counts: dict[tuple[str, str], int] = {}
+        for proposal in proposals:
+            if not isinstance(proposal, Mapping):
+                continue
+            marker = (str(proposal.get("kind")), str(proposal.get("status")))
+            counts[marker] = counts.get(marker, 0) + 1
+        if counts:
+            lines.append(f"{text(language, 'section.proposal_types')}:")
+            for (kind, status), count in sorted(counts.items()):
+                lines.append(
+                    f"- {domain_label(language, 'proposal_kind', kind)} · "
+                    f"{domain_label(language, 'proposal_status', status)}: {count}"
+                )
+    elif mode == "sessions" or payload.get("error_code") == "SESSION_AMBIGUOUS":
+        if mode == "sessions":
+            rows = payload.get("sessions") if isinstance(payload.get("sessions"), list) else []
+        else:
+            details = payload.get("details") if isinstance(payload.get("details"), Mapping) else {}
+            rows = details.get("choices") if isinstance(details.get("choices"), list) else []
+        if rows:
+            lines.append(f"{text(language, 'section.resumable_work')}:")
+            for row in rows:
+                if not isinstance(row, Mapping):
+                    continue
+                context = row.get("display_context", row.get("context"))
+                context = context if isinstance(context, list) else []
+                label = " / ".join(str(item) for item in context if item) or domain_label(
+                    language, "workflow", row.get("workflow")
+                )
+                status = domain_label(
+                    language, "session_status", row.get("status", row.get("review_status"))
+                )
+                stage = row.get("stage")
+                stage_text = f" · {domain_label(language, 'session_stage', stage)}" if stage else ""
+                lines.append(f"- {label} · {status}{stage_text}")
+            if len(rows) > 1:
+                lines.append(text(language, "session.resume_hint"))
+    return lines
+
+
 def render_human(payload: Mapping[str, Any]) -> str:
     """Render only the UX projection; JSON remains the default machine contract."""
     ux = payload.get("ux") if isinstance(payload.get("ux"), Mapping) else {}
@@ -641,6 +751,7 @@ def render_human(payload: Mapping[str, Any]) -> str:
     lines = [f"{text(language, 'section.state')}: {state_label(language, raw_state)}"]
     if ux.get("summary"):
         lines.append(f"{text(language, 'section.summary')}: {ux['summary']}")
+    lines.extend(_domain_detail_lines(payload, language))
     reason = ux.get("reason") if isinstance(ux.get("reason"), Mapping) else {}
     if reason.get("message"):
         lines.append(f"{text(language, 'section.reason')}: {reason['message']}")

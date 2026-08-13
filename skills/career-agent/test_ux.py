@@ -123,10 +123,11 @@ class FirstRunVocabularyTests(unittest.TestCase):
     """What a user reads must be in their language; the machine payload is unaffected."""
 
     def test_every_effect_string_resolves_to_a_translated_phrase(self) -> None:
-        """`effect_label` returns its input unchanged for anything it does not recognize, so an
-        effect added without a catalog entry leaks `canonical state` into human output instead of
-        failing. This walks the source rather than a sample of results, because the leak appears
-        only on the command that produces that one effect."""
+        """Every declared effect must have a label; unknown effects now fail rather than leak.
+
+        This walks the source rather than a sample of results, because a missing label appears only
+        on the command that produces that one effect.
+        """
         import ast
         import localization
 

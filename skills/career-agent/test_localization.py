@@ -91,6 +91,28 @@ class LocalizationTests(unittest.TestCase):
                 self.assertIn("状態", result.stdout, command)
                 self.assertNotIn("State:", result.stdout, command)
 
+    def test_status_and_guided_keep_ko_ja_en_domain_language_pure(self) -> None:
+        fixtures = {
+            "ko": ("경력채용", "확인되지 않음", ("中途採用", "Mid-career hiring", "chuto")),
+            "ja": ("中途採用", "未確認", ("경력채용", "Mid-career hiring", "chuto")),
+            "en": ("Mid-career hiring", "Unknown", ("경력채용", "中途採用", "chuto")),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            for language, (track, unknown, forbidden) in fixtures.items():
+                with self.subTest(language=language):
+                    vault = Path(directory) / language
+                    self.assertEqual(
+                        run(vault, "setup", "--track", "chuto", "--language", language).returncode,
+                        0,
+                    )
+                    for command in ("status", "guided"):
+                        result = run(vault, command, "--format", "human")
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertIn(track, result.stdout)
+                        self.assertIn(unknown, result.stdout)
+                        for token in forbidden:
+                            self.assertNotIn(token, result.stdout)
+
     def test_korean_human_output_does_not_leak_internal_terms(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             vault = Path(directory) / "vault"
@@ -101,14 +123,16 @@ class LocalizationTests(unittest.TestCase):
             for forbidden in ("proposal", "canonical state", "heartbeat proposal", "projection", "needs_confirmation", "approve proposal"):
                 self.assertNotIn(forbidden, lowered)
 
-    def test_unknown_and_conflict_keep_domain_labels_on_first_display(self) -> None:
+    def test_unknown_and_conflict_use_human_labels_without_english_canonical_terms(self) -> None:
         sys.path.insert(0, str(SCRIPT.parent))
         from ux import attach, render_human  # noqa: E402
 
         unknown = render_human(attach("personal-profile", {"skills": {"x": {"state": "unknown"}}}, language="ko"))
         conflict = render_human(attach("personal-profile", {"skills": {"x": {"state": "conflict"}}}, language="ja"))
-        self.assertIn("확인되지 않음 (Unknown)", unknown)
-        self.assertIn("情報の矛盾 (Conflict)", conflict)
+        self.assertIn("확인되지 않음", unknown)
+        self.assertNotIn("Unknown", unknown)
+        self.assertIn("情報の矛盾", conflict)
+        self.assertNotIn("Conflict", conflict)
 
     def test_heartbeat_approval_is_queue_only_and_localized(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -164,7 +164,7 @@ class GuiReadParityTests(unittest.TestCase):
         self.assertIn("prj-1", encoded)
         self.assertIn("evt-1", encoded)
 
-    def test_timeline_uses_existing_project_timeline_and_sorts_time_sections(self):
+    def test_timeline_sorts_sections_without_rescanning_every_project(self):
         reads = _sample_reads()
         views = _read_views()
         home = object()
@@ -179,10 +179,32 @@ class GuiReadParityTests(unittest.TestCase):
         ):
             result = views.timeline_payload(home, as_of="2026-08-12")
 
-        timeline.assert_called_once_with(home, "prj-1")
+        timeline.assert_not_called()
         self.assertEqual(result["mode"], "timeline")
         self.assertEqual(result["sections"][0]["period"]["from"], "2024-01")
         self.assertNotIn("prj-1", json.dumps(result))
+
+    def test_timeline_does_not_repeat_a_confidential_experience_summary(self):
+        views = _read_views()
+        experiences = {
+            "contexts": {"ctx": {"label": "Acme", "period": {"from": "2025-01"}}},
+            "claims": [{
+                "claim_id": "claim-secret",
+                "context_id": "ctx",
+                "label": "Secret customer incident",
+                "contains_confidential": True,
+                "work_date": "2025-02",
+            }],
+        }
+        with (
+            patch.object(views, "list_experiences", return_value=experiences),
+            patch.object(views, "list_projects", return_value={"projects": []}),
+        ):
+            result = views.timeline_payload(object())
+
+        encoded = json.dumps(result, ensure_ascii=False)
+        self.assertNotIn("Secret customer incident", encoded)
+        self.assertTrue(result["sections"][1]["contains_confidential"])
 
 
 @contextmanager

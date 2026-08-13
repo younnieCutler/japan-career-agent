@@ -138,6 +138,7 @@ PROJECT_STATUSES = {"active", "completed", "paused", "unknown"}
 EXPERIENCE_CONTEXT_EVENT_TYPE = "experience_context"
 EXPERIENCE_CONTEXT_KINDS = {
     "company",
+    "freelance",
     "university",
     "graduate_school",
     "internship_organization",
@@ -149,6 +150,9 @@ EXPERIENCE_CONTEXT_KINDS = {
     "open_source",
     "other",
 }
+WORK_EXPERIENCE_CONTEXT_KINDS = frozenset({
+    "company", "freelance", "internship_organization", "part_time_workplace",
+})
 # Evidence about something that happened outside a job: a seminar, a thesis, a club, a volunteer
 # shift, a personal project. It carries the same payload as a work event -- role, problem, actions,
 # individual contribution, team result, metrics and confidentiality describe a ゼミ project as well
@@ -196,6 +200,11 @@ PROFILE_AXES = {
 CAREER_MODES = {"maintenance", "opportunity_review", "active_search", "transition"}
 # A work event's confidentiality review answers "may this leave the vault", not "is this true".
 EXTERNAL_USE_STATES = {"allowed", "blocked", "unknown"}
+# The outcome answer is independent from the optional metric list. A qualitative result, an
+# explicitly unmeasured result, and an unknown result are all honest completed answers; only the
+# quantitative state implies that metrics should exist.
+OUTCOME_STATES = {"quantitative", "qualitative", "not_measured", "unknown"}
+USER_CONFIRMATION_EVIDENCE = "user_confirmation"
 VAULT_DIRECTORIES = (
     "00-control",
     "01-capture",

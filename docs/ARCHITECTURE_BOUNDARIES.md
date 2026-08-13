@@ -43,6 +43,12 @@ entrypoint bridge that launches `gui.server`.
 directly. Case/archive/delete and artifact version operations are metadata-only; the canonical
 ledger and the company-scoped `data/pipeline.yml` projection remain separate.
 
+`case_store.context_relationship()` is the application-owned source of truth for whether a career
+context is employment-like or non-work. Both strict writes and GUI projections call it, so company,
+freelance, education, personal, volunteer, and other contexts cannot acquire different semantics
+through different entrypoints. Human renderers call namespaced labels in `localization.py`; stored
+enums, JSON/YAML output, and command arguments remain canonical.
+
 Dependencies point down. Application modules may call each other sideways; the graph stays acyclic.
 Nothing at any layer imports an entry point, and the domain does not know that a CLI exists.
 

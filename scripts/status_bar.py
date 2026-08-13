@@ -27,19 +27,85 @@ import os
 import subprocess
 import sys
 import time
+import tomllib
 from pathlib import Path
 from typing import Any
 
-STAGE_LABELS = {
-    0: "自己分析",
-    1: "書類準備",
-    2: "企業研究",
-    3: "応募・書類",
-    4: "面接",
-    5: "内定",
-    6: "退職交渉",
-    7: "入社",
+CAREER_AGENT_ROOT = Path(__file__).resolve().parent.parent / "skills" / "career-agent"
+if str(CAREER_AGENT_ROOT) not in sys.path:
+    sys.path.insert(0, str(CAREER_AGENT_ROOT))
+
+from localization import domain_label, normalize_language  # noqa: E402
+
+
+STATUS_TEXT = {
+    "ko": {
+        "pipeline": "지원 현황", "active": "진행 중", "closed": "종료", "deadline": "마감",
+        "today": "오늘", "overdue": "기한 경과", "unchecked_actions": "미완료 작업",
+        "shown": "표시", "total": "전체", "unchecked_action": "미완료 작업", "gate": "실행 조건",
+        "blocked": "실행 불가", "active_rules": "적용 중 규칙", "showing": "표시 중",
+        "remaining": "나머지", "workflow_observations": "전형 관찰 기록",
+        "reached_entries": "도달 단계 기록", "available": "사용 가능", "diversity": "지원 다양성",
+        "update": "업데이트", "installed": "설치 버전",
+        "gate_sentence": "면접 준비 자료 생성 {blocked}: {companies}. 위 작업을 확인한 뒤 계속할 수 있습니다 (사용자 실행: python3 scripts/check_action.py <slug> <id>)",
+        "calibration_sentence": "{count}개 {entries} — `scripts/calibrate.py` {available}",
+        "diversity_sentence": "최근 {count}개 지원 모두 작업 결과물이나 실기 과제를 보여줄 기회가 없었습니다 — 지금까지 모든 전형이 말로 설명하는 역량만 평가합니다",
+        "update_sentence": "v{remote} {available} ({installed} {local}) — claude plugin update japan-career-agent@japan-career-agent 실행 후 다시 시작",
+        "yaml_missing": "상태 표시를 사용할 수 없음 — PyYAML이 설치되지 않아 실행 조건과 마감을 확인하지 못했습니다 (pip install pyyaml).",
+        "yaml_invalid": "상태 표시를 사용할 수 없음 — data/{name} 형식이 올바른 YAML이 아니어서 실행 조건과 마감을 확인하지 못했습니다.",
+    },
+    "ja": {
+        "pipeline": "応募状況", "active": "進行中", "closed": "終了", "deadline": "期限",
+        "today": "本日", "overdue": "期限超過", "unchecked_actions": "未完了タスク",
+        "shown": "表示", "total": "合計", "unchecked_action": "未完了タスク", "gate": "実行条件",
+        "blocked": "実行不可", "active_rules": "適用中ルール", "showing": "表示中",
+        "remaining": "残り", "workflow_observations": "選考観測", "reached_entries": "到達段階の記録",
+        "available": "利用可能", "diversity": "応募の多様性", "update": "更新", "installed": "インストール済み",
+        "gate_sentence": "面接準備資料の生成は{blocked}: {companies}。上のタスクを確認すると続行できます（ユーザーが実行: python3 scripts/check_action.py <slug> <id>）",
+        "calibration_sentence": "{count}件の{entries} — `scripts/calibrate.py`を{available}",
+        "diversity_sentence": "直近{count}件の応募では成果物や実技課題を見せる機会がありませんでした — これまでの選考は説明力のみを評価しています",
+        "update_sentence": "v{remote}を{available}（{installed} {local}）— claude plugin update japan-career-agent@japan-career-agentを実行後に再起動",
+        "yaml_missing": "ステータス表示を利用できません — PyYAMLが未インストールのため、実行条件と期限を確認できませんでした（pip install pyyaml）。",
+        "yaml_invalid": "ステータス表示を利用できません — data/{name}が有効なYAMLではないため、実行条件と期限を確認できませんでした。",
+    },
+    "en": {
+        "pipeline": "pipeline", "active": "active", "closed": "closed", "deadline": "deadline",
+        "today": "TODAY", "overdue": "OVERDUE", "unchecked_actions": "unchecked_actions",
+        "shown": "shown", "total": "total", "unchecked_action": "unchecked_action", "gate": "gate",
+        "blocked": "BLOCKED", "active_rules": "active_rules", "showing": "showing",
+        "remaining": "remaining", "workflow_observations": "workflow_observations",
+        "reached_entries": "reached-stage entries", "available": "available", "diversity": "diversity",
+        "update": "update", "installed": "installed",
+        "gate_sentence": "interview-prep generation {blocked} for {companies} until the items above are checked (the user runs: python3 scripts/check_action.py <slug> <id>)",
+        "calibration_sentence": "{count} {entries} — `scripts/calibrate.py` {available}",
+        "diversity_sentence": "the last {count} applications offered no chance to show work samples or complete a practical task — every 選考 so far evaluates verbal explanation only",
+        "update_sentence": "v{remote} {available} ({installed} {local}) — claude plugin update japan-career-agent@japan-career-agent, then restart",
+        "yaml_missing": "status_bar: unavailable — PyYAML not installed (pip install pyyaml). Execution gate and deadlines are NOT being checked.",
+        "yaml_invalid": "Status is unavailable because data/{name} is not valid YAML. Execution gates and deadlines were not checked.",
+    },
 }
+
+
+def status_text(language: str, key: str, **values: Any) -> str:
+    return STATUS_TEXT[normalize_language(language)][key].format(**values)
+
+
+def status_language(explicit: str | None = None) -> str:
+    """Use an explicit/env locale, then the configured Vault profile, without loading note bodies."""
+    candidate = explicit or os.environ.get("JAPAN_CAREER_LANGUAGE")
+    if candidate:
+        return normalize_language(candidate)
+    vault = os.environ.get("CAREER_VAULT")
+    if vault:
+        try:
+            profile = tomllib.loads(
+                (Path(vault).expanduser() / "02-state" / "career-state.toml").read_text(encoding="utf-8")
+            )
+            if profile.get("language"):
+                return normalize_language(profile["language"])
+        except (OSError, tomllib.TOMLDecodeError, TypeError):
+            pass
+    return "ko"
 
 # Calibration compares predicted tier against the stage actually reached. Below this many
 # closed entries the comparison is noise, and reporting it anyway would invite the user to
@@ -105,13 +171,17 @@ def is_newer(remote: str | None, local: str | None) -> bool:
         return False
 
 
-def update_line(local: str | None, cache: dict) -> str | None:
+def update_line(local: str | None, cache: dict, *, language: str = "en") -> str | None:
     remote = cache.get("latest")
     if not is_newer(remote, local):
         return None
-    return (
-        f"update: v{remote} available (installed {local}) — "
-        "claude plugin update japan-career-agent@japan-career-agent, then restart"
+    return f"{status_text(language, 'update')}: " + status_text(
+        language,
+        "update_sentence",
+        remote=remote,
+        available=status_text(language, "available"),
+        installed=status_text(language, "installed"),
+        local=local,
     )
 
 
@@ -166,10 +236,10 @@ def maybe_refresh(cache: dict) -> None:
         pass
 
 
-def stage_label(stage: object) -> str:
-    if isinstance(stage, int) and not isinstance(stage, bool) and stage in STAGE_LABELS:
-        return f"{stage} {STAGE_LABELS[stage]}"
-    return "unknown"
+def stage_label(stage: object, *, language: str = "en") -> str:
+    if isinstance(stage, int) and not isinstance(stage, bool) and 0 <= stage <= 7:
+        return f"{stage} {domain_label(language, 'status_stage', stage)}"
+    return domain_label(language, "fact_state", "unknown")
 
 
 def days_until(deadline: str, today: dt.date) -> int | None:
@@ -210,18 +280,25 @@ def _company_entries(pipeline: object) -> list[dict]:
 
 
 def pipeline_line(
-    pipeline: dict, *, active: list[dict] | None = None, closed: list[dict] | None = None
+    pipeline: dict, *, active: list[dict] | None = None, closed: list[dict] | None = None,
+    language: str = "en",
 ) -> str:
     active = active if active is not None else active_companies(pipeline)
     closed = closed if closed is not None else closed_companies(pipeline)
     if not active:
-        return f"pipeline: 0 active / {len(closed)} closed"
+        return (
+            f"{status_text(language, 'pipeline')}: 0 {status_text(language, 'active')} / "
+            f"{len(closed)} {status_text(language, 'closed')}"
+        )
     by_stage: dict[str, int] = {}
     for company in active:
-        label = stage_label(company.get("stage"))
+        label = stage_label(company.get("stage"), language=language)
         by_stage[label] = by_stage.get(label, 0) + 1
     breakdown = ", ".join(f"{label} {n}" for label, n in sorted(by_stage.items()))
-    return f"pipeline: {len(active)} active ({breakdown}) / {len(closed)} closed"
+    return (
+        f"{status_text(language, 'pipeline')}: {len(active)} {status_text(language, 'active')} "
+        f"({breakdown}) / {len(closed)} {status_text(language, 'closed')}"
+    )
 
 
 def _sanitize(text: Any, max_len: int = 200) -> str:
@@ -244,7 +321,8 @@ def _sanitize(text: Any, max_len: int = 200) -> str:
 
 
 def deadline_line(
-    pipeline: dict, today: dt.date, *, active: list[dict] | None = None
+    pipeline: dict, today: dt.date, *, active: list[dict] | None = None,
+    language: str = "en",
 ) -> str | None:
     """Nearest upcoming deadline only. Listing every date recreates the scanning problem."""
     dated = []
@@ -258,8 +336,10 @@ def deadline_line(
     days, company = min(dated, key=lambda pair: pair[0])
     name = _sanitize(company.get("name") or company.get("slug") or "?", 60)
     detail = _sanitize(company.get("status") or company.get("next_action") or "", 100)
-    when = "TODAY" if days == 0 else (f"D{days:+d}" if days > 0 else f"{-days}d OVERDUE")
-    return f"deadline: {name} {company.get('deadline')} ({when}) {detail}".rstrip()
+    when = status_text(language, "today") if days == 0 else (
+        f"D{days:+d}" if days > 0 else f"{-days}d {status_text(language, 'overdue')}"
+    )
+    return f"{status_text(language, 'deadline')}: {name} {company.get('deadline')} ({when}) {detail}".rstrip()
 
 
 def _pending_action_rows(active: list[dict], today: dt.date) -> list[dict]:
@@ -285,7 +365,8 @@ def _pending_action_rows(active: list[dict], today: dt.date) -> list[dict]:
 
 
 def gate_lines(
-    pipeline: dict, today: dt.date, *, active: list[dict] | None = None
+    pipeline: dict, today: dt.date, *, active: list[dict] | None = None,
+    language: str = "en",
 ) -> list[str]:
     """Show urgent unchecked actions while retaining every blocker.
 
@@ -299,7 +380,8 @@ def gate_lines(
     if not rows:
         return []
     lines = [
-        f"unchecked_actions: {min(len(rows), ACTION_CONTEXT_LIMIT)} shown / {len(rows)} total"
+        f"{status_text(language, 'unchecked_actions')}: {min(len(rows), ACTION_CONTEXT_LIMIT)} "
+        f"{status_text(language, 'shown')} / {len(rows)} {status_text(language, 'total')}"
     ]
     for row in rows[:ACTION_CONTEXT_LIMIT]:
         company = row["company"]
@@ -307,7 +389,7 @@ def gate_lines(
         name = _sanitize(company.get("name") or company.get("slug") or "?", 60)
         item_id = _sanitize(item.get("id") or "?", 40)
         text = _sanitize(item.get("text", ""), 100)
-        lines.append(f"unchecked_action[{name}]: {item_id} — {text}")
+        lines.append(f"{status_text(language, 'unchecked_action')}[{name}]: {item_id} — {text}")
 
     blocked = []
     for company in active:
@@ -318,10 +400,13 @@ def gate_lines(
         blocked.append(f"{name} ({len(pending)})")
     if blocked:
         lines.append(
-            "gate: interview-prep generation BLOCKED for "
-            + ", ".join(blocked)
-            + " until the items above are checked"
-            " (the user runs: python3 scripts/check_action.py <slug> <id>)"
+            f"{status_text(language, 'gate')}: "
+            + status_text(
+                language,
+                "gate_sentence",
+                blocked=status_text(language, "blocked"),
+                companies=", ".join(blocked),
+            )
         )
     return lines
 
@@ -339,7 +424,9 @@ def _rule_relevance(rule: dict, active_slugs: set[str]) -> int:
     return 0
 
 
-def rules_lines(rules: dict, *, active_slugs: set[str] | None = None) -> list[str]:
+def rules_lines(
+    rules: dict, *, active_slugs: set[str] | None = None, language: str = "en"
+) -> list[str]:
     if not isinstance(rules, dict) or not isinstance(rules.get("rules"), list):
         return []
     active_slugs = active_slugs or set()
@@ -356,21 +443,35 @@ def rules_lines(rules: dict, *, active_slugs: set[str] | None = None) -> list[st
         key=lambda pair: (-_rule_relevance(pair[1], active_slugs), pair[0]),
     )
     shown = [rule for _, rule in ranked[:RULE_CONTEXT_LIMIT]]
-    lines = [f"active_rules: {len(active)} (showing {len(shown)}; remaining {len(active) - len(shown)})"]
+    lines = [
+        f"{status_text(language, 'active_rules')}: {len(active)} "
+        f"({status_text(language, 'showing')} {len(shown)}; "
+        f"{status_text(language, 'remaining')} {len(active) - len(shown)})"
+    ]
     for rule in shown:
         lines.append(f"  - {_sanitize(rule.get('text', ''), 150)}")
     return lines
 
 
-def calibration_line(pipeline: dict, *, closed: list[dict] | None = None) -> str | None:
+def calibration_line(
+    pipeline: dict, *, closed: list[dict] | None = None, language: str = "en"
+) -> str | None:
     closed = closed if closed is not None else closed_companies(pipeline)
     scored = [c for c in closed if c.get("reached_stage") is not None]
     if len(scored) < CALIBRATION_MIN_SAMPLE:
         return None
-    return f"workflow_observations: {len(scored)} reached-stage entries — `scripts/calibrate.py` available"
+    return f"{status_text(language, 'workflow_observations')}: " + status_text(
+        language,
+        "calibration_sentence",
+        count=len(scored),
+        entries=status_text(language, "reached_entries"),
+        available=status_text(language, "available"),
+    )
 
 
-def diversity_line(pipeline: dict, *, entries: list[dict] | None = None) -> str | None:
+def diversity_line(
+    pipeline: dict, *, entries: list[dict] | None = None, language: str = "en"
+) -> str | None:
     """Warn when every recent application competes on the same axis.
 
     Carries no score and changes no ranking. It reports one observable fact: the user has
@@ -383,15 +484,17 @@ def diversity_line(pipeline: dict, *, entries: list[dict] | None = None) -> str 
     if len(known) < DIVERSITY_WINDOW:
         return None
     if all(c.get("demo_slot") == "no" for c in known):
-        return (
-            f"diversity: last {len(known)} applications all demo_slot=no — every 選考 so far "
-            "evaluates verbal explanation only"
+        return f"{status_text(language, 'diversity')}: " + status_text(
+            language,
+            "diversity_sentence",
+            count=len(known),
         )
     return None
 
 
 def build_status(
-    pipeline: dict, rules: dict, today: dt.date, update: str | None = None
+    pipeline: dict, rules: dict, today: dt.date, update: str | None = None,
+    *, language: str = "en",
 ) -> str:
     """Assemble the block. Returns "" when there is nothing to report."""
     if not isinstance(pipeline, dict) or not isinstance(pipeline.get("companies"), list):
@@ -404,16 +507,16 @@ def build_status(
     active_slugs = {
         str(company.get("slug")) for company in active if company.get("slug") is not None
     }
-    lines = [pipeline_line(pipeline, active=active, closed=closed)]
-    for line in (deadline_line(pipeline, today, active=active),):
+    lines = [pipeline_line(pipeline, active=active, closed=closed, language=language)]
+    for line in (deadline_line(pipeline, today, active=active, language=language),):
         if line:
             lines.append(line)
-    lines.extend(gate_lines(pipeline, today, active=active))
-    lines.extend(rules_lines(rules, active_slugs=active_slugs))
-    calibration = calibration_line(pipeline, closed=closed)
+    lines.extend(gate_lines(pipeline, today, active=active, language=language))
+    lines.extend(rules_lines(rules, active_slugs=active_slugs, language=language))
+    calibration = calibration_line(pipeline, closed=closed, language=language)
     if calibration:
         lines.append(calibration)
-    diversity = diversity_line(pipeline, entries=entries)
+    diversity = diversity_line(pipeline, entries=entries, language=language)
     if diversity:
         lines.append(diversity)
     if update:
@@ -427,7 +530,7 @@ def build_status(
     )
 
 
-def load_yaml(path: Path) -> dict:
+def load_yaml(path: Path, *, language: str = "en") -> dict:
     if not path.is_file():
         return {}
     try:
@@ -436,17 +539,23 @@ def load_yaml(path: Path) -> dict:
         # Surfaced rather than swallowed: a gate that disappears silently is worse than a
         # gate that reports it is down.
         print(
-            "<career_status>\nstatus_bar: unavailable — PyYAML not installed "
-            "(pip install pyyaml). Execution gate and deadlines are NOT being checked.\n"
-            "</career_status>"
+            "<career_status>\n"
+            + status_text(language, "yaml_missing")
+            + "\n</career_status>"
         )
         raise SystemExit(0)
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
         print(
-            f"<career_status>\nstatus_bar: data/{path.name} is not valid YAML ({exc.__class__.__name__}). "
-            "Execution gate and deadlines are NOT being checked until it parses.\n</career_status>"
+            "<career_status>\n"
+            + status_text(
+                language,
+                "yaml_invalid",
+                name=path.name,
+                error=exc.__class__.__name__,
+            )
+            + "\n</career_status>"
         )
         raise SystemExit(0)
 
@@ -471,18 +580,26 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Print the deterministic career status bar")
     parser.add_argument("--refresh-cache", action="store_true")
     parser.add_argument("--workspace", help="workspace containing data/pipeline.yml")
+    parser.add_argument("--language", choices=("ko", "ja", "en"))
     parser.add_argument("legacy_root", nargs="?", help=argparse.SUPPRESS)
     args = parser.parse_args(list(argv or []))
     if args.refresh_cache:
         return refresh_cache()
+    language = status_language(args.language)
     explicit = args.workspace if args.workspace is not None else args.legacy_root
     root = workspace_path(explicit)
-    pipeline = load_yaml(root / "data" / "pipeline.yml")
+    pipeline = load_yaml(root / "data" / "pipeline.yml", language=language)
     if not pipeline:
         return 0
-    rules = load_yaml(root / "data" / "rules.yml")
+    rules = load_yaml(root / "data" / "rules.yml", language=language)
     cache = {} if update_check_disabled() else read_cache()
-    block = build_status(pipeline, rules, dt.date.today(), update_line(local_version(), cache))
+    block = build_status(
+        pipeline,
+        rules,
+        dt.date.today(),
+        update_line(local_version(), cache, language=language),
+        language=language,
+    )
     if block:
         print(block)
     maybe_refresh(cache)

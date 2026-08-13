@@ -412,6 +412,7 @@ def approve(
     *,
     pipeline_writer: PipelineWriter | None = None,
     state_projector: StateProjector | None = None,
+    precondition: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """Approve one pending proposal exactly once and preserve retry safety."""
     recovered = recover_pending(
@@ -425,6 +426,18 @@ def approve(
         proposal = next((row for row in read_jsonl(home.proposals) if row.get("id") == proposal_id), None)
         if not proposal:
             raise CareerError(f"proposal not found: {proposal_id}")
+        if proposal.get("session_id") and precondition is None:
+            raise CareerError(
+                "session-bound proposals must be approved through their workflow",
+                code="SESSION_APPROVAL_REQUIRED",
+            )
+        if proposal.get("case_ref") and precondition is None:
+            raise CareerError(
+                "case-bound proposals must be approved through their career record",
+                code="CASE_APPROVAL_REQUIRED",
+            )
+        if precondition is not None:
+            precondition()
         if proposal.get("status") != ProposalStatus.PENDING:
             raise CareerError(f"proposal is not pending: {proposal_id}")
         if proposal.get("kind") in {ProposalKind.EVENT, ProposalKind.CAREER_CONTEXT}:

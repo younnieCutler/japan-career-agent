@@ -43,7 +43,7 @@ class SessionTests(unittest.TestCase):
 
         self.assertEqual(resumed["draft"]["summary"], "배포 장애를 복구했다")
         self.assertTrue(resumed["unconfirmed_input"])
-        self.assertEqual(resumed["session"]["stage"], "experience_evidence")
+        self.assertEqual(resumed["session"]["stage"], "experience")
         self.assertNotIn("page", json.dumps(resumed, ensure_ascii=False))
 
     def test_interrupted_checkpoint_keeps_the_last_completed_checkpoint(self) -> None:
@@ -61,7 +61,7 @@ class SessionTests(unittest.TestCase):
                 )
 
         self.assertEqual(session_path.read_text(encoding="utf-8"), before)
-        self.assertEqual(sessions.load_session(self.home, created["session_id"])["stage"], "experience_evidence")
+        self.assertEqual(sessions.load_session(self.home, created["session_id"])["stage"], "experience")
         self.assertEqual(list(session_path.parent.glob(".*.tmp")), [])
 
     def test_draft_writes_never_touch_canonical_state(self) -> None:
@@ -173,7 +173,7 @@ class SessionTests(unittest.TestCase):
 
         self.assertEqual(refused.exception.code, "PROPOSAL_STALE")
         self.assertFalse(self.home.events.exists())
-        self.assertEqual(sessions.load_session(self.home, session_id)["stage"], "review")
+        self.assertEqual(sessions.load_session(self.home, session_id)["stage"], "experience")
 
         renewed = sessions.create_proposal(self.home, session_id)
         approved = sessions.approve_proposal(self.home, session_id, renewed["proposal"]["id"])
@@ -187,18 +187,16 @@ class SessionTests(unittest.TestCase):
         And the snapshot has to leave the screen when the draft moves, so the browser cannot keep
         offering an approval the server will now refuse.
         """
-        script = (Path(__file__).parent / "gui" / "static" / "bootstrap.js").read_text(encoding="utf-8")
-        renderer = script.split("const renderProposal", 1)[1].split("const submit", 1)[0]
+        script = (Path(__file__).parent / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
+        dialog = script.split("function approvalDialog", 1)[1].split("async function reviewCase", 1)[0]
+        editor = script.split("function careerDraftForm", 1)[1].split("function profileSummary", 1)[0]
 
-        self.assertIn("proposal.event", renderer)
-        self.assertIn("event.summary", renderer)
-        self.assertIn("event.evidence", renderer)
-        self.assertIn("event.work_event || event.experience", renderer)
-        # The approve button is built inside the renderer, so it cannot exist without the snapshot.
-        self.assertIn("/api/approve", renderer)
-        self.assertNotIn("/api/approve", script.split("const renderProposal", 1)[0])
-        autosave = script.split("const scheduleAutosave", 1)[1].split("const checkpoint", 1)[0]
-        self.assertIn("clearReview()", autosave)
+        self.assertIn("snapshotView(event)", dialog)
+        self.assertIn("await approveAction()", dialog)
+        self.assertIn("approvalDialog(proposal.event", editor)
+        self.assertIn("/api/workflows/propose", editor)
+        self.assertIn("/api/workflows/approve", editor)
+        self.assertLess(editor.index("/api/workflows/propose"), editor.index("/api/workflows/approve"))
 
     def test_an_unchanged_draft_reuses_the_pending_proposal(self) -> None:
         created = sessions.create_session(self.home)
@@ -250,7 +248,15 @@ class SessionTests(unittest.TestCase):
 
     def test_rejected_approval_leaves_canonical_state_unchanged(self) -> None:
         created = sessions.create_session(self.home)
-        sessions.save_draft(self.home, created["session_id"], {"summary": "증거 없는 메모"})
+        sessions.save_draft(
+            self.home,
+            created["session_id"],
+            {
+                "summary": "장애를 30% 줄였다",
+                "outcome_state": "quantitative",
+                "metrics": ["30%"],
+            },
+        )
         proposal = sessions.create_proposal(self.home, created["session_id"])
         before_state = self.home.state_toml.read_bytes()
 

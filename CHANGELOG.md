@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.10.0] - 2026-08-13
+
+- Make Career History the primary GUI surface: employer or non-work context → project →
+  experience, with search, lifecycle filters, bounded disclosure, actionable empty states, and
+  persistent context while editing.
+- Keep Capture → Review → Confirm → Reuse honest. Drafts and pending review are never labelled
+  confirmed; the approval dialog shows the exact snapshot, Unknowns, evidence, effect, and
+  meaningful before/after changes, while stale screens are rejected by revision and snapshot
+  checks.
+- Share host-neutral workflow records across Claude, Codex, GUI, and CLI. Add strict CAS writes,
+  v0/v1 in-memory migration, future-schema refusal, multi-workflow discovery, archive/restore, and
+  interruption recovery without transcripts or host session ids.
+- Separate career contexts, projects, experiences, target companies, applications, documents, and
+  organizing metadata. Enforce context-kind relationship semantics for company, freelance,
+  education, personal, volunteer, internship, part-time, open-source, and other experience.
+- Add application evidence selection and local versioned documents. Only explicitly selected,
+  approved, externally usable evidence may be reused; confidential content stays redacted and no
+  application is submitted.
+- Add namespaced ko/ja/en human domain vocabulary for overloaded lifecycle, matching, career,
+  evidence, document, source, and pipeline values. Guided output, the status bar, and hook failures
+  no longer expose raw canonical codes, internal ids, schema/file terms, or mixed-language stages;
+  machine JSON/YAML and stored enums remain unchanged.
+- Add NEW, ACTIVE, and HEAVY Vault product fixtures and regression contracts for bounded DOM,
+  single-pass reads, keyboard/focus behavior, autosave races, duplicate/destructive safeguards,
+  loading/empty/error recovery, and pure localized core output.
+
 ## [2.9.2] - 2026-08-12
 
 - Even out eight 棚卸し/Projects screen status lines that read as machine-translated:

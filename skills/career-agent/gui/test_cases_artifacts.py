@@ -21,6 +21,7 @@ from gui.server import create_server  # noqa: E402
 from gui.templates import static_asset  # noqa: E402
 from persistence import read_jsonl  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
+from models import CareerError  # noqa: E402
 
 
 class CaseArtifactTests(unittest.TestCase):
@@ -61,6 +62,9 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertNotIn("01-capture", str(cases.case_path(self.home, company["case_id"])))
         self.assertNotIn("02-state", str(cases.case_path(self.home, company["case_id"])))
 
+        with self.assertRaisesRegex(Exception, "archive active child"):
+            cases.archive_case(self.home, company["case_id"])
+        self.assertEqual(cases.archive_case(self.home, application["case_id"])["status"], "archived")
         self.assertEqual(cases.archive_case(self.home, company["case_id"])["status"], "archived")
         self.assertEqual(cases.delete_case(self.home, application["case_id"])["status"], "deleted")
         self.assertEqual(before, self._canonical_bytes())
@@ -86,6 +90,32 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertFalse(edited["matches_record"])
 
         self.assertIsNone(artifacts.artifact_body(self.home, "art-" + "0" * 16))
+
+    def test_archived_application_rejects_new_research_without_losing_existing_work(self) -> None:
+        company = cases.create_company(self.home, "Acme")
+        application = cases.create_application(self.home, company["case_id"], "Backend")
+        existing = artifacts.register_artifact(
+            self.home,
+            case_ref=application["case_id"],
+            kind="company_research",
+            body="Existing research",
+        )
+        cases.archive_case(
+            self.home,
+            application["case_id"],
+            expected_updated_at=application["updated_at"],
+        )
+
+        with self.assertRaises(CareerError) as inactive:
+            artifacts.register_artifact(
+                self.home,
+                case_ref=application["case_id"],
+                kind="company_research",
+                body="New research",
+            )
+
+        self.assertEqual(inactive.exception.code, "INVALID_RELATIONSHIP")
+        self.assertEqual(artifacts.artifact_body(self.home, existing["artifact_id"])["body"], "Existing research")
 
     def test_a_crash_mid_update_never_leaves_a_kind_without_a_current_artifact(self) -> None:
         """Each file write is atomic; the transition across several files is not.
@@ -180,10 +210,13 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertTrue((self.home.path / artifact["body_ref"]).exists())
 
     def test_browser_case_screen_uses_get_read_and_csrf_protected_writes(self) -> None:
-        script = static_asset("bootstrap.js").decode("utf-8")
-        self.assertIn("/api/cases", script)
-        self.assertIn("/api/artifacts", script)
-        self.assertIn("Archive case", script)
+        script = static_asset("screens.js").decode("utf-8")
+        self.assertIn("/api/career", script)
+        self.assertIn("/api/applications", script)
+        self.assertIn("/api/applications/documents", script)
+        self.assertIn("/api/artifact-body?artifact_ref=", script)
+        self.assertIn("career.new_experience_confirm", script)
+        self.assertIn("action.archive", script)
         self.assertIn("textContent", script)
         self.assertNotIn("innerHTML", script)
 
@@ -233,7 +266,55 @@ class CaseArtifactTests(unittest.TestCase):
             )
             response = connection.getresponse()
             self.assertEqual(response.status, 200)
-            self.assertEqual(json.loads(response.read())["label"], "Protected")
+            company = json.loads(response.read())
+            self.assertEqual(company["label"], "Protected")
+
+            connection.request(
+                "POST",
+                "/api/applications/positions",
+                body=json.dumps({
+                    "company_ref": company["ref"],
+                    "label": "Backend",
+                    "evidence_refs": ["claim-confirmed"],
+                }),
+                headers={
+                    "Cookie": cookie,
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": session["csrf_token"],
+                },
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            application = json.loads(response.read())
+
+            connection.request(
+                "POST",
+                "/api/applications/documents",
+                body=json.dumps({
+                    "case_ref": application["ref"],
+                    "document_type": "resume",
+                    "body": "Reviewed application draft",
+                }),
+                headers={
+                    "Cookie": cookie,
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": session["csrf_token"],
+                },
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertTrue(json.loads(response.read())["saved"])
+            document = artifacts.list_artifacts(self.home, case_ref=application["ref"])[0]
+            self.assertEqual(document["evidence_refs"], ["claim-confirmed"])
+
+            connection.request(
+                "GET",
+                "/api/artifact-body?artifact_ref=" + document["artifact_id"],
+                headers={"Cookie": cookie},
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(json.loads(response.read())["body"], "Reviewed application draft")
             connection.close()
         finally:
             server.shutdown()

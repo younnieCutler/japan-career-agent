@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -15,18 +16,37 @@ from pathlib import Path
 from typing import Any
 
 from approvals import approve as approve_canonical
+from case_store import get_case
 from lifecycle import vault_lock
-from models import CareerError
+from models import (
+    OUTCOME_STATES,
+    USER_CONFIRMATION_EVIDENCE,
+    WORK_EXPERIENCE_CONTEXT_KINDS,
+    CareerError,
+)
 from persistence import atomic_write_text, read_json, read_jsonl
-from proposals import make_work_event
-from validation import validate_event, validate_work_event
-from vault import CareerVault, utc_now
+_SHARED_ROOT = Path(__file__).resolve().parents[2] / "_shared"
+if str(_SHARED_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SHARED_ROOT))
+
+import self_analysis_profile  # noqa: E402
+
+from proposals import make_work_event, propose_career_context_payload  # noqa: E402
+from validation import validate_event, validate_work_event  # noqa: E402
+from vault import CareerVault, utc_now  # noqa: E402
 
 
-CURRENT_SESSION_SCHEMA_VERSION = 1
+CURRENT_SESSION_SCHEMA_VERSION = 2
 SESSION_SCHEMA_VERSION = CURRENT_SESSION_SCHEMA_VERSION
-SESSION_WORKFLOW = "tanaoroshi"
-SESSION_STAGES = frozenset({"experience_evidence", "review", "completed"})
+SESSION_WORKFLOW = "career_inventory"
+SESSION_WORKFLOW_STAGES = {
+    "career_inventory": frozenset({"context", "project", "experience", "review", "completed"}),
+    "self_analysis": frozenset({"reflection", "hypotheses", "review", "completed"}),
+    "application": frozenset({"target", "position", "research", "documents", "review", "completed"}),
+}
+SESSION_STAGES = frozenset(stage for stages in SESSION_WORKFLOW_STAGES.values() for stage in stages)
+SESSION_STATUSES = frozenset({"draft", "review_pending", "completed", "archived"})
+SESSION_ENTRYPOINTS = frozenset({"unknown", "gui", "cli", "claude", "codex"})
 SESSION_ID = re.compile(r"^session-[a-f0-9]{12,64}$")
 SESSION_MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
@@ -66,6 +86,61 @@ def _validate_session_id(session_id: str) -> str:
     return session_id
 
 
+def career_project_subject(home: CareerVault, case_ref: str) -> dict[str, str]:
+    """Resolve one confirmed project case into a stable, human-readable workflow subject."""
+    project = get_case(home, case_ref)
+    if project["kind"] != "project" or project["status"] != "active":
+        raise CareerError("choose an active project", code="INVALID_RELATIONSHIP")
+    context_ref = project.get("parent_ref")
+    if not context_ref:
+        raise CareerError(
+            "this historical project needs a career context before new work can be added",
+            code="INVALID_RELATIONSHIP",
+        )
+    context = get_case(home, context_ref)
+    if context["kind"] != "career_context" or context["status"] != "active":
+        raise CareerError("project context is unavailable", code="INVALID_RELATIONSHIP")
+    context_id = context["metadata"].get("context_id")
+    project_id = project["metadata"].get("project_id")
+    if not context_id or not project_id:
+        raise CareerError(
+            "confirm the career context and project before recording canonical experience",
+            code="PARENT_NOT_CONFIRMED",
+        )
+    return {
+        "context_ref": context["case_id"],
+        "context_label": context["label"],
+        "context_kind": context["metadata"].get("context_kind", "other"),
+        "context_id": str(context_id),
+        "project_ref": project["case_id"],
+        "project_label": project["label"],
+        "project_id": str(project_id),
+    }
+
+
+def _anchored_career_draft(
+    home: CareerVault, session: dict[str, Any], draft: dict[str, Any]
+) -> dict[str, Any]:
+    case_ref = session.get("case_ref")
+    if not case_ref:
+        return draft
+    subject = career_project_subject(home, str(case_ref))
+    for field in ("context_id", "project_id"):
+        if session["subject"].get(field) not in {None, subject[field]}:
+            raise CareerError(
+                "the project context changed; reload before saving",
+                code="REVISION_STALE",
+                retryable=True,
+            )
+    return {
+        **draft,
+        "context_id": subject["context_id"],
+        "primary_project_id": subject["project_id"],
+        "experience_kind": "project",
+        "non_work": subject["context_kind"] not in WORK_EXPERIENCE_CONTEXT_KINDS,
+    }
+
+
 def session_path(home: CareerVault, session_id: str) -> Path:
     return storage_paths(home)["sessions"] / f"{_validate_session_id(session_id)}.json"
 
@@ -78,25 +153,48 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
     atomic_write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
-def _new_session(home: CareerVault, case_ref: str | None) -> dict[str, Any]:
+def _new_session(
+    home: CareerVault,
+    case_ref: str | None,
+    *,
+    workflow: str,
+    entrypoint: str,
+    subject: dict[str, Any],
+) -> dict[str, Any]:
     session_id = f"session-{uuid.uuid4().hex[:16]}"
-    return {
-        "session_id": session_id,
-        "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
-        "workflow": SESSION_WORKFLOW,
-        "stage": "experience_evidence",
-        "case_ref": case_ref,
-        "current_item_ref": None,
-        "missing_fields": [
+    stage = {
+        "career_inventory": "experience",
+        "self_analysis": "reflection",
+        "application": "target",
+    }[workflow]
+    missing = {
+        "career_inventory": [
             "role",
             "direct_actions",
             "individual_contribution",
-            "metrics",
+            "outcome",
             "confidentiality.external_use",
         ],
+        "self_analysis": ["profile"],
+        "application": ["target_company", "position"],
+    }[workflow]
+    return {
+        "session_id": session_id,
+        "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
+        "workflow": workflow,
+        "stage": stage,
+        "status": "draft",
+        "revision": 0,
+        "started_by": entrypoint,
+        "last_entrypoint": entrypoint,
+        "subject": subject,
+        "case_ref": case_ref,
+        "current_item_ref": None,
+        "missing_fields": missing,
         "completed": [],
         "draft_ref": draft_path(home, session_id).relative_to(home.path).as_posix(),
         "proposal_refs": [],
+        "next_action": "continue",
         "updated_at": _timestamp(),
     }
 
@@ -127,12 +225,18 @@ def _validate_session(record: Any, home: CareerVault, session_id: str) -> dict[s
         "session_schema_version",
         "workflow",
         "stage",
+        "status",
+        "revision",
+        "started_by",
+        "last_entrypoint",
+        "subject",
         "case_ref",
         "current_item_ref",
         "missing_fields",
         "completed",
         "draft_ref",
         "proposal_refs",
+        "next_action",
         "updated_at",
     }
     missing = sorted(required - set(record))
@@ -143,10 +247,27 @@ def _validate_session(record: Any, home: CareerVault, session_id: str) -> dict[s
         )
     if record.get("session_id") != session_id:
         raise CareerError("session id does not match its file", code="SESSION_INVALID")
-    if version != CURRENT_SESSION_SCHEMA_VERSION or record.get("workflow") != SESSION_WORKFLOW:
+    workflow = record.get("workflow")
+    if version != CURRENT_SESSION_SCHEMA_VERSION or workflow not in SESSION_WORKFLOW_STAGES:
         raise CareerError("session workflow or schema is unsupported", code="SESSION_INVALID")
-    if record.get("stage") not in SESSION_STAGES:
-        raise CareerError("session stage is not a semantic 棚卸し stage", code="SESSION_INVALID")
+    if record.get("stage") not in SESSION_WORKFLOW_STAGES[workflow]:
+        raise CareerError("session stage is not valid for its workflow", code="SESSION_INVALID")
+    if record.get("status") not in SESSION_STATUSES:
+        raise CareerError("session status is invalid", code="SESSION_INVALID")
+    revision = record.get("revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise CareerError("session revision must be a non-negative integer", code="SESSION_INVALID")
+    for field in ("started_by", "last_entrypoint"):
+        if record.get(field) not in SESSION_ENTRYPOINTS:
+            raise CareerError(f"session.{field} is invalid", code="SESSION_INVALID")
+    subject = record.get("subject")
+    if not isinstance(subject, dict) or any(
+        not isinstance(key, str)
+        or not key.strip()
+        or value is not None and (not isinstance(value, str) or not value.strip())
+        for key, value in subject.items()
+    ):
+        raise CareerError("session.subject must contain string labels or references", code="SESSION_INVALID")
     for field in ("case_ref", "current_item_ref"):
         value = record.get(field)
         if value is not None and (not isinstance(value, str) or not value.strip()):
@@ -161,6 +282,8 @@ def _validate_session(record: Any, home: CareerVault, session_id: str) -> dict[s
         raise CareerError("session.draft_ref must stay inside the Vault", code="SESSION_INVALID")
     if not isinstance(record.get("updated_at"), str) or not record["updated_at"].strip():
         raise CareerError("session.updated_at must be a timestamp", code="SESSION_INVALID")
+    if not isinstance(record.get("next_action"), str) or not record["next_action"].strip():
+        raise CareerError("session.next_action must be a non-empty string", code="SESSION_INVALID")
     return record
 
 
@@ -201,13 +324,51 @@ def _migrate_v0_session(record: dict[str, Any]) -> dict[str, Any]:
             code="SESSION_MIGRATION_INVALID",
             retryable=False,
         )
-    if not isinstance(current_stage, str) or current_stage not in SESSION_STAGES:
+    if not isinstance(current_stage, str) or current_stage not in {
+        "experience_evidence", "review", "completed"
+    }:
         raise CareerError(
             "v0 session has no supported semantic stage; the session was not changed",
             code="SESSION_MIGRATION_INVALID",
             retryable=False,
         )
-    migrated["session_schema_version"] = CURRENT_SESSION_SCHEMA_VERSION
+    migrated["session_schema_version"] = 1
+    return migrated
+
+
+def _migrate_v1_session(record: dict[str, Any]) -> dict[str, Any]:
+    """Generalize the GUI-only inventory record without rewriting historical files."""
+    migrated = dict(record)
+    stage = {
+        "experience_evidence": "experience",
+        "review": "review",
+        "completed": "completed",
+    }.get(str(migrated.get("stage")))
+    if migrated.get("workflow") not in {"tanaoroshi", "career_inventory"} or stage is None:
+        raise CareerError(
+            "v1 session has no supported workflow or stage; the session was not changed",
+            code="SESSION_MIGRATION_INVALID",
+            retryable=False,
+        )
+    migrated.update(
+        {
+            "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
+            "workflow": "career_inventory",
+            "stage": stage,
+            "status": "completed" if stage == "completed" else (
+                "review_pending" if stage == "review" else "draft"
+            ),
+            "revision": 0,
+            "started_by": "unknown",
+            "last_entrypoint": "unknown",
+            "subject": (
+                {"case_ref": migrated["case_ref"]} if migrated.get("case_ref") else {}
+            ),
+            "next_action": "done" if stage == "completed" else (
+                "review" if stage == "review" else "continue"
+            ),
+        }
+    )
     return migrated
 
 
@@ -221,6 +382,7 @@ def register_session_migration(
 
 
 register_session_migration(0, _migrate_v0_session)
+register_session_migration(1, _migrate_v1_session)
 
 
 def _migrate_v0_draft(record: dict[str, Any]) -> dict[str, Any]:
@@ -232,11 +394,32 @@ def _migrate_v0_draft(record: dict[str, Any]) -> dict[str, Any]:
     the draft written beside it leaves a vault that opens halfway.
     """
     migrated = dict(record)
-    migrated["session_schema_version"] = CURRENT_SESSION_SCHEMA_VERSION
+    migrated["session_schema_version"] = 1
     return migrated
 
 
-DRAFT_MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {0: _migrate_v0_draft}
+def _migrate_v1_draft(record: dict[str, Any]) -> dict[str, Any]:
+    migrated = dict(record)
+    if migrated.get("workflow") not in {"tanaoroshi", "career_inventory"}:
+        raise CareerError(
+            "v1 draft has no supported workflow; the draft was not changed",
+            code="SESSION_MIGRATION_INVALID",
+            retryable=False,
+        )
+    migrated.update(
+        {
+            "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
+            "workflow": "career_inventory",
+            "revision": 0,
+        }
+    )
+    return migrated
+
+
+DRAFT_MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    0: _migrate_v0_draft,
+    1: _migrate_v1_draft,
+}
 
 
 def _migrate_draft(record: dict[str, Any]) -> dict[str, Any]:
@@ -270,9 +453,37 @@ def _read_session(home: CareerVault, session_id: str) -> dict[str, Any]:
     return _validate_session(record, home, session_id)
 
 
-def _draft_values(value: Any, *, allow_empty_summary: bool = True) -> dict[str, Any]:
+def _draft_values(
+    value: Any,
+    *,
+    workflow: str = SESSION_WORKFLOW,
+    allow_empty_summary: bool = True,
+) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise CareerError("draft must be an object", code="INVALID_INPUT")
+    if workflow == "application":
+        if value:
+            raise CareerError(
+                "application workflow content belongs to application cases",
+                code="INVALID_INPUT",
+            )
+        return {}
+    if workflow == "self_analysis":
+        if set(value) - {"profile"}:
+            raise CareerError(
+                "self-analysis draft contains unsupported fields",
+                code="INVALID_INPUT",
+            )
+        profile = value.get("profile")
+        if profile is None:
+            return {}
+        try:
+            self_analysis_profile.validate_self_analysis_profile(profile)
+        except self_analysis_profile.ProfileValidationError as exc:
+            raise CareerError(str(exc), code="INVALID_INPUT") from exc
+        return {"profile": dict(profile)}
+    if workflow != SESSION_WORKFLOW:
+        raise CareerError("unsupported workflow", code="INVALID_INPUT")
     draft = dict(value)
     non_work = draft.get("non_work", False)
     if not isinstance(non_work, bool):
@@ -310,7 +521,14 @@ def _read_draft(home: CareerVault, session_id: str) -> dict[str, Any]:
     path = draft_path(home, session_id)
     record = read_json(path, None)
     if record is None:
-        return {"session_id": session_id, "updated_at": "", "draft": {}}
+        return {
+            "session_id": session_id,
+            "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
+            "workflow": SESSION_WORKFLOW,
+            "revision": 0,
+            "updated_at": "",
+            "draft": {},
+        }
     if not isinstance(record, dict):
         raise CareerError("draft record must be an object", code="SESSION_INVALID")
     if "session_schema_version" not in record:
@@ -334,15 +552,44 @@ def _read_draft(home: CareerVault, session_id: str) -> dict[str, Any]:
         record = _migrate_draft(record)
     if record.get("session_id") != session_id or not isinstance(record.get("draft"), dict):
         raise CareerError("draft record does not match its session", code="SESSION_INVALID")
-    _draft_values(record["draft"])
+    revision = record.get("revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise CareerError("draft revision must be a non-negative integer", code="SESSION_INVALID")
+    _draft_values(record["draft"], workflow=str(record.get("workflow") or SESSION_WORKFLOW))
     return record
 
 
-def create_session(home: CareerVault, *, case_ref: str | None = None) -> dict[str, Any]:
+def create_session(
+    home: CareerVault,
+    *,
+    case_ref: str | None = None,
+    workflow: str = SESSION_WORKFLOW,
+    entrypoint: str = "unknown",
+    subject: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if case_ref is not None and (not isinstance(case_ref, str) or not case_ref.strip()):
         raise CareerError("case_ref must be a non-empty string or null", code="INVALID_INPUT")
+    if workflow not in SESSION_WORKFLOW_STAGES:
+        raise CareerError("unsupported workflow", code="INVALID_INPUT")
+    if entrypoint not in SESSION_ENTRYPOINTS:
+        raise CareerError("unsupported workflow entrypoint", code="INVALID_INPUT")
+    if subject is None:
+        subject = {"case_ref": case_ref} if case_ref else {}
+    if not isinstance(subject, dict):
+        raise CareerError("session subject must be an object", code="INVALID_INPUT")
     with vault_lock(home):
-        session = _new_session(home, case_ref)
+        # Resolve the parent while holding the same Vault lock used by case lifecycle changes.
+        # Otherwise an archive can land between validation and session creation.
+        if workflow == SESSION_WORKFLOW and case_ref:
+            subject = {**subject, **career_project_subject(home, case_ref)}
+        session = _new_session(
+            home,
+            case_ref,
+            workflow=workflow,
+            entrypoint=entrypoint,
+            subject=dict(subject),
+        )
+        _validate_session(session, home, session["session_id"])
         paths = storage_paths(home)
         paths["sessions"].mkdir(parents=True, exist_ok=True)
         paths["drafts"].mkdir(parents=True, exist_ok=True)
@@ -352,7 +599,8 @@ def create_session(home: CareerVault, *, case_ref: str | None = None) -> dict[st
             {
                 "session_id": session["session_id"],
                 "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
-                "workflow": SESSION_WORKFLOW,
+                "workflow": workflow,
+                "revision": 0,
                 "draft": {},
                 "updated_at": "",
             },
@@ -364,26 +612,258 @@ def load_session(home: CareerVault, session_id: str) -> dict[str, Any]:
     return _read_session(home, session_id)
 
 
-def list_sessions(home: CareerVault) -> dict[str, Any]:
+def _current_revision(session: dict[str, Any], draft_record: dict[str, Any]) -> int:
+    return max(int(session.get("revision", 0)), int(draft_record.get("revision", 0)))
+
+
+def _write_draft_revision(
+    home: CareerVault, session: dict[str, Any], revision: int
+) -> None:
+    """Keep the paired draft revision aligned after semantic-only workflow changes."""
+    record = _read_draft(home, session["session_id"])
+    if record["revision"] == revision and record.get("session_schema_version") == CURRENT_SESSION_SCHEMA_VERSION:
+        return
+    _write_json(
+        draft_path(home, session["session_id"]),
+        {
+            **record,
+            "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
+            "workflow": session["workflow"],
+            "revision": revision,
+        },
+    )
+
+
+def _expect_revision(expected_revision: int | None, current_revision: int) -> None:
+    # `None` keeps the historical in-process API readable. Every supported mutable entrypoint
+    # supplies the revision it read; that is the path which prevents stale-host overwrites.
+    if expected_revision is None:
+        return
+    if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
+        raise CareerError("expected_revision must be an integer", code="INVALID_INPUT")
+    if expected_revision != current_revision:
+        raise CareerError(
+            "the workflow changed in another entrypoint; reload before saving",
+            code="REVISION_STALE",
+            retryable=True,
+            details={"expected_revision": expected_revision, "current_revision": current_revision},
+        )
+
+
+def _display_context(session: dict[str, Any]) -> list[str]:
+    subject = session.get("subject") if isinstance(session.get("subject"), dict) else {}
+    preferred = (
+        "context_label",
+        "project_label",
+        "experience_label",
+        "profile_label",
+        "target_company_label",
+        "position_label",
+    )
+    return [str(subject[key]) for key in preferred if subject.get(key)]
+
+
+def list_sessions(
+    home: CareerVault,
+    *,
+    workflow: str | None = None,
+    include_archived: bool = False,
+    context: str | None = None,
+) -> dict[str, Any]:
     """Every resumable session, so a client never has to remember an id across restarts.
 
     The server binds port 0, so each run gives the browser a different origin and localStorage
     starts empty. The sessions on disk are the only thing that survives; without this the user
     cannot reach work that is sitting there intact.
     """
+    if workflow is not None and workflow not in SESSION_WORKFLOW_STAGES:
+        raise CareerError("unsupported workflow", code="INVALID_INPUT")
+    if context is not None and not str(context).strip():
+        raise CareerError("context must be a visible non-empty label", code="INVALID_INPUT")
     rows: list[dict[str, Any]] = []
     for path in sorted(storage_paths(home)["sessions"].glob("session-*.json")):
         if SESSION_ID.fullmatch(path.stem) is None:
             continue
         session = _read_session(home, path.stem)
-        if session["stage"] != "completed":
-            rows.append(session)
+        if workflow is not None and session["workflow"] != workflow:
+            continue
+        if session["status"] != "completed" and (
+            include_archived or session["status"] != "archived"
+        ):
+            rows.append(
+                {
+                    **session,
+                    "display_context": _display_context(session),
+                    "remaining_work": list(session["missing_fields"]),
+                    "review_status": session["status"],
+                }
+            )
+    if context is not None:
+        needle = str(context).strip().casefold()
+        rows = [
+            row
+            for row in rows
+            if needle
+            in {
+                *(str(label).strip().casefold() for label in row["display_context"]),
+                " / ".join(str(label).strip().casefold() for label in row["display_context"]),
+                " → ".join(str(label).strip().casefold() for label in row["display_context"]),
+            }
+        ]
     rows.sort(key=lambda item: (item["updated_at"], item["session_id"]), reverse=True)
     return {"mode": "sessions", "sessions": rows, "count": len(rows), "read_only": True}
 
 
-def missing_fields(draft: dict[str, Any]) -> list[str]:
-    _draft_values(draft)
+def resume_workflow(
+    home: CareerVault, *, workflow: str | None = None, context: str | None = None
+) -> dict[str, Any]:
+    """Resume one unambiguous workflow without requiring a caller to know its id."""
+    listed = list_sessions(home, workflow=workflow, context=context)
+    rows = listed["sessions"]
+    if not rows:
+        raise CareerError("no resumable workflow was found", code="SESSION_NOT_FOUND")
+    if len(rows) > 1:
+        raise CareerError(
+            "more than one workflow can be resumed; choose by its visible context",
+            code="SESSION_AMBIGUOUS",
+            details={
+                "choices": [
+                    {
+                        "session_ref": row["session_id"],
+                        "workflow": row["workflow"],
+                        "context": row["display_context"],
+                        "status": row["status"],
+                        "updated_at": row["updated_at"],
+                    }
+                    for row in rows
+                ]
+            },
+        )
+    return resume_session(home, rows[0]["session_id"])
+
+
+def assign_session_project(
+    home: CareerVault,
+    session_id: str,
+    case_ref: str,
+    *,
+    expected_revision: int,
+    entrypoint: str = "unknown",
+) -> dict[str, Any]:
+    """Attach an unplaced inventory draft to one confirmed project without guessing."""
+    if entrypoint not in SESSION_ENTRYPOINTS:
+        raise CareerError("unsupported workflow entrypoint", code="INVALID_INPUT")
+    with vault_lock(home):
+        session = _read_session(home, session_id)
+        _refuse_completed_session(home, session, "connect")
+        if session["workflow"] != SESSION_WORKFLOW:
+            raise CareerError("only a career experience needs a project", code="INVALID_INPUT")
+        current_revision = _current_revision(session, _read_draft(home, session_id))
+        _expect_revision(expected_revision, current_revision)
+        if session.get("case_ref"):
+            if session["case_ref"] == case_ref:
+                return resume_session(home, session_id)
+            raise CareerError(
+                "this experience is already connected to another project",
+                code="REVISION_STALE",
+                retryable=True,
+            )
+        if session.get("proposal_refs"):
+            raise CareerError(
+                "return this experience to editing before changing its project",
+                code="REVISION_STALE",
+                retryable=True,
+            )
+        subject = career_project_subject(home, case_ref)
+        revision = current_revision + 1
+        draft_record = _read_draft(home, session_id)
+        updated_session = {
+            **session,
+            "case_ref": case_ref,
+            "subject": {**session.get("subject", {}), **subject},
+            "revision": revision,
+            "last_entrypoint": entrypoint,
+            "updated_at": _timestamp(),
+        }
+        values = _draft_values(
+            _anchored_career_draft(home, updated_session, draft_record.get("draft", {}))
+        )
+        _validate_session(updated_session, home, session_id)
+        _write_json(draft_path(home, session_id), {
+            **draft_record,
+            "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
+            "workflow": SESSION_WORKFLOW,
+            "revision": revision,
+            "draft": values,
+            "updated_at": _timestamp(),
+        })
+        _write_json(session_path(home, session_id), updated_session)
+    return resume_session(home, session_id)
+
+
+def archive_session(
+    home: CareerVault,
+    session_id: str,
+    *,
+    expected_revision: int | None = None,
+    entrypoint: str = "unknown",
+) -> dict[str, Any]:
+    """Abandon transient work without deleting its draft or canonical history."""
+    with vault_lock(home):
+        session = _read_session(home, session_id)
+        _refuse_completed_session(home, session, "archive")
+        current_revision = _current_revision(session, _read_draft(home, session_id))
+        _expect_revision(expected_revision, current_revision)
+        updated = {
+            **session,
+            "status": "archived",
+            "revision": current_revision + 1,
+            "last_entrypoint": entrypoint if entrypoint != "unknown" else session["last_entrypoint"],
+            "next_action": "restore_or_discard",
+            "updated_at": _timestamp(),
+        }
+        _validate_session(updated, home, session_id)
+        _write_json(session_path(home, session_id), updated)
+        _write_draft_revision(home, updated, updated["revision"])
+    return updated
+
+
+def restore_session(
+    home: CareerVault,
+    session_id: str,
+    *,
+    expected_revision: int | None = None,
+    entrypoint: str = "unknown",
+) -> dict[str, Any]:
+    with vault_lock(home):
+        session = _read_session(home, session_id)
+        if session["status"] != "archived":
+            raise CareerError("only archived work can be restored", code="INVALID_INPUT")
+        current_revision = _current_revision(session, _read_draft(home, session_id))
+        _expect_revision(expected_revision, current_revision)
+        status = "review_pending" if session["stage"] == "review" else "draft"
+        updated = {
+            **session,
+            "status": status,
+            "revision": current_revision + 1,
+            "last_entrypoint": entrypoint if entrypoint != "unknown" else session["last_entrypoint"],
+            "next_action": "review" if status == "review_pending" else "continue",
+            "updated_at": _timestamp(),
+        }
+        _validate_session(updated, home, session_id)
+        _write_json(session_path(home, session_id), updated)
+        _write_draft_revision(home, updated, updated["revision"])
+    return updated
+
+
+def missing_fields(
+    draft: dict[str, Any], *, workflow: str = SESSION_WORKFLOW
+) -> list[str]:
+    _draft_values(draft, workflow=workflow)
+    if workflow == "self_analysis":
+        return [] if draft.get("profile") else ["profile"]
+    if workflow == "application":
+        return []
     missing: list[str] = []
     if not str(draft.get("role") or "").strip():
         missing.append("role")
@@ -391,7 +871,10 @@ def missing_fields(draft: dict[str, Any]) -> list[str]:
         missing.append("direct_actions")
     if not str(draft.get("individual_contribution") or "").strip():
         missing.append("individual_contribution")
-    if not draft.get("metrics"):
+    outcome = draft.get("outcome_state")
+    if outcome not in OUTCOME_STATES:
+        missing.append("outcome")
+    elif outcome == "quantitative" and not draft.get("metrics"):
         missing.append("metrics")
     confidentiality = draft.get("confidentiality")
     external_use = confidentiality.get("external_use") if isinstance(confidentiality, dict) else None
@@ -400,40 +883,102 @@ def missing_fields(draft: dict[str, Any]) -> list[str]:
     return missing
 
 
-def field_status(draft: dict[str, Any]) -> list[dict[str, str]]:
-    missing = set(missing_fields(draft))
-    labels = {
-        "role": "역할",
-        "direct_actions": "행동",
-        "individual_contribution": "개인 기여",
-        "metrics": "결과 수치",
-        "confidentiality.external_use": "외부 공개 가능 여부",
+def field_status(
+    draft: dict[str, Any], *, workflow: str = SESSION_WORKFLOW
+) -> list[dict[str, str]]:
+    if workflow == "self_analysis":
+        return [{"field": "profile", "status": "entered" if draft.get("profile") else "not_entered"}]
+    if workflow == "application":
+        return []
+    outcome = draft.get("outcome_state")
+    confidentiality = draft.get("confidentiality")
+    external_use = confidentiality.get("external_use") if isinstance(confidentiality, dict) else None
+    states = {
+        "role": "entered" if str(draft.get("role") or "").strip() else "not_entered",
+        "direct_actions": "entered" if draft.get("direct_actions") else "not_entered",
+        "individual_contribution": (
+            "entered" if str(draft.get("individual_contribution") or "").strip() else "not_entered"
+        ),
+        "outcome": (
+            "explicitly_unknown" if outcome == "unknown" else (
+                "entered" if outcome in OUTCOME_STATES else "not_entered"
+            )
+        ),
+        "metrics": (
+            "entered" if outcome == "quantitative" and draft.get("metrics") else (
+                "needs_review" if outcome == "quantitative" else (
+                    "explicitly_unknown" if outcome == "unknown" else (
+                        "not_applicable" if outcome in {"qualitative", "not_measured"} else "not_entered"
+                    )
+                )
+            )
+        ),
+        "confidentiality.external_use": (
+            "explicitly_unknown" if external_use == "unknown" else (
+                "entered" if external_use in {"allowed", "blocked"} else "not_entered"
+            )
+        ),
     }
-    return [
-        {"field": field, "label": label, "status": "Unknown" if field in missing else "Confirmed"}
-        for field, label in labels.items()
-    ]
+    return [{"field": field, "status": status} for field, status in states.items()]
 
 
-def save_draft(home: CareerVault, session_id: str, draft: dict[str, Any]) -> dict[str, Any]:
+def save_draft(
+    home: CareerVault,
+    session_id: str,
+    draft: dict[str, Any],
+    *,
+    expected_revision: int | None = None,
+    entrypoint: str = "unknown",
+) -> dict[str, Any]:
+    if entrypoint not in SESSION_ENTRYPOINTS:
+        raise CareerError("unsupported workflow entrypoint", code="INVALID_INPUT")
     with vault_lock(home):
         session = _read_session(home, session_id)
-        _refuse_completed_session(session, "record another experience")
-        values = _draft_values(draft)
+        _refuse_completed_session(home, session, "record another experience")
+        draft_record = _read_draft(home, session_id)
+        current_revision = _current_revision(session, draft_record)
+        _expect_revision(expected_revision, current_revision)
+        revision = current_revision + 1
+        anchored = (
+            _anchored_career_draft(home, session, draft)
+            if session["workflow"] == SESSION_WORKFLOW
+            else draft
+        )
+        values = _draft_values(anchored, workflow=session["workflow"])
         record = {
             "session_id": session_id,
             "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
-            "workflow": SESSION_WORKFLOW,
+            "workflow": session["workflow"],
+            "revision": revision,
             "draft": values,
             "updated_at": _timestamp(),
         }
         _write_json(draft_path(home, session_id), record)
+        session = _checkpoint_unlocked(
+            home,
+            session,
+            stage=(
+                {"career_inventory": "experience", "self_analysis": "hypotheses", "application": "target"}[
+                    session["workflow"]
+                ]
+                if session["stage"] == "review"
+                else None
+            ),
+            missing=(
+                missing_fields(values, workflow=session["workflow"])
+                if session["workflow"] != "application"
+                else session["missing_fields"]
+            ),
+            revision=revision,
+            entrypoint=entrypoint,
+        )
         return {
             "session": session,
             "draft": values,
-            "missing_fields": missing_fields(values),
-            "field_status": field_status(values),
+            "missing_fields": missing_fields(values, workflow=session["workflow"]),
+            "field_status": field_status(values, workflow=session["workflow"]),
             "unconfirmed_input": True,
+            "revision": revision,
         }
 
 
@@ -443,13 +988,21 @@ def resume_session(home: CareerVault, session_id: str) -> dict[str, Any]:
     draft = draft_record.get("draft", {})
     draft_updated = str(draft_record.get("updated_at") or "")
     session_updated = str(session.get("updated_at") or "")
+    revision = _current_revision(session, draft_record)
     return {
         "mode": "tanaoroshi-resume",
         "session": session,
         "draft": draft,
-        "missing_fields": missing_fields(draft),
-        "field_status": field_status(draft),
-        "unconfirmed_input": bool(draft_updated and draft_updated > session_updated),
+        "missing_fields": missing_fields(draft, workflow=session["workflow"]),
+        "field_status": field_status(draft, workflow=session["workflow"]),
+        "unconfirmed_input": bool(
+            draft
+            and session.get("status") not in {"review_pending", "completed"}
+        ) or bool(draft_updated and draft_updated > session_updated),
+        "revision": revision,
+        "write_recovery_required": int(session.get("revision", 0)) != int(
+            draft_record.get("revision", 0)
+        ),
         "ok": True,
     }
 
@@ -463,26 +1016,43 @@ def _checkpoint_unlocked(
     missing: list[str] | None = None,
     completed: list[str] | None = None,
     proposal_refs: list[str] | None = None,
+    revision: int | None = None,
+    entrypoint: str = "unknown",
 ) -> dict[str, Any]:
     next_stage = stage or session["stage"]
-    if next_stage not in SESSION_STAGES:
-        raise CareerError("checkpoint stage is not a semantic 棚卸し stage", code="INVALID_INPUT")
+    if next_stage not in SESSION_WORKFLOW_STAGES[session["workflow"]]:
+        raise CareerError("checkpoint stage is not valid for this workflow", code="INVALID_INPUT")
+    if entrypoint not in SESSION_ENTRYPOINTS:
+        raise CareerError("unsupported workflow entrypoint", code="INVALID_INPUT")
     if current_item_ref is not None and (not isinstance(current_item_ref, str) or not current_item_ref.strip()):
         raise CareerError("current_item_ref must be a non-empty string or null", code="INVALID_INPUT")
     for name, value in (("missing_fields", missing), ("completed", completed), ("proposal_refs", proposal_refs)):
         if value is not None and (not isinstance(value, list) or any(not isinstance(item, str) for item in value)):
             raise CareerError(f"{name} must be a list of strings", code="INVALID_INPUT")
+    next_revision = int(session.get("revision", 0)) + 1 if revision is None else revision
+    status = (
+        "completed" if next_stage == "completed" else (
+            "review_pending" if next_stage == "review" else "draft"
+        )
+    )
     updated = {
         **session,
         "stage": next_stage,
+        "status": status,
+        "revision": next_revision,
+        "last_entrypoint": entrypoint if entrypoint != "unknown" else session["last_entrypoint"],
         "current_item_ref": current_item_ref if current_item_ref is not None else session["current_item_ref"],
         "missing_fields": list(missing if missing is not None else session["missing_fields"]),
         "completed": list(completed if completed is not None else session["completed"]),
         "proposal_refs": list(proposal_refs if proposal_refs is not None else session["proposal_refs"]),
+        "next_action": "done" if status == "completed" else (
+            "review" if status == "review_pending" else "continue"
+        ),
         "updated_at": _timestamp(),
     }
     _validate_session(updated, home, session["session_id"])
     _write_json(session_path(home, session["session_id"]), updated)
+    _write_draft_revision(home, updated, updated["revision"])
     return updated
 
 
@@ -494,15 +1064,22 @@ def checkpoint_session(
     current_item_ref: str | None = None,
     missing: list[str] | None = None,
     completed: list[str] | None = None,
+    expected_revision: int | None = None,
+    entrypoint: str = "unknown",
 ) -> dict[str, Any]:
     with vault_lock(home):
+        session = _read_session(home, session_id)
+        current_revision = _current_revision(session, _read_draft(home, session_id))
+        _expect_revision(expected_revision, current_revision)
         return _checkpoint_unlocked(
             home,
-            _read_session(home, session_id),
+            session,
             stage=stage,
             current_item_ref=current_item_ref,
             missing=missing,
             completed=completed,
+            revision=current_revision + 1,
+            entrypoint=entrypoint,
         )
 
 
@@ -510,25 +1087,40 @@ def _proposal_rows(home: CareerVault) -> list[dict[str, Any]]:
     return read_jsonl(home.proposals)
 
 
-def _refuse_completed_session(session: dict[str, Any], action: str) -> None:
+def _refuse_completed_session(
+    home: CareerVault, session: dict[str, Any], action: str
+) -> None:
     """An approved session is a closed record; the next experience needs its own session.
 
     Without this a completed session keeps accepting drafts, and the proposal it already had
     approved is the one the next approval finds.
     """
-    if session.get("stage") == "completed":
+    approved = {
+        row.get("id")
+        for row in _proposal_rows(home)
+        if row.get("status") == "approved"
+    }
+    if session.get("stage") == "completed" or approved.intersection(session["proposal_refs"]):
         raise CareerError(
             f"this 棚卸し session is already approved; start a new session to {action}",
             code="SESSION_COMPLETED",
         )
+    if session.get("status") == "archived":
+        raise CareerError(
+            "this workflow is archived; restore it before changing it",
+            code="SESSION_ARCHIVED",
+        )
 
 
-def _proposal_response(proposal: dict[str, Any], session_id: str) -> dict[str, Any]:
+def _proposal_response(
+    proposal: dict[str, Any], session_id: str, revision: int, *, review_before: dict[str, Any] | None = None
+) -> dict[str, Any]:
     # The event travels with the response so the screen can show what approval will write. An
     # approval button next to text the caller never received is a button the user cannot check.
-    return {
+    result = {
         "mode": "tanaoroshi-proposal",
         "session_id": session_id,
+        "revision": revision,
         "proposal": {
             "id": proposal["id"],
             "status": proposal["status"],
@@ -538,24 +1130,138 @@ def _proposal_response(proposal: dict[str, Any], session_id: str) -> dict[str, A
         },
         "ok": True,
     }
+    if review_before is not None:
+        result["review_before"] = review_before
+    return result
 
 
 def _proposal_event(draft: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     values = _draft_values(draft, allow_empty_summary=False)
+    if values.get("outcome_state") == "quantitative" and not values.get("metrics"):
+        raise CareerError(
+            "metrics are required for a quantitative outcome",
+            code="INVALID_INPUT",
+        )
     event = make_work_event(str(values["summary"]), non_work=values.get("non_work", False))
-    event["evidence"] = list(values.get("evidence", []))
+    event["evidence"] = list(values.get("evidence", [])) or [USER_CONFIRMATION_EVIDENCE]
     payload = {key: item for key, item in values.items() if key not in {"summary", "evidence", "non_work"}}
     event["experience" if values.get("non_work", False) else "work_event"] = payload
     validate_event(event)
     return event, values
 
 
-def create_proposal(home: CareerVault, session_id: str) -> dict[str, Any]:
+def _create_self_analysis_proposal(
+    home: CareerVault,
+    session_id: str,
+    *,
+    expected_revision: int | None,
+    entrypoint: str,
+) -> dict[str, Any]:
+    session = _read_session(home, session_id)
+    _refuse_completed_session(home, session, "propose from")
+    draft_record = _read_draft(home, session_id)
+    current_revision = _current_revision(session, draft_record)
+    _expect_revision(expected_revision, current_revision)
+    values = _draft_values(draft_record.get("draft", {}), workflow="self_analysis")
+    profile = values.get("profile")
+    if not isinstance(profile, dict):
+        raise CareerError(
+            "a reviewed SELF_ANALYSIS_PROFILE is required before proposing",
+            code="INVALID_INPUT",
+        )
+    draft_stamp = str(draft_record.get("updated_at") or "")
+
+    def proposal_precondition() -> None:
+        latest_session = _read_session(home, session_id)
+        _refuse_completed_session(home, latest_session, "propose from")
+        latest_draft = _read_draft(home, session_id)
+        _expect_revision(
+            expected_revision,
+            _current_revision(latest_session, latest_draft),
+        )
+        if str(latest_draft.get("updated_at") or "") != draft_stamp:
+            raise CareerError(
+                "the self-analysis changed before review could be prepared",
+                code="REVISION_STALE",
+                retryable=True,
+            )
+
+    proposed = propose_career_context_payload(
+        home,
+        profile,
+        session_id=session_id,
+        draft_updated_at=draft_stamp,
+        precondition=proposal_precondition,
+    )
+    proposal = proposed["proposal"]
+    with vault_lock(home):
+        latest_session = _read_session(home, session_id)
+        latest_draft = _read_draft(home, session_id)
+        latest_revision = _current_revision(latest_session, latest_draft)
+        _expect_revision(expected_revision, latest_revision)
+        refs = list(latest_session["proposal_refs"])
+        if proposal["id"] not in refs:
+            refs.append(proposal["id"])
+        updated = _checkpoint_unlocked(
+            home,
+            latest_session,
+            stage="review",
+            current_item_ref="self_analysis_profile",
+            missing=[],
+            proposal_refs=refs,
+            revision=latest_revision + 1,
+            entrypoint=entrypoint,
+        )
+    prior = next(
+        (
+            row.get("career_context")
+            for row in reversed(read_jsonl(home.events))
+            if row.get("type") == "career_context"
+            and row.get("status") == "confirmed"
+            and isinstance(row.get("career_context"), dict)
+        ),
+        None,
+    )
+    return _proposal_response(
+        proposal,
+        session_id,
+        updated["revision"],
+        review_before=prior,
+    )
+
+
+def create_proposal(
+    home: CareerVault,
+    session_id: str,
+    *,
+    expected_revision: int | None = None,
+    entrypoint: str = "unknown",
+) -> dict[str, Any]:
+    workflow = _read_session(home, session_id)["workflow"]
+    if workflow == "self_analysis":
+        return _create_self_analysis_proposal(
+            home,
+            session_id,
+            expected_revision=expected_revision,
+            entrypoint=entrypoint,
+        )
+    if workflow != "career_inventory":
+        raise CareerError(
+            "this workflow has no canonical proposal",
+            code="INVALID_INPUT",
+        )
     with vault_lock(home):
         session = _read_session(home, session_id)
-        _refuse_completed_session(session, "propose from")
+        _refuse_completed_session(home, session, "propose from")
+        if not session.get("case_ref") and entrypoint != "unknown":
+            raise CareerError(
+                "choose the company or activity and project before review",
+                code="CONTEXT_REQUIRED",
+            )
         proposal_id = f"proposal-{session_id.removeprefix('session-')}"
         draft_record = _read_draft(home, session_id)
+        current_revision = _current_revision(session, draft_record)
+        _expect_revision(expected_revision, current_revision)
         draft_stamp = str(draft_record.get("updated_at") or "")
         existing = [
             row
@@ -567,29 +1273,34 @@ def create_proposal(home: CareerVault, session_id: str) -> dict[str, Any]:
             proposal = existing[-1]
             if proposal.get("draft_updated_at") == draft_stamp:
                 if proposal["id"] not in session["proposal_refs"]:
-                    _checkpoint_unlocked(
+                    session = _checkpoint_unlocked(
                         home,
                         session,
                         stage="review",
                         current_item_ref=session["current_item_ref"] or "new_experience",
                         proposal_refs=[*session["proposal_refs"], proposal["id"]],
+                        revision=current_revision + 1,
+                        entrypoint=entrypoint,
                     )
-                return _proposal_response(proposal, session_id)
+                    current_revision = session["revision"]
+                return _proposal_response(proposal, session_id, current_revision)
             # The draft moved after this proposal was taken. Re-snapshot in place rather than
             # leaving a pending proposal that no longer matches what the user is looking at.
             event, values = _proposal_event(draft_record.get("draft", {}))
             proposal = home.replace_proposal(
                 proposal["id"], event=event, draft_updated_at=draft_stamp
             )
-            _checkpoint_unlocked(
+            session = _checkpoint_unlocked(
                 home,
                 session,
                 stage="review",
                 current_item_ref=values.get("experience_ref") or "new_experience",
                 missing=missing_fields(values),
                 proposal_refs=session["proposal_refs"],
+                revision=current_revision + 1,
+                entrypoint=entrypoint,
             )
-            return _proposal_response(proposal, session_id)
+            return _proposal_response(proposal, session_id, session["revision"])
         event, values = _proposal_event(draft_record.get("draft", {}))
         proposal = {
             "id": proposal_id,
@@ -602,15 +1313,17 @@ def create_proposal(home: CareerVault, session_id: str) -> dict[str, Any]:
             "event": event,
         }
         home.add_proposal(proposal)
-        _checkpoint_unlocked(
+        session = _checkpoint_unlocked(
             home,
             session,
             stage="review",
             current_item_ref=values.get("experience_ref") or "new_experience",
             missing=missing_fields(values),
             proposal_refs=[*session["proposal_refs"], proposal["id"]],
+            revision=current_revision + 1,
+            entrypoint=entrypoint,
         )
-    return _proposal_response(proposal, session_id)
+    return _proposal_response(proposal, session_id, session["revision"])
 
 
 def _approved_result(home: CareerVault, proposal: dict[str, Any]) -> dict[str, Any]:
@@ -627,56 +1340,85 @@ def _approved_result(home: CareerVault, proposal: dict[str, Any]) -> dict[str, A
     }
 
 
-def _mark_approved_session(home: CareerVault, session_id: str) -> None:
+def _mark_approved_session(
+    home: CareerVault, session_id: str, *, entrypoint: str = "unknown"
+) -> dict[str, Any]:
     with vault_lock(home):
         session = _read_session(home, session_id)
+        if session["status"] == "completed":
+            return session
         completed = list(session["completed"])
         if "evidence_approved" not in completed:
             completed.append("evidence_approved")
-        _checkpoint_unlocked(
+        return _checkpoint_unlocked(
             home,
             session,
             stage="completed",
             current_item_ref=session["current_item_ref"],
             missing=session["missing_fields"],
             completed=completed,
+            entrypoint=entrypoint,
         )
 
 
-def approve_proposal(home: CareerVault, session_id: str, proposal_id: str) -> dict[str, Any]:
+def approve_proposal(
+    home: CareerVault,
+    session_id: str,
+    proposal_id: str,
+    *,
+    expected_revision: int | None = None,
+    entrypoint: str = "unknown",
+) -> dict[str, Any]:
     _validate_session_id(session_id)
     if not isinstance(proposal_id, str) or not proposal_id.strip():
         raise CareerError("proposal id is required", code="INVALID_INPUT")
     session = _read_session(home, session_id)
+    current_revision = _current_revision(session, _read_draft(home, session_id))
+    _expect_revision(expected_revision, current_revision)
     if proposal_id not in session["proposal_refs"]:
         raise CareerError("proposal does not belong to this session", code="INVALID_INPUT")
     proposal = next((row for row in _proposal_rows(home) if row.get("id") == proposal_id), None)
     if proposal is None:
         raise CareerError("proposal not found", code="PROPOSAL_NOT_FOUND")
     if proposal.get("status") == "approved":
-        _mark_approved_session(home, session_id)
-        return _approved_result(home, proposal)
+        completed = _mark_approved_session(home, session_id, entrypoint=entrypoint)
+        result = _approved_result(home, proposal)
+        result["revision"] = completed["revision"]
+        return result
     if proposal.get("status") != "pending":
         raise CareerError("proposal is not pending", code="PROPOSAL_NOT_PENDING")
-    # A proposal is a snapshot of the draft at one moment, and `create_proposal` re-snapshots when
-    # the draft has moved. Nothing forces a caller through that path, though: the approve button
-    # the browser already rendered carries an id that stays valid across an autosave. Comparing
-    # here is what makes the guarantee independent of the client -- approval writes the text the
-    # snapshot holds, so if that is no longer the draft, refuse rather than record the older
-    # wording as a confirmed fact.
-    draft_stamp = str(_read_draft(home, session_id).get("updated_at") or "")
-    if str(proposal.get("draft_updated_at") or "") != draft_stamp:
-        raise CareerError(
-            "the draft changed after this proposal was created; create the proposal again",
-            code="PROPOSAL_STALE",
-        )
     event = proposal.get("event")
     if not isinstance(event, dict):
         raise CareerError("proposal event is invalid", code="PROPOSAL_INVALID")
-    # Preflight through the canonical validator keeps a rejected GUI approval from appending a
-    # failure trajectory. The actual commit still goes through approvals.approve -> lifecycle.
-    validate_event(event, for_confirmation=True)
-    result = approve_canonical(home, proposal_id)
-    _mark_approved_session(home, session_id)
+
+    def approval_precondition() -> None:
+        """Recheck the browser's snapshot while the canonical approval lock is held."""
+        latest_session = _read_session(home, session_id)
+        latest_draft = _read_draft(home, session_id)
+        latest_revision = _current_revision(latest_session, latest_draft)
+        _expect_revision(expected_revision, latest_revision)
+        if proposal_id not in latest_session["proposal_refs"]:
+            raise CareerError("proposal does not belong to this session", code="INVALID_INPUT")
+        latest_proposal = next(
+            (row for row in _proposal_rows(home) if row.get("id") == proposal_id),
+            None,
+        )
+        if latest_proposal is None:
+            raise CareerError("proposal not found", code="PROPOSAL_NOT_FOUND")
+        draft_stamp = str(latest_draft.get("updated_at") or "")
+        if str(latest_proposal.get("draft_updated_at") or "") != draft_stamp:
+            raise CareerError(
+                "the draft changed after this proposal was created; create the proposal again",
+                code="PROPOSAL_STALE",
+            )
+        latest_event = latest_proposal.get("event")
+        if not isinstance(latest_event, dict):
+            raise CareerError("proposal event is invalid", code="PROPOSAL_INVALID")
+        # Preflight here prevents a rejected GUI approval from appending a failure trajectory.
+        validate_event(latest_event, for_confirmation=True)
+
+    result = approve_canonical(home, proposal_id, precondition=approval_precondition)
+    completed = _mark_approved_session(home, session_id, entrypoint=entrypoint)
     result["session_id"] = session_id
+    result["revision"] = completed["revision"]
     return result

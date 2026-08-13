@@ -147,17 +147,33 @@ def work_events(
 
 
 def add_project(
-    home: CareerVault, title: str, *, project_id: str | None = None, **fields: Any,
+    home: CareerVault,
+    title: str,
+    *,
+    project_id: str | None = None,
+    evidence: list[str] | None = None,
+    case_ref: str | None = None,
+    **fields: Any,
 ) -> dict[str, Any]:
     """Propose a project, or an update to one that already exists.
 
     Goes through the same proposal the rest of the ledger uses, so the confirmation the UX already
     asks for ("연결할까요?") is the approval, not an extra step on top of it.
     """
+    if evidence is not None and (
+        not isinstance(evidence, list)
+        or any(not isinstance(item, str) or not item.strip() for item in evidence)
+    ):
+        raise CareerError("evidence must be a list of non-empty strings", code="INVALID_INPUT")
+    if case_ref is not None and (not isinstance(case_ref, str) or not case_ref.strip()):
+        raise CareerError("case_ref must be a non-empty string or null", code="INVALID_INPUT")
     known = projects_from_events(read_jsonl(home.events))
     if project_id is not None and project_id not in known:
         raise CareerError(f"unknown project id: {project_id}", code="PROJECT_NOT_FOUND")
     event = make_project_event(title, project_id, fields=fields)
+    if evidence is not None:
+        event["evidence"] = list(evidence)
+        validate_event(event)
     proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
     proposal = {
         "id": proposal_id,
@@ -169,6 +185,8 @@ def add_project(
         "next_action": f"approve {proposal_id} after checking the title and role",
         "event": event,
     }
+    if case_ref is not None:
+        proposal["case_ref"] = case_ref
     with vault_lock(home):
         home.add_proposal(proposal)
     return {
@@ -182,17 +200,34 @@ def add_project(
 
 
 def add_context(
-    home: CareerVault, kind: str, label: str, *, context_id: str | None = None, **fields: Any,
+    home: CareerVault,
+    kind: str,
+    label: str,
+    *,
+    context_id: str | None = None,
+    evidence: list[str] | None = None,
+    case_ref: str | None = None,
+    **fields: Any,
 ) -> dict[str, Any]:
     """Propose a context, or an update to one that already exists.
 
     Same proposal path as `add-project`, so the confirmation the UX already asks for is the
     approval rather than a second step on top of it.
     """
+    if evidence is not None and (
+        not isinstance(evidence, list)
+        or any(not isinstance(item, str) or not item.strip() for item in evidence)
+    ):
+        raise CareerError("evidence must be a list of non-empty strings", code="INVALID_INPUT")
+    if case_ref is not None and (not isinstance(case_ref, str) or not case_ref.strip()):
+        raise CareerError("case_ref must be a non-empty string or null", code="INVALID_INPUT")
     known = contexts_from_events(read_jsonl(home.events))
     if context_id is not None and context_id not in known:
         raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
     event = make_experience_context_event(kind, label, context_id, fields=fields)
+    if evidence is not None:
+        event["evidence"] = list(evidence)
+        validate_event(event)
     proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
     proposal = {
         "id": proposal_id,
@@ -202,6 +237,8 @@ def add_context(
         "next_action": f"approve {proposal_id} after checking the kind and the period",
         "event": event,
     }
+    if case_ref is not None:
+        proposal["case_ref"] = case_ref
     with vault_lock(home):
         home.add_proposal(proposal)
     return {
@@ -272,6 +309,11 @@ def list_experiences(home: CareerVault, *, context_id: str | None = None) -> dic
         "count": len(rows),
         "contexts": grouped["contexts"],
         "experiences": rows,
+        "claims": [
+            claim
+            for claim in grouped["claims"]
+            if context_id is None or claim.get("context_id") == context_id
+        ],
         # Evidence that belongs to no recorded experience is still evidence. Hiding it would make
         # the record look tidier than it is.
         "unattached_evidence_ids": grouped["unattached_evidence_ids"],
