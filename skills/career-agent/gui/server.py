@@ -593,12 +593,16 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                 application = cases.get_case(self.server.home, payload["case_ref"])
                 if application["kind"] != "application":
                     raise ValueError("application document requires an application")
+                evidence_refs = cases.application_evidence_refs(
+                    self.server.home,
+                    application.get("metadata", {}).get("evidence_refs", []),
+                )
                 result = artifacts.register_artifact(
                     self.server.home,
                     case_ref=application["case_id"],
                     kind=document_type,
                     body=payload["body"],
-                    evidence_refs=application.get("metadata", {}).get("evidence_refs", []),
+                    evidence_refs=evidence_refs,
                     source_refs=payload.get("sources"),
                     generated_by={"entrypoint": "gui", "workflow": "application_document"},
                 )

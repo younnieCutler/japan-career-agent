@@ -6,6 +6,7 @@ from typing import Any
 
 from artifact_store import list_artifacts
 from case_store import (
+    application_evidence_refs,
     approve_canonical_case,
     archive_case,
     assign_project_context,
@@ -26,6 +27,7 @@ from case_store import (
 )
 
 __all__ = [
+    "application_evidence_refs",
     "archive_case",
     "assign_project_context",
     "case_path",

@@ -153,6 +153,7 @@ class ProjectCaseTests(unittest.TestCase):
             context_kind="company",
             relationship="employer",
         )
+        context = self._approve_case(context)
         return context, cases.create_project(self.home, context["case_id"], label, **kwargs)
 
     def _approve_case(self, record: dict) -> dict:
@@ -169,12 +170,12 @@ class ProjectCaseTests(unittest.TestCase):
         Retrospectives and drafts belong beside the project while it runs; only approval turns any
         of it into a confirmed fact, so writing them must leave the canonical ledger alone.
         """
-        before = {
-            path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()
-        }
         context, project = self._project(
             "Payment Platform Migration", project_id="proj-payments",
         )
+        before = {
+            path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()
+        }
         retrospective = artifacts.register_artifact(
             self.home, case_ref=project["case_id"], kind="project_review", body="회고 초안",
         )
@@ -190,7 +191,7 @@ class ProjectCaseTests(unittest.TestCase):
             before,
             {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()},
         )
-        self.assertFalse(self.home.events.exists())
+        self.assertTrue(self.home.events.exists())
 
     def test_a_project_case_is_isolated_from_application_cases(self) -> None:
         _, project = self._project("Payment Platform Migration")
@@ -213,7 +214,6 @@ class ProjectCaseTests(unittest.TestCase):
         the work it came from, and nothing reaches the ledger until the user approves it.
         """
         context, project = self._project("Payment Platform Migration")
-        self._approve_case(context)
         project = self._approve_case(project)
         started = tanaoroshi.start(self.home, case_ref=project["case_id"])
         session_id = started["session"]["session_ref"]

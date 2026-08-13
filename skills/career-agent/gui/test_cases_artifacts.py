@@ -275,7 +275,6 @@ class CaseArtifactTests(unittest.TestCase):
                 body=json.dumps({
                     "company_ref": company["ref"],
                     "label": "Backend",
-                    "evidence_refs": ["claim-confirmed"],
                 }),
                 headers={
                     "Cookie": cookie,
@@ -305,7 +304,31 @@ class CaseArtifactTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             self.assertTrue(json.loads(response.read())["saved"])
             document = artifacts.list_artifacts(self.home, case_ref=application["ref"])[0]
-            self.assertEqual(document["evidence_refs"], ["claim-confirmed"])
+            self.assertEqual(document["evidence_refs"], [])
+
+            record = cases.get_case(self.home, application["ref"])
+            record.pop("relationship_state", None)
+            record["metadata"]["evidence_refs"] = ["claim-missing"]
+            cases.case_path(self.home, application["ref"]).write_text(
+                json.dumps(record) + "\n", encoding="utf-8"
+            )
+            connection.request(
+                "POST",
+                "/api/applications/documents",
+                body=json.dumps({
+                    "case_ref": application["ref"],
+                    "document_type": "resume",
+                    "body": "Unapproved evidence must not be reused",
+                }),
+                headers={
+                    "Cookie": cookie,
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": session["csrf_token"],
+                },
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 400)
+            response.read()
 
             connection.request(
                 "GET",

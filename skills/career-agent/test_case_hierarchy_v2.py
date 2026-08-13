@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,10 +30,17 @@ class CaseHierarchyV2Tests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
+    def _approve_case(self, record: dict) -> dict:
+        review = gui_cases.propose_canonical_case(self.home, record["case_id"])
+        return gui_cases.approve_canonical_case(
+            self.home, record["case_id"], review["proposal"]["id"]
+        )["case"]
+
     def test_employer_project_and_application_company_are_distinct(self) -> None:
         employer = case_store.create_career_context(
             self.home, "Acme", context_kind="company", relationship="employer"
         )
+        employer = self._approve_case(employer)
         project = case_store.create_project(self.home, employer["case_id"], "Payments migration")
         target = case_store.create_company(self.home, "Future Corp")
         application = case_store.create_application(self.home, target["case_id"], "Platform Engineer")
@@ -47,6 +55,7 @@ class CaseHierarchyV2Tests(unittest.TestCase):
         context = case_store.create_career_context(
             self.home, "Open source", context_kind="open_source", relationship="non_work"
         )
+        context = self._approve_case(context)
         project = case_store.create_project(self.home, context["case_id"], "Maintainer onboarding")
 
         self.assertEqual(context["metadata"]["context_kind"], "open_source")
@@ -90,6 +99,20 @@ class CaseHierarchyV2Tests(unittest.TestCase):
             case_store.create_project(self.home, target["case_id"], "Wrong hierarchy")
 
         self.assertEqual(invalid.exception.code, "INVALID_RELATIONSHIP")
+
+    def test_new_project_requires_an_approved_career_context(self) -> None:
+        context = case_store.create_career_context(
+            self.home, "Acme", context_kind="company", relationship="employer"
+        )
+
+        with self.assertRaises(CareerError) as blocked:
+            case_store.create_project(self.home, context["case_id"], "Payments")
+
+        confirmed = self._approve_case(context)
+        project = case_store.create_project(self.home, confirmed["case_id"], "Payments")
+
+        self.assertEqual(blocked.exception.code, "PARENT_NOT_CONFIRMED")
+        self.assertEqual(project["parent_ref"], confirmed["case_id"])
 
     def test_archived_parents_reject_new_projects_and_applications(self) -> None:
         context = case_store.create_career_context(
@@ -144,6 +167,21 @@ class CaseHierarchyV2Tests(unittest.TestCase):
         self.assertEqual(immutable.exception.code, "CASE_ALREADY_CONFIRMED")
         self.assertEqual(self.home.events.read_bytes(), ledger_before)
 
+    def test_restore_child_requires_an_active_parent(self) -> None:
+        company = case_store.create_company(self.home, "Target Corp")
+        application = case_store.create_application(self.home, company["case_id"], "Platform Engineer")
+        archived_application = case_store.archive_case(self.home, application["case_id"])
+        case_store.archive_case(self.home, company["case_id"])
+
+        with self.assertRaises(CareerError) as blocked:
+            case_store.restore_case(
+                self.home,
+                application["case_id"],
+                expected_updated_at=archived_application["updated_at"],
+            )
+
+        self.assertEqual(blocked.exception.code, "INVALID_RELATIONSHIP")
+
     def test_archived_review_cannot_be_approved_until_restored(self) -> None:
         context = case_store.create_career_context(
             self.home, "Acme", context_kind="company", relationship="employer"
@@ -195,6 +233,7 @@ class CaseHierarchyV2Tests(unittest.TestCase):
         context = case_store.create_career_context(
             self.home, "Acme", context_kind="company", relationship="employer"
         )
+        context = self._approve_case(context)
         legacy_id = "case-project-0000000000000001"
         path = case_store.cases_root(self.home) / f"{legacy_id}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -226,6 +265,29 @@ class CaseHierarchyV2Tests(unittest.TestCase):
 
         self.assertEqual(stale.exception.code, "REVISION_STALE")
         self.assertEqual(connected["parent_ref"], context["case_id"])
+
+    def test_application_rejects_unknown_and_externally_blocked_evidence(self) -> None:
+        company = case_store.create_company(self.home, "Target Corp")
+
+        with self.assertRaises(CareerError) as unknown:
+            case_store.create_application(
+                self.home, company["case_id"], "Platform Engineer", evidence_refs=["evt-missing"]
+            )
+        with patch.object(case_store, "list_experiences", return_value={"claims": [{
+            "claim_id": "claim-blocked",
+            "contains_confidential": True,
+            "external_use": "blocked",
+        }]}):
+            with self.assertRaises(CareerError) as blocked:
+                case_store.create_application(
+                    self.home,
+                    company["case_id"],
+                    "Platform Engineer",
+                    evidence_refs=["claim-blocked"],
+                )
+
+        self.assertEqual(unknown.exception.code, "INVALID_RELATIONSHIP")
+        self.assertEqual(blocked.exception.code, "INVALID_RELATIONSHIP")
 
     def test_confirmed_project_cannot_be_repaired_under_the_wrong_company(self) -> None:
         contexts = []

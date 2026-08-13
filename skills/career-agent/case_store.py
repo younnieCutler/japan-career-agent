@@ -132,6 +132,44 @@ def get_case(home: CareerVault, case_id: str) -> dict[str, Any]:
     return _read_case(home, case_id)
 
 
+def _active_parent(home: CareerVault, kind: str, parent_ref: str) -> dict[str, Any]:
+    parent = _read_case(home, parent_ref)
+    expected_kind = "company" if kind == "application" else "career_context"
+    if parent["kind"] != expected_kind or parent["status"] != "active":
+        raise CareerError(
+            f"{kind} parent must be an active {expected_kind} case",
+            code="INVALID_RELATIONSHIP",
+        )
+    if kind == "project" and not parent["metadata"].get("context_id"):
+        raise CareerError(
+            "confirm the career context before creating or restoring a project",
+            code="PARENT_NOT_CONFIRMED",
+        )
+def application_evidence_refs(home: CareerVault, evidence_refs: Any) -> list[str]:
+    """Return selected, confirmed evidence that may appear in an application document."""
+    selected = _strings(evidence_refs, "evidence_refs")
+    claims = {
+        str(claim["claim_id"]): claim
+        for claim in list_experiences(home).get("claims", [])
+        if isinstance(claim, dict) and isinstance(claim.get("claim_id"), str)
+    }
+    invalid = [
+        ref
+        for ref in selected
+        if ref not in claims
+        or (
+            claims[ref].get("contains_confidential")
+            and claims[ref].get("external_use") != "allowed"
+        )
+    ]
+    if invalid:
+        raise CareerError(
+            "application evidence must be confirmed and approved for external use",
+            code="INVALID_RELATIONSHIP",
+        )
+    return selected
+
+
 def _create(
     home: CareerVault,
     *,
@@ -174,13 +212,7 @@ def _create(
     _validate_case(record)
     with vault_lock(home):
         if kind in {"application", "project"}:
-            parent = _read_case(home, str(parent_ref))
-            expected_kind = "company" if kind == "application" else "career_context"
-            if parent["kind"] != expected_kind or parent["status"] != "active":
-                raise CareerError(
-                    f"{kind} parent must be an active {expected_kind} case",
-                    code="INVALID_RELATIONSHIP",
-                )
+            _active_parent(home, kind, str(parent_ref))
         path = case_path(home, case_id)
         if path.exists():
             raise CareerError("case id already exists", code="CASE_EXISTS")
@@ -223,7 +255,7 @@ def create_application(
 ) -> dict[str, Any]:
     metadata = {
         "jd": _object(jd, "jd"),
-        "evidence_refs": _strings(evidence_refs, "evidence_refs"),
+        "evidence_refs": application_evidence_refs(home, evidence_refs),
         "document_kinds": _strings(document_kinds, "document_kinds"),
     }
     return _create(
@@ -478,14 +510,15 @@ def assign_project_context(
                 "restore the project and career context before connecting them",
                 code="INVALID_RELATIONSHIP",
             )
+        if not context["metadata"].get("context_id"):
+            raise CareerError(
+                "confirm the career context before connecting a project",
+                code="PARENT_NOT_CONFIRMED",
+            )
         project_id = project["metadata"].get("project_id")
         if project_id:
             context_id = context["metadata"].get("context_id")
-            if not context_id:
-                raise CareerError(
-                    "confirm the career context before connecting this confirmed project",
-                    code="PARENT_NOT_CONFIRMED",
-                )
+            assert context_id is not None
             linked_contexts = {
                 str(row["context_id"])
                 for row in list_experiences(home).get("claims", [])
@@ -683,6 +716,8 @@ def restore_case(
                 "a deleted case cannot be restored through the archive action",
                 code="INVALID_INPUT",
             )
+        if record.get("parent_ref") is not None:
+            _active_parent(home, record["kind"], record["parent_ref"])
         record["status"] = "active"
         record["updated_at"] = _next_updated_at(record["updated_at"])
         _validate_case(record)

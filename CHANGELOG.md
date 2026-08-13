@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.2] - 2026-08-13
+
+- Reject application evidence that is unconfirmed or not approved for external use, including
+  document generation from an existing application record.
+- Require an approved career context for every project, including legacy-project repair and
+  restore, and prevent restoring any child beneath an inactive parent.
+
 ## [2.10.1] - 2026-08-13
 
 - Return the visible case reference from generic `/api/cases` creation, matching the company and
