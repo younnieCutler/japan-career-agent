@@ -48,7 +48,12 @@ def _run_hook(plugin_root: Path | None, *, script: str | None = None,
         argv = [powershell, "-NoProfile", "-NonInteractive", "-Command", command_windows]
     else:
         argv = ["/bin/sh", "-c", command]
-    return subprocess.run(argv, cwd=ROOT, env=env, capture_output=True, text=True)
+    # The hook deliberately emits Korean and Japanese recovery copy. Windows defaults its
+    # subprocess reader to a legacy code page, so make this contract read the UTF-8 bytes that the
+    # hook and status bar promise rather than turning a valid localized response into `None`.
+    return subprocess.run(
+        argv, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8"
+    )
 
 
 def _assert_degraded(result: subprocess.CompletedProcess[str]) -> None:
