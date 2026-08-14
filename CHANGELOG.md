@@ -10,6 +10,9 @@
   screen displayed. It reports one state per dimension with the counts behind it, and states in
   the interface that it does not total them.
 - Ship the built client inside the wheel, so `uvx japan-career-agent ui` still needs no Node.
+- Verify in CI that the committed client bundle is what the committed client source builds, so
+  shipping it inside the wheel cannot silently ship a stale one.
+- Fail the verification matrix when a tracked test file is not registered in it.
 - Bound the in-progress session list, which rendered every session in the Vault.
 - Restore `word-break: keep-all`, without which Korean breaks at arbitrary syllable blocks.
 

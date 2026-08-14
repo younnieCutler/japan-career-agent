@@ -259,11 +259,30 @@ class DiagnosisScreenTests(unittest.TestCase):
                 self.assertIn(name, evidence_map)
 
     def test_states_use_the_vocabulary_the_runtime_emits(self) -> None:
-        """Confirmed / Partial / Stale / Unknown, and nothing invented alongside them."""
-        catalog = gui_catalog("ko")
-        for state in ("confirmed", "partial", "stale", "unknown"):
-            self.assertIn(f"enum.readiness.{state}", catalog)
-        self.assertNotIn("enum.readiness.low_confidence", catalog)
+        """Confirmed / Partial / Stale / Unknown, and nothing invented alongside them.
+
+        Read out of `views.readiness` rather than written down here, so the client cannot drift
+        from the runtime in either direction: a state the runtime starts emitting has to arrive
+        with a translation and a tone, and a state only the client believes in fails immediately.
+        """
+        import inspect  # noqa: PLC0415
+
+        from views import readiness  # noqa: PLC0415
+
+        emitted = set(re.findall(r'"([A-Z][a-z]+)"', inspect.getsource(readiness)))
+        self.assertEqual(emitted, {"Confirmed", "Partial", "Stale", "Unknown"})
+
+        for locale in SUPPORTED_LANGUAGES:
+            catalog = gui_catalog(locale)
+            for state in emitted:
+                with self.subTest(locale=locale, state=state):
+                    self.assertIn(f"enum.readiness.{state.lower()}", catalog)
+        self.assertNotIn("enum.readiness.low_confidence", gui_catalog("ko"))
+
+        # `enum.readiness` is an alias of the canonical `fact_state` rows, so the chip cannot
+        # introduce a state of its own: every key here has to be one the runtime emits.
+        ramp = source("evidence.jsx").split("const READINESS_TONE", 1)[1].split("};", 1)[0]
+        self.assertEqual(set(re.findall(r"^\s+(\w+):", ramp, re.MULTILINE)), emitted)
 
     def test_the_screen_states_that_it_does_not_total(self) -> None:
         self.assertIn("diagnosis.no_total", self.diagnosis)
