@@ -422,7 +422,7 @@
     "component": {
       "name": "japan-career-agent",
       "type": "application",
-      "version": "2.11.1"
+      "version": "2.11.8"
     },
     "properties": [
       {

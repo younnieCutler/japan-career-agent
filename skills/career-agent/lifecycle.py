@@ -25,6 +25,7 @@ except ImportError:  # POSIX
 
 from models import (
     EVIDENCE_EVENT_TYPES,
+    EXPERIENCE_SUPERSESSION_EVENT_TYPE,
     ApprovalStage,
     ApprovalTransactionRecord,
     CareerError,
@@ -36,6 +37,7 @@ from models import (
 )
 from personal_timeline import derive_intervals, facts_from_events
 from persistence import append_jsonl, read_json, read_jsonl, write_json
+from projection import confirmed_evidence_events
 from private_store import PrivateHome, resolve_private_home, resolve_document
 from validation import validate_event, validate_work_event
 from vault import CareerVault, utc_now
@@ -198,6 +200,43 @@ def preflight_confirmation(home: CareerVault, event: dict[str, Any], ledger: lis
     derive_intervals(facts_from_events([*ledger, event]))
 
 
+def _experience_supersession(
+    predecessor_id: str, replacement: dict[str, Any], ledger: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Create the audit row only when the predecessor is still the current evidence."""
+    predecessor = next(
+        (row for row in confirmed_evidence_events(ledger) if row.get("id") == predecessor_id),
+        None,
+    )
+    if predecessor is None:
+        raise CareerError(
+            "the experience changed in another entrypoint; reload before approving",
+            code="REVISION_STALE",
+            retryable=True,
+        )
+    if replacement.get("type") not in EVIDENCE_EVENT_TYPES or predecessor.get("type") != replacement.get("type"):
+        raise CareerError("an experience revision must preserve its evidence type", code="INVALID_INPUT")
+    return {
+        "id": f"supersession-{uuid.uuid4().hex[:12]}",
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "type": EXPERIENCE_SUPERSESSION_EVENT_TYPE,
+        "occurred_at": utc_now(),
+        "title": "Experience correction",
+        "summary": "A confirmed replacement corrects earlier evidence.",
+        "evidence": [],
+        "source": "career-agent",
+        "next_action": None,
+        "deadline": None,
+        "status": "confirmed",
+        "supersession": {
+            "predecessor_event_id": predecessor_id,
+            "replacement_event_id": replacement["id"],
+        },
+    }
+
+
 def _recover_locked(
     home: CareerVault,
     transaction: dict[str, Any],
@@ -215,6 +254,16 @@ def _recover_locked(
     proposal = next((row for row in proposal_rows if row.get("id") == proposal_id), None)
     if proposal is None:
         raise _recovery_error("approval transaction proposal is missing", proposal_id=proposal_id)
+    companion = transaction.get("companion_event")
+    companion = dict(companion) if isinstance(companion, dict) else None
+    companion_fingerprint = transaction.get("companion_event_fingerprint")
+    if companion is not None:
+        if companion_fingerprint != _event_fingerprint(companion):
+            raise _recovery_error("approval transaction companion event fingerprint does not match")
+        try:
+            validate_event(companion, for_confirmation=True)
+        except CareerError as exc:
+            raise _recovery_error(str(exc), proposal_id=proposal_id) from exc
     existing_events = read_jsonl(home.events)
     matching_events = [row for row in existing_events if row.get("id") == event.get("id")]
     if matching_events and any(_event_fingerprint(row) != expected_fingerprint for row in matching_events):
@@ -228,6 +277,16 @@ def _recover_locked(
             if isinstance(exc, CareerError):
                 raise _recovery_error(str(exc), proposal_id=proposal_id) from exc
             raise _recovery_error("could not recover the canonical event ledger", error=str(exc)) from exc
+    if companion is not None:
+        matching_companions = [row for row in existing_events if row.get("id") == companion.get("id")]
+        if matching_companions and any(
+            _event_fingerprint(row) != companion_fingerprint for row in matching_companions
+        ):
+            raise _recovery_error(
+                "companion event id already exists with different content", event_id=companion.get("id")
+            )
+        if not matching_companions:
+            append_jsonl(home.events, companion)
     _advance_transaction(home, transaction, "ledger_written")
 
     state = home.load_state()
@@ -482,6 +541,12 @@ def approve(
             existing_events = read_jsonl(home.events)
             try:
                 preflight_confirmation(home, event, existing_events)
+                companion = (
+                    _experience_supersession(
+                        str(proposal["supersedes_event_id"]), event, existing_events,
+                    )
+                    if proposal.get("supersedes_event_id") else None
+                )
             except CareerError as exc:
                 record_failed_attempt(home, "approve", {"proposal_id": proposal_id, "event": event}, exc)
                 raise
@@ -495,6 +560,8 @@ def approve(
                 "proposal_kind": proposal.get("kind"),
                 "event": event,
                 "event_fingerprint": _event_fingerprint(event),
+                "companion_event": companion,
+                "companion_event_fingerprint": _event_fingerprint(companion) if companion else None,
                 "workspace": transaction_workspace,
                 "created_at": utc_now(),
                 "stage": "prepared",
@@ -502,6 +569,8 @@ def approve(
             _write_transaction(home, transaction)
             if not any(row.get("id") == event.get("id") for row in existing_events):
                 append_jsonl(home.events, event)
+            if companion is not None:
+                append_jsonl(home.events, companion)
             _advance_transaction(home, transaction, "ledger_written")
 
             state = home.load_state()

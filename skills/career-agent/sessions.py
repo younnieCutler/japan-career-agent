@@ -19,6 +19,8 @@ from approvals import approve as approve_canonical
 from case_store import get_case
 from lifecycle import vault_lock
 from models import (
+    EVIDENCE_EVENT_TYPES,
+    EXPERIENCE_EVENT_TYPE,
     OUTCOME_STATES,
     USER_CONFIRMATION_EVIDENCE,
     WORK_EXPERIENCE_CONTEXT_KINDS,
@@ -32,6 +34,12 @@ if str(_SHARED_ROOT) not in sys.path:
 import self_analysis_profile  # noqa: E402
 
 from proposals import make_work_event, propose_career_context_payload  # noqa: E402
+from projection import (  # noqa: E402
+    confirmed_evidence_events,
+    contexts_from_events,
+    evidence_payload,
+    projects_from_events,
+)
 from validation import validate_event, validate_work_event  # noqa: E402
 from vault import CareerVault, utc_now  # noqa: E402
 
@@ -107,21 +115,110 @@ def career_project_subject(home: CareerVault, case_ref: str) -> dict[str, str]:
             "confirm the career context and project before recording canonical experience",
             code="PARENT_NOT_CONFIRMED",
         )
+    events = read_jsonl(home.events)
+    canonical_context = contexts_from_events(events).get(str(context_id))
+    canonical_project = projects_from_events(events).get(str(project_id))
+    if not isinstance(canonical_context, dict) or not isinstance(canonical_project, dict):
+        raise CareerError(
+            "the confirmed career context or project is unavailable; reload before recording work",
+            code="REVISION_STALE",
+            retryable=True,
+        )
     return {
         "context_ref": context["case_id"],
-        "context_label": context["label"],
-        "context_kind": context["metadata"].get("context_kind", "other"),
+        "context_label": str(canonical_context.get("external_label") or canonical_context["label"]),
+        "context_kind": str(canonical_context["kind"]),
         "context_id": str(context_id),
         "project_ref": project["case_id"],
-        "project_label": project["label"],
+        "project_label": str(canonical_project.get("external_label") or canonical_project["title"]),
         "project_id": str(project_id),
     }
+
+
+def _revision_source(home: CareerVault, event_id: str, expected_revision: str | None) -> dict[str, Any]:
+    if not isinstance(event_id, str) or not event_id.strip():
+        raise CareerError("experience id is required", code="INVALID_INPUT")
+    if expected_revision != event_id:
+        raise CareerError(
+            "the experience changed in another entrypoint; reload before revising",
+            code="REVISION_STALE", retryable=True,
+        )
+    events = read_jsonl(home.events)
+    source = next((row for row in events if row.get("id") == event_id), None)
+    if source is None or source.get("type") not in EVIDENCE_EVENT_TYPES:
+        raise CareerError("experience not found", code="EXPERIENCE_NOT_FOUND")
+    if not any(row.get("id") == event_id for row in confirmed_evidence_events(events)):
+        raise CareerError(
+            "the experience changed in another entrypoint; reload before revising",
+            code="REVISION_STALE", retryable=True,
+        )
+    return source
+
+
+def _revision_draft(source: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "summary": source.get("summary") or "",
+        "evidence": list(source.get("evidence") or []),
+        **evidence_payload(source),
+        "non_work": source.get("type") == EXPERIENCE_EVENT_TYPE,
+    }
+
+
+def create_revision_session(
+    home: CareerVault, event_id: str, *, expected_revision: str | None, entrypoint: str = "unknown",
+) -> dict[str, Any]:
+    """Seed the existing capture editor from one still-current evidence event."""
+    if entrypoint not in SESSION_ENTRYPOINTS:
+        raise CareerError("unsupported workflow entrypoint", code="INVALID_INPUT")
+    with vault_lock(home):
+        source = _revision_source(home, event_id, expected_revision)
+        session = _new_session(
+            home,
+            None,
+            workflow=SESSION_WORKFLOW,
+            entrypoint=entrypoint,
+            subject={"experience_label": str(source.get("summary") or source["id"]), "revision_of": event_id},
+        )
+        _validate_session(session, home, session["session_id"])
+        paths = storage_paths(home)
+        paths["sessions"].mkdir(parents=True, exist_ok=True)
+        paths["drafts"].mkdir(parents=True, exist_ok=True)
+        _write_json(session_path(home, session["session_id"]), session)
+        _write_json(
+            draft_path(home, session["session_id"]),
+            {
+                "session_id": session["session_id"],
+                "session_schema_version": CURRENT_SESSION_SCHEMA_VERSION,
+                "workflow": SESSION_WORKFLOW,
+                "revision": 0,
+                "draft": _revision_draft(source),
+                "updated_at": _timestamp(),
+            },
+        )
+    return session
 
 
 def _anchored_career_draft(
     home: CareerVault, session: dict[str, Any], draft: dict[str, Any]
 ) -> dict[str, Any]:
     case_ref = session.get("case_ref")
+    revision_of = (session.get("subject") or {}).get("revision_of")
+    if isinstance(revision_of, str):
+        source = _revision_source(home, revision_of, revision_of)
+        payload = evidence_payload(source)
+        anchors = {
+            key: payload[key]
+            for key in (
+                "context_id", "primary_project_id", "related_project_ids", "experience_ref",
+                "experience_kind",
+            )
+            if key in payload
+        }
+        return {
+            **draft,
+            **anchors,
+            "non_work": source.get("type") == EXPERIENCE_EVENT_TYPE,
+        }
     if not case_ref:
         return draft
     subject = career_project_subject(home, str(case_ref))
@@ -1253,7 +1350,8 @@ def create_proposal(
     with vault_lock(home):
         session = _read_session(home, session_id)
         _refuse_completed_session(home, session, "propose from")
-        if not session.get("case_ref") and entrypoint != "unknown":
+        revision_of = (session.get("subject") or {}).get("revision_of")
+        if not session.get("case_ref") and not revision_of and entrypoint != "unknown":
             raise CareerError(
                 "choose the company or activity and project before review",
                 code="CONTEXT_REQUIRED",
@@ -1262,6 +1360,10 @@ def create_proposal(
         draft_record = _read_draft(home, session_id)
         current_revision = _current_revision(session, draft_record)
         _expect_revision(expected_revision, current_revision)
+        review_before = None
+        if isinstance(revision_of, str):
+            source = _revision_source(home, revision_of, revision_of)
+            review_before = {"summary": source.get("summary"), **evidence_payload(source)}
         draft_stamp = str(draft_record.get("updated_at") or "")
         existing = [
             row
@@ -1283,12 +1385,13 @@ def create_proposal(
                         entrypoint=entrypoint,
                     )
                     current_revision = session["revision"]
-                return _proposal_response(proposal, session_id, current_revision)
+                return _proposal_response(proposal, session_id, current_revision, review_before=review_before)
             # The draft moved after this proposal was taken. Re-snapshot in place rather than
             # leaving a pending proposal that no longer matches what the user is looking at.
             event, values = _proposal_event(draft_record.get("draft", {}))
             proposal = home.replace_proposal(
-                proposal["id"], event=event, draft_updated_at=draft_stamp
+                proposal["id"], event=event, draft_updated_at=draft_stamp,
+                supersedes_event_id=revision_of,
             )
             session = _checkpoint_unlocked(
                 home,
@@ -1300,7 +1403,7 @@ def create_proposal(
                 revision=current_revision + 1,
                 entrypoint=entrypoint,
             )
-            return _proposal_response(proposal, session_id, session["revision"])
+            return _proposal_response(proposal, session_id, session["revision"], review_before=review_before)
         event, values = _proposal_event(draft_record.get("draft", {}))
         proposal = {
             "id": proposal_id,
@@ -1312,6 +1415,8 @@ def create_proposal(
             "next_action": "approve this proposal after checking the evidence and contribution",
             "event": event,
         }
+        if isinstance(revision_of, str):
+            proposal["supersedes_event_id"] = revision_of
         home.add_proposal(proposal)
         session = _checkpoint_unlocked(
             home,
@@ -1323,7 +1428,7 @@ def create_proposal(
             revision=current_revision + 1,
             entrypoint=entrypoint,
         )
-    return _proposal_response(proposal, session_id, session["revision"])
+    return _proposal_response(proposal, session_id, session["revision"], review_before=review_before)
 
 
 def _approved_result(home: CareerVault, proposal: dict[str, Any]) -> dict[str, Any]:
@@ -1414,6 +1519,11 @@ def approve_proposal(
         latest_event = latest_proposal.get("event")
         if not isinstance(latest_event, dict):
             raise CareerError("proposal event is invalid", code="PROPOSAL_INVALID")
+        revision_of = (latest_session.get("subject") or {}).get("revision_of")
+        if isinstance(revision_of, str):
+            _revision_source(home, revision_of, revision_of)
+            if latest_proposal.get("supersedes_event_id") != revision_of:
+                raise CareerError("experience revision is invalid", code="PROPOSAL_INVALID")
         # Preflight here prevents a rejected GUI approval from appending a failure trajectory.
         validate_event(latest_event, for_confirmation=True)
 

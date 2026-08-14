@@ -66,12 +66,14 @@ const NON_WORK_KINDS = [
   "open_source", "volunteer_organization", "other",
 ];
 
-export function AddContext({ contexts, onDone }) {
+export function AddContext({ contexts, existing = null, onDone }) {
   const { t } = useI18n();
-  const [form, setForm] = React.useState({
-    relationship: "employer", kind: "company", label: "", role: "", summary: "",
-    from: "", to: "", current: false,
-  });
+  const [form, setForm] = React.useState(() => ({
+    relationship: existing?.relationship || "employer", kind: existing?.kind || "company",
+    label: existing?.label || "", role: existing?.role || "", summary: existing?.summary || "",
+    from: existing?.period?.from || "", to: existing?.period?.to || "", current: existing?.period?.current === true,
+  }));
+  const [review, setReview] = React.useState(null);
   const [failure, setFailure] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const edit = (patch) => setForm((current) => ({ ...current, ...patch }));
@@ -88,24 +90,30 @@ export function AddContext({ contexts, onDone }) {
     const label = form.label.trim();
     if (!label) return;
     const duplicate = contexts.find(
-      (item) => String(item.label).trim().toLocaleLowerCase() === label.toLocaleLowerCase());
+      (item) => item.ref !== existing?.ref
+        && String(item.label).trim().toLocaleLowerCase() === label.toLocaleLowerCase());
     if (duplicate && !window.confirm(t("career.duplicate_context_confirm", { label: duplicate.label }))) return;
     setBusy(true);
     try {
-      await write("/api/career/contexts", {
+      const result = await write("/api/career/contexts", {
         label,
         relationship: nonWork ? "non_work" : "employer",
         context_kind: nonWork ? form.kind : WORK_KINDS[form.relationship],
         role: trimmed(form.role),
         summary: trimmed(form.summary),
         period: periodOf(form),
+        ...(existing ? {
+          context_id: existing.context_id, case_ref: existing.ref, revision: existing.revision,
+        } : {}),
       });
-      onDone();
+      if (existing) setReview(result);
+      else onDone();
     } catch (error) { setFailure(error); }
     finally { setBusy(false); }
   };
 
   return (
+    <>
     <form className="stack" onSubmit={submit}>
       <Field label={t("career.relationship")} help={t("career.relationship_help")}>
         <Choice
@@ -141,18 +149,28 @@ export function AddContext({ contexts, onDone }) {
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium" disabled={busy}>
-          {t("action.create_draft")}
+          {t(existing ? "action.review_before_confirm" : "action.create_draft")}
         </ActionButton>
       </div>
     </form>
+    {review ? <ConfirmRecord
+      key={review.proposal.ref}
+      item={existing}
+      initialReview={review}
+      onDone={onDone}
+      onClose={() => setReview(null)}
+    /> : null}
+    </>
   );
 }
 
-export function AddProject({ context, onDone }) {
+export function AddProject({ context, existing = null, onDone }) {
   const { t } = useI18n();
-  const [form, setForm] = React.useState({
-    label: "", role: "", scope: "", from: "", to: "", current: false,
-  });
+  const [form, setForm] = React.useState(() => ({
+    label: existing?.label || "", role: existing?.role || "", scope: existing?.scope || "",
+    from: existing?.period?.from || "", to: existing?.period?.to || "", current: existing?.period?.current === true,
+  }));
+  const [review, setReview] = React.useState(null);
   const [failure, setFailure] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const edit = (patch) => setForm((current) => ({ ...current, ...patch }));
@@ -162,23 +180,28 @@ export function AddProject({ context, onDone }) {
     const label = form.label.trim();
     if (!label) return;
     const duplicate = (context.projects || []).find(
-      (item) => String(item.label).trim().toLocaleLowerCase() === label.toLocaleLowerCase());
+      (item) => item.ref !== existing?.ref
+        && String(item.label).trim().toLocaleLowerCase() === label.toLocaleLowerCase());
     if (duplicate && !window.confirm(t("career.duplicate_project_confirm", { label: duplicate.label }))) return;
     setBusy(true);
     try {
-      await write("/api/career/projects", {
-        parent_ref: context.ref,
+      const result = await write("/api/career/projects", {
+        ...(existing ? {
+          project_id: existing.project_id, case_ref: existing.ref, revision: existing.revision,
+        } : { parent_ref: context.ref }),
         label,
         role: trimmed(form.role),
         scope: trimmed(form.scope),
         period: periodOf(form),
       });
-      onDone();
+      if (existing) setReview(result);
+      else onDone();
     } catch (error) { setFailure(error); }
     finally { setBusy(false); }
   };
 
   return (
+    <>
     <form className="stack" onSubmit={submit}>
       <Field label={t("career.project_name")}>
         <Line value={form.label} onChange={(label) => edit({ label })} />
@@ -193,47 +216,56 @@ export function AddProject({ context, onDone }) {
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium" disabled={busy}>
-          {t("action.create_draft")}
+          {t(existing ? "action.review_before_confirm" : "action.create_draft")}
         </ActionButton>
       </div>
     </form>
+    {review ? <ConfirmRecord
+      key={review.proposal.ref}
+      item={existing}
+      initialReview={review}
+      context={[context.label, existing.label].filter(Boolean)}
+      onDone={onDone}
+      onClose={() => setReview(null)}
+    /> : null}
+    </>
   );
 }
 
 /* Confirming a drafted context or project: propose, show the user exactly what will be written,
    then approve. The two calls are separate on purpose — the proposal is what the dialog renders,
    so the user approves the server's version rather than the screen's. */
-export function ConfirmRecord({ item, context = [], onDone }) {
+export function ConfirmRecord({ item, context = [], initialReview = null, onDone, onClose }) {
   const { t } = useI18n();
-  const [proposal, setProposal] = React.useState(null);
+  const [review, setReview] = React.useState(initialReview);
   const [failure, setFailure] = React.useState(null);
 
   const propose = async () => {
     setFailure(null);
     try {
-      const review = await write("/api/career/propose", { case_ref: item.ref });
-      setProposal(review.proposal);
+      setReview(await write("/api/career/propose", { case_ref: item.ref, revision: item.revision }));
     } catch (error) { setFailure(error); }
   };
 
   return (
     <div className="stack">
-      <div>
+      {!initialReview ? <div>
         <ActionButton variant="brandSolid" size="medium" onClick={propose}>
           {t("action.review_before_confirm")}
         </ActionButton>
-      </div>
+      </div> : null}
       {failure ? <ErrorState error={failure} /> : null}
-      {proposal ? (
+      {review ? (
         <ApprovalDialog
-          event={proposal.event}
+          event={review.proposal.event}
+          before={review.before}
           context={context}
           effectKey={item.relationship ? "review.effect_context" : "review.effect_project"}
           onApprove={() => write("/api/career/approve", {
-            case_ref: item.ref, proposal_ref: proposal.ref,
+            case_ref: item.ref, proposal_ref: review.proposal.ref, revision: review.revision,
           })}
           onApproved={onDone}
-          onClose={() => setProposal(null)}
+          onClose={() => { setReview(null); onClose?.(); }}
         />
       ) : null}
     </div>

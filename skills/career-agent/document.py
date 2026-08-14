@@ -30,8 +30,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from models import EVIDENCE_EVENT_TYPES, CareerError
+from models import CareerError
 from projection import (
+    confirmed_evidence_events,
     contexts_from_events,
     evidence_payload,
     experience_key,
@@ -204,8 +205,7 @@ def document_model(
     grouped = {item["experience_id"]: item for item in experiences_from_events(events)["experiences"]}
     by_id = {
         event["id"]: event
-        for event in events
-        if event.get("type") in EVIDENCE_EVENT_TYPES and event.get("status") == "confirmed"
+        for event in confirmed_evidence_events(events)
     }
 
     primary = [str(item) for item in company.get("primary_experience_ids") or []]

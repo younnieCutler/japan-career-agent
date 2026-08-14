@@ -201,6 +201,13 @@ function ContextRecord({ context, labels, onSelect, onError, onReload }) {
         [t("career.summary_optional"), context.summary],
       ]} />
 
+      {context.lifecycle === "approved" ? (
+        <details className="record__section">
+          <summary>{t("action.edit")}</summary>
+          <AddContext key={context.ref} contexts={[context]} existing={context} onDone={onReload} />
+        </details>
+      ) : null}
+
       <Divider />
       <section className="record__section">
         <h3 className="record__section-title">{t("career.project_count")}</h3>
@@ -263,8 +270,14 @@ function ProjectRecord({ row, labels, onReload }) {
       <Facts rows={[
         [t("career.context_name"), row.parent?.label],
         [t("workflow.role"), project.role],
-        [t("career.project_scope"), project.summary],
+        [t("career.project_scope"), project.scope],
       ]} />
+      {project.lifecycle === "approved" ? (
+        <details className="record__section">
+          <summary>{t("action.edit")}</summary>
+          <AddProject key={project.ref} context={row.parent} existing={project} onDone={onReload} />
+        </details>
+      ) : null}
       <Divider />
       <section className="record__section">
         <h3 className="record__section-title">{t("career.experience_count")}</h3>
@@ -286,7 +299,20 @@ function ProjectRecord({ row, labels, onReload }) {
   );
 }
 
-function ExperienceRecord({ row, labels }) {
+export function ExperienceRevisionControl({ experience, onError }) {
+  const { t } = useI18n();
+  const revise = async () => {
+    try {
+      const started = await write("/api/career/experiences/revise", {
+        event_id: experience.ref, revision: experience.ref,
+      });
+      navigate(`/work/${started.session.session_ref}`);
+    } catch (error) { onError(error); }
+  };
+  return <ActionButton variant="neutralWeak" size="small" onClick={revise}>{t("action.edit")}</ActionButton>;
+}
+
+function ExperienceRecord({ row, labels, onError }) {
   const { t } = useI18n();
   const experience = row.node;
   return (
@@ -303,6 +329,7 @@ function ExperienceRecord({ row, labels }) {
           ? t("evidence.present_count", { count: experience.evidence_count })
           : t("evidence.missing_usable")],
       ]} />
+      <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>
       {experience.contains_confidential ? (
         <Callout.Root tone="warning">
           <Callout.Content>
@@ -341,7 +368,7 @@ export default function CareerScreen() {
   const rows = indexRows(state.data, labels);
   const metaOf = (row) => (row.kind === "experience" ? (row.node.work_date || "") : periodText(row.node.period));
   const matches = rows.filter((row) => {
-    const haystack = [row.label, row.node.role, row.node.summary, row.parent?.label, row.grandparent?.label]
+    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, row.parent?.label, row.grandparent?.label]
       .filter(Boolean).join(" ").toLocaleLowerCase();
     return (!query || haystack.includes(query.toLocaleLowerCase()))
       && (status === "all" || rowState(row) === status);
@@ -452,7 +479,7 @@ export default function CareerScreen() {
               )
               : current.kind === "project"
                 ? <ProjectRecord row={current} labels={labels} onReload={reload} />
-                : <ExperienceRecord row={current} labels={labels} />
+                : <ExperienceRecord row={current} labels={labels} onError={setFailure} />
           ) : (
             <Text textStyle="t3Regular" style={{ color: "var(--seed-color-fg-neutral-muted)" }}>
               {t("career.intro")}

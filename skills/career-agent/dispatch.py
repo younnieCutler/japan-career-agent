@@ -349,20 +349,21 @@ def _run_vault_command(
     if args.command == "doctor":
         return doctor(home, fix=args.fix, workspace=args.workspace)
     if args.command == "add-project":
-        period = {"from": args.period_from, "to": args.period_to}
-        return add_project(
-            home, args.title, project_id=args.project_id,
-            role=args.role, scope=args.scope, summary=args.summary, status=args.status,
-            external_label=args.external_label,
-            period=period if any(period.values()) else None,
-        )
+        period = {k: v for k, v in {"from": args.period_from, "to": args.period_to}.items() if v is not None}
+        fields = {
+            "role": args.role, "scope": args.scope, "summary": args.summary, "status": args.status,
+            "external_label": args.external_label, "period": period or None,
+        }
+        fields = {k: v for k, v in fields.items() if v is not None}
+        return add_project(home, args.title, project_id=args.project_id, **fields)
     if args.command == "add-context":
-        period = {"from": args.period_from, "to": args.period_to}
-        return add_context(
-            home, args.kind, args.label, context_id=args.context_id,
-            role=args.role, summary=args.summary, external_label=args.external_label,
-            period=period if any(period.values()) else None,
-        )
+        period = {k: v for k, v in {"from": args.period_from, "to": args.period_to}.items() if v is not None}
+        fields = {
+            "role": args.role, "summary": args.summary, "external_label": args.external_label,
+            "period": period or None,
+        }
+        fields = {k: v for k, v in fields.items() if v is not None}
+        return add_context(home, args.kind, args.label, context_id=args.context_id, **fields)
     if args.command == "document-model":
         return build_document_model(
             home, args.slug, workspace=args.workspace, document_type=args.document_type,

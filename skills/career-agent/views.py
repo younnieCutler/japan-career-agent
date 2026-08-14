@@ -28,6 +28,7 @@ from models import (  # noqa: E402
 )
 from persistence import read_jsonl  # noqa: E402
 from projection import (  # noqa: E402
+    confirmed_evidence_events,
     experiences_from_events,
     pipeline_file,
     projects_from_events,
@@ -61,7 +62,7 @@ def weekly_review(home: CareerVault, *, since: str | None = None, as_of: str | N
     # per row and is what recency uses downstream.
     recent = [
         event
-        for event in [*pending, *events]
+        for event in [*pending, *confirmed_evidence_events(events)]
         if event.get("type") == WORK_EVENT_TYPE
         and start <= str(event.get("occurred_at") or "")[:10] <= boundary
     ]
@@ -130,7 +131,7 @@ def evidence_pool(home: CareerVault, *, as_of: str | None = None) -> dict[str, A
     projects = projects_from_events(events)
     confirmed = [
         event
-        for event in events
+        for event in confirmed_evidence_events(events)
         if event.get("type") == WORK_EVENT_TYPE
         and event.get("status") == "confirmed"
         and str(event.get("occurred_at") or "")[:10] <= boundary
@@ -206,7 +207,7 @@ def maintenance_check(home: CareerVault, *, as_of: str | None = None) -> dict[st
     # a review helps most. Only the checks below that speak about finished records filter to
     # `confirmed`.
     pending, _ = pending_work_events(home)
-    work = [e for e in [*pending, *events] if e.get("type") == WORK_EVENT_TYPE]
+    work = [e for e in [*pending, *confirmed_evidence_events(events)] if e.get("type") == WORK_EVENT_TYPE]
     confirmed = [e for e in work if e.get("status") == "confirmed"]
     suggestions: list[dict[str, Any]] = []
 
@@ -286,7 +287,7 @@ def readiness(home: CareerVault, *, as_of: str | None = None) -> dict[str, Any]:
     events = read_jsonl(home.events)
     projects = projects_from_events(events)
     confirmed = [
-        e for e in events if e.get("type") == WORK_EVENT_TYPE and e.get("status") == "confirmed"
+        e for e in confirmed_evidence_events(events) if e.get("type") == WORK_EVENT_TYPE
     ]
     # Recency uses the stated `work_date` and nothing else. Falling back to capture time is right
     # for ordering a timeline, where the alternative is no order at all; it is wrong here, because

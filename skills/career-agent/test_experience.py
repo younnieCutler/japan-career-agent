@@ -19,6 +19,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +27,7 @@ CLI = ROOT / "skills" / "career-agent" / "career_agent.py"
 sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
 
 import projection  # noqa: E402
+import lifecycle  # noqa: E402
 import validation  # noqa: E402
 from models import (  # noqa: E402
     EXPERIENCE_CONTEXT_EVENT_TYPE,
@@ -35,6 +37,8 @@ from models import (  # noqa: E402
     CareerError,
     default_state,
 )
+from proposals import make_work_event  # noqa: E402
+from vault import CareerVault, initialize_vault  # noqa: E402
 
 
 def event(**overrides) -> dict:
@@ -576,6 +580,86 @@ class InventoryRoutingTests(VaultCase):
         self.cli("set-job-search", "off", "--vault", self.vault)
         self.chat("이직 생각은 없는데 지금까지의 경력을 정리해두고 싶어")
         self.assertEqual(self.cli("status", "--vault", self.vault)["profile"]["job_search"], "off")
+
+
+class ExperienceSupersessionProjectionTests(unittest.TestCase):
+    def test_supersession_hides_only_the_replaced_claim(self) -> None:
+        predecessor = confirmed_evidence(
+            "evt-original",
+            experience_ref="delivery",
+            role="engineer",
+            individual_contribution="implemented the original flow",
+        )
+        replacement = confirmed_evidence(
+            "evt-replacement",
+            experience_ref="delivery",
+            role="engineer",
+            individual_contribution="implemented the corrected flow",
+        )
+        supersession = event(
+            id="evt-supersession",
+            type="experience_supersession",
+            status="confirmed",
+            title="Corrected delivery experience",
+            summary="The replacement corrects the original evidence.",
+            supersession={
+                "predecessor_event_id": predecessor["id"],
+                "replacement_event_id": replacement["id"],
+            },
+        )
+
+        active = projection.confirmed_evidence_events([predecessor, replacement, supersession])
+
+        self.assertEqual([row["id"] for row in active], [replacement["id"]])
+        self.assertEqual(predecessor["status"], "confirmed")
+        claims = projection.experiences_from_events([predecessor, replacement, supersession])["claims"]
+        self.assertEqual([claim["claim_id"] for claim in claims], [replacement["id"]])
+
+    def test_recovery_finishes_a_interrupted_supersession_append(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            home = CareerVault(Path(directory) / "vault")
+            initialize_vault(home.path)
+            predecessor = confirmed_evidence(
+                "evt-original", experience_ref="delivery", individual_contribution="original flow",
+            )
+            lifecycle.append_jsonl(home.events, predecessor)
+            replacement = make_work_event("Corrected delivery evidence")
+            replacement["evidence"] = ["runbook"]
+            replacement["work_event"] = {
+                "experience_ref": "delivery",
+                "individual_contribution": "corrected flow",
+                "outcome_state": "qualitative",
+                "confidentiality": {"contains_confidential": False, "external_use": "allowed"},
+            }
+            home.add_proposal({
+                "id": "proposal-revision", "kind": "event", "status": "pending",
+                "created_at": "2026-08-14T00:00:00Z", "event": replacement,
+                "supersedes_event_id": predecessor["id"],
+            })
+            real_append = lifecycle.append_jsonl
+            writes = 0
+
+            def interrupt_companion(path, row):
+                nonlocal writes
+                if path == home.events:
+                    writes += 1
+                    if writes == 2:
+                        raise OSError("interrupted after replacement append")
+                return real_append(path, row)
+
+            with patch.object(lifecycle, "append_jsonl", side_effect=interrupt_companion):
+                with self.assertRaisesRegex(OSError, "interrupted"):
+                    lifecycle.approve(home, "proposal-revision")
+
+            recovered = lifecycle.recover_pending(home)
+            events = lifecycle.read_jsonl(home.events)
+            self.assertTrue(recovered["recovered"])
+            self.assertEqual(events[0], predecessor)
+            self.assertEqual(events[-1]["type"], "experience_supersession")
+            self.assertEqual(
+                [row["id"] for row in projection.confirmed_evidence_events(events)],
+                [replacement["id"]],
+            )
 
 
 if __name__ == "__main__":

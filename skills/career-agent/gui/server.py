@@ -306,6 +306,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/workflows/assign-project",
             "/api/career/contexts",
             "/api/career/projects",
+            "/api/career/experiences/revise",
             "/api/career/propose",
             "/api/career/approve",
             "/api/career/organize",
@@ -497,31 +498,76 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                     expected_revision=payload["revision"],
                 )
             elif path == "/api/career/contexts":
-                result = cases.create_career_context(
-                    self.server.home,
-                    payload["label"],
-                    context_kind=payload["context_kind"],
-                    relationship=payload["relationship"],
-                    role=payload.get("role"),
-                    summary=payload.get("summary"),
-                    period=payload.get("period"),
-                )
+                if payload.get("context_id") is not None:
+                    update_fields = {
+                        field: payload[field]
+                        for field in ("role", "summary", "period")
+                        if field in payload
+                    }
+                    result = cases.propose_career_context_update(
+                        self.server.home,
+                        payload["case_ref"],
+                        payload["context_id"],
+                        expected_revision=payload["revision"],
+                        label=payload["label"],
+                        context_kind=payload["context_kind"],
+                        relationship=payload["relationship"],
+                        **update_fields,
+                    )
+                else:
+                    result = cases.create_career_context(
+                        self.server.home,
+                        payload["label"],
+                        context_kind=payload["context_kind"],
+                        relationship=payload["relationship"],
+                        role=payload.get("role"),
+                        summary=payload.get("summary"),
+                        period=payload.get("period"),
+                    )
             elif path == "/api/career/projects":
-                result = cases.create_project(
+                if payload.get("project_id") is not None:
+                    update_fields = {
+                        field: payload[field]
+                        for field in ("role", "scope", "summary", "period", "external_use")
+                        if field in payload
+                    }
+                    result = cases.propose_project_update(
+                        self.server.home,
+                        payload["case_ref"],
+                        payload["project_id"],
+                        expected_revision=payload["revision"],
+                        label=payload["label"],
+                        **update_fields,
+                    )
+                else:
+                    result = cases.create_project(
+                        self.server.home,
+                        payload["parent_ref"],
+                        payload["label"],
+                        role=payload.get("role"),
+                        scope=payload.get("scope"),
+                        summary=payload.get("summary"),
+                        period=payload.get("period"),
+                        external_use=payload.get("external_use"),
+                    )
+            elif path == "/api/career/experiences/revise":
+                result = tanaoroshi.revise(
                     self.server.home,
-                    payload["parent_ref"],
-                    payload["label"],
-                    role=payload.get("role"),
-                    scope=payload.get("scope"),
-                    summary=payload.get("summary"),
-                    period=payload.get("period"),
-                    external_use=payload.get("external_use"),
+                    payload["event_id"],
+                    expected_revision=payload["revision"],
                 )
             elif path == "/api/career/propose":
-                result = cases.propose_canonical_case(self.server.home, payload["case_ref"])
+                result = cases.propose_canonical_case(
+                    self.server.home,
+                    payload["case_ref"],
+                    expected_updated_at=payload.get("revision"),
+                )
             elif path == "/api/career/approve":
                 result = cases.approve_canonical_case(
-                    self.server.home, payload["case_ref"], payload["proposal_ref"]
+                    self.server.home,
+                    payload["case_ref"],
+                    payload["proposal_ref"],
+                    expected_revision=payload.get("revision"),
                 )
             elif path == "/api/career/organize":
                 context_ref = payload["context_ref"]
@@ -568,46 +614,89 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                         expected_updated_at=payload["updated_at"],
                     )
             elif path == "/api/applications/companies":
-                result = cases.create_company(self.server.home, payload["label"])
-            elif path == "/api/applications/positions":
-                result = cases.create_application(
-                    self.server.home,
-                    payload["company_ref"],
-                    payload["label"],
-                    jd=payload.get("jd"),
-                    evidence_refs=payload.get("evidence_refs"),
-                    document_kinds=payload.get("document_kinds"),
-                    source_refs=payload.get("source_refs"),
+                result = (
+                    cases.update_company(
+                        self.server.home,
+                        payload["case_ref"],
+                        label=payload["label"],
+                        expected_revision=payload["revision"],
+                    )
+                    if payload.get("case_ref") is not None
+                    else cases.create_company(self.server.home, payload["label"])
                 )
+            elif path == "/api/applications/positions":
+                if payload.get("case_ref") is not None:
+                    update_fields = {
+                        field: payload[field]
+                        for field in ("jd", "evidence_refs", "document_kinds", "source_refs")
+                        if field in payload
+                    }
+                    result = cases.update_application(
+                        self.server.home,
+                        payload["case_ref"],
+                        label=payload["label"],
+                        expected_revision=payload["revision"],
+                        **update_fields,
+                    )
+                else:
+                    result = cases.create_application(
+                        self.server.home,
+                        payload["company_ref"],
+                        payload["label"],
+                        jd=payload.get("jd"),
+                        evidence_refs=payload.get("evidence_refs"),
+                        document_kinds=payload.get("document_kinds"),
+                        source_refs=payload.get("source_refs"),
+                    )
             elif path == "/api/applications/research":
-                result = artifacts.register_artifact(
-                    self.server.home,
-                    case_ref=payload["case_ref"],
-                    kind="company_research",
-                    body=payload["body"],
-                    source_refs=payload.get("sources"),
-                    generated_by={"entrypoint": "gui", "workflow": "company_research"},
+                result = (
+                    artifacts.update_artifact(
+                        self.server.home,
+                        payload["artifact_id"],
+                        body=payload["body"],
+                        expected_revision=payload["revision"],
+                    )
+                    if payload.get("artifact_id") is not None
+                    else artifacts.register_artifact(
+                        self.server.home,
+                        case_ref=payload["case_ref"],
+                        kind="company_research",
+                        body=payload["body"],
+                        source_refs=payload.get("sources"),
+                        generated_by={"entrypoint": "gui", "workflow": "company_research"},
+                    )
                 )
             elif path == "/api/applications/documents":
-                document_type = payload["document_type"]
-                if document_type not in APPLICATION_DOCUMENT_TYPES:
-                    raise ValueError("unsupported application document type")
-                application = cases.get_case(self.server.home, payload["case_ref"])
-                if application["kind"] != "application":
-                    raise ValueError("application document requires an application")
-                evidence_refs = cases.application_evidence_refs(
-                    self.server.home,
-                    application.get("metadata", {}).get("evidence_refs", []),
-                )
-                result = artifacts.register_artifact(
-                    self.server.home,
-                    case_ref=application["case_id"],
-                    kind=document_type,
-                    body=payload["body"],
-                    evidence_refs=evidence_refs,
-                    source_refs=payload.get("sources"),
-                    generated_by={"entrypoint": "gui", "workflow": "application_document"},
-                )
+                # Rewriting a document keeps the evidence the first version was approved against.
+                # Re-resolving it here would let a later change to the application's selection
+                # silently alter what an already-generated document claims to rest on.
+                if payload.get("artifact_id") is not None:
+                    result = artifacts.update_artifact(
+                        self.server.home,
+                        payload["artifact_id"],
+                        body=payload["body"],
+                        expected_revision=payload["revision"],
+                    )
+                else:
+                    document_type = payload["document_type"]
+                    if document_type not in APPLICATION_DOCUMENT_TYPES:
+                        raise ValueError("unsupported application document type")
+                    application = cases.get_case(self.server.home, payload["case_ref"])
+                    if application["kind"] != "application":
+                        raise ValueError("application document requires an application")
+                    evidence_refs = cases.application_evidence_refs(
+                        self.server.home,
+                        application.get("metadata", {}).get("evidence_refs", []),
+                    )
+                    result = artifacts.register_artifact(
+                        self.server.home,
+                        case_ref=application["case_id"],
+                        kind=document_type,
+                        body=payload["body"],
+                        evidence_refs=evidence_refs,
+                        source_refs=payload.get("sources"),
+                        generated_by={"entrypoint": "gui", "workflow": "application_document"},
+                    )
             elif path == "/api/cases":
                 result = self._create_case(payload)
             elif path == "/api/cases/archive":
@@ -640,7 +729,17 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                 )
             else:
                 result = artifacts.delete_artifact(self.server.home, payload["artifact_id"])
-        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            if path.startswith(("/api/career/", "/api/applications/")) and getattr(exc, "code", None) == "REVISION_STALE":
+                self._api_error(
+                    exc,
+                    fallback_code=(
+                        "APPROVAL_FAILED"
+                        if path in {"/api/approve", "/api/workflows/approve", "/api/career/approve"}
+                        else "SAVE_FAILED"
+                    ),
+                )
+                return
             self._api_error(
                 ValueError("invalid request"),
                 fallback_code="INVALID_INPUT",
@@ -661,7 +760,10 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/draft", "/api/checkpoint", "/api/proposal", "/api/approve",
         }:
             result = tanaoroshi.present(result)
-        elif path == "/api/career/propose":
+        elif path == "/api/career/propose" or (
+            path in {"/api/career/contexts", "/api/career/projects"}
+            and isinstance(result.get("proposal"), dict)
+        ):
             result = cases.present_review(result)
         elif path == "/api/career/approve":
             result = {"approved": True, "record": cases.present_case(result["case"])}

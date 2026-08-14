@@ -1,5 +1,54 @@
 # Changelog
 
+## [2.11.8] - 2026-08-15
+
+- Refuse to rewrite an artifact version that has already been superseded. Demoting a version
+  rewrites its revision, so a caller holding the older value was refused, but re-reading the
+  retired row yielded one that matched — enough to build a new current version on the provenance
+  of the one already replaced and retire the live document in the same call. The named version
+  must still be current, checked under the lock, on both the revision-carrying and the
+  unversioned update paths.
+
+## [2.11.7] - 2026-08-15
+
+- Surface on Home the states the runtime had already counted and the screen never read: proposals
+  waiting to be approved, and dimensions still unknown. Each is a count and a link to the list it
+  came from, never a combined figure — these are different questions and a total would answer none
+  of them. A conflict keeps its own callout rather than becoming one more row.
+
+## [2.11.6] - 2026-08-15
+
+- Let the GUI rewrite an application document. A rewrite supersedes the previous version and
+  carries over the evidence, sources, and document type it was built on, so correcting the text
+  never restates what an already-generated document rests on. The document list now shows only
+  the current version of each; superseded ones stay on disk and stay readable by reference.
+- Show the approval dialog the record as it will stand after approval rather than the submitted
+  change alone, so a field the form does not carry is no longer reported as being cleared.
+- Fix `add-project` and `add-context` erasing values the command did not mention. Omitting
+  `--role` or supplying only `--to` no longer clears a role or a period start recorded earlier.
+
+## [2.11.5] - 2026-08-14
+
+- Let the GUI revise confirmed experience through the existing Work editor. Approval appends the
+  replacement evidence and an immutable supersession audit event; readers exclude only the
+  replaced claim, keep prior documents unchanged, and reject stale revisions without a write.
+
+## [2.11.4] - 2026-08-14
+
+- Add revision-protected GUI edits for companies, applications, and company research. Application
+  evidence is revalidated before every update; research creates a superseding artifact version.
+
+## [2.11.3] - 2026-08-14
+
+- Use one GUI archive/restore control for Career History and Applications, keeping the same
+  confirmation and revision-aware archive/restore request on every surface.
+
+## [2.11.2] - 2026-08-14
+
+- Let the GUI edit approved Career Contexts and Projects through the same append-only proposal and
+  explicit approval gate as the CLI. The review now shows the server-projected before/after values,
+  and every update rejects a stale revision without changing canonical evidence.
+
 ## [2.11.1] - 2026-08-14
 
 - Fix every dropdown in the GUI. The shared control composed SEED's Select without its positioner,

@@ -18,6 +18,7 @@ import { CaseChip } from "../evidence.jsx";
 import { EmptyState, ErrorState, LoadingState, useAsync } from "../components/States.jsx";
 import { navigate, setSelection, useLocation } from "../App.jsx";
 import { Block, CheckBox, Choice, Field, Line } from "../components/Fields.jsx";
+import { LifecycleControl } from "./CareerForms.jsx";
 
 const PAGE_SIZE = 25;
 const splitLines = (value) => String(value || "")
@@ -60,9 +61,9 @@ function DocumentBody({ artifactRef }) {
   );
 }
 
-function AddCompany({ companies, onDone }) {
+export function AddCompany({ companies, existing = null, onDone }) {
   const { t } = useI18n();
-  const [label, setLabel] = React.useState("");
+  const [label, setLabel] = React.useState(existing?.label || "");
   const [failure, setFailure] = React.useState(null);
 
   const submit = async (event) => {
@@ -70,11 +71,14 @@ function AddCompany({ companies, onDone }) {
     const name = label.trim();
     if (!name) return;
     const duplicate = companies.find(
-      (item) => item.label.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
+      (item) => item.ref !== existing?.ref
+        && item.label.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
     if (duplicate && !window.confirm(t("applications.duplicate_company_confirm", { label: duplicate.label }))) return;
     try {
-      await write("/api/applications/companies", { label: name });
-      setLabel("");
+      await write("/api/applications/companies", existing
+        ? { case_ref: existing.ref, revision: existing.revision || existing.updated_at, label: name }
+        : { label: name });
+      if (!existing) setLabel("");
       onDone();
     } catch (error) { setFailure(error); }
   };
@@ -86,13 +90,13 @@ function AddCompany({ companies, onDone }) {
       </Field>
       {failure ? <ErrorState error={failure} /> : null}
       <div>
-        <ActionButton type="submit" variant="brandSolid" size="medium">{t("action.create")}</ActionButton>
+        <ActionButton type="submit" variant="brandSolid" size="medium">{t(existing ? "action.save" : "action.create")}</ActionButton>
       </div>
     </form>
   );
 }
 
-function EvidencePicker({ options, chosen, onToggle }) {
+function EvidencePicker({ options, chosen, onToggle, stale = [], onReplace }) {
   const { t } = useI18n();
   const [query, setQuery] = React.useState("");
   const matches = options.filter((option) => !query
@@ -112,6 +116,34 @@ function EvidencePicker({ options, chosen, onToggle }) {
       <p className="result-count" aria-live="polite">
         {t("search.result_count", { shown: Math.min(matches.length, 20), total: matches.length })}
       </p>
+      {stale.length ? (
+        <Callout.Root tone="warning">
+          <Callout.Content>
+            <Callout.Description>{t("applications.stale_evidence")}</Callout.Description>
+            <ul className="lines">
+              {stale.map((item) => (
+                <li className="line" key={item.ref}>
+                  <CheckBox
+                    checked={chosen.has(item.ref)}
+                    onChange={() => onToggle(item.ref)}
+                    label={t("applications.stale_evidence")}
+                  />
+                  {item.replacement_ref ? (
+                    <ActionButton
+                      type="button"
+                      variant="neutralOutline"
+                      size="xsmall"
+                      onClick={() => onReplace(item.ref, item.replacement_ref)}
+                    >
+                      {t("applications.use_replacement")}
+                    </ActionButton>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </Callout.Content>
+        </Callout.Root>
+      ) : null}
       {matches.length ? (
         <ul className="lines">
           {matches.slice(0, 20).map((option) => {
@@ -150,18 +182,24 @@ function EvidencePicker({ options, chosen, onToggle }) {
   );
 }
 
-function AddPosition({ payload, onDone }) {
+export function AddPosition({ payload, existing = null, onDone }) {
   const { t } = useI18n();
   const active = (payload.companies || []).filter((item) => item.status === "active");
-  const [company, setCompany] = React.useState(active[0]?.ref || "");
-  const [label, setLabel] = React.useState("");
-  const [jd, setJd] = React.useState("");
-  const [chosen, setChosen] = React.useState(() => new Set());
+  const [company, setCompany] = React.useState(existing?.parent_ref || active[0]?.ref || "");
+  const [label, setLabel] = React.useState(existing?.label || "");
+  const [jd, setJd] = React.useState(existing?.jd?.text || "");
+  const [chosen, setChosen] = React.useState(() => new Set(existing?.selected_evidence_refs || []));
   const [failure, setFailure] = React.useState(null);
 
   const toggle = (value) => setChosen((current) => {
     const next = new Set(current);
     if (next.has(value)) next.delete(value); else next.add(value);
+    return next;
+  });
+  const replace = (previous, replacement) => setChosen((current) => {
+    const next = new Set(current);
+    next.delete(previous);
+    next.add(replacement);
     return next;
   });
 
@@ -179,14 +217,15 @@ function AddPosition({ payload, onDone }) {
     event.preventDefault();
     if (!label.trim()) return;
     try {
-      await write("/api/applications/positions", {
-        company_ref: company,
+      const request = {
+        ...(existing ? { case_ref: existing.ref, revision: existing.updated_at } : { company_ref: company }),
         label: label.trim(),
         jd: jd.trim() ? { text: jd.trim() } : {},
         evidence_refs: [...chosen].flatMap((item) => item.split(",")).filter(Boolean),
-        document_kinds: [],
-      });
-      setLabel(""); setJd(""); setChosen(new Set());
+      };
+      if (!existing) request.document_kinds = [];
+      await write("/api/applications/positions", request);
+      if (!existing) { setLabel(""); setJd(""); setChosen(new Set()); }
       onDone();
     } catch (error) { setFailure(error); }
   };
@@ -194,30 +233,42 @@ function AddPosition({ payload, onDone }) {
   return (
     <form className="stack" onSubmit={submit}>
       <Field label={t("applications.target_company")}>
-        <Choice
-          value={company}
-          onChange={setCompany}
-          options={active.map((item) => [item.ref, item.label])}
-          label={t("applications.target_company")}
-        />
+        {existing ? (
+          <Text textStyle="t3Regular">
+            {(payload.companies || []).find((item) => item.ref === existing.parent_ref)?.label || t("common.unknown")}
+          </Text>
+        ) : (
+          <Choice
+            value={company}
+            onChange={setCompany}
+            options={active.map((item) => [item.ref, item.label])}
+            label={t("applications.target_company")}
+          />
+        )}
       </Field>
       <Field label={t("applications.position")}><Line value={label} onChange={setLabel} /></Field>
       <Field label={t("applications.jd")} help={t("applications.jd_help")}>
         <Block value={jd} onChange={setJd} />
       </Field>
-      <EvidencePicker options={payload.evidence_options || []} chosen={chosen} onToggle={toggle} />
+      <EvidencePicker
+        options={payload.evidence_options || []}
+        chosen={chosen}
+        onToggle={toggle}
+        stale={existing?.stale_evidence || []}
+        onReplace={replace}
+      />
       <p className="field__help">{t("applications.evidence_help")}</p>
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium">
-          {t("applications.add_position")}
+          {t(existing ? "action.save" : "applications.add_position")}
         </ActionButton>
       </div>
     </form>
   );
 }
 
-function AddDocument({ position, onDone }) {
+export function AddDocument({ position, existing = null, onDone }) {
   const { t } = useI18n();
   const [type, setType] = React.useState("resume");
   const [body, setBody] = React.useState("");
@@ -230,40 +281,60 @@ function AddDocument({ position, onDone }) {
     ["other", t("enum.document.other")],
   ];
 
+  React.useEffect(() => {
+    if (!existing?.ref) return;
+    read(`/api/artifact-body?artifact_ref=${encodeURIComponent(existing.ref)}`)
+      .then((payload) => setBody(payload.body || ""))
+      .catch(setFailure);
+  }, [existing?.ref]);
+
   const submit = async (event) => {
     event.preventDefault();
     if (!body.trim()) return;
     try {
-      await write("/api/applications/documents", {
-        case_ref: position.ref,
-        document_type: type,
-        body: body.trim(),
-        sources: splitLines(sources),
-      });
-      setBody(""); setSources("");
+      await write("/api/applications/documents", existing
+        ? { artifact_id: existing.ref, revision: existing.revision, body: body.trim() }
+        : {
+          case_ref: position.ref,
+          document_type: type,
+          body: body.trim(),
+          sources: splitLines(sources),
+        });
+      if (!existing) { setBody(""); setSources(""); }
       onDone();
     } catch (error) { setFailure(error); }
   };
 
+  /* Editing writes a new version of the same document, so its kind, sources, and the evidence it
+     was built against all carry over untouched. Offering those controls here would suggest a
+     rewrite can change what an already-generated document rests on. */
   return (
     <form className="stack" onSubmit={submit}>
       <Field label={t("applications.document_type")}>
-        <Choice
-          value={type}
-          onChange={setType}
-          options={kinds}
-          label={t("applications.document_type")}
-        />
+        {existing ? (
+          <Text textStyle="t3Regular">{t(`enum.document.${existing.type}`)}</Text>
+        ) : (
+          <Choice
+            value={type}
+            onChange={setType}
+            options={kinds}
+            label={t("applications.document_type")}
+          />
+        )}
       </Field>
       <Field label={t("applications.document_body")} help={t("applications.document_body_help")}>
         <Block value={body} onChange={setBody} rows={8} />
       </Field>
-      <Field label={t("applications.sources")} help={t("applications.sources_help")}>
-        <Block value={sources} onChange={setSources} />
-      </Field>
-      <p className="field__help">
-        {t("applications.document_evidence_help", { count: position.selected_evidence_count || 0 })}
-      </p>
+      {!existing ? (
+        <>
+          <Field label={t("applications.sources")} help={t("applications.sources_help")}>
+            <Block value={sources} onChange={setSources} />
+          </Field>
+          <p className="field__help">
+            {t("applications.document_evidence_help", { count: position.selected_evidence_count || 0 })}
+          </p>
+        </>
+      ) : null}
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium">{t("action.save")}</ActionButton>
@@ -272,20 +343,27 @@ function AddDocument({ position, onDone }) {
   );
 }
 
-function AddResearch({ position, onDone }) {
+export function AddResearch({ position, existing = null, onDone }) {
   const { t } = useI18n();
   const [body, setBody] = React.useState("");
   const [sources, setSources] = React.useState("");
   const [failure, setFailure] = React.useState(null);
 
+  React.useEffect(() => {
+    if (!existing?.ref) return;
+    read(`/api/artifact-body?artifact_ref=${encodeURIComponent(existing.ref)}`)
+      .then((payload) => setBody(payload.body || ""))
+      .catch(setFailure);
+  }, [existing?.ref]);
+
   const submit = async (event) => {
     event.preventDefault();
     if (!body.trim()) return;
     try {
-      await write("/api/applications/research", {
-        case_ref: position.ref, body: body.trim(), sources: splitLines(sources),
-      });
-      setBody(""); setSources("");
+      await write("/api/applications/research", existing
+        ? { artifact_id: existing.ref, revision: existing.revision, body: body.trim() }
+        : { case_ref: position.ref, body: body.trim(), sources: splitLines(sources) });
+      if (!existing) { setBody(""); setSources(""); }
       onDone();
     } catch (error) { setFailure(error); }
   };
@@ -293,9 +371,11 @@ function AddResearch({ position, onDone }) {
   return (
     <form className="stack" onSubmit={submit}>
       <Field label={t("applications.research")}><Block value={body} onChange={setBody} /></Field>
-      <Field label={t("applications.sources")} help={t("applications.sources_help")}>
-        <Block value={sources} onChange={setSources} />
-      </Field>
+      {!existing ? (
+        <Field label={t("applications.sources")} help={t("applications.sources_help")}>
+          <Block value={sources} onChange={setSources} />
+        </Field>
+      ) : null}
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium">{t("action.save")}</ActionButton>
@@ -304,40 +384,12 @@ function AddResearch({ position, onDone }) {
   );
 }
 
-/* Archive and restore, never delete: a record the user stops pursuing is still something that
-   happened. `updated_at` rides along so the server can refuse a stale write. */
-function LifecycleControl({ item, onDone }) {
+function PositionRecord({ position, company, payload, onDone }) {
   const { t } = useI18n();
-  const [failure, setFailure] = React.useState(null);
-  const state = item.lifecycle || item.status;
-  if (!item.ref || state === "approved" || String(item.ref).startsWith("canonical:")) return null;
-  const archived = state === "archived";
-
-  const run = async () => {
-    if (!window.confirm(t(archived ? "case.restore_confirm" : "case.archive_confirm", { label: item.label }))) return;
-    try {
-      await write(archived ? "/api/cases/restore" : "/api/cases/archive", {
-        case_id: item.ref, updated_at: item.updated_at,
-      });
-      onDone();
-    } catch (error) { setFailure(error); }
-  };
-
-  return (
-    <div className="stack">
-      <div>
-        <ActionButton variant="ghost" size="small" onClick={run}>
-          {t(archived ? "action.restore" : "action.archive")}
-        </ActionButton>
-      </div>
-      <div aria-live="assertive">{failure ? <ErrorState error={failure} /> : null}</div>
-    </div>
-  );
-}
-
-function PositionRecord({ position, company, onDone }) {
-  const { t } = useI18n();
-  const documents = position.documents || [];
+  /* Rewriting a document supersedes the version it replaces. Listing the superseded ones too would
+     grow the list on every correction and leave the user picking the live one out of its own
+     history — the retired versions stay on disk and stay reachable by their ref. */
+  const documents = (position.documents || []).filter((doc) => doc.status === "current");
   return (
     <div className="record">
       <div className="record__head">
@@ -364,6 +416,14 @@ function PositionRecord({ position, company, onDone }) {
                   {t("documents.evidence_count", { count: doc.evidence_count || 0 })}
                 </span>
                 <DocumentBody artifactRef={doc.ref} />
+                {/* Research is listed here so its body can be opened, but it is edited from its
+                    own section below rather than through a second editor for the same record. */}
+                {position.status === "active" && doc.type !== "company_research" ? (
+                  <details>
+                    <summary>{t("action.edit")}</summary>
+                    <AddDocument position={position} existing={doc} onDone={onDone} />
+                  </details>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -373,9 +433,17 @@ function PositionRecord({ position, company, onDone }) {
       {position.status === "active" ? (
         <>
           <details className="record__section">
+            <summary>{t("action.edit")}</summary>
+            <AddPosition key={position.ref} payload={payload} existing={position} onDone={onDone} />
+          </details>
+          <details className="record__section">
             <summary>{t("applications.add_research")}</summary>
             <AddResearch position={position} onDone={onDone} />
           </details>
+          {position.research ? <details className="record__section">
+            <summary>{t("action.edit")}</summary>
+            <AddResearch position={position} existing={position.research} onDone={onDone} />
+          </details> : null}
           <details className="record__section">
             <summary>{t("applications.add_document")}</summary>
             <AddDocument position={position} onDone={onDone} />
@@ -414,6 +482,10 @@ function CompanyRecord({ company, onSelect, onDone }) {
           </ul>
         ) : <Text textStyle="t3Regular">{t("applications.no_positions")}</Text>}
       </section>
+      {company.status === "active" ? <details className="record__section">
+        <summary>{t("action.edit")}</summary>
+        <AddCompany key={company.ref} companies={[company]} existing={company} onDone={onDone} />
+      </details> : null}
       <LifecycleControl item={company} onDone={onDone} />
     </div>
   );
@@ -524,7 +596,7 @@ export default function ApplicationsScreen() {
           {current ? (
             current.kind === "company"
               ? <CompanyRecord company={current.node} onSelect={setSelection} onDone={reload} />
-              : <PositionRecord position={current.node} company={current.parent} onDone={reload} />
+              : <PositionRecord position={current.node} company={current.parent} payload={state.data} onDone={reload} />
           ) : (
             <Text textStyle="t3Regular" style={{ color: "var(--seed-color-fg-neutral-muted)" }}>
               {t("applications.intro")}

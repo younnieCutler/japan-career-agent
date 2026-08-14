@@ -2,6 +2,13 @@
 
 Handoff. Verified against `c317596` (main, 2.11.1) on 2026-08-14.
 
+> **Status as of 2.11.6 (2026-08-15): A, B, C and D are done, plus document rewrite.**
+> Every entity below now supports Create / Read / Edit from the GUI, canonical changes still pass
+> through Review → Approve, and archive/restore is shared rather than duplicated. The analysis in
+> the rest of this document is kept as written because it is what the work was planned against;
+> the table under "Verified state" describes the defect that has since been fixed, not today's
+> behaviour. What remains open is recorded under "Still open" at the end.
+
 ## The requirement
 
 > Every user-managed record must support Create / Read / Edit / Archive-Restore from the GUI, and
@@ -127,3 +134,20 @@ E is written alongside each, not at the end.
 
 Another redesign. The split pane, dense index, `/diagnosis`, and SEED stay as they are. This work
 adds a verb to existing screens; it does not move anything.
+
+## Still open (2.11.6)
+
+**Artifacts have no archive/restore.** Their status is `current | superseded | deleted`, with no
+archived state and no `restore_artifact`. Every other entity answers "remove this" with archive ⇄
+restore, so documents and research answer it with a rewrite instead: editing supersedes the old
+version and the list shows only the current one. That covers correcting a document. It does not
+cover retiring one that should never have been filed, which stays a CLI job.
+
+Deletion deliberately remains absent from the GUI. `/api/cases/delete` exists on the server and no
+screen calls it, and `case_store.restore_case` refuses to restore a `deleted` record. Adding a
+delete button to artifacts alone would make it the only irreversible verb in the product.
+
+**One `LifecycleControl`, four call sites.** Phase D folded the duplicate away
+(`CareerForms.jsx`), and `Career.jsx`, `Applications.jsx` now share it. Sessions still have their
+own affordances in `Chronology.jsx` and `Work.jsx`; those were never the duplicate this document
+identified and were left alone.

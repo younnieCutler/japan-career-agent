@@ -88,7 +88,11 @@ def make_work_event(
 
 
 def make_project_event(
-    title: str, project_id: str | None = None, *, fields: dict[str, Any] | None = None,
+    title: str,
+    project_id: str | None = None,
+    *,
+    fields: dict[str, Any] | None = None,
+    preserve_null_fields: bool = False,
 ) -> dict[str, Any]:
     """Propose a project: the context work events hang on, not evidence about the person.
 
@@ -101,7 +105,10 @@ def make_project_event(
         "id": project_id or f"prj-{uuid.uuid4().hex[:12]}",
         "title": title.strip(),
     }
-    payload.update({key: value for key, value in (fields or {}).items() if value is not None})
+    payload.update({
+        key: value for key, value in (fields or {}).items()
+        if value is not None or preserve_null_fields
+    })
     event = {
         "id": f"evt-{uuid.uuid4().hex[:12]}",
         "track": None,
@@ -128,6 +135,7 @@ def make_experience_context_event(
     context_id: str | None = None,
     *,
     fields: dict[str, Any] | None = None,
+    preserve_null_fields: bool = False,
 ) -> dict[str, Any]:
     """Propose a context: the place an experience happened, not evidence about the person.
 
@@ -144,7 +152,10 @@ def make_experience_context_event(
         "kind": kind,
         "label": label.strip(),
     }
-    payload.update({key: value for key, value in (fields or {}).items() if value is not None})
+    payload.update({
+        key: value for key, value in (fields or {}).items()
+        if value is not None or preserve_null_fields
+    })
     event = {
         "id": f"evt-{uuid.uuid4().hex[:12]}",
         "track": None,

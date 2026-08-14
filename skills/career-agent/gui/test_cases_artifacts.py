@@ -187,6 +187,41 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertEqual(second["version"], 2)
         self.assertEqual(artifacts.get_artifact(self.home, first["artifact_id"])["status"], "superseded")
 
+    def test_company_application_and_research_updates_are_revision_protected(self) -> None:
+        company = cases.create_company(self.home, "Acme")
+        renamed = cases.update_company(
+            self.home, company["case_id"], label="Acme Japan", expected_revision=company["updated_at"],
+        )
+        self.assertEqual(renamed["label"], "Acme Japan")
+        with self.assertRaises(CareerError) as stale_company:
+            cases.update_company(
+                self.home, company["case_id"], label="Stale", expected_revision=company["updated_at"],
+            )
+        self.assertEqual(stale_company.exception.code, "REVISION_STALE")
+
+        application = cases.create_application(self.home, renamed["case_id"], "Backend", jd={"text": "Python"})
+        updated = cases.update_application(
+            self.home,
+            application["case_id"],
+            label="Platform Engineer",
+            jd={"text": "Go"},
+            evidence_refs=[],
+            expected_revision=application["updated_at"],
+        )
+        self.assertEqual((updated["label"], updated["metadata"]["jd"]), ("Platform Engineer", {"text": "Go"}))
+        first = artifacts.register_artifact(
+            self.home, case_ref=updated["case_id"], kind="company_research", body="first",
+        )
+        second = artifacts.update_artifact(
+            self.home, first["artifact_id"], body="second", expected_revision=first["updated_at"],
+        )
+        self.assertEqual((second["version"], artifacts.get_artifact(self.home, first["artifact_id"])["status"]), (2, "superseded"))
+        with self.assertRaises(CareerError) as stale_research:
+            artifacts.update_artifact(
+                self.home, first["artifact_id"], body="stale", expected_revision=first["updated_at"],
+            )
+        self.assertEqual(stale_research.exception.code, "REVISION_STALE")
+
     def test_artifact_delete_preserves_evidence_refs_and_cli_source_metadata(self) -> None:
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
         artifact = artifacts.register_artifact(
@@ -338,6 +373,155 @@ class CaseArtifactTests(unittest.TestCase):
             response = connection.getresponse()
             self.assertEqual(response.status, 200)
             self.assertEqual(json.loads(response.read())["body"], "Reviewed application draft")
+            connection.close()
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
+
+    def test_a_retired_version_cannot_fork_a_new_current_one(self) -> None:
+        """Superseding is linear. A replaced version is history, not a branch point.
+
+        Demoting a version rewrites its `updated_at`, so a caller holding the pre-supersession
+        value is already refused. Re-reading the retired row afterwards yields a revision that
+        matches, and without a status check that was enough to build a third version on the
+        provenance of the one already replaced — reviving stale evidence and retiring the live
+        document in the same call.
+        """
+        company = cases.create_company(self.home, "Acme")
+        application = cases.create_application(self.home, company["case_id"], "Backend")
+        first = artifacts.register_artifact(
+            self.home,
+            case_ref=application["case_id"],
+            kind="resume",
+            body="First draft",
+            evidence_refs=["evt-retired"],
+        )
+        second = artifacts.update_artifact(
+            self.home, first["artifact_id"], body="Second draft",
+            expected_revision=first["updated_at"],
+        )
+        retired = artifacts.get_artifact(self.home, first["artifact_id"])
+        self.assertEqual(retired["status"], "superseded")
+
+        with self.assertRaises(CareerError) as revived:
+            artifacts.update_artifact(
+                self.home, first["artifact_id"], body="Built on a replaced version",
+                expected_revision=retired["updated_at"],
+            )
+        self.assertEqual(revived.exception.code, "REVISION_STALE")
+
+        # The unversioned path skipped the check entirely, so it needs its own guard.
+        with self.assertRaises(CareerError) as unversioned:
+            artifacts.update_artifact(
+                self.home, first["artifact_id"], body="Built on a replaced version",
+            )
+        self.assertEqual(unversioned.exception.code, "REVISION_STALE")
+
+        current = [
+            row for row in artifacts.list_artifacts(self.home, case_ref=application["case_id"])
+            if row["status"] == "current"
+        ]
+        self.assertEqual([row["artifact_id"] for row in current], [second["artifact_id"]])
+        self.assertEqual(current[0]["version"], 2)
+        self.assertEqual(current[0]["evidence_refs"], ["evt-retired"])
+
+    def test_rewriting_a_document_keeps_the_evidence_its_first_version_was_built_on(self) -> None:
+        """A correction supersedes the text. It must not quietly restate what the text rests on.
+
+        Evidence is chosen once, against the application's selection at the time. Re-resolving it
+        on every rewrite would let a later change to that selection alter the provenance of a
+        document that was already generated and possibly already sent.
+        """
+        company = cases.create_company(self.home, "Acme")
+        application = cases.create_application(self.home, company["case_id"], "Backend")
+        first = artifacts.register_artifact(
+            self.home,
+            case_ref=application["case_id"],
+            kind="resume",
+            body="First draft",
+            evidence_refs=["evt-approved"],
+            source_refs=["cli-import:original"],
+        )
+
+        try:
+            server = create_server(port=0, home=self.home)
+        except PermissionError as exc:
+            raise unittest.SkipTest(f"loopback bind unavailable in this execution sandbox: {exc}") from exc
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            connection = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=2)
+            connection.request(
+                "POST",
+                "/session",
+                body=json.dumps({"token": server.bootstrap_token}),
+                headers={"Content-Type": "application/json"},
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            cookie = response.getheader("Set-Cookie")
+            headers = {
+                "Cookie": cookie,
+                "Content-Type": "application/json",
+                "X-CSRF-Token": json.loads(response.read())["csrf_token"],
+            }
+
+            connection.request(
+                "POST",
+                "/api/applications/documents",
+                body=json.dumps({
+                    "artifact_id": first["artifact_id"],
+                    "revision": first["updated_at"],
+                    "body": "Corrected draft",
+                }),
+                headers=headers,
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            response.read()
+
+            rewritten = artifacts.get_artifact(self.home, first["artifact_id"])
+            current = [
+                row for row in artifacts.list_artifacts(self.home, case_ref=application["case_id"])
+                if row["status"] == "current"
+            ]
+            self.assertEqual(rewritten["status"], "superseded")
+            self.assertEqual(len(current), 1)
+            self.assertEqual(current[0]["kind"], "resume")
+            self.assertEqual(current[0]["version"], 2)
+            self.assertEqual(current[0]["evidence_refs"], ["evt-approved"])
+            self.assertEqual(current[0]["source_refs"], ["cli-import:original"])
+            self.assertEqual(
+                artifacts.artifact_body(self.home, current[0]["artifact_id"])["body"],
+                "Corrected draft",
+            )
+            # The replaced body stays readable: superseding is history, not deletion.
+            self.assertEqual(
+                artifacts.artifact_body(self.home, first["artifact_id"])["body"], "First draft"
+            )
+
+            before_stale = {
+                path.name: path.read_bytes()
+                for path in self.home.state_dir.iterdir() if path.is_file()
+            }
+            connection.request(
+                "POST",
+                "/api/applications/documents",
+                body=json.dumps({
+                    "artifact_id": first["artifact_id"],
+                    "revision": first["updated_at"],
+                    "body": "Written against a version that moved",
+                }),
+                headers=headers,
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 409)
+            self.assertEqual(json.loads(response.read())["error"]["code"], "REVISION_STALE")
+            self.assertEqual(
+                before_stale,
+                {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()},
+            )
             connection.close()
         finally:
             server.shutdown()

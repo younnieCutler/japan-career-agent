@@ -10,6 +10,7 @@ from sessions import (
     approve_proposal,
     checkpoint_session,
     create_proposal,
+    create_revision_session,
     create_session,
     list_sessions,
     resume_session,
@@ -121,6 +122,14 @@ def start(home: Any, *, case_ref: str | None = None) -> dict[str, Any]:
     )
     resumed = resume_session(home, session["session_id"])
     return present({"mode": "career-inventory", **resumed})
+
+
+def revise(home: Any, event_id: str, *, expected_revision: str) -> dict[str, Any]:
+    session = create_revision_session(
+        home, event_id, expected_revision=expected_revision, entrypoint="gui",
+    )
+    resumed = resume_session(home, session["session_id"])
+    return present({"mode": "career-inventory-revision", **resumed})
 
 
 def resume(home: Any, session_id: str) -> dict[str, Any]:
