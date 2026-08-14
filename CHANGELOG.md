@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.7] - 2026-08-15
+
+- Surface on Home the states the runtime had already counted and the screen never read: proposals
+  waiting to be approved, and dimensions still unknown. Each is a count and a link to the list it
+  came from, never a combined figure — these are different questions and a total would answer none
+  of them. A conflict keeps its own callout rather than becoming one more row.
+
 ## [2.11.6] - 2026-08-15
 
 - Let the GUI rewrite an application document. A rewrite supersedes the previous version and

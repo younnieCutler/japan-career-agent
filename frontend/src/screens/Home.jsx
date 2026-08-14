@@ -38,6 +38,36 @@ function SessionCard({ session }) {
   );
 }
 
+/* States the runtime already counted, listed rather than summed.
+
+   A single "readiness" number would be the one thing this product refuses to produce: these are
+   different questions, and averaging them tells the user nothing they can act on. Each row is a
+   count and a destination — the point is to reach the list, not to read the figure. */
+function Attention({ rows }) {
+  const { t } = useI18n();
+  const visible = rows.filter((row) => row.count > 0);
+  if (!visible.length) return null;
+  return (
+    <section className="record__section">
+      <h3 className="record__section-title">{t("home.attention_title")}</h3>
+      <ul className="lines">
+        {visible.map((row) => (
+          <li className="line" key={row.key}>
+            <span className="figure">{row.count}</span>
+            <span className="line__label">{t(row.key)}</span>
+            <ActionButton variant="neutralOutline" size="xsmall" onClick={() => navigate(row.target)}>
+              {t("action.review")}
+            </ActionButton>
+          </li>
+        ))}
+      </ul>
+      <Text textStyle="t3Regular" style={{ color: "var(--seed-color-fg-neutral-muted)" }}>
+        {t("home.attention_help")}
+      </Text>
+    </section>
+  );
+}
+
 function Queue({ titleKey, items }) {
   const { t } = useI18n();
   if (!items.length) return null;
@@ -125,6 +155,23 @@ export default function HomeScreen() {
           </Callout.Content>
         </Callout.Root>
       ) : null}
+
+      {/* Conflicts keep the callout above rather than a row here: a contradiction is not one more
+          item in a queue, and demoting it into this list would be a downgrade. */}
+      <Attention
+        rows={[
+          {
+            key: "home.attention_pending",
+            count: home.pending_approval?.count || 0,
+            target: "/career",
+          },
+          {
+            key: "home.attention_unknown",
+            count: (home.unknown?.dimensions || []).length,
+            target: "/diagnosis",
+          },
+        ]}
+      />
 
       <Queue titleKey="home.review_title" items={review} />
       <Queue titleKey="home.resume_title" items={draft} />
