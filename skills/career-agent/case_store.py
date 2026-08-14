@@ -34,6 +34,7 @@ CASE_STATUSES = frozenset({"active", "archived", "deleted"})
 # adding `project` first failed, with a kind that could be created and then never read back.
 CASE_ID = re.compile(rf"^case-(?:{'|'.join(sorted(CASE_KINDS))})-[a-f0-9]{{16}}$")
 MAX_LABEL_LENGTH = 240
+_UNSET = object()
 
 
 def context_relationship(context_kind: object) -> str:
@@ -266,6 +267,76 @@ def create_application(
         metadata=metadata,
         source_refs=source_refs,
         case_id=case_id,
+    )
+
+
+def _update_case(
+    home: CareerVault,
+    case_id: str,
+    *,
+    kind: str,
+    expected_revision: str,
+    label: str,
+    metadata: dict[str, Any],
+    source_refs: Any = _UNSET,
+) -> dict[str, Any]:
+    with vault_lock(home):
+        record = _read_case(home, case_id)
+        if record["kind"] != kind or record["status"] != "active":
+            raise CareerError("case is not an active record of this kind", code="INVALID_RELATIONSHIP")
+        if record["updated_at"] != expected_revision:
+            raise CareerError("this record changed in another entrypoint", code="REVISION_STALE", retryable=True)
+        record["label"] = _text(label, "label")
+        record["metadata"] = metadata
+        if source_refs is not _UNSET:
+            record["source_refs"] = _strings(source_refs, "source_refs")
+        record["updated_at"] = _next_updated_at(record["updated_at"])
+        _validate_case(record)
+        write_json(case_path(home, case_id), record)
+    return record
+
+
+def update_company(
+    home: CareerVault, case_id: str, *, label: str, expected_revision: str,
+    pipeline_slug: Any = _UNSET, business: Any = _UNSET, products: Any = _UNSET,
+) -> dict[str, Any]:
+    record = get_case(home, case_id)
+    metadata = dict(record["metadata"])
+    for key, value in (("pipeline_slug", pipeline_slug), ("business", business), ("products", products)):
+        if value is not _UNSET:
+            metadata[key] = value
+    return _update_case(
+        home, case_id, kind="company", expected_revision=expected_revision, label=label, metadata=metadata,
+    )
+
+
+def update_application(
+    home: CareerVault,
+    case_id: str,
+    *,
+    label: str,
+    expected_revision: str,
+    jd: Any = _UNSET,
+    evidence_refs: Any = _UNSET,
+    document_kinds: Any = _UNSET,
+    source_refs: Any = _UNSET,
+) -> dict[str, Any]:
+    record = get_case(home, case_id)
+    metadata = dict(record["metadata"])
+    if jd is not _UNSET:
+        metadata["jd"] = _object(jd, "jd")
+    if evidence_refs is not _UNSET:
+        metadata["evidence_refs"] = application_evidence_refs(home, evidence_refs)
+    if document_kinds is not _UNSET:
+        metadata["document_kinds"] = _strings(document_kinds, "document_kinds")
+    return _update_case(
+        home,
+        case_id,
+        kind="application",
+        expected_revision=expected_revision,
+        label=label,
+        metadata=metadata,
+        source_refs=source_refs,
     )
 
 

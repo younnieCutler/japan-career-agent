@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 import uuid
+import datetime as dt
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,17 @@ from vault import CareerVault, utc_now
 ARTIFACT_ID = re.compile(r"^art-[a-f0-9]{16}$")
 ARTIFACT_KIND = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 MAX_BODY_BYTES = 4 * 1024 * 1024
+
+
+def _next_updated_at(previous: str, now: str) -> str:
+    try:
+        prior = dt.datetime.fromisoformat(previous.replace("Z", "+00:00"))
+        current = dt.datetime.fromisoformat(now.replace("Z", "+00:00"))
+    except ValueError:
+        return now
+    if current <= prior:
+        return (prior + dt.timedelta(seconds=1)).astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    return now
 
 
 def artifacts_root(home: CareerVault) -> Path:
@@ -167,6 +179,8 @@ def register_artifact(
     evidence_refs: Any = None,
     source_refs: Any = None,
     generated_by: Any = None,
+    expected_artifact_id: str | None = None,
+    expected_revision: str | None = None,
 ) -> dict[str, Any]:
     case = get_case(home, case_ref)
     if case["status"] != "active":
@@ -192,7 +206,13 @@ def register_artifact(
             item for item in _all_artifacts(home)
             if item["case_ref"] == case_ref and item["kind"] == kind
         ]
+        if expected_artifact_id is not None:
+            prior = next((item for item in previous if item["artifact_id"] == expected_artifact_id), None)
+            if prior is None or prior.get("updated_at") != expected_revision:
+                raise CareerError("this artifact changed in another entrypoint", code="REVISION_STALE", retryable=True)
         version = max((item["version"] for item in previous), default=0) + 1
+        if previous:
+            now = _next_updated_at(max(str(item["updated_at"]) for item in previous), now)
         # Write the new version first, demote the old one last. Each file write is atomic on its
         # own, but the transition across several files is not, so the order decides what a kill
         # in the middle leaves behind. Demoting first can leave the kind with no current artifact
@@ -223,7 +243,9 @@ def register_artifact(
     return record
 
 
-def update_artifact(home: CareerVault, artifact_id: str, *, body: str) -> dict[str, Any]:
+def update_artifact(
+    home: CareerVault, artifact_id: str, *, body: str, expected_revision: str | None = None,
+) -> dict[str, Any]:
     previous = _read_artifact(home, artifact_id)
     return register_artifact(
         home,
@@ -233,6 +255,8 @@ def update_artifact(home: CareerVault, artifact_id: str, *, body: str) -> dict[s
         evidence_refs=previous["evidence_refs"],
         source_refs=previous["source_refs"],
         generated_by=previous["generated_by"],
+        expected_artifact_id=artifact_id if expected_revision is not None else None,
+        expected_revision=expected_revision,
     )
 
 

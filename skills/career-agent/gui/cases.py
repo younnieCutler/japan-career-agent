@@ -26,6 +26,8 @@ from case_store import (
     propose_canonical_case,
     propose_project_update,
     restore_case,
+    update_application,
+    update_company,
 )
 
 __all__ = [
@@ -50,6 +52,8 @@ __all__ = [
     "propose_canonical_case",
     "propose_project_update",
     "approve_canonical_case",
+    "update_application",
+    "update_company",
 ]
 
 

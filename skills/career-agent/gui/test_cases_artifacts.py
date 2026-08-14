@@ -187,6 +187,41 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertEqual(second["version"], 2)
         self.assertEqual(artifacts.get_artifact(self.home, first["artifact_id"])["status"], "superseded")
 
+    def test_company_application_and_research_updates_are_revision_protected(self) -> None:
+        company = cases.create_company(self.home, "Acme")
+        renamed = cases.update_company(
+            self.home, company["case_id"], label="Acme Japan", expected_revision=company["updated_at"],
+        )
+        self.assertEqual(renamed["label"], "Acme Japan")
+        with self.assertRaises(CareerError) as stale_company:
+            cases.update_company(
+                self.home, company["case_id"], label="Stale", expected_revision=company["updated_at"],
+            )
+        self.assertEqual(stale_company.exception.code, "REVISION_STALE")
+
+        application = cases.create_application(self.home, renamed["case_id"], "Backend", jd={"text": "Python"})
+        updated = cases.update_application(
+            self.home,
+            application["case_id"],
+            label="Platform Engineer",
+            jd={"text": "Go"},
+            evidence_refs=[],
+            expected_revision=application["updated_at"],
+        )
+        self.assertEqual((updated["label"], updated["metadata"]["jd"]), ("Platform Engineer", {"text": "Go"}))
+        first = artifacts.register_artifact(
+            self.home, case_ref=updated["case_id"], kind="company_research", body="first",
+        )
+        second = artifacts.update_artifact(
+            self.home, first["artifact_id"], body="second", expected_revision=first["updated_at"],
+        )
+        self.assertEqual((second["version"], artifacts.get_artifact(self.home, first["artifact_id"])["status"]), (2, "superseded"))
+        with self.assertRaises(CareerError) as stale_research:
+            artifacts.update_artifact(
+                self.home, first["artifact_id"], body="stale", expected_revision=first["updated_at"],
+            )
+        self.assertEqual(stale_research.exception.code, "REVISION_STALE")
+
     def test_artifact_delete_preserves_evidence_refs_and_cli_source_metadata(self) -> None:
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
         artifact = artifacts.register_artifact(

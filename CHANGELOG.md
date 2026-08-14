@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.11.4] - 2026-08-14
+
+- Add revision-protected GUI edits for companies, applications, and company research. Application
+  evidence is revalidated before every update; research creates a superseding artifact version.
+
 ## [2.11.3] - 2026-08-14
 
 - Use one GUI archive/restore control for Career History and Applications, keeping the same

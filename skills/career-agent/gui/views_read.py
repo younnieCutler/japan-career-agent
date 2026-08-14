@@ -552,13 +552,20 @@ def applications_payload(home: Any) -> dict[str, Any]:
                 continue
             attached = [row for row in artifacts if row.get("case_ref") == application["case_id"]]
             metadata = application.get("metadata", {})
+            research = next((row for row in reversed(attached) if row.get("kind") == "company_research" and row.get("status") == "current"), None)
             positions.append({
                 "ref": application["case_id"],
+                "parent_ref": company["case_id"],
                 "label": application["label"],
                 "status": application["status"],
                 "updated_at": application.get("updated_at"),
                 "jd": metadata.get("jd", {}),
                 "selected_evidence_count": len(metadata.get("evidence_refs", [])),
+                "selected_evidence_refs": metadata.get("evidence_refs", []),
+                "research": ({
+                    "ref": research.get("artifact_id"),
+                    "revision": research.get("updated_at") or research.get("created_at"),
+                } if research else None),
                 "documents": [
                     {
                         "ref": row.get("artifact_id"),
@@ -576,6 +583,7 @@ def applications_payload(home: Any) -> dict[str, Any]:
             "label": company["label"],
             "status": company["status"],
             "updated_at": company.get("updated_at"),
+            "revision": company.get("updated_at"),
             "positions": positions,
         })
     experience_result = list_experiences(home)

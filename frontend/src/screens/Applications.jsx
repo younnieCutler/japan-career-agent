@@ -61,9 +61,9 @@ function DocumentBody({ artifactRef }) {
   );
 }
 
-function AddCompany({ companies, onDone }) {
+function AddCompany({ companies, existing = null, onDone }) {
   const { t } = useI18n();
-  const [label, setLabel] = React.useState("");
+  const [label, setLabel] = React.useState(existing?.label || "");
   const [failure, setFailure] = React.useState(null);
 
   const submit = async (event) => {
@@ -74,8 +74,10 @@ function AddCompany({ companies, onDone }) {
       (item) => item.label.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
     if (duplicate && !window.confirm(t("applications.duplicate_company_confirm", { label: duplicate.label }))) return;
     try {
-      await write("/api/applications/companies", { label: name });
-      setLabel("");
+      await write("/api/applications/companies", existing
+        ? { case_ref: existing.ref, revision: existing.revision || existing.updated_at, label: name }
+        : { label: name });
+      if (!existing) setLabel("");
       onDone();
     } catch (error) { setFailure(error); }
   };
@@ -87,7 +89,7 @@ function AddCompany({ companies, onDone }) {
       </Field>
       {failure ? <ErrorState error={failure} /> : null}
       <div>
-        <ActionButton type="submit" variant="brandSolid" size="medium">{t("action.create")}</ActionButton>
+        <ActionButton type="submit" variant="brandSolid" size="medium">{t(existing ? "action.save" : "action.create")}</ActionButton>
       </div>
     </form>
   );
@@ -151,13 +153,13 @@ function EvidencePicker({ options, chosen, onToggle }) {
   );
 }
 
-function AddPosition({ payload, onDone }) {
+function AddPosition({ payload, existing = null, onDone }) {
   const { t } = useI18n();
   const active = (payload.companies || []).filter((item) => item.status === "active");
-  const [company, setCompany] = React.useState(active[0]?.ref || "");
-  const [label, setLabel] = React.useState("");
-  const [jd, setJd] = React.useState("");
-  const [chosen, setChosen] = React.useState(() => new Set());
+  const [company, setCompany] = React.useState(existing?.parent_ref || active[0]?.ref || "");
+  const [label, setLabel] = React.useState(existing?.label || "");
+  const [jd, setJd] = React.useState(existing?.jd?.text || "");
+  const [chosen, setChosen] = React.useState(() => new Set(existing?.selected_evidence_refs || []));
   const [failure, setFailure] = React.useState(null);
 
   const toggle = (value) => setChosen((current) => {
@@ -181,13 +183,13 @@ function AddPosition({ payload, onDone }) {
     if (!label.trim()) return;
     try {
       await write("/api/applications/positions", {
-        company_ref: company,
+        ...(existing ? { case_ref: existing.ref, revision: existing.updated_at } : { company_ref: company }),
         label: label.trim(),
         jd: jd.trim() ? { text: jd.trim() } : {},
         evidence_refs: [...chosen].flatMap((item) => item.split(",")).filter(Boolean),
         document_kinds: [],
       });
-      setLabel(""); setJd(""); setChosen(new Set());
+      if (!existing) { setLabel(""); setJd(""); setChosen(new Set()); }
       onDone();
     } catch (error) { setFailure(error); }
   };
@@ -211,7 +213,7 @@ function AddPosition({ payload, onDone }) {
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium">
-          {t("applications.add_position")}
+          {t(existing ? "action.save" : "applications.add_position")}
         </ActionButton>
       </div>
     </form>
@@ -273,20 +275,27 @@ function AddDocument({ position, onDone }) {
   );
 }
 
-function AddResearch({ position, onDone }) {
+function AddResearch({ position, existing = null, onDone }) {
   const { t } = useI18n();
   const [body, setBody] = React.useState("");
   const [sources, setSources] = React.useState("");
   const [failure, setFailure] = React.useState(null);
 
+  React.useEffect(() => {
+    if (!existing?.ref) return;
+    read(`/api/artifact-body?artifact_ref=${encodeURIComponent(existing.ref)}`)
+      .then((payload) => setBody(payload.body || ""))
+      .catch(setFailure);
+  }, [existing?.ref]);
+
   const submit = async (event) => {
     event.preventDefault();
     if (!body.trim()) return;
     try {
-      await write("/api/applications/research", {
-        case_ref: position.ref, body: body.trim(), sources: splitLines(sources),
-      });
-      setBody(""); setSources("");
+      await write("/api/applications/research", existing
+        ? { artifact_id: existing.ref, revision: existing.revision, body: body.trim() }
+        : { case_ref: position.ref, body: body.trim(), sources: splitLines(sources) });
+      if (!existing) { setBody(""); setSources(""); }
       onDone();
     } catch (error) { setFailure(error); }
   };
@@ -305,7 +314,7 @@ function AddResearch({ position, onDone }) {
   );
 }
 
-function PositionRecord({ position, company, onDone }) {
+function PositionRecord({ position, company, payload, onDone }) {
   const { t } = useI18n();
   const documents = position.documents || [];
   return (
@@ -343,9 +352,17 @@ function PositionRecord({ position, company, onDone }) {
       {position.status === "active" ? (
         <>
           <details className="record__section">
+            <summary>{t("action.edit")}</summary>
+            <AddPosition key={position.ref} payload={payload} existing={position} onDone={onDone} />
+          </details>
+          <details className="record__section">
             <summary>{t("applications.add_research")}</summary>
             <AddResearch position={position} onDone={onDone} />
           </details>
+          {position.research ? <details className="record__section">
+            <summary>{t("action.edit")}</summary>
+            <AddResearch position={position} existing={position.research} onDone={onDone} />
+          </details> : null}
           <details className="record__section">
             <summary>{t("applications.add_document")}</summary>
             <AddDocument position={position} onDone={onDone} />
@@ -384,6 +401,10 @@ function CompanyRecord({ company, onSelect, onDone }) {
           </ul>
         ) : <Text textStyle="t3Regular">{t("applications.no_positions")}</Text>}
       </section>
+      {company.status === "active" ? <details className="record__section">
+        <summary>{t("action.edit")}</summary>
+        <AddCompany key={company.ref} companies={[company]} existing={company} onDone={onDone} />
+      </details> : null}
       <LifecycleControl item={company} onDone={onDone} />
     </div>
   );
@@ -494,7 +515,7 @@ export default function ApplicationsScreen() {
           {current ? (
             current.kind === "company"
               ? <CompanyRecord company={current.node} onSelect={setSelection} onDone={reload} />
-              : <PositionRecord position={current.node} company={current.parent} onDone={reload} />
+              : <PositionRecord position={current.node} company={current.parent} payload={state.data} onDone={reload} />
           ) : (
             <Text textStyle="t3Regular" style={{ color: "var(--seed-color-fg-neutral-muted)" }}>
               {t("applications.intro")}

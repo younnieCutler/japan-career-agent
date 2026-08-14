@@ -603,25 +603,56 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                         expected_updated_at=payload["updated_at"],
                     )
             elif path == "/api/applications/companies":
-                result = cases.create_company(self.server.home, payload["label"])
+                result = (
+                    cases.update_company(
+                        self.server.home,
+                        payload["case_ref"],
+                        label=payload["label"],
+                        expected_revision=payload["revision"],
+                    )
+                    if payload.get("case_ref") is not None
+                    else cases.create_company(self.server.home, payload["label"])
+                )
             elif path == "/api/applications/positions":
-                result = cases.create_application(
-                    self.server.home,
-                    payload["company_ref"],
-                    payload["label"],
-                    jd=payload.get("jd"),
-                    evidence_refs=payload.get("evidence_refs"),
-                    document_kinds=payload.get("document_kinds"),
-                    source_refs=payload.get("source_refs"),
+                result = (
+                    cases.update_application(
+                        self.server.home,
+                        payload["case_ref"],
+                        label=payload["label"],
+                        expected_revision=payload["revision"],
+                        jd=payload.get("jd"),
+                        evidence_refs=payload.get("evidence_refs"),
+                        document_kinds=payload.get("document_kinds"),
+                        source_refs=payload.get("source_refs"),
+                    )
+                    if payload.get("case_ref") is not None
+                    else cases.create_application(
+                        self.server.home,
+                        payload["company_ref"],
+                        payload["label"],
+                        jd=payload.get("jd"),
+                        evidence_refs=payload.get("evidence_refs"),
+                        document_kinds=payload.get("document_kinds"),
+                        source_refs=payload.get("source_refs"),
+                    )
                 )
             elif path == "/api/applications/research":
-                result = artifacts.register_artifact(
-                    self.server.home,
-                    case_ref=payload["case_ref"],
-                    kind="company_research",
-                    body=payload["body"],
-                    source_refs=payload.get("sources"),
-                    generated_by={"entrypoint": "gui", "workflow": "company_research"},
+                result = (
+                    artifacts.update_artifact(
+                        self.server.home,
+                        payload["artifact_id"],
+                        body=payload["body"],
+                        expected_revision=payload["revision"],
+                    )
+                    if payload.get("artifact_id") is not None
+                    else artifacts.register_artifact(
+                        self.server.home,
+                        case_ref=payload["case_ref"],
+                        kind="company_research",
+                        body=payload["body"],
+                        source_refs=payload.get("sources"),
+                        generated_by={"entrypoint": "gui", "workflow": "company_research"},
+                    )
                 )
             elif path == "/api/applications/documents":
                 document_type = payload["document_type"]
@@ -676,7 +707,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             else:
                 result = artifacts.delete_artifact(self.server.home, payload["artifact_id"])
         except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            if path.startswith("/api/career/") and getattr(exc, "code", None) == "REVISION_STALE":
+            if path.startswith(("/api/career/", "/api/applications/")) and getattr(exc, "code", None) == "REVISION_STALE":
                 self._api_error(
                     exc,
                     fallback_code=(
