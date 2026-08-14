@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.11.3] - 2026-08-14
+
+- Use one GUI archive/restore control for Career History and Applications, keeping the same
+  confirmation and revision-aware archive/restore request on every surface.
+
 ## [2.11.2] - 2026-08-14
 
 - Let the GUI edit approved Career Contexts and Projects through the same append-only proposal and

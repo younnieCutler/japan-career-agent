@@ -18,6 +18,7 @@ import { CaseChip } from "../evidence.jsx";
 import { EmptyState, ErrorState, LoadingState, useAsync } from "../components/States.jsx";
 import { navigate, setSelection, useLocation } from "../App.jsx";
 import { Block, CheckBox, Choice, Field, Line } from "../components/Fields.jsx";
+import { LifecycleControl } from "./CareerForms.jsx";
 
 const PAGE_SIZE = 25;
 const splitLines = (value) => String(value || "")
@@ -301,37 +302,6 @@ function AddResearch({ position, onDone }) {
         <ActionButton type="submit" variant="brandSolid" size="medium">{t("action.save")}</ActionButton>
       </div>
     </form>
-  );
-}
-
-/* Archive and restore, never delete: a record the user stops pursuing is still something that
-   happened. `updated_at` rides along so the server can refuse a stale write. */
-function LifecycleControl({ item, onDone }) {
-  const { t } = useI18n();
-  const [failure, setFailure] = React.useState(null);
-  const state = item.lifecycle || item.status;
-  if (!item.ref || state === "approved" || String(item.ref).startsWith("canonical:")) return null;
-  const archived = state === "archived";
-
-  const run = async () => {
-    if (!window.confirm(t(archived ? "case.restore_confirm" : "case.archive_confirm", { label: item.label }))) return;
-    try {
-      await write(archived ? "/api/cases/restore" : "/api/cases/archive", {
-        case_id: item.ref, updated_at: item.updated_at,
-      });
-      onDone();
-    } catch (error) { setFailure(error); }
-  };
-
-  return (
-    <div className="stack">
-      <div>
-        <ActionButton variant="ghost" size="small" onClick={run}>
-          {t(archived ? "action.restore" : "action.archive")}
-        </ActionButton>
-      </div>
-      <div aria-live="assertive">{failure ? <ErrorState error={failure} /> : null}</div>
-    </div>
   );
 }
 
