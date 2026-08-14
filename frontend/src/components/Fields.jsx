@@ -38,17 +38,27 @@ export function Choice({ id, value, onChange, options, label }) {
   return (
     <Select.Root value={[value]} onValueChange={(next) => onChange(next[0])}>
       <Select.Trigger id={id} aria-label={label}>
-        {/* The trigger renders the current option's own text: SEED's Select.Value reads from the
-            item list, which is closed at this point, so an empty box is what it would show. */}
-        <Select.Value>{options.find(([key]) => key === value)?.[1]}</Select.Value>
+        <Select.Value />
       </Select.Trigger>
-      <Select.Content>
-        {options.map(([key, text]) => (
-          <Select.Item key={key} value={key}>
-            <Select.ItemLabel>{text}</Select.ItemLabel>
-          </Select.Item>
-        ))}
-      </Select.Content>
+      {/* `Positioner` is not decoration: it is the floating portal and the element floating-ui
+          measures against. Without it the listbox renders inline, inside whichever pane the field
+          happens to sit in, and the split pane's own overflow clips it out of sight — which reads
+          as a dropdown that does not open. `Item` carries `label` because that is what `Value` and
+          `ItemLabel` both read; supplying the text as children of `Value` instead leaves the
+          collection with no label for the selected key. */}
+      <Select.Positioner>
+        <Select.Content>
+          <Select.ScrollArea>
+            {options.map(([key, text]) => (
+              <Select.Item key={key} value={key} label={text}>
+                <Select.ItemBody>
+                  <Select.ItemLabel />
+                </Select.ItemBody>
+              </Select.Item>
+            ))}
+          </Select.ScrollArea>
+        </Select.Content>
+      </Select.Positioner>
     </Select.Root>
   );
 }
