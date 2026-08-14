@@ -61,7 +61,7 @@ function DocumentBody({ artifactRef }) {
   );
 }
 
-function AddCompany({ companies, existing = null, onDone }) {
+export function AddCompany({ companies, existing = null, onDone }) {
   const { t } = useI18n();
   const [label, setLabel] = React.useState(existing?.label || "");
   const [failure, setFailure] = React.useState(null);
@@ -71,7 +71,8 @@ function AddCompany({ companies, existing = null, onDone }) {
     const name = label.trim();
     if (!name) return;
     const duplicate = companies.find(
-      (item) => item.label.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
+      (item) => item.ref !== existing?.ref
+        && item.label.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
     if (duplicate && !window.confirm(t("applications.duplicate_company_confirm", { label: duplicate.label }))) return;
     try {
       await write("/api/applications/companies", existing

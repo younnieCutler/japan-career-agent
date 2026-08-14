@@ -299,7 +299,20 @@ function ProjectRecord({ row, labels, onReload }) {
   );
 }
 
-function ExperienceRecord({ row, labels }) {
+export function ExperienceRevisionControl({ experience, onError }) {
+  const { t } = useI18n();
+  const revise = async () => {
+    try {
+      const started = await write("/api/career/experiences/revise", {
+        event_id: experience.ref, revision: experience.ref,
+      });
+      navigate(`/work/${started.session.session_ref}`);
+    } catch (error) { onError(error); }
+  };
+  return <ActionButton variant="neutralWeak" size="small" onClick={revise}>{t("action.edit")}</ActionButton>;
+}
+
+function ExperienceRecord({ row, labels, onError }) {
   const { t } = useI18n();
   const experience = row.node;
   return (
@@ -316,6 +329,7 @@ function ExperienceRecord({ row, labels }) {
           ? t("evidence.present_count", { count: experience.evidence_count })
           : t("evidence.missing_usable")],
       ]} />
+      <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>
       {experience.contains_confidential ? (
         <Callout.Root tone="warning">
           <Callout.Content>
@@ -465,7 +479,7 @@ export default function CareerScreen() {
               )
               : current.kind === "project"
                 ? <ProjectRecord row={current} labels={labels} onReload={reload} />
-                : <ExperienceRecord row={current} labels={labels} />
+                : <ExperienceRecord row={current} labels={labels} onError={setFailure} />
           ) : (
             <Text textStyle="t3Regular" style={{ color: "var(--seed-color-fg-neutral-muted)" }}>
               {t("career.intro")}

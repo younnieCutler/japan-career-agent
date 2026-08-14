@@ -14,6 +14,7 @@ from models import (
     EXPERIENCE_CONTEXT_KINDS,
     EXPERIENCE_EVENT_TYPE,
     EXPERIENCE_KINDS,
+    EXPERIENCE_SUPERSESSION_EVENT_TYPE,
     OUTCOME_STATES,
     EXTERNAL_USE_STATES,
     FACT_CATEGORIES,
@@ -154,6 +155,7 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
         PROJECT_EVENT_TYPE,
         EXPERIENCE_EVENT_TYPE,
         EXPERIENCE_CONTEXT_EVENT_TYPE,
+        EXPERIENCE_SUPERSESSION_EVENT_TYPE,
     }
     if not (unrouted and event["track"] is None) and event["track"] not in TRACKS:
         raise CareerError("event.track must be shinsotsu or chuto")
@@ -181,6 +183,18 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
     # AC-22: `deadline` was calendar-checked while `occurred_at` was not validated at all, so an
     # impossible date entered the ledger through the field every projection orders by.
     iso_timestamp(event["occurred_at"], "event.occurred_at")
+    if event.get("type") == EXPERIENCE_SUPERSESSION_EVENT_TYPE:
+        if event["status"] != "confirmed":
+            raise CareerError("an experience supersession must be confirmed")
+        link = event.get("supersession")
+        if not isinstance(link, dict) or set(link) != {"predecessor_event_id", "replacement_event_id"}:
+            raise CareerError("an experience supersession must name predecessor and replacement events")
+        for field in ("predecessor_event_id", "replacement_event_id"):
+            if not isinstance(link.get(field), str) or not link[field].strip():
+                raise CareerError(f"event.supersession.{field} must be a non-empty event id")
+        if link["predecessor_event_id"] == link["replacement_event_id"]:
+            raise CareerError("an experience supersession cannot replace an event with itself")
+        return
     if "fact" in event and event["fact"] is not None:
         validate_fact(event["fact"])
         if event["status"] == "superseded":

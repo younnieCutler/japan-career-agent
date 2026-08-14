@@ -32,7 +32,7 @@
 
 ---
 
-현재 릴리스: `2.11.4`.
+현재 릴리스: `2.11.5`.
 
 ## 이건 무엇인가
 
@@ -244,7 +244,7 @@ python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format hu
 릴리스를 준비하는 동안 저장소의 버전이 stable marketplace 채널보다 앞설 수 있습니다.
 stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지 않습니다.
 
-지금은 소스 메타데이터가 `2.11.4`인데 stable marketplace ref는 아직 `v2.1.1`입니다. 이 소스에 대한
+지금은 소스 메타데이터가 `2.11.5`인데 stable marketplace ref는 아직 `v2.1.1`입니다. 이 소스에 대한
 태그를 릴리스 workflow가 아직 발행하지 않았기 때문이며, 따라서 marketplace로 설치하면 오늘은
 `2.1.1`이 설치됩니다. 다음 태그가 발행되면 차이가 닫힙니다. `uvx`와 `npx`는 이 ref가 아니라 발행된
 패키지 버전을 해석하므로 어느 경우든 영향을 받지 않습니다.

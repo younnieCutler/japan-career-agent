@@ -119,7 +119,7 @@ function LivePreview({ form }) {
   );
 }
 
-function CaptureForm({ payload, onReload }) {
+export function CaptureForm({ payload, onReload }) {
   const { t } = useI18n();
   const session = payload.session;
   const [form, setForm] = React.useState(() => fromDraft(payload.draft));
@@ -226,7 +226,7 @@ function CaptureForm({ payload, onReload }) {
         session_ref: session.session_ref, revision: box.current.revision,
       });
       box.current.revision = proposed.revision;
-      setReview(proposed.proposal);
+      setReview({ ...proposed, event: proposed.proposal.event, ref: proposed.proposal.ref });
     } catch (error) { setFailure(error); }
   };
 
@@ -396,6 +396,7 @@ function CaptureForm({ payload, onReload }) {
       {review ? (
         <ApprovalDialog
           event={review.event}
+          before={review.review_before}
           context={[session.subject?.context_label, session.subject?.project_label, form.summary.trim()]
             .filter(Boolean)}
           onApprove={async () => {

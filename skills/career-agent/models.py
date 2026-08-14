@@ -58,6 +58,8 @@ class ApprovalTransactionRecord:
     workspace: str | None
     created_at: str
     stage: ApprovalStage
+    companion_event: dict[str, Any] | None = None
+    companion_event_fingerprint: str | None = None
     state_version: str | None = None
     pipeline: str | None = None
 
@@ -70,6 +72,14 @@ class ApprovalTransactionRecord:
                 proposal_kind=str(value.get("proposal_kind") or "event"),
                 event=dict(value["event"]),
                 event_fingerprint=str(value["event_fingerprint"]),
+                companion_event=(
+                    dict(value["companion_event"])
+                    if isinstance(value.get("companion_event"), dict) else None
+                ),
+                companion_event_fingerprint=(
+                    str(value["companion_event_fingerprint"])
+                    if value.get("companion_event_fingerprint") else None
+                ),
                 workspace=str(value["workspace"]) if value.get("workspace") else None,
                 created_at=str(value["created_at"]),
                 stage=ApprovalStage(str(value["stage"])),
@@ -91,6 +101,9 @@ class ApprovalTransactionRecord:
             "created_at": self.created_at,
             "stage": self.stage.value,
         }
+        if self.companion_event is not None:
+            value["companion_event"] = self.companion_event
+            value["companion_event_fingerprint"] = self.companion_event_fingerprint
         if self.state_version:
             value["state_version"] = self.state_version
         if self.pipeline:
@@ -164,6 +177,9 @@ WORK_EXPERIENCE_CONTEXT_KINDS = frozenset({
 # returning coursework as work history.
 EXPERIENCE_EVENT_TYPE = "experience_event"
 EVIDENCE_EVENT_TYPES = {WORK_EVENT_TYPE, EXPERIENCE_EVENT_TYPE}
+# A correction is an append-only audit link, never a rewrite of the evidence it retires.  The
+# replacement remains an ordinary evidence event; this row only names the two immutable ids.
+EXPERIENCE_SUPERSESSION_EVENT_TYPE = "experience_supersession"
 # Which kind of experience a piece of evidence belongs to. `project` is one entry among many on
 # purpose: regular operations, an incident, a thesis and a part-time shift are experiences too, and
 # a model that only had projects would push the user to describe their work as one.

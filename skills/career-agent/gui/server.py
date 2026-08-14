@@ -306,6 +306,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/workflows/assign-project",
             "/api/career/contexts",
             "/api/career/projects",
+            "/api/career/experiences/revise",
             "/api/career/propose",
             "/api/career/approve",
             "/api/career/organize",
@@ -545,6 +546,12 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                         period=payload.get("period"),
                         external_use=payload.get("external_use"),
                     )
+            elif path == "/api/career/experiences/revise":
+                result = tanaoroshi.revise(
+                    self.server.home,
+                    payload["event_id"],
+                    expected_revision=payload["revision"],
+                )
             elif path == "/api/career/propose":
                 result = cases.propose_canonical_case(
                     self.server.home,

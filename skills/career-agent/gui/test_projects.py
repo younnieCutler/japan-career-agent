@@ -22,6 +22,7 @@ import persistence  # noqa: E402
 import sessions  # noqa: E402
 from gui._test_client import FRONTEND_SRC, client_source  # noqa: E402
 from gui import artifacts, cases, tanaoroshi  # noqa: E402
+from experiences import list_experiences  # noqa: E402
 from models import CareerError  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
 
@@ -261,6 +262,72 @@ class ProjectCaseTests(unittest.TestCase):
             sessions.load_session(self.home, session_id)["case_ref"], project["case_id"]
         )
 
+    def test_revising_experience_appends_a_replacement_and_supersession(self) -> None:
+        _, project = self._project("Payment Platform Migration")
+        project = self._approve_case(project)
+        started = tanaoroshi.start(self.home, case_ref=project["case_id"])
+        saved = tanaoroshi.autosave(
+            self.home,
+            started["session"]["session_ref"],
+            {
+                "summary": "결제 배치 지연을 줄였다",
+                "evidence": ["runbook"],
+                "role": "owner",
+                "direct_actions": ["알람을 재설계했다"],
+                "individual_contribution": "알람 기준을 직접 설계했다",
+                "outcome_state": "qualitative",
+                "confidentiality": {"contains_confidential": False, "external_use": "allowed"},
+            },
+            expected_revision=0,
+        )
+        proposed = tanaoroshi.submit(
+            self.home, started["session"]["session_ref"], expected_revision=saved["revision"]
+        )
+        tanaoroshi.approve_session(
+            self.home,
+            started["session"]["session_ref"],
+            proposed["proposal"]["id"],
+            expected_revision=proposed["revision"],
+        )
+        original = persistence.read_jsonl(self.home.events)[-1]
+
+        revised = tanaoroshi.revise(
+            self.home, original["id"], expected_revision=original["id"]
+        )
+
+        self.assertEqual(revised["draft"]["summary"], original["summary"])
+        changed = tanaoroshi.autosave(
+            self.home,
+            revised["session"]["session_ref"],
+            {**revised["draft"], "summary": "결제 배치 지연 원인을 바로잡았다"},
+            expected_revision=revised["revision"],
+        )
+        review = tanaoroshi.submit(
+            self.home, revised["session"]["session_ref"], expected_revision=changed["revision"]
+        )
+        self.assertEqual(review["review_before"]["summary"], original["summary"])
+        tanaoroshi.approve_session(
+            self.home,
+            revised["session"]["session_ref"],
+            review["proposal"]["id"],
+            expected_revision=review["revision"],
+        )
+
+        events = persistence.read_jsonl(self.home.events)
+        self.assertEqual(events[-3], original)
+        self.assertEqual(events[-2]["summary"], "결제 배치 지연 원인을 바로잡았다")
+        self.assertEqual(events[-1]["type"], "experience_supersession")
+        self.assertEqual(
+            events[-1]["supersession"],
+            {"predecessor_event_id": original["id"], "replacement_event_id": events[-2]["id"]},
+        )
+        self.assertEqual(
+            [row["claim_id"] for row in list_experiences(self.home)["claims"]], [events[-2]["id"]]
+        )
+        with self.assertRaisesRegex(CareerError, "reload") as stale:
+            tanaoroshi.revise(self.home, original["id"], expected_revision=original["id"])
+        self.assertEqual(stale.exception.code, "REVISION_STALE")
+
     def test_the_project_screen_records_through_the_case_and_session_routes(self) -> None:
         forms = (FRONTEND_SRC / "screens" / "CareerForms.jsx").read_text(encoding="utf-8")
         renderer = forms.split("export function AddProject", 1)[1].split("\nexport function", 1)[0]
@@ -472,6 +539,64 @@ class CareerMutationRouteTests(unittest.TestCase):
             })
             self.assertEqual((status, stale["error"]["code"]), (409, "REVISION_STALE"))
             self.assertEqual(before_stale, {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()})
+
+    def test_experience_revision_api_is_reviewed_approved_and_stale_protected(self) -> None:
+        from proposals import make_work_event
+
+        original = make_work_event("Original delivery evidence")
+        original.update({
+            "status": "confirmed",
+            "evidence": ["runbook"],
+            "work_event": {
+                "experience_ref": "delivery",
+                "role": "engineer",
+                "individual_contribution": "implemented the original flow",
+                "outcome_state": "qualitative",
+                "confidentiality": {"contains_confidential": False, "external_use": "allowed"},
+            },
+        })
+        persistence.append_jsonl(self.home.events, original)
+
+        with running_server(self.home) as server:
+            headers = self._session(server)
+            status, started = self._write(server, headers, "/api/career/experiences/revise", {
+                "event_id": original["id"], "revision": original["id"],
+            })
+            self.assertEqual(status, 200)
+            session_ref = started["session"]["session_ref"]
+            self.assertEqual(started["draft"]["summary"], "Original delivery evidence")
+            status, saved = self._write(server, headers, "/api/workflows/draft", {
+                "session_ref": session_ref,
+                "revision": started["revision"],
+                "draft": {
+                    **started["draft"],
+                    "summary": "Corrected delivery evidence",
+                    "outcome_state": "qualitative",
+                    "confidentiality": {"contains_confidential": False, "external_use": "allowed"},
+                },
+            })
+            self.assertEqual(status, 200)
+            status, review = self._write(server, headers, "/api/workflows/propose", {
+                "session_ref": session_ref, "revision": saved["revision"],
+            })
+            self.assertEqual(status, 200)
+            self.assertEqual(review["review_before"]["summary"], "Original delivery evidence")
+            status, _ = self._write(server, headers, "/api/workflows/approve", {
+                "session_ref": session_ref,
+                "proposal_ref": review["proposal"]["ref"],
+                "revision": review["revision"],
+            })
+            self.assertEqual(status, 200)
+            rows = list_experiences(self.home)["claims"]
+            self.assertEqual([row["label"] for row in rows], ["Corrected delivery evidence"])
+            self.assertEqual(persistence.read_jsonl(self.home.events)[0], original)
+
+            before_stale = self.home.events.read_bytes()
+            status, stale = self._write(server, headers, "/api/career/experiences/revise", {
+                "event_id": original["id"], "revision": original["id"],
+            })
+            self.assertEqual((status, stale["error"]["code"]), (409, "REVISION_STALE"))
+            self.assertEqual(self.home.events.read_bytes(), before_stale)
 
 
 if __name__ == "__main__":

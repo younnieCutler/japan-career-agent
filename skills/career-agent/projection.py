@@ -18,18 +18,23 @@ from models import (  # noqa: E402
     CAREER_MODES,
     EVIDENCE_EVENT_TYPES,
     EXPERIENCE_CONTEXT_EVENT_TYPE,
+    EXPERIENCE_SUPERSESSION_EVENT_TYPE,
     PIPELINE_STAGE,
     PROJECT_EVENT_TYPE,
     USER_CONFIRMATION_EVIDENCE,
     WORK_EVENT_TYPE,
     CareerError,
 )
+from validation import validate_event  # noqa: E402
 
 # The types that record something without moving the user through the hiring flow. They share one
 # name because three separate call sites need exactly this set, and three separate literals would
 # be three chances to add a type to two of them.
 UNROUTED_EVENT_TYPES = (
-    EVIDENCE_EVENT_TYPES | {PROJECT_EVENT_TYPE, EXPERIENCE_CONTEXT_EVENT_TYPE, "career_context"}
+    EVIDENCE_EVENT_TYPES | {
+        PROJECT_EVENT_TYPE, EXPERIENCE_CONTEXT_EVENT_TYPE, EXPERIENCE_SUPERSESSION_EVENT_TYPE,
+        "career_context",
+    }
 )
 
 
@@ -193,6 +198,37 @@ def evidence_payload(event: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def confirmed_evidence_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Confirmed evidence excluding rows retired by a confirmed append-only correction."""
+    by_id = {str(event.get("id")): event for event in events if event.get("id")}
+    retired: set[str] = set()
+    for event in events:
+        if event.get("type") != EXPERIENCE_SUPERSESSION_EVENT_TYPE or event.get("status") != "confirmed":
+            continue
+        validate_event(event)
+        link = event["supersession"]
+        predecessor_id = link["predecessor_event_id"]
+        replacement_id = link["replacement_event_id"]
+        predecessor = by_id.get(predecessor_id)
+        replacement = by_id.get(replacement_id)
+        if predecessor is None or replacement is None:
+            raise CareerError("experience supersession references an unknown event")
+        if any(row.get("type") not in EVIDENCE_EVENT_TYPES or row.get("status") != "confirmed"
+               for row in (predecessor, replacement)):
+            raise CareerError("experience supersession requires confirmed evidence events")
+        if predecessor.get("type") != replacement.get("type"):
+            raise CareerError("experience supersession must preserve the evidence event type")
+        if predecessor_id in retired:
+            raise CareerError("an experience event may be superseded only once")
+        retired.add(predecessor_id)
+    return [
+        event for event in events
+        if event.get("type") in EVIDENCE_EVENT_TYPES
+        and event.get("status") == "confirmed"
+        and event.get("id") not in retired
+    ]
+
+
 def experience_key(event: dict[str, Any]) -> str | None:
     """Which experience this evidence belongs to, or None when it hangs on nothing.
 
@@ -225,9 +261,7 @@ def experiences_from_events(events: list[dict[str, Any]]) -> dict[str, Any]:
     experiences: dict[str, dict[str, Any]] = {}
     claims: list[dict[str, Any]] = []
     unattached: list[str] = []
-    for event in events:
-        if event.get("type") not in EVIDENCE_EVENT_TYPES or event.get("status") != "confirmed":
-            continue
+    for event in confirmed_evidence_events(events):
         key = experience_key(event)
         if key is None:
             unattached.append(event["id"])
@@ -357,9 +391,8 @@ def project_timeline(events: list[dict[str, Any]], project_id: str) -> list[dict
             "summary": event.get("summary"),
             "primary": (event.get("work_event") or {}).get("primary_project_id") == project_id,
         }
-        for event in events
+        for event in confirmed_evidence_events(events)
         if event.get("type") == WORK_EVENT_TYPE
-        and event.get("status") == "confirmed"
         and project_id in work_event_project_ids(event)
     ]
     return sorted(entries, key=lambda entry: (entry["date"], entry["event_id"]))

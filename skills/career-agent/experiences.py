@@ -26,6 +26,7 @@ from persistence import read_jsonl
 from personal_timeline import select_personal_context
 from private_store import documents as private_documents, PrivateHome, resolve_private_home
 from projection import (
+    confirmed_evidence_events,
     contexts_from_events,
     experiences_from_events,
     project_timeline,
@@ -138,7 +139,13 @@ def work_events(
     The boundary is a UTC date because `occurred_at` is a UTC instant; a local calendar boundary
     would compare two different things and silently drop an event recorded minutes ago.
     """
-    rows = [row for row in read_jsonl(home.events) if row.get("type") == WORK_EVENT_TYPE]
+    events = read_jsonl(home.events)
+    active = {row.get("id") for row in confirmed_evidence_events(events)}
+    rows = [
+        row for row in events
+        if row.get("type") == WORK_EVENT_TYPE
+        and (row.get("status") != "confirmed" or row.get("id") in active)
+    ]
     if confirmed_only:
         # Confirmed means confirmed: a draft is a proposal the user has not verified, and a
         # superseded row is history that a later record replaced. Neither may be quoted as current
@@ -376,8 +383,8 @@ def list_projects(home: CareerVault, *, status: str | None = None) -> dict[str, 
     events = read_jsonl(home.events)
     projects = projects_from_events(events)
     counts: dict[str, int] = {}
-    for event in events:
-        if event.get("type") != WORK_EVENT_TYPE or event.get("status") != "confirmed":
+    for event in confirmed_evidence_events(events):
+        if event.get("type") != WORK_EVENT_TYPE:
             continue
         for project_id in work_event_project_ids(event):
             counts[project_id] = counts.get(project_id, 0) + 1

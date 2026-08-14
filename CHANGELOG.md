@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.11.5] - 2026-08-14
+
+- Let the GUI revise confirmed experience through the existing Work editor. Approval appends the
+  replacement evidence and an immutable supersession audit event; readers exclude only the
+  replaced claim, keep prior documents unchanged, and reject stale revisions without a write.
+
 ## [2.11.4] - 2026-08-14
 
 - Add revision-protected GUI edits for companies, applications, and company research. Application
