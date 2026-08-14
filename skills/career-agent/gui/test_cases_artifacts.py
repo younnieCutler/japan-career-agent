@@ -379,6 +379,53 @@ class CaseArtifactTests(unittest.TestCase):
             thread.join(timeout=2)
             server.server_close()
 
+    def test_a_retired_version_cannot_fork_a_new_current_one(self) -> None:
+        """Superseding is linear. A replaced version is history, not a branch point.
+
+        Demoting a version rewrites its `updated_at`, so a caller holding the pre-supersession
+        value is already refused. Re-reading the retired row afterwards yields a revision that
+        matches, and without a status check that was enough to build a third version on the
+        provenance of the one already replaced — reviving stale evidence and retiring the live
+        document in the same call.
+        """
+        company = cases.create_company(self.home, "Acme")
+        application = cases.create_application(self.home, company["case_id"], "Backend")
+        first = artifacts.register_artifact(
+            self.home,
+            case_ref=application["case_id"],
+            kind="resume",
+            body="First draft",
+            evidence_refs=["evt-retired"],
+        )
+        second = artifacts.update_artifact(
+            self.home, first["artifact_id"], body="Second draft",
+            expected_revision=first["updated_at"],
+        )
+        retired = artifacts.get_artifact(self.home, first["artifact_id"])
+        self.assertEqual(retired["status"], "superseded")
+
+        with self.assertRaises(CareerError) as revived:
+            artifacts.update_artifact(
+                self.home, first["artifact_id"], body="Built on a replaced version",
+                expected_revision=retired["updated_at"],
+            )
+        self.assertEqual(revived.exception.code, "REVISION_STALE")
+
+        # The unversioned path skipped the check entirely, so it needs its own guard.
+        with self.assertRaises(CareerError) as unversioned:
+            artifacts.update_artifact(
+                self.home, first["artifact_id"], body="Built on a replaced version",
+            )
+        self.assertEqual(unversioned.exception.code, "REVISION_STALE")
+
+        current = [
+            row for row in artifacts.list_artifacts(self.home, case_ref=application["case_id"])
+            if row["status"] == "current"
+        ]
+        self.assertEqual([row["artifact_id"] for row in current], [second["artifact_id"]])
+        self.assertEqual(current[0]["version"], 2)
+        self.assertEqual(current[0]["evidence_refs"], ["evt-retired"])
+
     def test_rewriting_a_document_keeps_the_evidence_its_first_version_was_built_on(self) -> None:
         """A correction supersedes the text. It must not quietly restate what the text rests on.
 

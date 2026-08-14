@@ -208,7 +208,18 @@ def register_artifact(
         ]
         if expected_artifact_id is not None:
             prior = next((item for item in previous if item["artifact_id"] == expected_artifact_id), None)
-            if prior is None or prior.get("updated_at") != expected_revision:
+            # Superseding is linear, so the named version must still be the live one. Demoting a
+            # version rewrites its `updated_at`, which already refuses a caller holding the older
+            # value -- but re-reading the retired row yields a revision that matches, and that was
+            # enough to build a new version on the provenance of one already replaced while
+            # retiring the live document in the same call.
+            if prior is None or prior["status"] != "current":
+                raise CareerError(
+                    "this artifact is no longer the current version",
+                    code="REVISION_STALE",
+                    retryable=True,
+                )
+            if expected_revision is not None and prior.get("updated_at") != expected_revision:
                 raise CareerError("this artifact changed in another entrypoint", code="REVISION_STALE", retryable=True)
         version = max((item["version"] for item in previous), default=0) + 1
         if previous:
@@ -255,7 +266,10 @@ def update_artifact(
         evidence_refs=previous["evidence_refs"],
         source_refs=previous["source_refs"],
         generated_by=previous["generated_by"],
-        expected_artifact_id=artifact_id if expected_revision is not None else None,
+        # Always named, revision or not: the caller supplied an artifact to rewrite, and whether
+        # it is still the current version is checked under the lock rather than here, where the
+        # answer could change before the write.
+        expected_artifact_id=artifact_id,
         expected_revision=expected_revision,
     )
 

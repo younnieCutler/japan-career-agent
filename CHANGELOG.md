@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.11.8] - 2026-08-15
+
+- Refuse to rewrite an artifact version that has already been superseded. Demoting a version
+  rewrites its revision, so a caller holding the older value was refused, but re-reading the
+  retired row yielded one that matched — enough to build a new current version on the provenance
+  of the one already replaced and retire the live document in the same call. The named version
+  must still be current, checked under the lock, on both the revision-carrying and the
+  unversioned update paths.
+
 ## [2.11.7] - 2026-08-15
 
 - Surface on Home the states the runtime had already counted and the screen never read: proposals
