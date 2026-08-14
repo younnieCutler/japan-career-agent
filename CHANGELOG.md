@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.11.6] - 2026-08-15
+
+- Let the GUI rewrite an application document. A rewrite supersedes the previous version and
+  carries over the evidence, sources, and document type it was built on, so correcting the text
+  never restates what an already-generated document rests on. The document list now shows only
+  the current version of each; superseded ones stay on disk and stay readable by reference.
+- Show the approval dialog the record as it will stand after approval rather than the submitted
+  change alone, so a field the form does not carry is no longer reported as being cleared.
+- Fix `add-project` and `add-context` erasing values the command did not mention. Omitting
+  `--role` or supplying only `--to` no longer clears a role or a period start recorded earlier.
+
 ## [2.11.5] - 2026-08-14
 
 - Let the GUI revise confirmed experience through the existing Work editor. Approval appends the

@@ -101,6 +101,9 @@ def present_review(result: dict[str, Any]) -> dict[str, Any]:
     before = result.get("proposal", {}).get("before") if isinstance(result.get("proposal"), dict) else None
     after = result.get("proposal", {}).get("after") if isinstance(result.get("proposal"), dict) else None
     kind = "experience_context" if "experience_context" in visible_event else "project"
+    # The dialog compares before against this, so it has to be the record as it will stand after
+    # approval, not the submitted diff. A diff omits every field the form does not carry, and the
+    # comparison would then report those untouched fields as being cleared.
     if after is not None:
         visible_event[kind] = _visible_snapshot(kind, after)
     if visible_event.get("evidence") == ["User confirmation in the local Career Agent GUI"]:

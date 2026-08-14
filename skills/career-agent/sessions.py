@@ -34,7 +34,12 @@ if str(_SHARED_ROOT) not in sys.path:
 import self_analysis_profile  # noqa: E402
 
 from proposals import make_work_event, propose_career_context_payload  # noqa: E402
-from projection import confirmed_evidence_events, evidence_payload  # noqa: E402
+from projection import (  # noqa: E402
+    confirmed_evidence_events,
+    contexts_from_events,
+    evidence_payload,
+    projects_from_events,
+)
 from validation import validate_event, validate_work_event  # noqa: E402
 from vault import CareerVault, utc_now  # noqa: E402
 
@@ -110,13 +115,22 @@ def career_project_subject(home: CareerVault, case_ref: str) -> dict[str, str]:
             "confirm the career context and project before recording canonical experience",
             code="PARENT_NOT_CONFIRMED",
         )
+    events = read_jsonl(home.events)
+    canonical_context = contexts_from_events(events).get(str(context_id))
+    canonical_project = projects_from_events(events).get(str(project_id))
+    if not isinstance(canonical_context, dict) or not isinstance(canonical_project, dict):
+        raise CareerError(
+            "the confirmed career context or project is unavailable; reload before recording work",
+            code="REVISION_STALE",
+            retryable=True,
+        )
     return {
         "context_ref": context["case_id"],
-        "context_label": context["label"],
-        "context_kind": context["metadata"].get("context_kind", "other"),
+        "context_label": str(canonical_context.get("external_label") or canonical_context["label"]),
+        "context_kind": str(canonical_context["kind"]),
         "context_id": str(context_id),
         "project_ref": project["case_id"],
-        "project_label": project["label"],
+        "project_label": str(canonical_project.get("external_label") or canonical_project["title"]),
         "project_id": str(project_id),
     }
 

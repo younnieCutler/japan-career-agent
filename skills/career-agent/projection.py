@@ -108,6 +108,33 @@ def upsert_pipeline_entry(
 PROJECT_FIELDS = ("title", "external_label", "role", "scope", "summary", "status", "period")
 
 
+def _apply_current_fields(current: dict[str, Any], payload: dict[str, Any], fields: tuple[str, ...]) -> None:
+    """Project an update: omitted fields preserve, explicit null clears."""
+    for field in fields:
+        if field not in payload:
+            continue
+        value = payload[field]
+        if field != "period":
+            if value is None:
+                current.pop(field, None)
+            else:
+                current[field] = value
+            continue
+        if value is None:
+            current.pop("period", None)
+        elif isinstance(value, dict):
+            merged = dict(current.get("period") or {})
+            for key, item in value.items():
+                if item is None:
+                    merged.pop(key, None)
+                else:
+                    merged[key] = item
+            if merged:
+                current["period"] = merged
+            else:
+                current.pop("period", None)
+
+
 def projects_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """The current state of every project, projected from confirmed project events.
 
@@ -130,20 +157,7 @@ def projects_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, An
         current = projects.setdefault(
             project_id, {"id": project_id, "first_seen": event.get("occurred_at")}
         )
-        for field in PROJECT_FIELDS:
-            value = payload.get(field)
-            if value is None:
-                continue
-            # `period` merges a level deeper for the same reason `confidentiality` does: its two
-            # ends are learned at different times. A project is given a start when it begins and an
-            # end when it closes, and replacing the whole object on the second turn would drop the
-            # start -- which is the opposite of "later non-null wins, earlier survives the silence".
-            if field == "period" and isinstance(value, dict) and isinstance(current.get(field), dict):
-                merged = dict(current[field])
-                merged.update({key: item for key, item in value.items() if item is not None})
-                current[field] = merged
-            else:
-                current[field] = value
+        _apply_current_fields(current, payload, PROJECT_FIELDS)
         current["updated_at"] = event.get("occurred_at")
     for record in projects.values():
         record.setdefault("status", "unknown")
@@ -170,16 +184,7 @@ def contexts_from_events(events: list[dict[str, Any]]) -> dict[str, dict[str, An
         current = contexts.setdefault(
             context_id, {"id": context_id, "first_seen": event.get("occurred_at")}
         )
-        for field in EXPERIENCE_CONTEXT_FIELDS:
-            value = payload.get(field)
-            if value is None:
-                continue
-            if field == "period" and isinstance(value, dict) and isinstance(current.get(field), dict):
-                merged = dict(current[field])
-                merged.update({key: item for key, item in value.items() if item is not None})
-                current[field] = merged
-            else:
-                current[field] = value
+        _apply_current_fields(current, payload, EXPERIENCE_CONTEXT_FIELDS)
         current["updated_at"] = event.get("occurred_at")
     return contexts
 
@@ -198,10 +203,10 @@ def evidence_payload(event: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def confirmed_evidence_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Confirmed evidence excluding rows retired by a confirmed append-only correction."""
+def evidence_supersessions(events: list[dict[str, Any]]) -> dict[str, str]:
+    """Return validated predecessor → replacement links for append-only corrections."""
     by_id = {str(event.get("id")): event for event in events if event.get("id")}
-    retired: set[str] = set()
+    links: dict[str, str] = {}
     for event in events:
         if event.get("type") != EXPERIENCE_SUPERSESSION_EVENT_TYPE or event.get("status") != "confirmed":
             continue
@@ -218,9 +223,15 @@ def confirmed_evidence_events(events: list[dict[str, Any]]) -> list[dict[str, An
             raise CareerError("experience supersession requires confirmed evidence events")
         if predecessor.get("type") != replacement.get("type"):
             raise CareerError("experience supersession must preserve the evidence event type")
-        if predecessor_id in retired:
+        if predecessor_id in links:
             raise CareerError("an experience event may be superseded only once")
-        retired.add(predecessor_id)
+        links[predecessor_id] = replacement_id
+    return links
+
+
+def confirmed_evidence_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Confirmed evidence excluding rows retired by a confirmed append-only correction."""
+    retired = set(evidence_supersessions(events))
     return [
         event for event in events
         if event.get("type") in EVIDENCE_EVENT_TYPES

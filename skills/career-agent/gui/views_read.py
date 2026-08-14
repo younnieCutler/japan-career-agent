@@ -315,13 +315,18 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
             seen_context_ids.add(str(context_id))
         context.update({
             "context_id": context_id,
-            "kind": canonical.get("kind") or metadata.get("context_kind"),
-            "relationship": context_relationship(canonical.get("kind") or metadata.get("context_kind")),
-            "label": canonical.get("external_label") or canonical.get("label") or context["label"],
-            "role": canonical.get("role") or context["role"],
-            "summary": canonical.get("summary") or context["summary"],
-            "period": canonical.get("period") or context["period"],
-            "revision": canonical.get("updated_at") or context["revision"],
+            "kind": canonical.get("kind") if canonical else metadata.get("context_kind"),
+            "relationship": context_relationship(
+                canonical.get("kind") if canonical else metadata.get("context_kind")
+            ),
+            "label": (
+                canonical.get("external_label") or canonical.get("label")
+                if canonical else context["label"]
+            ),
+            "role": canonical.get("role") if canonical else context["role"],
+            "summary": canonical.get("summary") if canonical else context["summary"],
+            "period": canonical.get("period") if canonical else context["period"],
+            "revision": canonical.get("updated_at") if canonical else context["revision"],
             "projects": [],
             "other_experiences": [],
         })
@@ -359,12 +364,15 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
                 })
             project.update({
                 "project_id": project_id,
-                "label": canonical_project.get("external_label") or canonical_project.get("title") or project["label"],
-                "role": canonical_project.get("role") or project["role"],
-                "scope": canonical_project.get("scope") or project["scope"],
-                "summary": canonical_project.get("summary") or project["summary"],
-                "period": canonical_project.get("period") or project["period"],
-                "revision": canonical_project.get("updated_at") or project["revision"],
+                "label": (
+                    canonical_project.get("external_label") or canonical_project.get("title")
+                    if canonical_project else project["label"]
+                ),
+                "role": canonical_project.get("role") if canonical_project else project["role"],
+                "scope": canonical_project.get("scope") if canonical_project else project["scope"],
+                "summary": canonical_project.get("summary") if canonical_project else project["summary"],
+                "period": canonical_project.get("period") if canonical_project else project["period"],
+                "revision": canonical_project.get("updated_at") if canonical_project else project["revision"],
                 "status": canonical_project.get("status"),
                 "experiences": [
                     _experience_public(row)
@@ -544,6 +552,23 @@ def applications_payload(home: Any) -> dict[str, Any]:
     companies = [row for row in cases if row["kind"] == "company"]
     applications = [row for row in cases if row["kind"] == "application"]
     artifacts = list_artifacts(home)
+    experience_result = list_experiences(home)
+    current_claim_refs = {
+        str(row.get("claim_id"))
+        for row in experience_result.get("claims", [])
+        if isinstance(row, Mapping) and row.get("claim_id")
+    }
+    superseded = experience_result.get("superseded_evidence", {})
+    superseded = superseded if isinstance(superseded, Mapping) else {}
+
+    def replacement_for(ref: str) -> str | None:
+        replacement = superseded.get(ref)
+        visited = {ref}
+        while isinstance(replacement, str) and replacement in superseded and replacement not in visited:
+            visited.add(replacement)
+            replacement = superseded[replacement]
+        return replacement if isinstance(replacement, str) and replacement in current_claim_refs else None
+
     result = []
     for company in companies:
         positions = []
@@ -552,6 +577,8 @@ def applications_payload(home: Any) -> dict[str, Any]:
                 continue
             attached = [row for row in artifacts if row.get("case_ref") == application["case_id"]]
             metadata = application.get("metadata", {})
+            selected_refs = metadata.get("evidence_refs", [])
+            selected_refs = selected_refs if isinstance(selected_refs, list) else []
             research = next((row for row in reversed(attached) if row.get("kind") == "company_research" and row.get("status") == "current"), None)
             positions.append({
                 "ref": application["case_id"],
@@ -560,8 +587,13 @@ def applications_payload(home: Any) -> dict[str, Any]:
                 "status": application["status"],
                 "updated_at": application.get("updated_at"),
                 "jd": metadata.get("jd", {}),
-                "selected_evidence_count": len(metadata.get("evidence_refs", [])),
-                "selected_evidence_refs": metadata.get("evidence_refs", []),
+                "selected_evidence_count": len(selected_refs),
+                "selected_evidence_refs": selected_refs,
+                "stale_evidence": [
+                    {"ref": ref, "replacement_ref": replacement_for(ref)}
+                    for ref in selected_refs
+                    if isinstance(ref, str) and ref not in current_claim_refs
+                ],
                 "research": ({
                     "ref": research.get("artifact_id"),
                     "revision": research.get("updated_at") or research.get("created_at"),
@@ -574,6 +606,7 @@ def applications_payload(home: Any) -> dict[str, Any]:
                         "version": row.get("version"),
                         "evidence_count": len(row.get("evidence_refs", [])),
                         "updated_at": row.get("updated_at") or row.get("created_at"),
+                        "revision": row.get("updated_at") or row.get("created_at"),
                     }
                     for row in attached
                 ],
@@ -586,7 +619,6 @@ def applications_payload(home: Any) -> dict[str, Any]:
             "revision": company.get("updated_at"),
             "positions": positions,
         })
-    experience_result = list_experiences(home)
     context_rows = experience_result.get("contexts", {})
     context_rows = context_rows if isinstance(context_rows, Mapping) else {}
     evidence_options = []

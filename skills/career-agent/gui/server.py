@@ -499,6 +499,11 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                 )
             elif path == "/api/career/contexts":
                 if payload.get("context_id") is not None:
+                    update_fields = {
+                        field: payload[field]
+                        for field in ("role", "summary", "period")
+                        if field in payload
+                    }
                     result = cases.propose_career_context_update(
                         self.server.home,
                         payload["case_ref"],
@@ -507,9 +512,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                         label=payload["label"],
                         context_kind=payload["context_kind"],
                         relationship=payload["relationship"],
-                        role=payload.get("role"),
-                        summary=payload.get("summary"),
-                        period=payload.get("period"),
+                        **update_fields,
                     )
                 else:
                     result = cases.create_career_context(
@@ -523,17 +526,18 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                     )
             elif path == "/api/career/projects":
                 if payload.get("project_id") is not None:
+                    update_fields = {
+                        field: payload[field]
+                        for field in ("role", "scope", "summary", "period", "external_use")
+                        if field in payload
+                    }
                     result = cases.propose_project_update(
                         self.server.home,
                         payload["case_ref"],
                         payload["project_id"],
                         expected_revision=payload["revision"],
                         label=payload["label"],
-                        role=payload.get("role"),
-                        scope=payload.get("scope"),
-                        summary=payload.get("summary"),
-                        period=payload.get("period"),
-                        external_use=payload.get("external_use"),
+                        **update_fields,
                     )
                 else:
                     result = cases.create_project(
@@ -621,19 +625,21 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                     else cases.create_company(self.server.home, payload["label"])
                 )
             elif path == "/api/applications/positions":
-                result = (
-                    cases.update_application(
+                if payload.get("case_ref") is not None:
+                    update_fields = {
+                        field: payload[field]
+                        for field in ("jd", "evidence_refs", "document_kinds", "source_refs")
+                        if field in payload
+                    }
+                    result = cases.update_application(
                         self.server.home,
                         payload["case_ref"],
                         label=payload["label"],
                         expected_revision=payload["revision"],
-                        jd=payload.get("jd"),
-                        evidence_refs=payload.get("evidence_refs"),
-                        document_kinds=payload.get("document_kinds"),
-                        source_refs=payload.get("source_refs"),
+                        **update_fields,
                     )
-                    if payload.get("case_ref") is not None
-                    else cases.create_application(
+                else:
+                    result = cases.create_application(
                         self.server.home,
                         payload["company_ref"],
                         payload["label"],
@@ -642,7 +648,6 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                         document_kinds=payload.get("document_kinds"),
                         source_refs=payload.get("source_refs"),
                     )
-                )
             elif path == "/api/applications/research":
                 result = (
                     artifacts.update_artifact(
@@ -662,25 +667,36 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                     )
                 )
             elif path == "/api/applications/documents":
-                document_type = payload["document_type"]
-                if document_type not in APPLICATION_DOCUMENT_TYPES:
-                    raise ValueError("unsupported application document type")
-                application = cases.get_case(self.server.home, payload["case_ref"])
-                if application["kind"] != "application":
-                    raise ValueError("application document requires an application")
-                evidence_refs = cases.application_evidence_refs(
-                    self.server.home,
-                    application.get("metadata", {}).get("evidence_refs", []),
-                )
-                result = artifacts.register_artifact(
-                    self.server.home,
-                    case_ref=application["case_id"],
-                    kind=document_type,
-                    body=payload["body"],
-                    evidence_refs=evidence_refs,
-                    source_refs=payload.get("sources"),
-                    generated_by={"entrypoint": "gui", "workflow": "application_document"},
-                )
+                # Rewriting a document keeps the evidence the first version was approved against.
+                # Re-resolving it here would let a later change to the application's selection
+                # silently alter what an already-generated document claims to rest on.
+                if payload.get("artifact_id") is not None:
+                    result = artifacts.update_artifact(
+                        self.server.home,
+                        payload["artifact_id"],
+                        body=payload["body"],
+                        expected_revision=payload["revision"],
+                    )
+                else:
+                    document_type = payload["document_type"]
+                    if document_type not in APPLICATION_DOCUMENT_TYPES:
+                        raise ValueError("unsupported application document type")
+                    application = cases.get_case(self.server.home, payload["case_ref"])
+                    if application["kind"] != "application":
+                        raise ValueError("application document requires an application")
+                    evidence_refs = cases.application_evidence_refs(
+                        self.server.home,
+                        application.get("metadata", {}).get("evidence_refs", []),
+                    )
+                    result = artifacts.register_artifact(
+                        self.server.home,
+                        case_ref=application["case_id"],
+                        kind=document_type,
+                        body=payload["body"],
+                        evidence_refs=evidence_refs,
+                        source_refs=payload.get("sources"),
+                        generated_by={"entrypoint": "gui", "workflow": "application_document"},
+                    )
             elif path == "/api/cases":
                 result = self._create_case(payload)
             elif path == "/api/cases/archive":

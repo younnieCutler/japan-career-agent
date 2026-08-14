@@ -826,13 +826,24 @@ def propose_career_context_update(
     label: str,
     context_kind: str,
     relationship: str,
-    role: str | None = None,
-    summary: str | None = None,
-    period: dict[str, Any] | None = None,
+    role: Any = _UNSET,
+    summary: Any = _UNSET,
+    period: Any = _UNSET,
 ) -> dict[str, Any]:
-    _canonical_update_case(home, case_ref, kind="career_context", canonical_id=context_id)
+    current = _canonical_update_case(home, case_ref, kind="career_context", canonical_id=context_id)
     if relationship != context_relationship(context_kind):
         raise CareerError("career context kind and relationship do not match", code="INVALID_RELATIONSHIP")
+    current_kind = list_experiences(home).get("contexts", {}).get(context_id, {}).get("kind")
+    if current_kind != context_kind and list_experiences(home, context_id=context_id).get("claims"):
+        raise CareerError(
+            "a context with confirmed experiences cannot change between work and non-work",
+            code="INVALID_RELATIONSHIP",
+        )
+    del current
+    fields = {
+        name: value for name, value in (("role", role), ("summary", summary), ("period", period))
+        if value is not _UNSET
+    }
     created = add_context(
         home,
         context_kind,
@@ -841,9 +852,7 @@ def propose_career_context_update(
         case_ref=case_ref,
         expected_revision=expected_revision,
         evidence=["User confirmation in the local Career Agent GUI"],
-        role=role,
-        summary=summary,
-        period=period,
+        **fields,
     )
     return review_proposal(home, created["proposal"]["id"])
 
@@ -855,13 +864,21 @@ def propose_project_update(
     *,
     expected_revision: str,
     label: str,
-    role: str | None = None,
-    scope: str | None = None,
-    summary: str | None = None,
-    period: dict[str, Any] | None = None,
-    external_use: str | None = None,
+    role: Any = _UNSET,
+    scope: Any = _UNSET,
+    summary: Any = _UNSET,
+    period: Any = _UNSET,
+    external_use: Any = _UNSET,
 ) -> dict[str, Any]:
     _canonical_update_case(home, case_ref, kind="project", canonical_id=project_id)
+    fields = {
+        name: value
+        for name, value in (
+            ("role", role), ("scope", scope), ("summary", summary),
+            ("period", period), ("external_use", external_use),
+        )
+        if value is not _UNSET
+    }
     created = add_project(
         home,
         label,
@@ -869,11 +886,7 @@ def propose_project_update(
         case_ref=case_ref,
         expected_revision=expected_revision,
         evidence=["User confirmation in the local Career Agent GUI"],
-        role=role,
-        scope=scope,
-        summary=summary,
-        period=period,
-        external_use=external_use,
+        **fields,
     )
     return review_proposal(home, created["proposal"]["id"])
 

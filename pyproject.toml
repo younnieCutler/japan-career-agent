@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "japan-career-agent"
-version = "2.11.5"
+version = "2.11.6"
 description = "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions."
 readme = "README.md"
 license = "MIT"

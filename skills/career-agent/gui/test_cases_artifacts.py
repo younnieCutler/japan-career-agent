@@ -379,6 +379,108 @@ class CaseArtifactTests(unittest.TestCase):
             thread.join(timeout=2)
             server.server_close()
 
+    def test_rewriting_a_document_keeps_the_evidence_its_first_version_was_built_on(self) -> None:
+        """A correction supersedes the text. It must not quietly restate what the text rests on.
+
+        Evidence is chosen once, against the application's selection at the time. Re-resolving it
+        on every rewrite would let a later change to that selection alter the provenance of a
+        document that was already generated and possibly already sent.
+        """
+        company = cases.create_company(self.home, "Acme")
+        application = cases.create_application(self.home, company["case_id"], "Backend")
+        first = artifacts.register_artifact(
+            self.home,
+            case_ref=application["case_id"],
+            kind="resume",
+            body="First draft",
+            evidence_refs=["evt-approved"],
+            source_refs=["cli-import:original"],
+        )
+
+        try:
+            server = create_server(port=0, home=self.home)
+        except PermissionError as exc:
+            raise unittest.SkipTest(f"loopback bind unavailable in this execution sandbox: {exc}") from exc
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            connection = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=2)
+            connection.request(
+                "POST",
+                "/session",
+                body=json.dumps({"token": server.bootstrap_token}),
+                headers={"Content-Type": "application/json"},
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            cookie = response.getheader("Set-Cookie")
+            headers = {
+                "Cookie": cookie,
+                "Content-Type": "application/json",
+                "X-CSRF-Token": json.loads(response.read())["csrf_token"],
+            }
+
+            connection.request(
+                "POST",
+                "/api/applications/documents",
+                body=json.dumps({
+                    "artifact_id": first["artifact_id"],
+                    "revision": first["updated_at"],
+                    "body": "Corrected draft",
+                }),
+                headers=headers,
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            response.read()
+
+            rewritten = artifacts.get_artifact(self.home, first["artifact_id"])
+            current = [
+                row for row in artifacts.list_artifacts(self.home, case_ref=application["case_id"])
+                if row["status"] == "current"
+            ]
+            self.assertEqual(rewritten["status"], "superseded")
+            self.assertEqual(len(current), 1)
+            self.assertEqual(current[0]["kind"], "resume")
+            self.assertEqual(current[0]["version"], 2)
+            self.assertEqual(current[0]["evidence_refs"], ["evt-approved"])
+            self.assertEqual(current[0]["source_refs"], ["cli-import:original"])
+            self.assertEqual(
+                artifacts.artifact_body(self.home, current[0]["artifact_id"])["body"],
+                "Corrected draft",
+            )
+            # The replaced body stays readable: superseding is history, not deletion.
+            self.assertEqual(
+                artifacts.artifact_body(self.home, first["artifact_id"])["body"], "First draft"
+            )
+
+            before_stale = {
+                path.name: path.read_bytes()
+                for path in self.home.state_dir.iterdir() if path.is_file()
+            }
+            connection.request(
+                "POST",
+                "/api/applications/documents",
+                body=json.dumps({
+                    "artifact_id": first["artifact_id"],
+                    "revision": first["updated_at"],
+                    "body": "Written against a version that moved",
+                }),
+                headers=headers,
+            )
+            response = connection.getresponse()
+            self.assertEqual(response.status, 409)
+            self.assertEqual(json.loads(response.read())["error"]["code"], "REVISION_STALE")
+            self.assertEqual(
+                before_stale,
+                {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()},
+            )
+            connection.close()
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

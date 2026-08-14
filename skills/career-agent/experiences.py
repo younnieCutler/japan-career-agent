@@ -28,6 +28,7 @@ from private_store import documents as private_documents, PrivateHome, resolve_p
 from projection import (
     confirmed_evidence_events,
     contexts_from_events,
+    evidence_supersessions,
     experiences_from_events,
     project_timeline,
     projects_from_events,
@@ -198,7 +199,9 @@ def add_project(
             raise CareerError(f"unknown project id: {project_id}", code="PROJECT_NOT_FOUND")
         if expected_revision is not None and before and before.get("updated_at") != expected_revision:
             raise CareerError("this project changed in another entrypoint", code="REVISION_STALE", retryable=True)
-        event = make_project_event(title, project_id, fields=fields)
+        event = make_project_event(
+            title, project_id, fields=fields, preserve_null_fields=before is not None,
+        )
         if before is not None:
             event["occurred_at"] = _next_occurrence(before.get("updated_at"), event["occurred_at"])
         if evidence is not None:
@@ -262,7 +265,9 @@ def add_context(
             raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
         if expected_revision is not None and before and before.get("updated_at") != expected_revision:
             raise CareerError("this career context changed in another entrypoint", code="REVISION_STALE", retryable=True)
-        event = make_experience_context_event(kind, label, context_id, fields=fields)
+        event = make_experience_context_event(
+            kind, label, context_id, fields=fields, preserve_null_fields=before is not None,
+        )
         if before is not None:
             event["occurred_at"] = _next_occurrence(before.get("updated_at"), event["occurred_at"])
         if evidence is not None:
@@ -337,7 +342,8 @@ def list_experiences(home: CareerVault, *, context_id: str | None = None) -> dic
     own experience", and the gaps are named individually so a missing contribution stays visible
     instead of being averaged into a number that looks like progress.
     """
-    grouped = experiences_from_events(read_jsonl(home.events))
+    events = read_jsonl(home.events)
+    grouped = experiences_from_events(events)
     rows = [
         experience
         for experience in grouped["experiences"]
@@ -356,6 +362,7 @@ def list_experiences(home: CareerVault, *, context_id: str | None = None) -> dic
             for claim in grouped["claims"]
             if context_id is None or claim.get("context_id") == context_id
         ],
+        "superseded_evidence": evidence_supersessions(events),
         # Evidence that belongs to no recorded experience is still evidence. Hiding it would make
         # the record look tidier than it is.
         "unattached_evidence_ids": grouped["unattached_evidence_ids"],

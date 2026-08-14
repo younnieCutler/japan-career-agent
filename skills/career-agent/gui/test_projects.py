@@ -22,8 +22,10 @@ import persistence  # noqa: E402
 import sessions  # noqa: E402
 from gui._test_client import FRONTEND_SRC, client_source  # noqa: E402
 from gui import artifacts, cases, tanaoroshi  # noqa: E402
+from gui.views_read import applications_payload  # noqa: E402
 from experiences import list_experiences  # noqa: E402
 from models import CareerError  # noqa: E402
+from projection import contexts_from_events, projects_from_events  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
 
 
@@ -61,6 +63,49 @@ def _sample_reads() -> dict:
 
 
 class ProjectsPayloadTests(unittest.TestCase):
+    def test_canonical_updates_distinguish_explicit_clear_from_missing_fields(self) -> None:
+        context_events = [
+            {
+                "type": "experience_context", "status": "confirmed", "occurred_at": "2025-01-01T00:00:00Z",
+                "experience_context": {
+                    "id": "ctx-acme", "kind": "company", "label": "Acme", "role": "Engineer",
+                    "summary": "Platform", "period": {"from": "2023-01", "to": "2025-01", "current": False},
+                },
+            },
+            {
+                "type": "experience_context", "status": "confirmed", "occurred_at": "2025-02-01T00:00:00Z",
+                "experience_context": {
+                    "id": "ctx-acme", "kind": "company", "label": "Acme", "role": None,
+                    "period": {"to": None, "current": True},
+                },
+            },
+        ]
+        project_events = [
+            {
+                "type": "project", "status": "confirmed", "occurred_at": "2025-01-01T00:00:00Z",
+                "project": {
+                    "id": "prj-acme", "title": "Migration", "scope": "Payments",
+                    "period": {"from": "2023-01", "to": "2025-01", "current": False},
+                },
+            },
+            {
+                "type": "project", "status": "confirmed", "occurred_at": "2025-02-01T00:00:00Z",
+                "project": {
+                    "id": "prj-acme", "title": "Migration", "scope": None,
+                    "period": {"to": None, "current": True},
+                },
+            },
+        ]
+
+        context = contexts_from_events(context_events)["ctx-acme"]
+        project = projects_from_events(project_events)["prj-acme"]
+
+        self.assertNotIn("role", context)
+        self.assertEqual(context["summary"], "Platform")
+        self.assertEqual(context["period"], {"from": "2023-01", "current": True})
+        self.assertNotIn("scope", project)
+        self.assertEqual(project["period"], {"from": "2023-01", "current": True})
+
     def test_projects_payload_reuses_read_models_and_preserves_declared_employment(self) -> None:
         views = import_module("gui.views_read")
         reads = _sample_reads()
@@ -196,7 +241,7 @@ class ProjectCaseTests(unittest.TestCase):
         self.assertTrue(self.home.events.exists())
 
     def test_a_project_case_is_isolated_from_application_cases(self) -> None:
-        _, project = self._project("Payment Platform Migration")
+        context, project = self._project("Payment Platform Migration")
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
         application = cases.create_application(self.home, company["case_id"], "Backend")
         artifacts.register_artifact(
@@ -263,7 +308,7 @@ class ProjectCaseTests(unittest.TestCase):
         )
 
     def test_revising_experience_appends_a_replacement_and_supersession(self) -> None:
-        _, project = self._project("Payment Platform Migration")
+        context, project = self._project("Payment Platform Migration")
         project = self._approve_case(project)
         started = tanaoroshi.start(self.home, case_ref=project["case_id"])
         saved = tanaoroshi.autosave(
@@ -290,6 +335,29 @@ class ProjectCaseTests(unittest.TestCase):
             expected_revision=proposed["revision"],
         )
         original = persistence.read_jsonl(self.home.events)[-1]
+        current_context = list_experiences(self.home)["contexts"][context["metadata"]["context_id"]]
+        with self.assertRaises(CareerError) as incompatible_context:
+            cases.propose_career_context_update(
+                self.home,
+                context["case_id"],
+                context["metadata"]["context_id"],
+                expected_revision=current_context["updated_at"],
+                label="Acme University",
+                context_kind="university",
+                relationship="non_work",
+            )
+        self.assertEqual(incompatible_context.exception.code, "INVALID_RELATIONSHIP")
+        company = cases.create_company(self.home, "Acme")
+        application = cases.create_application(
+            self.home, company["case_id"], "Backend", evidence_refs=[original["id"]],
+        )
+        document = artifacts.register_artifact(
+            self.home,
+            case_ref=application["case_id"],
+            kind="resume",
+            body="Original submitted wording",
+            evidence_refs=[original["id"]],
+        )
 
         revised = tanaoroshi.revise(
             self.home, original["id"], expected_revision=original["id"]
@@ -324,9 +392,61 @@ class ProjectCaseTests(unittest.TestCase):
         self.assertEqual(
             [row["claim_id"] for row in list_experiences(self.home)["claims"]], [events[-2]["id"]]
         )
+        position = applications_payload(self.home)["companies"][0]["positions"][0]
+        self.assertEqual(position["ref"], application["case_id"])
+        self.assertEqual(position["stale_evidence"], [{
+            "ref": original["id"], "replacement_ref": events[-2]["id"],
+        }])
+        with self.assertRaises(CareerError) as stale_application:
+            cases.update_application(
+                self.home,
+                application["case_id"],
+                label="Backend",
+                expected_revision=application["updated_at"],
+                evidence_refs=[original["id"]],
+            )
+        self.assertEqual(stale_application.exception.code, "INVALID_RELATIONSHIP")
+        updated = cases.update_application(
+            self.home,
+            application["case_id"],
+            label="Backend",
+            expected_revision=application["updated_at"],
+            evidence_refs=[events[-2]["id"]],
+        )
+        self.assertEqual(updated["metadata"]["evidence_refs"], [events[-2]["id"]])
+        self.assertEqual(artifacts.get_artifact(self.home, document["artifact_id"])["evidence_refs"], [original["id"]])
         with self.assertRaisesRegex(CareerError, "reload") as stale:
             tanaoroshi.revise(self.home, original["id"], expected_revision=original["id"])
         self.assertEqual(stale.exception.code, "REVISION_STALE")
+
+    def test_new_work_uses_the_current_canonical_context_after_context_edit(self) -> None:
+        context = cases.create_career_context(
+            self.home, "Acme", context_kind="company", relationship="employer",
+        )
+        context = self._approve_case(context)
+        project = cases.create_project(self.home, context["case_id"], "Migration")
+        project = self._approve_case(project)
+        current = list_experiences(self.home)["contexts"][context["metadata"]["context_id"]]
+        reviewed = cases.propose_career_context_update(
+            self.home,
+            context["case_id"],
+            context["metadata"]["context_id"],
+            expected_revision=current["updated_at"],
+            label="University Lab",
+            context_kind="university",
+            relationship="non_work",
+        )
+        cases.approve_canonical_case(
+            self.home,
+            context["case_id"],
+            reviewed["proposal"]["id"],
+            expected_revision=current["updated_at"],
+        )
+
+        subject = sessions.career_project_subject(self.home, project["case_id"])
+
+        self.assertEqual(subject["context_label"], "University Lab")
+        self.assertEqual(subject["context_kind"], "university")
 
     def test_the_project_screen_records_through_the_case_and_session_routes(self) -> None:
         forms = (FRONTEND_SRC / "screens" / "CareerForms.jsx").read_text(encoding="utf-8")
@@ -539,6 +659,60 @@ class CareerMutationRouteTests(unittest.TestCase):
             })
             self.assertEqual((status, stale["error"]["code"]), (409, "REVISION_STALE"))
             self.assertEqual(before_stale, {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()})
+
+    def test_career_edits_clear_optional_values_and_a_current_period_end(self) -> None:
+        """`null` is a deliberate edit, while an omitted key still means preserve."""
+        with running_server(self.home) as server:
+            headers = self._session(server)
+            status, created = self._write(server, headers, "/api/career/contexts", {
+                "label": "Acme", "context_kind": "company", "relationship": "employer",
+                "role": "Engineer", "summary": "Platform",
+                "period": {"from": "2023-01", "to": "2025-01", "current": False},
+            })
+            self.assertEqual(status, 200)
+            context = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == created["ref"])
+            self._confirm(server, headers, context)
+            context = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == context["ref"])
+            status, review = self._write(server, headers, "/api/career/contexts", {
+                "case_ref": context["ref"], "context_id": context["context_id"],
+                "revision": context["revision"], "label": "Acme", "context_kind": "company",
+                "relationship": "employer", "role": None,
+                "period": {"to": None, "current": True},
+            })
+            self.assertEqual(status, 200)
+            # The review carries the record as it will stand once approved, so a cleared field is
+            # gone from it and shows as a change only against `before`. `summary` was not in the
+            # request at all, and surviving here is what separates "left out" from "set to null".
+            proposed = review["proposal"]["event"]["experience_context"]
+            self.assertNotIn("role", proposed)
+            self.assertEqual(review["before"]["role"], "Engineer")
+            self.assertEqual(proposed["summary"], "Platform")
+            self.assertEqual(proposed["period"], {"from": "2023-01", "current": True})
+            status, _ = self._write(server, headers, "/api/career/approve", {
+                "case_ref": context["ref"], "proposal_ref": review["proposal"]["ref"],
+                "revision": review["revision"],
+            })
+            self.assertEqual(status, 200)
+            reloaded = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == context["ref"])
+            self.assertIsNone(reloaded["role"])
+            self.assertEqual(reloaded["period"], {"from": "2023-01", "current": True})
+
+    def test_application_label_edit_preserves_unsubmitted_metadata_and_provenance(self) -> None:
+        company = cases.create_company(self.home, "Acme")
+        application = cases.create_application(
+            self.home, company["case_id"], "Backend", jd={"text": "Python"},
+            document_kinds=["resume", "career_history"], source_refs=["cli-import:original"],
+        )
+        with running_server(self.home) as server:
+            headers = self._session(server)
+            status, _ = self._write(server, headers, "/api/applications/positions", {
+                "case_ref": application["case_id"], "revision": application["updated_at"],
+                "label": "Platform Engineer", "jd": {"text": "Go"},
+            })
+            self.assertEqual(status, 200)
+        updated = cases.get_case(self.home, application["case_id"])
+        self.assertEqual(updated["metadata"]["document_kinds"], ["resume", "career_history"])
+        self.assertEqual(updated["source_refs"], ["cli-import:original"])
 
     def test_experience_revision_api_is_reviewed_approved_and_stale_protected(self) -> None:
         from proposals import make_work_event
