@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.11.1] - 2026-08-14
+
+- Fix every dropdown in the GUI. The shared control composed SEED's Select without its positioner,
+  so the option list rendered inline inside whichever pane held the field and was clipped out of
+  sight by that pane's own scrolling. The control looked like fixed text and opened nothing —
+  language switching, career status, relationship, context kind, outcome state, external use,
+  document type, and the status filters were all affected.
+- Check the components that wrap composed design-system primitives by rendering them, not by
+  reading their source. The existing client contracts are text searches over `frontend/src`, which
+  cannot tell whether a listbox opens; that is why this shipped.
+
 ## [2.11.0] - 2026-08-14
 
 - Rebuild the GUI client on React and the SEED design system. The career screen becomes a split

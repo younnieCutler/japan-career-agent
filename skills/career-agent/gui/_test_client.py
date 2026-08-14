@@ -24,12 +24,18 @@ FRONTEND_SRC = Path(__file__).resolve().parents[3] / "frontend" / "src"
 
 
 def client_modules() -> list[Path]:
-    """Every hand-written client source file, sorted for stable output."""
+    """Every hand-written client source file, sorted for stable output.
+
+    `*.test.jsx` is excluded: it is not the client. Vite bundles from `main.jsx`, so a test file
+    never reaches the browser, and its fixtures are literal Korean and Japanese strings — exactly
+    what the contract forbidding hardcoded prose in the client is there to catch.
+    """
     if not FRONTEND_SRC.is_dir():  # pragma: no cover - only when the checkout is partial
         return []
     return sorted(
         path for path in FRONTEND_SRC.rglob("*")
         if path.suffix in {".js", ".jsx"} and path.is_file()
+        and not path.name.endswith((".test.js", ".test.jsx"))
     )
 
 

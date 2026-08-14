@@ -51,6 +51,12 @@ jobs:
       - name: install frontend deps from the lockfile
         working-directory: frontend
         run: npm ci
+      # Behavioural checks on the components that wrap SEED's composed primitives. Every other
+      # client contract is asserted by reading `frontend/src` as text, which cannot tell whether a
+      # listbox actually opens — that gap shipped a product where no dropdown worked.
+      - name: client component contracts
+        working-directory: frontend
+        run: npm test
       - name: build the committed bundle
         working-directory: frontend
         run: npm run build
