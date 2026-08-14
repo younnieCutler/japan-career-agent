@@ -22,7 +22,9 @@ from case_store import (
     link_canonical_record,
     link_pending_proposal,
     list_cases,
+    propose_career_context_update,
     propose_canonical_case,
+    propose_project_update,
     restore_case,
 )
 
@@ -43,8 +45,10 @@ __all__ = [
     "link_pending_proposal",
     "list_cases",
     "payload",
+    "propose_career_context_update",
     "restore_case",
     "propose_canonical_case",
+    "propose_project_update",
     "approve_canonical_case",
 ]
 
@@ -70,14 +74,31 @@ def present_case(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _visible_snapshot(kind: str, value: Any) -> dict[str, Any]:
+    fields = {
+        "experience_context": {"kind", "label", "external_label", "role", "summary", "period"},
+        "project": {"title", "external_label", "role", "scope", "summary", "status", "period"},
+    }.get(kind, set())
+    return {
+        key: item
+        for key, item in value.items()
+        if key in fields
+    } if isinstance(value, dict) else {}
+
+
 def present_review(result: dict[str, Any]) -> dict[str, Any]:
     proposal = result.get("proposal") if isinstance(result.get("proposal"), dict) else {}
     event = proposal.get("event") if isinstance(proposal.get("event"), dict) else {}
     visible_event = {
-        key: value
+        key: (dict(value) if isinstance(value, dict) else value)
         for key, value in event.items()
         if key in {"experience_context", "project", "evidence"}
     }
+    before = result.get("proposal", {}).get("before") if isinstance(result.get("proposal"), dict) else None
+    after = result.get("proposal", {}).get("after") if isinstance(result.get("proposal"), dict) else None
+    kind = "experience_context" if "experience_context" in visible_event else "project"
+    if after is not None:
+        visible_event[kind] = _visible_snapshot(kind, after)
     if visible_event.get("evidence") == ["User confirmation in the local Career Agent GUI"]:
         visible_event["evidence"] = ["user_confirmation"]
     for payload in visible_event.values():
@@ -90,5 +111,7 @@ def present_review(result: dict[str, Any]) -> dict[str, Any]:
             "event": visible_event,
         },
         "record": present_case(result.get("case", {})),
+        "before": _visible_snapshot(kind, before) if before is not None else None,
+        "revision": proposal.get("base_revision") or result.get("case", {}).get("updated_at"),
         "recovered": bool(result.get("recovered")),
     }

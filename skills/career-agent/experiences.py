@@ -7,6 +7,7 @@ promote an Unknown, average a Conflict, or infer a link the user did not record.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 
 from pathlib import Path
@@ -34,6 +35,20 @@ from projection import (
 from proposals import make_experience_context_event, make_project_event
 from validation import iso_date, validate_career_context, validate_event
 from vault import CareerVault, select_context, utc_now
+
+
+def _next_occurrence(previous: object, current: str) -> str:
+    """Keep canonical projection revisions distinct when proposals share a UTC second."""
+    if not isinstance(previous, str):
+        return current
+    try:
+        earlier = dt.datetime.fromisoformat(previous.replace("Z", "+00:00"))
+        now = dt.datetime.fromisoformat(current.replace("Z", "+00:00"))
+    except ValueError:
+        return current
+    if now <= earlier:
+        return (earlier + dt.timedelta(seconds=1)).astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    return current
 
 
 def latest_career_context(home: CareerVault) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
@@ -153,6 +168,7 @@ def add_project(
     project_id: str | None = None,
     evidence: list[str] | None = None,
     case_ref: str | None = None,
+    expected_revision: str | None = None,
     **fields: Any,
 ) -> dict[str, Any]:
     """Propose a project, or an update to one that already exists.
@@ -167,27 +183,36 @@ def add_project(
         raise CareerError("evidence must be a list of non-empty strings", code="INVALID_INPUT")
     if case_ref is not None and (not isinstance(case_ref, str) or not case_ref.strip()):
         raise CareerError("case_ref must be a non-empty string or null", code="INVALID_INPUT")
-    known = projects_from_events(read_jsonl(home.events))
-    if project_id is not None and project_id not in known:
-        raise CareerError(f"unknown project id: {project_id}", code="PROJECT_NOT_FOUND")
-    event = make_project_event(title, project_id, fields=fields)
-    if evidence is not None:
-        event["evidence"] = list(evidence)
-        validate_event(event)
-    proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
-    proposal = {
-        "id": proposal_id,
-        "kind": "event",
-        "status": "pending",
-        "created_at": utc_now(),
-        # The proposal id, not the project id: `approve` takes the former, and naming the latter
-        # here handed the user a command that cannot work.
-        "next_action": f"approve {proposal_id} after checking the title and role",
-        "event": event,
-    }
-    if case_ref is not None:
-        proposal["case_ref"] = case_ref
     with vault_lock(home):
+        events = read_jsonl(home.events)
+        known = projects_from_events(events)
+        before = known.get(project_id) if project_id is not None else None
+        if project_id is not None and before is None:
+            raise CareerError(f"unknown project id: {project_id}", code="PROJECT_NOT_FOUND")
+        if expected_revision is not None and before and before.get("updated_at") != expected_revision:
+            raise CareerError("this project changed in another entrypoint", code="REVISION_STALE", retryable=True)
+        event = make_project_event(title, project_id, fields=fields)
+        if before is not None:
+            event["occurred_at"] = _next_occurrence(before.get("updated_at"), event["occurred_at"])
+        if evidence is not None:
+            event["evidence"] = list(evidence)
+            validate_event(event)
+        proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
+        proposal = {
+            "id": proposal_id,
+            "kind": "event",
+            "status": "pending",
+            "created_at": utc_now(),
+            # The proposal id, not the project id: `approve` takes the former, and naming the latter
+            # here handed the user a command that cannot work.
+            "next_action": f"approve {proposal_id} after checking the title and role",
+            "event": event,
+        }
+        if case_ref is not None:
+            proposal["case_ref"] = case_ref
+        if before is not None:
+            after = projects_from_events([*events, {**event, "status": "confirmed"}])[project_id]
+            proposal.update({"before": before, "after": after, "base_revision": before["updated_at"]})
         home.add_proposal(proposal)
     return {
         "mode": "add-project",
@@ -207,6 +232,7 @@ def add_context(
     context_id: str | None = None,
     evidence: list[str] | None = None,
     case_ref: str | None = None,
+    expected_revision: str | None = None,
     **fields: Any,
 ) -> dict[str, Any]:
     """Propose a context, or an update to one that already exists.
@@ -221,25 +247,34 @@ def add_context(
         raise CareerError("evidence must be a list of non-empty strings", code="INVALID_INPUT")
     if case_ref is not None and (not isinstance(case_ref, str) or not case_ref.strip()):
         raise CareerError("case_ref must be a non-empty string or null", code="INVALID_INPUT")
-    known = contexts_from_events(read_jsonl(home.events))
-    if context_id is not None and context_id not in known:
-        raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
-    event = make_experience_context_event(kind, label, context_id, fields=fields)
-    if evidence is not None:
-        event["evidence"] = list(evidence)
-        validate_event(event)
-    proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
-    proposal = {
-        "id": proposal_id,
-        "kind": "event",
-        "status": "pending",
-        "created_at": utc_now(),
-        "next_action": f"approve {proposal_id} after checking the kind and the period",
-        "event": event,
-    }
-    if case_ref is not None:
-        proposal["case_ref"] = case_ref
     with vault_lock(home):
+        events = read_jsonl(home.events)
+        known = contexts_from_events(events)
+        before = known.get(context_id) if context_id is not None else None
+        if context_id is not None and before is None:
+            raise CareerError(f"unknown context id: {context_id}", code="CONTEXT_NOT_FOUND")
+        if expected_revision is not None and before and before.get("updated_at") != expected_revision:
+            raise CareerError("this career context changed in another entrypoint", code="REVISION_STALE", retryable=True)
+        event = make_experience_context_event(kind, label, context_id, fields=fields)
+        if before is not None:
+            event["occurred_at"] = _next_occurrence(before.get("updated_at"), event["occurred_at"])
+        if evidence is not None:
+            event["evidence"] = list(evidence)
+            validate_event(event)
+        proposal_id = f"proposal-{uuid.uuid4().hex[:12]}"
+        proposal = {
+            "id": proposal_id,
+            "kind": "event",
+            "status": "pending",
+            "created_at": utc_now(),
+            "next_action": f"approve {proposal_id} after checking the kind and the period",
+            "event": event,
+        }
+        if case_ref is not None:
+            proposal["case_ref"] = case_ref
+        if before is not None:
+            after = contexts_from_events([*events, {**event, "status": "confirmed"}])[context_id]
+            proposal.update({"before": before, "after": after, "base_revision": before["updated_at"]})
         home.add_proposal(proposal)
     return {
         "mode": "add-context",

@@ -232,8 +232,10 @@ def _case_public(row: Mapping[str, Any]) -> dict[str, Any]:
         "period": metadata.get("period"),
         "role": metadata.get("role"),
         "summary": metadata.get("summary"),
+        "scope": metadata.get("scope"),
         "relationship_state": row.get("relationship_state"),
         "updated_at": row.get("updated_at"),
+        "revision": row.get("updated_at"),
     }
 
 
@@ -312,10 +314,14 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
         if context_id:
             seen_context_ids.add(str(context_id))
         context.update({
-            "kind": metadata.get("context_kind"),
-            "relationship": metadata.get("relationship"),
+            "context_id": context_id,
+            "kind": canonical.get("kind") or metadata.get("context_kind"),
+            "relationship": context_relationship(canonical.get("kind") or metadata.get("context_kind")),
             "label": canonical.get("external_label") or canonical.get("label") or context["label"],
+            "role": canonical.get("role") or context["role"],
+            "summary": canonical.get("summary") or context["summary"],
             "period": canonical.get("period") or context["period"],
+            "revision": canonical.get("updated_at") or context["revision"],
             "projects": [],
             "other_experiences": [],
         })
@@ -352,8 +358,13 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
                     "experience": _experience_public(row),
                 })
             project.update({
+                "project_id": project_id,
                 "label": canonical_project.get("external_label") or canonical_project.get("title") or project["label"],
+                "role": canonical_project.get("role") or project["role"],
+                "scope": canonical_project.get("scope") or project["scope"],
+                "summary": canonical_project.get("summary") or project["summary"],
                 "period": canonical_project.get("period") or project["period"],
+                "revision": canonical_project.get("updated_at") or project["revision"],
                 "status": canonical_project.get("status"),
                 "experiences": [
                     _experience_public(row)
@@ -383,13 +394,16 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
             ]
             context["projects"].append({
                 "ref": f"canonical:{project_id}",
+                "project_id": project_id,
                 "label": canonical_project.get("external_label") or canonical_project.get("title"),
                 "lifecycle": "approved",
                 "period": canonical_project.get("period"),
                 "role": canonical_project.get("role"),
+                "scope": canonical_project.get("scope"),
                 "summary": canonical_project.get("summary"),
                 "relationship_state": "canonical_only",
-                "updated_at": None,
+                "updated_at": canonical_project.get("updated_at"),
+                "revision": canonical_project.get("updated_at"),
                 "status": canonical_project.get("status"),
                 "experiences": [_experience_public(row) for row in project_claims],
                 "work": [],
@@ -411,6 +425,7 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
             continue
         context = {
             "ref": f"canonical:{context_id}",
+            "context_id": context_id,
             "label": canonical.get("external_label") or canonical.get("label"),
             "kind": canonical.get("kind"),
             "relationship": context_relationship(canonical.get("kind")),
@@ -419,7 +434,8 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
             "role": canonical.get("role"),
             "summary": canonical.get("summary"),
             "relationship_state": "canonical_only",
-            "updated_at": None,
+            "updated_at": canonical.get("updated_at"),
+            "revision": canonical.get("updated_at"),
             "projects": [],
             "other_experiences": [
                 _experience_public(row)
@@ -448,13 +464,16 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
             ]
             context["projects"].append({
                 "ref": f"canonical:{project_id}",
+                "project_id": project_id,
                 "label": canonical_project.get("external_label") or canonical_project.get("title"),
                 "lifecycle": "approved",
                 "period": canonical_project.get("period"),
                 "role": canonical_project.get("role"),
+                "scope": canonical_project.get("scope"),
                 "summary": canonical_project.get("summary"),
                 "relationship_state": "canonical_only",
-                "updated_at": None,
+                "updated_at": canonical_project.get("updated_at"),
+                "revision": canonical_project.get("updated_at"),
                 "status": canonical_project.get("status"),
                 "experiences": [_experience_public(row) for row in project_claims],
                 "work": [],
@@ -473,13 +492,16 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
     ] + [
         {
             "ref": f"canonical:{project_id}",
+            "project_id": project_id,
             "label": row.get("external_label") or row.get("title"),
             "lifecycle": "approved",
             "period": row.get("period"),
             "role": row.get("role"),
+            "scope": row.get("scope"),
             "summary": row.get("summary"),
             "relationship_state": "needs_context",
-            "updated_at": None,
+            "updated_at": row.get("updated_at"),
+            "revision": row.get("updated_at"),
             "work": [],
         }
         for project_id, row in projects_by_id.items()

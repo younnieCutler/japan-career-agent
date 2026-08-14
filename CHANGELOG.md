@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.11.2] - 2026-08-14
+
+- Let the GUI edit approved Career Contexts and Projects through the same append-only proposal and
+  explicit approval gate as the CLI. The review now shows the server-projected before/after values,
+  and every update rejects a stale revision without changing canonical evidence.
+
 ## [2.11.1] - 2026-08-14
 
 - Fix every dropdown in the GUI. The shared control composed SEED's Select without its positioner,

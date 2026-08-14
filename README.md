@@ -34,7 +34,7 @@
 
 ---
 
-Current release: `2.11.1`.
+Current release: `2.11.2`.
 
 ## What this is
 
@@ -259,7 +259,7 @@ The repository version can be ahead of the stable marketplace channel while a re
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
 follows `main`.
 
-Source metadata is `2.11.1` while the stable marketplace ref is still `v2.1.1`, because the release
+Source metadata is `2.11.2` while the stable marketplace ref is still `v2.1.1`, because the release
 workflow has not published a tag for this source yet. Installing from the marketplace therefore
 gives you `2.1.1` today, and the gap closes when the next tag is published. `uvx` and `npx` are not
 affected either way, since they resolve a published package version rather than this ref.

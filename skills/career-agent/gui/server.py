@@ -497,31 +497,66 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                     expected_revision=payload["revision"],
                 )
             elif path == "/api/career/contexts":
-                result = cases.create_career_context(
-                    self.server.home,
-                    payload["label"],
-                    context_kind=payload["context_kind"],
-                    relationship=payload["relationship"],
-                    role=payload.get("role"),
-                    summary=payload.get("summary"),
-                    period=payload.get("period"),
-                )
+                if payload.get("context_id") is not None:
+                    result = cases.propose_career_context_update(
+                        self.server.home,
+                        payload["case_ref"],
+                        payload["context_id"],
+                        expected_revision=payload["revision"],
+                        label=payload["label"],
+                        context_kind=payload["context_kind"],
+                        relationship=payload["relationship"],
+                        role=payload.get("role"),
+                        summary=payload.get("summary"),
+                        period=payload.get("period"),
+                    )
+                else:
+                    result = cases.create_career_context(
+                        self.server.home,
+                        payload["label"],
+                        context_kind=payload["context_kind"],
+                        relationship=payload["relationship"],
+                        role=payload.get("role"),
+                        summary=payload.get("summary"),
+                        period=payload.get("period"),
+                    )
             elif path == "/api/career/projects":
-                result = cases.create_project(
-                    self.server.home,
-                    payload["parent_ref"],
-                    payload["label"],
-                    role=payload.get("role"),
-                    scope=payload.get("scope"),
-                    summary=payload.get("summary"),
-                    period=payload.get("period"),
-                    external_use=payload.get("external_use"),
-                )
+                if payload.get("project_id") is not None:
+                    result = cases.propose_project_update(
+                        self.server.home,
+                        payload["case_ref"],
+                        payload["project_id"],
+                        expected_revision=payload["revision"],
+                        label=payload["label"],
+                        role=payload.get("role"),
+                        scope=payload.get("scope"),
+                        summary=payload.get("summary"),
+                        period=payload.get("period"),
+                        external_use=payload.get("external_use"),
+                    )
+                else:
+                    result = cases.create_project(
+                        self.server.home,
+                        payload["parent_ref"],
+                        payload["label"],
+                        role=payload.get("role"),
+                        scope=payload.get("scope"),
+                        summary=payload.get("summary"),
+                        period=payload.get("period"),
+                        external_use=payload.get("external_use"),
+                    )
             elif path == "/api/career/propose":
-                result = cases.propose_canonical_case(self.server.home, payload["case_ref"])
+                result = cases.propose_canonical_case(
+                    self.server.home,
+                    payload["case_ref"],
+                    expected_updated_at=payload.get("revision"),
+                )
             elif path == "/api/career/approve":
                 result = cases.approve_canonical_case(
-                    self.server.home, payload["case_ref"], payload["proposal_ref"]
+                    self.server.home,
+                    payload["case_ref"],
+                    payload["proposal_ref"],
+                    expected_revision=payload.get("revision"),
                 )
             elif path == "/api/career/organize":
                 context_ref = payload["context_ref"]
@@ -640,7 +675,17 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                 )
             else:
                 result = artifacts.delete_artifact(self.server.home, payload["artifact_id"])
-        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            if path.startswith("/api/career/") and getattr(exc, "code", None) == "REVISION_STALE":
+                self._api_error(
+                    exc,
+                    fallback_code=(
+                        "APPROVAL_FAILED"
+                        if path in {"/api/approve", "/api/workflows/approve", "/api/career/approve"}
+                        else "SAVE_FAILED"
+                    ),
+                )
+                return
             self._api_error(
                 ValueError("invalid request"),
                 fallback_code="INVALID_INPUT",
@@ -661,7 +706,10 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/draft", "/api/checkpoint", "/api/proposal", "/api/approve",
         }:
             result = tanaoroshi.present(result)
-        elif path == "/api/career/propose":
+        elif path == "/api/career/propose" or (
+            path in {"/api/career/contexts", "/api/career/projects"}
+            and isinstance(result.get("proposal"), dict)
+        ):
             result = cases.present_review(result)
         elif path == "/api/career/approve":
             result = {"approved": True, "record": cases.present_case(result["case"])}

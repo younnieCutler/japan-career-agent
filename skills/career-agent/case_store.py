@@ -730,9 +730,90 @@ def delete_case(home: CareerVault, case_id: str) -> dict[str, Any]:
     return _set_status(home, case_id, "deleted")
 
 
-def propose_canonical_case(home: CareerVault, case_id: str) -> dict[str, Any]:
+def _canonical_update_case(
+    home: CareerVault, case_ref: str, *, kind: str, canonical_id: str
+) -> dict[str, Any] | None:
+    if case_ref == f"canonical:{canonical_id}":
+        return None
+    record = get_case(home, case_ref)
+    field = "context_id" if kind == "career_context" else "project_id"
+    if (
+        record["kind"] != kind
+        or record["status"] != "active"
+        or record["metadata"].get(field) != canonical_id
+    ):
+        raise CareerError("career record no longer matches this canonical history", code="REVISION_STALE", retryable=True)
+    return record
+
+
+def propose_career_context_update(
+    home: CareerVault,
+    case_ref: str,
+    context_id: str,
+    *,
+    expected_revision: str,
+    label: str,
+    context_kind: str,
+    relationship: str,
+    role: str | None = None,
+    summary: str | None = None,
+    period: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    _canonical_update_case(home, case_ref, kind="career_context", canonical_id=context_id)
+    if relationship != context_relationship(context_kind):
+        raise CareerError("career context kind and relationship do not match", code="INVALID_RELATIONSHIP")
+    created = add_context(
+        home,
+        context_kind,
+        label,
+        context_id=context_id,
+        case_ref=case_ref,
+        expected_revision=expected_revision,
+        evidence=["User confirmation in the local Career Agent GUI"],
+        role=role,
+        summary=summary,
+        period=period,
+    )
+    return review_proposal(home, created["proposal"]["id"])
+
+
+def propose_project_update(
+    home: CareerVault,
+    case_ref: str,
+    project_id: str,
+    *,
+    expected_revision: str,
+    label: str,
+    role: str | None = None,
+    scope: str | None = None,
+    summary: str | None = None,
+    period: dict[str, Any] | None = None,
+    external_use: str | None = None,
+) -> dict[str, Any]:
+    _canonical_update_case(home, case_ref, kind="project", canonical_id=project_id)
+    created = add_project(
+        home,
+        label,
+        project_id=project_id,
+        case_ref=case_ref,
+        expected_revision=expected_revision,
+        evidence=["User confirmation in the local Career Agent GUI"],
+        role=role,
+        scope=scope,
+        summary=summary,
+        period=period,
+        external_use=external_use,
+    )
+    return review_proposal(home, created["proposal"]["id"])
+
+
+def propose_canonical_case(
+    home: CareerVault, case_id: str, *, expected_updated_at: str | None = None
+) -> dict[str, Any]:
     """Prepare the exact context/project snapshot the user can approve."""
     record = get_case(home, case_id)
+    if expected_updated_at is not None and record["updated_at"] != expected_updated_at:
+        raise CareerError("this career record changed in another entrypoint", code="REVISION_STALE", retryable=True)
     if record["status"] != "active":
         raise CareerError("restore this record before review", code="INVALID_RELATIONSHIP")
     if record["kind"] not in {"career_context", "project"}:
@@ -803,15 +884,51 @@ def propose_canonical_case(home: CareerVault, case_id: str) -> dict[str, Any]:
     return {**review_proposal(home, proposal_id), "case": linked}
 
 
-def approve_canonical_case(home: CareerVault, case_id: str, proposal_id: str) -> dict[str, Any]:
+def approve_canonical_case(
+    home: CareerVault,
+    case_id: str,
+    proposal_id: str,
+    *,
+    expected_revision: str | None = None,
+) -> dict[str, Any]:
     """Approve only the proposal bound to this organizing case, then link its ledger id."""
+    reviewed = review_proposal(home, proposal_id)["proposal"]
+    if reviewed.get("case_ref") != case_id:
+        raise CareerError("proposal does not belong to this career record", code="INVALID_INPUT")
+    event = reviewed.get("event") if isinstance(reviewed.get("event"), dict) else {}
+    update_kind = "career_context" if isinstance(event.get("experience_context"), dict) else "project"
+    update_payload = event.get("experience_context") if update_kind == "career_context" else event.get("project")
+    update_payload = update_payload if isinstance(update_payload, dict) else {}
+    canonical_id = update_payload.get("id")
+    if reviewed.get("base_revision") is not None:
+        if not isinstance(expected_revision, str) or expected_revision != reviewed["base_revision"]:
+            raise CareerError("this career record changed in another entrypoint", code="REVISION_STALE", retryable=True)
+        record = _canonical_update_case(home, case_id, kind=update_kind, canonical_id=str(canonical_id))
+
+        def approval_precondition() -> None:
+            current = (
+                list_experiences(home).get("contexts", {}).get(canonical_id)
+                if update_kind == "career_context"
+                else next(
+                    (row for row in list_projects(home).get("projects", []) if row.get("id") == canonical_id),
+                    None,
+                )
+            )
+            if not isinstance(current, dict) or current.get("updated_at") != expected_revision:
+                raise CareerError("this career record changed in another entrypoint", code="REVISION_STALE", retryable=True)
+
+        result = approve_canonical(home, proposal_id, precondition=approval_precondition)
+        return {
+            **result,
+            "case": record or {"case_id": case_id, "label": update_payload.get("label") or update_payload.get("title"), "status": "active"},
+        }
+
     record = get_case(home, case_id)
     if record["status"] != "active":
         raise CareerError("restore this record before approval", code="INVALID_RELATIONSHIP")
+    if expected_revision is not None and record["updated_at"] != expected_revision:
+        raise CareerError("this career record changed in another entrypoint", code="REVISION_STALE", retryable=True)
     if record["metadata"].get("proposal_id") != proposal_id:
-        raise CareerError("proposal does not belong to this career record", code="INVALID_INPUT")
-    reviewed = review_proposal(home, proposal_id)["proposal"]
-    if reviewed.get("case_ref") != case_id:
         raise CareerError("proposal does not belong to this career record", code="INVALID_INPUT")
     if reviewed.get("status") == "approved":
         event_id = reviewed.get("approved_event_id")

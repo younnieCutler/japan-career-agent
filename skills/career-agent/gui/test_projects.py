@@ -111,10 +111,10 @@ class ProjectsPayloadTests(unittest.TestCase):
 
 
 @contextmanager
-def running_server():
+def running_server(home=None):
     server_module = import_module("gui.server")
     try:
-        server = server_module.create_server(port=0, home=object())
+        server = server_module.create_server(port=0, home=home or object())
     except PermissionError as exc:
         raise unittest.SkipTest(f"loopback bind unavailable in this execution sandbox: {exc}") from exc
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -339,6 +339,139 @@ class ProjectsRouteTests(unittest.TestCase):
         self.assertIn("context_kind.company", client)
         # Vault data must never be able to become markup, in any module.
         self.assertNotIn("innerHTML", client)
+
+
+class CareerMutationRouteTests(unittest.TestCase):
+    """The browser updates existing canonical records through review, never direct writes."""
+
+    def setUp(self) -> None:
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.vault_path = Path(self.tempdir.name) / "vault"
+        initialize_vault(self.vault_path)
+        self.home = CareerVault(self.vault_path)
+
+    def tearDown(self) -> None:
+        self.tempdir.cleanup()
+
+    def _session(self, server):
+        status, headers, body = request(
+            server,
+            "POST",
+            "/session",
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"token": server.bootstrap_token}),
+        )
+        self.assertEqual(status, 200)
+        return {
+            "Cookie": headers["Set-Cookie"],
+            "Content-Type": "application/json",
+            "X-CSRF-Token": json.loads(body)["csrf_token"],
+        }
+
+    def _write(self, server, headers, path: str, payload: dict):
+        status, _, body = request(server, "POST", path, headers=headers, body=json.dumps(payload))
+        return status, json.loads(body)
+
+    def _career(self, server, headers) -> dict:
+        status, _, body = request(server, "GET", "/api/career", headers={"Cookie": headers["Cookie"]})
+        self.assertEqual(status, 200)
+        return json.loads(body)
+
+    def _confirm(self, server, headers, record: dict) -> dict:
+        status, review = self._write(server, headers, "/api/career/propose", {
+            "case_ref": record["ref"], "revision": record["revision"],
+        })
+        self.assertEqual(status, 200)
+        status, approved = self._write(server, headers, "/api/career/approve", {
+            "case_ref": record["ref"],
+            "proposal_ref": review["proposal"]["ref"],
+            "revision": review["revision"],
+        })
+        self.assertEqual(status, 200)
+        return approved
+
+    def test_context_and_project_edits_are_proposed_approved_reloaded_and_cas_protected(self) -> None:
+        with running_server(self.home) as server:
+            headers = self._session(server)
+            status, created_context = self._write(server, headers, "/api/career/contexts", {
+                "label": "Acme", "context_kind": "company", "relationship": "employer",
+                "role": "Engineer", "summary": "Platform", "period": {"from": "2024-01"},
+            })
+            self.assertEqual(status, 200)
+            context = next(
+                row for row in self._career(server, headers)["contexts"]
+                if row["ref"] == created_context["ref"]
+            )
+            self._confirm(server, headers, context)
+            context = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == context["ref"])
+            stale_context_revision = context["revision"]
+
+            status, context_review = self._write(server, headers, "/api/career/contexts", {
+                "case_ref": context["ref"], "context_id": context["context_id"],
+                "revision": context["revision"], "label": "Acme Japan", "context_kind": "company",
+                "relationship": "employer", "role": "Staff Engineer", "summary": "Platform",
+                "period": {"from": "2024-01", "to": "2025-12"},
+            })
+            self.assertEqual(status, 200)
+            self.assertEqual(context_review["before"]["label"], "Acme")
+            self.assertEqual(context_review["proposal"]["event"]["experience_context"]["label"], "Acme Japan")
+            self.assertEqual([event["experience_context"]["label"] for event in persistence.read_jsonl(self.home.events)], ["Acme"])
+            status, _ = self._write(server, headers, "/api/career/approve", {
+                "case_ref": context["ref"], "proposal_ref": context_review["proposal"]["ref"],
+                "revision": context_review["revision"],
+            })
+            self.assertEqual(status, 200)
+            context = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == context["ref"])
+            self.assertEqual((context["label"], context["role"]), ("Acme Japan", "Staff Engineer"))
+
+            before_stale = {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()}
+            status, stale = self._write(server, headers, "/api/career/contexts", {
+                "case_ref": context["ref"], "context_id": context["context_id"],
+                "revision": stale_context_revision, "label": "Stale", "context_kind": "company",
+                "relationship": "employer",
+            })
+            self.assertEqual((status, stale["error"]["code"]), (409, "REVISION_STALE"))
+            self.assertEqual(before_stale, {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()})
+
+            status, created_project = self._write(server, headers, "/api/career/projects", {
+                "parent_ref": context["ref"], "label": "Migration", "role": "Owner",
+                "scope": "Batch alerts", "period": {"from": "2024-02"},
+            })
+            self.assertEqual(status, 200)
+            context = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == context["ref"])
+            project = next(row for row in context["projects"] if row["ref"] == created_project["ref"])
+            self._confirm(server, headers, project)
+            context = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == context["ref"])
+            project = next(row for row in context["projects"] if row["ref"] == project["ref"])
+            stale_project_revision = project["revision"]
+
+            status, project_review = self._write(server, headers, "/api/career/projects", {
+                "case_ref": project["ref"], "project_id": project["project_id"],
+                "revision": project["revision"], "parent_ref": context["ref"], "label": "Migration 2",
+                "role": "Technical Owner", "scope": "Batch alerts and runbook",
+                "period": {"from": "2024-02", "to": "2025-12"},
+            })
+            self.assertEqual(status, 200)
+            self.assertEqual(project_review["before"]["title"], "Migration")
+            self.assertEqual(project_review["proposal"]["event"]["project"]["title"], "Migration 2")
+            status, _ = self._write(server, headers, "/api/career/approve", {
+                "case_ref": project["ref"], "proposal_ref": project_review["proposal"]["ref"],
+                "revision": project_review["revision"],
+            })
+            self.assertEqual(status, 200)
+            context = next(row for row in self._career(server, headers)["contexts"] if row["ref"] == context["ref"])
+            project = next(row for row in context["projects"] if row["ref"] == project["ref"])
+            self.assertEqual((project["label"], project["role"], project["scope"]), (
+                "Migration 2", "Technical Owner", "Batch alerts and runbook",
+            ))
+
+            before_stale = {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()}
+            status, stale = self._write(server, headers, "/api/career/projects", {
+                "case_ref": project["ref"], "project_id": project["project_id"],
+                "revision": stale_project_revision, "parent_ref": context["ref"], "label": "Stale",
+            })
+            self.assertEqual((status, stale["error"]["code"]), (409, "REVISION_STALE"))
+            self.assertEqual(before_stale, {path.name: path.read_bytes() for path in self.home.state_dir.iterdir() if path.is_file()})
 
 
 if __name__ == "__main__":
