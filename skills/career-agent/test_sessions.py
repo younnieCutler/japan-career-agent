@@ -187,13 +187,18 @@ class SessionTests(unittest.TestCase):
         And the snapshot has to leave the screen when the draft moves, so the browser cannot keep
         offering an approval the server will now refuse.
         """
-        script = (Path(__file__).parent / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
-        dialog = script.split("function approvalDialog", 1)[1].split("async function reviewCase", 1)[0]
-        editor = script.split("function careerDraftForm", 1)[1].split("function profileSummary", 1)[0]
+        source = Path(__file__).resolve().parents[2] / "frontend" / "src"
+        # The approval gate lives in its own module so the career screen and the capture editor
+        # share one review surface instead of each growing a variant.
+        review = (source / "review.jsx").read_text(encoding="utf-8")
+        editor = (source / "screens" / "Work.jsx").read_text(encoding="utf-8")
+        dialog = review.split("export function ApprovalDialog", 1)[1]
 
-        self.assertIn("snapshotView(event)", dialog)
-        self.assertIn("await approveAction()", dialog)
-        self.assertIn("approvalDialog(proposal.event", editor)
+        self.assertIn("<SnapshotView event={event} />", dialog)
+        self.assertIn("await onApprove()", dialog)
+        # Approve is not a close button: a failed write keeps the dialog and its error on screen.
+        self.assertLess(dialog.index("await onApprove()"), dialog.index("onClose()"))
+        self.assertIn("event={review.event}", editor)
         self.assertIn("/api/workflows/propose", editor)
         self.assertIn("/api/workflows/approve", editor)
         self.assertLess(editor.index("/api/workflows/propose"), editor.index("/api/workflows/approve"))

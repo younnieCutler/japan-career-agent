@@ -34,3 +34,38 @@ jobs:
         run: |
           python scripts/build_release.py --output-dir release-smoke --expected-commit "${{ github.sha }}"
           python scripts/test_release_install.py --bundle release-smoke
+
+  # The GUI bundle is committed so the wheel ships it and users never need Node. That only holds
+  # if the committed bundle is what the committed source builds, which nothing enforces on the
+  # author's machine. This job is the enforcement, and it is the only place Node is required.
+  frontend-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Same major as the release workflow's npm channel. A byte comparison is only as stable
+          # as the toolchain producing it; pin the minor here if a runner's Node bump ever moves
+          # the output without a source change.
+          node-version: "22"
+      - name: install frontend deps from the lockfile
+        working-directory: frontend
+        run: npm ci
+      - name: build the committed bundle
+        working-directory: frontend
+        run: npm run build
+      - name: the committed bundle must equal the built bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code -- skills/career-agent/gui/static/app; then
+            echo "::error::The committed GUI bundle is stale. Run 'npm ci && npm run build' in frontend/ and commit the result."
+            exit 1
+          fi
+          # A build that emits a file nobody committed would ship a wheel missing it.
+          untracked="$(git ls-files --others --exclude-standard -- skills/career-agent/gui/static/app)"
+          if [[ -n "$untracked" ]]; then
+            echo "::error::The build emitted files that are not committed:"
+            echo "$untracked"
+            exit 1
+          fi

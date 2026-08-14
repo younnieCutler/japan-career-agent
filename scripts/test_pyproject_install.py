@@ -36,7 +36,10 @@ REQUIRED_MEMBERS = (
     f"{PACKAGE_NAME}/skills/career-agent/gui/tanaoroshi.py",
     f"{PACKAGE_NAME}/skills/career-agent/gui/views_read.py",
     f"{PACKAGE_NAME}/skills/career-agent/gui/static/bootstrap.js",
-    f"{PACKAGE_NAME}/skills/career-agent/gui/static/style.css",
+    # The built React bundle. It is committed under `static/app/` rather than a `dist/` the
+    # wheel would not ship, so a broken build is caught here rather than by a user with no Node.
+    f"{PACKAGE_NAME}/skills/career-agent/gui/static/app/app.js",
+    f"{PACKAGE_NAME}/skills/career-agent/gui/static/app/app.css",
     f"{PACKAGE_NAME}/skills/career-agent/sessions.py",
 )
 

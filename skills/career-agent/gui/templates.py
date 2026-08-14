@@ -16,7 +16,7 @@ SHELL_TEMPLATE = """<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
     <title>{{title}}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/app/app.css">
   </head>
   <body>
     <a class="skip-link" href="#main-content">{{skip}}</a>
@@ -69,11 +69,26 @@ def gui_messages(language: object) -> dict[str, str]:
     return gui_catalog(language)
 
 
+# The one list of files the server will serve. It was duplicated across the HTTP layer and three
+# test modules, so adding a client module meant editing four places and any missed one became a
+# 404 only a browser could find. Everything imports this now.
+#
+# `app/…` is the built React bundle. Vite writes it here rather than to a `dist/` the wheel would
+# not ship, and its filenames are fixed rather than content-hashed so this allowlist stays a
+# literal set: the server still never takes a path from the request.
+STATIC_ASSETS = frozenset({
+    "bootstrap.js",
+    "app/app.js", "app/app.css",
+})
+
+
 def static_asset(name: str) -> bytes:
     """Read one packaged static asset without accepting a path from the request."""
-    if name not in {"bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js", "style.css"}:
+    if name not in STATIC_ASSETS:
         raise FileNotFoundError(name)
-    return files("gui.static").joinpath(name).read_bytes()
+    package, _, leaf = name.rpartition("/")
+    anchor = f"gui.static.{package}" if package else "gui.static"
+    return files(anchor).joinpath(leaf).read_bytes()
 
 
 # The self-analysis form is `jiko-bunseki`'s, not the GUI's. A profile is only valid with all

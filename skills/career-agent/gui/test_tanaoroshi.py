@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
 
 from gui import tanaoroshi  # noqa: E402
-from gui.templates import render_shell, static_asset  # noqa: E402
+from _test_client import FRONTEND_SRC, built_client  # noqa: E402
+from gui.templates import render_shell  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
 
 
@@ -32,10 +33,7 @@ class TanaoroshiGuiTests(unittest.TestCase):
 
         The same shape as the CSP gap: each side is self-consistent, and nothing compares them.
         """
-        script = b"".join(
-            static_asset(name)
-            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
-        ).decode("utf-8")
+        script = built_client()
         called = set(re.findall(r'["\'`](/api/[a-z0-9/-]+)', script))
         source = Path(__file__).with_name("server.py").read_text(encoding="utf-8")
         served = set(re.findall(r'"(/api/[a-z0-9/-]+)"', source))
@@ -55,10 +53,7 @@ class TanaoroshiGuiTests(unittest.TestCase):
         product is named after, which the Korean README prints as it is.
         """
         shell = render_shell()
-        script = b"".join(
-            static_asset(name)
-            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
-        ).decode("utf-8")
+        script = built_client()
         kana = re.compile(r"[぀-ゟ゠-ヿ]")
         offenders = []
         for line in script.splitlines():
@@ -72,10 +67,7 @@ class TanaoroshiGuiTests(unittest.TestCase):
         self.assertEqual(offenders, [], "Japanese sentences in a ko-declared screen")
 
     def test_resuming_does_not_depend_on_client_side_memory(self) -> None:
-        script = b"".join(
-            static_asset(name)
-            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
-        ).decode("utf-8")
+        script = built_client()
         self.assertNotIn("localStorage.getItem", script)
         self.assertNotIn("localStorage.setItem", script)
 
@@ -88,21 +80,24 @@ class TanaoroshiGuiTests(unittest.TestCase):
         self.assertNotIn("page", payload["session"])
 
     def test_form_contract_uses_debounced_draft_and_explicit_non_work_flag(self) -> None:
-        script = static_asset("screens.js").decode("utf-8")
+        editor = (FRONTEND_SRC / "screens" / "Work.jsx").read_text(encoding="utf-8")
 
-        editor = script.split("function careerDraftForm", 1)[1].split("function profileSummary", 1)[0]
         self.assertIn("/api/workflows/draft", editor)
-        self.assertIn("650", editor)
-        self.assertIn("workBreadcrumb", editor)
+        self.assertIn("SAVE_DEBOUNCE_MS = 650", editor)
+        self.assertIn("Breadcrumb", editor)
         self.assertIn("outcome_state", editor)
-        self.assertIn('outcomeField.hidden = !outcomeKnown', editor)
-        self.assertIn('["qualitative", "quantitative"].includes(outcomeState.value) ? outcome.value.trim() : ""', editor)
-        self.assertNotIn("evidence.required = true", editor)
+        # A result the user has not characterised must not be written as if they had.
+        self.assertIn('measured ? form.team_result.trim() : ""', editor)
+        # Evidence stays optional: refusing to save an experience without one would push the user
+        # to invent something rather than record the gap.
+        self.assertNotIn("evidence.required", editor)
+        # A write that lands after the user typed again must not report the draft as saved.
         self.assertIn("editVersion += 1", editor)
-        self.assertIn("savingVersion === editVersion", editor)
-        self.assertIn("return saved && dirty ? doSave() : saved", editor)
+        self.assertIn("version === state.editVersion", editor)
+        # Edits made while a save was in flight are followed by another save, not dropped.
+        self.assertIn("return ok && state.dirty ? save() : ok", editor)
+        # Nothing is written to the record without a proposal the user saw first.
         self.assertLess(editor.index("/api/workflows/propose"), editor.index("/api/workflows/approve"))
-        self.assertIn("queueMicrotask(() => success.focus())", editor)
 
     def test_incomplete_browser_controls_are_saved_as_unknown(self) -> None:
         created = tanaoroshi.start(self.home)

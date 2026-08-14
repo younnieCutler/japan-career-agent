@@ -20,6 +20,7 @@ if str(RUNTIME_ROOT) not in sys.path:
 
 import persistence  # noqa: E402
 import sessions  # noqa: E402
+from gui._test_client import FRONTEND_SRC, client_source  # noqa: E402
 from gui import artifacts, cases, tanaoroshi  # noqa: E402
 from models import CareerError  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
@@ -261,25 +262,35 @@ class ProjectCaseTests(unittest.TestCase):
         )
 
     def test_the_project_screen_records_through_the_case_and_session_routes(self) -> None:
-        script = (RUNTIME_ROOT / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
-        renderer = script.split("function createProjectForm", 1)[1].split("function experienceRow", 1)[0]
+        forms = (FRONTEND_SRC / "screens" / "CareerForms.jsx").read_text(encoding="utf-8")
+        renderer = forms.split("export function AddProject", 1)[1].split("\nexport function", 1)[0]
 
         self.assertIn("/api/career/projects", renderer)
+        # Confidentiality belongs to an experience, not to the project that contains it.
         self.assertNotIn("external_use", renderer)
-        self.assertIn('name: "current"', renderer)
-        self.assertIn("date.end_help", renderer)
+        self.assertIn("date.end_help", forms)
+        self.assertIn("current", renderer)
+        # Creating a project drafts it. Confirmation is a separate, explicit act.
+        self.assertIn("action.create_draft", renderer)
         self.assertNotIn("/api/workflows/approve", renderer)
 
     def test_career_history_opens_confirmed_experience_detail_and_recovers_drafts(self) -> None:
-        script = (RUNTIME_ROOT / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
-        experience = script.split("function experienceRow", 1)[1].split("function projectTree", 1)[0]
+        """A confirmed experience stays inspectable and stranded drafts stay recoverable.
 
-        self.assertIn('el("details", { className: "experience-detail" })', experience)
-        self.assertIn("experience.detail", experience)
-        self.assertIn("evidence.missing_usable", experience)
-        self.assertIn("/api/cases/", script)
-        self.assertIn("case.archive_confirm", script)
-        self.assertIn("success.context_approved_next", script)
+        The disclosure widget this once asserted is gone: experiences are rows in the index and
+        open in the record pane. What has to survive is the capability, not the widget.
+        """
+        client = client_source()
+
+        # An experience opens as a record with its evidence state on it, rather than as a row
+        # the user can only read the label of.
+        self.assertIn("function ExperienceRecord", client)
+        self.assertIn("evidence.missing_usable", client)
+        self.assertIn("career.unassigned_work_title", client)
+        self.assertIn("/api/workflows/assign-project", client)
+        self.assertIn("/api/cases/", client)
+        self.assertIn("case.archive_confirm", client)
+        self.assertIn("/api/career/approve", client)
 
     def test_the_client_reads_the_case_shape_the_server_actually_returns(self) -> None:
         """`/api/cases` returns the case flat, not wrapped.
@@ -288,11 +299,11 @@ class ProjectCaseTests(unittest.TestCase):
         fails in the browser only — every Python test here calls the adapter directly and never
         sees the response shape the client parses.
         """
-        script = (RUNTIME_ROOT / "gui" / "static" / "screens.js").read_text(encoding="utf-8")
+        client = client_source()
 
-        self.assertNotIn(".case.case_id", script)
-        self.assertIn("organized.ref", script)
-        self.assertIn("result.session", script)
+        self.assertNotIn(".case.case_id", client)
+        self.assertIn("company.ref", client)
+        self.assertIn("started.session", client)
 
     def test_a_project_cannot_be_parented_and_keeps_its_own_kind(self) -> None:
         company = cases.create_company(self.home, "Acme", pipeline_slug="acme")
@@ -322,12 +333,12 @@ class ProjectsRouteTests(unittest.TestCase):
                 self.assertEqual(post[1]["Allow"], "GET")
 
     def test_browser_contract_exposes_projects_and_employment_without_html_injection(self) -> None:
-        script = import_module("gui.templates").static_asset("screens.js").decode("utf-8")
-        self.assertIn("/api/career", script)
-        self.assertIn("careerScreen", script)
-        self.assertIn("context_kind.company", script)
-        self.assertIn("textContent", script)
-        self.assertNotIn("innerHTML", script)
+        client = client_source()
+        self.assertIn("/api/career", client)
+        self.assertIn("export default function CareerScreen", client)
+        self.assertIn("context_kind.company", client)
+        # Vault data must never be able to become markup, in any module.
+        self.assertNotIn("innerHTML", client)
 
 
 if __name__ == "__main__":

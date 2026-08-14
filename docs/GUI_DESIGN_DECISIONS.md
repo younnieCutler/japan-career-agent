@@ -137,6 +137,20 @@ Canonical lifecycle:
 `entered` never renders as approved or confirmed. `Unknown` is not an error. Outcome capture offers
 quantitative, qualitative, not measured, and unknown; only the first requires metrics.
 
+Readiness state, per dimension, emitted by `skills/career-agent/views.py:readiness()`:
+
+- `Confirmed`
+- `Partial`
+- `Stale`
+- `Unknown`
+
+These four are canonical runtime output, not presentation. `Partial` means some of the records in
+a dimension carry the evidence and some do not; it is a count of what is missing, never a degree of
+quality. There is no total, no percentage, and no fifth state a screen may invent: the GUI
+translates them through the canonical `fact_state` rows in all three locales, and `Partial` and
+`Stale` share one tone precisely so six independent answers cannot be read as a ramp toward a
+score.
+
 Immediately before approval, the review surface renders the exact proposed canonical snapshot in
 plain language: what will be confirmed, what remains unknown, the evidence that supports each
 claim, and the effect of approval. An update also shows a human-readable before/after comparison

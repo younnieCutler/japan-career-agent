@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.11.0] - 2026-08-14
+
+- Rebuild the GUI client on React and the SEED design system. The career screen becomes a split
+  pane — a dense scannable index beside the selected record — replacing nested disclosure widgets
+  that showed two records on a 1440px screen. A company record now gathers its experiences across
+  projects, so the project is a label beside the record rather than a level to walk through.
+- Add a diagnosis screen for the per-dimension readiness the runtime already computed and no
+  screen displayed. It reports one state per dimension with the counts behind it, and states in
+  the interface that it does not total them.
+- Ship the built client inside the wheel, so `uvx japan-career-agent ui` still needs no Node.
+- Verify in CI that the committed client bundle is what the committed client source builds, so
+  shipping it inside the wheel cannot silently ship a stale one.
+- Fail the verification matrix when a tracked test file is not registered in it.
+- Bound the in-progress session list, which rendered every session in the Vault.
+- Restore `word-break: keep-all`, without which Korean breaks at arbitrary syllable blocks.
+
 ## [2.10.2] - 2026-08-13
 
 - Reject application evidence that is unconfirmed or not approved for external use, including

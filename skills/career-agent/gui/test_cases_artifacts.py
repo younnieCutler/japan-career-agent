@@ -16,9 +16,9 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
 
 import artifact_store  # noqa: E402
+from gui._test_client import client_source  # noqa: E402
 from gui import artifacts, cases  # noqa: E402
 from gui.server import create_server  # noqa: E402
-from gui.templates import static_asset  # noqa: E402
 from persistence import read_jsonl  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
 from models import CareerError  # noqa: E402
@@ -210,7 +210,7 @@ class CaseArtifactTests(unittest.TestCase):
         self.assertTrue((self.home.path / artifact["body_ref"]).exists())
 
     def test_browser_case_screen_uses_get_read_and_csrf_protected_writes(self) -> None:
-        script = static_asset("screens.js").decode("utf-8")
+        script = client_source()
         self.assertIn("/api/career", script)
         self.assertIn("/api/applications", script)
         self.assertIn("/api/applications/documents", script)

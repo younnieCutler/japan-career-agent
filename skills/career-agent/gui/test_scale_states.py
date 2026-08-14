@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import tempfile
 import time
@@ -19,7 +20,7 @@ import case_store  # noqa: E402
 import experiences  # noqa: E402
 import sessions  # noqa: E402
 from gui import cases as gui_cases  # noqa: E402
-from gui.templates import static_asset  # noqa: E402
+from _test_client import FRONTEND_SRC  # noqa: E402
 from gui.views_read import applications_payload, career_overview_payload, timeline_payload  # noqa: E402
 from vault import CareerVault, initialize_vault  # noqa: E402
 
@@ -233,16 +234,37 @@ class GuiScaleStateTests(unittest.TestCase):
         self.assertLess(elapsed, 5.0)
         self.assertLess(len(json.dumps(career, ensure_ascii=False)), 1_000_000)
 
-        script = static_asset("screens.js").decode("utf-8")
-        for contract in (
-            "let limit = 8",
-            "matches.slice(0, limit)",
-            "matches.slice(0, 20)",
-            "let limit = 30",
-            "let limit = 10",
-            "let limit = 24",
-        ):
-            self.assertIn(contract, script)
+        self.assert_client_rendering_is_bounded()
+
+    def assert_client_rendering_is_bounded(self) -> None:
+        """A Vault this size must not become one DOM node per row.
+
+        This used to be asserted as the literal `let limit = 8` in each screen, which broke on any
+        rename and said nothing about screens that forgot to slice at all. The guarantee is that
+        list rendering goes through one capped helper, so no screen can quietly opt out.
+        """
+        # The lists that grow with the Vault, and where each is bounded. Lists inside one
+        # record — a company's applications, a project's experiences — are bounded by the record
+        # the user opened, so they are deliberately not on this list.
+        unbounded_by_nature = (
+            ("screens/Career.jsx", "matches.slice(0, shown)"),
+            ("screens/Applications.jsx", "matches.slice(0, shown)"),
+            ("screens/Applications.jsx", "rows.slice(0, shown)"),
+            ("screens/Chronology.jsx", "rows.slice(0, shown)"),
+            ("screens/Home.jsx", "items.slice(0, 4)"),
+            ("screens/Applications.jsx", "matches.slice(0, 20)"),
+        )
+        for name, bound in unbounded_by_nature:
+            with self.subTest(screen=name, bound=bound):
+                self.assertIn(bound, (FRONTEND_SRC / name).read_text(encoding="utf-8"))
+
+        for name in ("Career.jsx", "Applications.jsx", "Chronology.jsx"):
+            with self.subTest(screen=name):
+                source = (FRONTEND_SRC / "screens" / name).read_text(encoding="utf-8")
+                page_size = int(re.search(r"PAGE_SIZE = (\d+)", source).group(1))
+                self.assertLessEqual(page_size, 50, "a page of rows should stay scannable")
+                # A cap with no way past it would hide records rather than bound them.
+                self.assertIn("action.show_more", source)
 
 
 if __name__ == "__main__":

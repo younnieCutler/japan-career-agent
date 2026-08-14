@@ -1,0 +1,314 @@
+/* Layout and the few surfaces SEED does not cover.
+
+   Every value here is a SEED token. Nothing invents a colour, a radius, or a spacing step — the
+   point of the design system is that this file cannot drift from it.
+
+   Why a hand-built index row instead of `List.Item`: SEED is a mobile-first system and its list
+   rows carry touch-target padding, which puts about six records on a 1440x900 screen. This screen
+   exists to show a career record densely, so the row is rebuilt at 2.25rem from SEED's own tokens.
+   That is the one deliberate deviation; everything else uses SEED components as shipped. */
+
+/* The shell renders this before any script runs, so it has to be hidden here rather than by the
+   app: a skip link parked on screen is the first thing a sighted user sees. */
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: var(--seed-dimension-x3);
+  left: var(--seed-dimension-x3);
+  padding: var(--seed-dimension-x3) var(--seed-dimension-x4);
+  border-radius: var(--seed-radius-r2);
+  background: var(--seed-color-bg-neutral-solid);
+  color: var(--seed-color-fg-neutral-inverted);
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: translateY(0); }
+
+/* Korean and Japanese are primary locales here, so these are correctness rules, not preferences.
+   `keep-all` stops a hangul phrase being split at an arbitrary syllable block, and italic is
+   avoided everywhere because neither script has an italic face — the browser synthesises a slant
+   that reads as a rendering fault. */
+body {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+i, em, cite, dfn, address, var { font-style: normal; }
+
+.workspace {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--seed-color-bg-layer-default);
+  color: var(--seed-color-fg-neutral);
+}
+
+/* The capture form is taller than the viewport, and a nav that scrolls away with it takes the
+   only way out of the screen — and the language control — with it. */
+.workspace > :first-child {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.workspace__main {
+  min-width: 0;
+  padding: var(--seed-dimension-x6);
+}
+
+.page-header {
+  max-width: 62ch;
+  margin-bottom: var(--seed-dimension-x5);
+  padding-bottom: var(--seed-dimension-x4);
+  border-bottom: 1px solid var(--seed-color-stroke-neutral-muted);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(21rem, 27rem) minmax(0, 1fr);
+  min-height: 30rem;
+  border: 1px solid var(--seed-color-stroke-neutral-muted);
+  border-radius: var(--seed-radius-r2);
+  overflow: hidden;
+}
+
+.split__index {
+  min-width: 0;
+  padding: var(--seed-dimension-x3);
+  border-right: 1px solid var(--seed-color-stroke-neutral-muted);
+}
+
+.split__record {
+  min-width: 0;
+  padding: var(--seed-dimension-x5);
+}
+
+/* ---------- Dense index row ---------- */
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--seed-dimension-x2);
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0 var(--seed-dimension-x2);
+  border: 0;
+  /* The attestation rail: scanning the left edge alone says what is a record and what is still a
+     claim. Colour comes from the state chip's tone, set by `data-tone`. */
+  border-left: 3px solid var(--seed-color-stroke-neutral-muted);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.row:hover { background: var(--seed-color-bg-neutral-weak); }
+.row[data-tone="positive"] { border-left-color: var(--seed-color-bg-positive-solid); }
+.row[data-tone="warning"] { border-left-color: var(--seed-color-bg-warning-solid); }
+.row[data-tone="neutral"] { border-left-color: var(--seed-color-fg-neutral-subtle); border-left-style: dashed; }
+/* Last, so a contradicted-but-approved row still reads as contradicted. */
+.row[data-conflict="true"] { border-left-color: var(--seed-color-bg-critical-solid); border-left-style: solid; }
+.row[data-selected="true"] { background: var(--seed-color-bg-neutral-weak); font-weight: 700; }
+.row[data-depth="1"] { padding-left: var(--seed-dimension-x6); }
+.row[data-depth="2"] { padding-left: var(--seed-dimension-x9); }
+
+.row__label { overflow: hidden; min-width: 5rem; text-overflow: ellipsis; white-space: nowrap; }
+.row__chips { display: flex; flex-shrink: 0; gap: var(--seed-dimension-x1); }
+.row__meta {
+  max-width: 7rem;
+  overflow: hidden;
+  color: var(--seed-color-fg-neutral-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--seed-font-size-t1);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dates, periods, counts and versions align in a column, the way figures do in a ledger. */
+.figure {
+  color: var(--seed-color-fg-neutral-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.record { display: grid; gap: var(--seed-dimension-x4); align-content: start; }
+.record__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--seed-dimension-x2); }
+.record__section { display: grid; gap: var(--seed-dimension-x2); }
+.record__section-title {
+  margin: 0;
+  color: var(--seed-color-fg-neutral-muted);
+  font-size: var(--seed-font-size-t2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lines { display: grid; margin: 0; padding: 0; list-style: none; }
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--seed-dimension-x2);
+  padding: var(--seed-dimension-x2) 0;
+  border-bottom: 1px solid var(--seed-color-stroke-neutral-muted);
+}
+.line__label { flex: 1 1 12rem; min-width: 0; }
+/* The project a rolled-up experience came from: a label beside the record, not a level to walk. */
+.line__tag {
+  padding: 0 var(--seed-dimension-x2);
+  border: 1px solid var(--seed-color-stroke-neutral-muted);
+  border-radius: 999px;
+  color: var(--seed-color-fg-neutral-muted);
+  font-size: var(--seed-font-size-t1);
+}
+
+.facts { display: grid; grid-template-columns: minmax(8rem, 0.3fr) minmax(0, 1fr); margin: 0; }
+.facts dt, .facts dd {
+  margin: 0;
+  padding: var(--seed-dimension-x2) 0;
+  border-bottom: 1px solid var(--seed-color-stroke-neutral-muted);
+}
+.facts dt { color: var(--seed-color-fg-neutral-muted); font-size: var(--seed-font-size-t2); }
+
+.toolbar { display: grid; gap: var(--seed-dimension-x2); margin-bottom: var(--seed-dimension-x2); }
+.result-count { margin: 0 0 var(--seed-dimension-x2); color: var(--seed-color-fg-neutral-muted); font-size: var(--seed-font-size-t2); }
+.stack { display: grid; gap: var(--seed-dimension-x4); align-content: start; }
+.inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--seed-dimension-x2); }
+.back-to-index { display: none; }
+
+/* Capture inverts the split: here the wide column is the thing being written, and the narrow one
+   is the read-back. The preview sticks so it stays in view while the form scrolls — a preview that
+   scrolls away cannot do the job of removing surprise from the approval gate. */
+.split--capture { grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem); }
+.split--capture .split__record { border-right: 1px solid var(--seed-color-stroke-neutral-muted); }
+.split--capture .split__index { border-right: 0; padding: var(--seed-dimension-x5); }
+.split--capture .split__index > .record { position: sticky; top: var(--seed-dimension-x5); }
+
+/* ---------- Forms ---------- */
+
+.field { display: grid; gap: var(--seed-dimension-x1); margin-bottom: var(--seed-dimension-x4); }
+.field__label { color: var(--seed-color-fg-neutral); font-size: var(--seed-font-size-t3); font-weight: 700; }
+.field__help { margin: 0; color: var(--seed-color-fg-neutral-muted); font-size: var(--seed-font-size-t2); }
+
+.form-section {
+  margin: 0 0 var(--seed-dimension-x5);
+  padding: var(--seed-dimension-x4);
+  border: 1px solid var(--seed-color-stroke-neutral-muted);
+  border-radius: var(--seed-radius-r2);
+}
+.form-section legend {
+  padding: 0 var(--seed-dimension-x2);
+  color: var(--seed-color-fg-neutral-muted);
+  font-size: var(--seed-font-size-t2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.line__link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--seed-color-fg-brand);
+  cursor: pointer;
+  flex: 1 1 12rem;
+  font: inherit;
+  min-width: 0;
+  text-align: left;
+}
+
+details.record__section > summary { cursor: pointer; padding: var(--seed-dimension-x2) 0; }
+
+.context-breadcrumb { color: var(--seed-color-fg-neutral-muted); font-size: var(--seed-font-size-t2); }
+.input-state { margin: 0; color: var(--seed-color-fg-neutral-muted); font-size: var(--seed-font-size-t2); }
+.unknown, .muted { color: var(--seed-color-fg-neutral-muted); }
+.confidential-note { color: var(--seed-color-fg-warning); font-size: var(--seed-font-size-t1); }
+
+/* Not-entered and still-unknown are the two boxes the approval gate must keep apart. */
+.unknown-box {
+  padding: var(--seed-dimension-x3);
+  border: 1px dashed var(--seed-color-stroke-neutral-muted);
+  border-radius: var(--seed-radius-r2);
+  margin-top: var(--seed-dimension-x3);
+}
+.unknown-box h4 { margin: 0 0 var(--seed-dimension-x1); font-size: var(--seed-font-size-t2); }
+.unknown-box p { margin: 0; }
+.before-box, .approval-snapshot { min-width: 0; }
+.value-list, .nested-list { margin: 0; padding-left: var(--seed-dimension-x5); }
+
+.document-body {
+  max-height: 24rem;
+  overflow: auto;
+  padding: var(--seed-dimension-x3);
+  border: 1px solid var(--seed-color-stroke-neutral-muted);
+  border-radius: var(--seed-radius-r2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--seed-font-size-t2);
+  white-space: pre-wrap;
+}
+
+/* ---------- Ledger table ---------- */
+
+.ledger { width: 100%; border-collapse: collapse; font-size: var(--seed-font-size-t3); }
+.ledger th, .ledger td {
+  padding: var(--seed-dimension-x2) var(--seed-dimension-x3);
+  border-bottom: 1px solid var(--seed-color-stroke-neutral-muted);
+  text-align: left;
+}
+.ledger th {
+  color: var(--seed-color-fg-neutral-muted);
+  font-size: var(--seed-font-size-t2);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ledger td.figure { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ---------- Chronology ---------- */
+
+.chronology { display: grid; margin: 0; padding: 0; list-style: none; }
+.chronology__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--seed-dimension-x3);
+  padding: var(--seed-dimension-x2) 0 var(--seed-dimension-x2) var(--seed-dimension-x4);
+  /* The spine: one continuous line down the left, so the column of dates reads as one sequence. */
+  border-left: 2px solid var(--seed-color-stroke-neutral-muted);
+}
+.chronology__when { flex: 0 0 9rem; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.diagnosis-row {
+  display: grid;
+  gap: var(--seed-dimension-x1);
+  padding: var(--seed-dimension-x3) 0;
+  border-top: 1px solid var(--seed-color-stroke-neutral-muted);
+}
+
+/* Under 900px the two panels become one view at a time, with an explicit way back. The record
+   must stay reachable on a phone: density is what gets sacrificed here, never access. */
+@media (max-width: 900px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .split__index { border-right: 0; }
+  .split__record { display: none; }
+  .split[data-record-open="true"] .split__index { display: none; }
+  .split[data-record-open="true"] .split__record { display: block; }
+  .back-to-index { display: inline-flex; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
