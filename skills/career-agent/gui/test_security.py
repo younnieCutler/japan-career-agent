@@ -17,6 +17,8 @@ RUNTIME_ROOT = Path(__file__).resolve().parents[1]
 if str(RUNTIME_ROOT) not in sys.path:
     sys.path.insert(0, str(RUNTIME_ROOT))
 
+from _test_client import FRONTEND_SRC  # noqa: E402
+
 
 REQUIRED_HEADERS = {
     "Cache-Control": "no-store",
@@ -90,9 +92,10 @@ class GuiSecurityTests(unittest.TestCase):
         html = templates.render_shell()
         client = b"".join(
             templates.static_asset(name)
-            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
+            for name in sorted(templates.STATIC_ASSETS)
+            if name.endswith(".js")
         ).decode("utf-8")
-        stylesheet = templates.static_asset("style.css").decode("utf-8")
+        stylesheet = templates.static_asset("app/app.css").decode("utf-8")
         self.assertIn('<script type="module" src="/static/bootstrap.js"></script>', html)
         self.assertNotIn("<script>", html)
         self.assertIn("history.replaceState", client)
@@ -226,10 +229,14 @@ class GuiSecurityTests(unittest.TestCase):
         self.assertNotIn("<title></title>", html)
 
     def test_the_current_view_is_marked_differently_from_a_hovered_one(self):
-        stylesheet = _server_module().static_asset("style.css").decode("utf-8")
-        current = stylesheet.split(".nav-current {", 1)[-1].split("}", 1)[0]
-        self.assertTrue(current.strip(), ".nav-current has no rule of its own")
-        self.assertNotIn(".nav-current:hover", stylesheet)
+        """Where you are is a fact about the app; hover is a fact about the pointer.
+
+        Marking the current item with `aria-current` rather than a style alone also means a
+        screen reader announces it, which a hover colour never could.
+        """
+        app = (FRONTEND_SRC / "App.jsx").read_text(encoding="utf-8")
+        self.assertIn('aria-current={current ? "page" : undefined}', app)
+        self.assertIn("const current = target ===", app)
 
     def test_csp_permits_every_browser_capability_the_shipped_client_uses(self):
         """Compare what the assets actually do against what the policy allows.
@@ -248,7 +255,8 @@ class GuiSecurityTests(unittest.TestCase):
         shell = module.render_shell()
         client = b"".join(
             module.static_asset(name)
-            for name in ("bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js")
+            for name in sorted(module.STATIC_ASSETS)
+            if name.endswith(".js")
         ).decode("utf-8")
         used = {
             "connect-src": "fetch(" in client or "XMLHttpRequest" in client,

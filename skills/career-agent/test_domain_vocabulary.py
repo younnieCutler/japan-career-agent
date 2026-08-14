@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = ROOT / "skills" / "career-agent"
 sys.path.insert(0, str(RUNTIME))
 
-from gui.templates import static_asset  # noqa: E402
+from gui._test_client import client_source  # noqa: E402
 from guided import render_human as render_guided_human  # noqa: E402
 from localization import (  # noqa: E402
     DOMAIN_ROWS,
@@ -221,9 +221,11 @@ class DomainVocabularyTests(unittest.TestCase):
                     catalog[f"enum.context_kind.{kind}"],
                     domain_label(language, "context_kind", kind),
                 )
-        script = static_asset("screens.js").decode("utf-8")
+        # The context picker lives with the career records now; assert against the whole shipped
+        # client so a move cannot silently drop a choice the domain still defines.
+        client = client_source()
         for kind in EXPERIENCE_CONTEXT_KINDS:
-            self.assertIn(f'"{kind}"', script)
+            self.assertIn(f'"{kind}"', client)
 
     def test_human_guided_output_translates_track_but_json_keeps_canonical(self) -> None:
         script = RUNTIME / "career_agent.py"

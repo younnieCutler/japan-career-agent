@@ -45,6 +45,13 @@
 # Exception: Skill folders
 !/skills/
 
+# Exception: GUI frontend source. Its build output is written into
+# `skills/career-agent/gui/static/app/`, which the wheel already ships, so a user installing with
+# `uvx` never needs Node. `node_modules/` and `dist/` stay ignored by the rules further down.
+!/frontend/
+!/frontend/**
+/frontend/node_modules/
+
 # jiko-bunseki writes personal self-analysis output — keep runtime output out of git
 /skills/jiko-bunseki/data/
 /skills/jiko-bunseki/career-docs/

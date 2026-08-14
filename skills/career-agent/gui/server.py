@@ -27,6 +27,7 @@ from sessions import (
 )
 from gui.templates import (
     JIKO_ASSETS,
+    STATIC_ASSETS as TEMPLATE_STATIC_ASSETS,
     gui_messages,
     jiko_asset,
     normalize_gui_language,
@@ -69,12 +70,13 @@ SHELL_ROUTES = {
     "/career",
     "/career/in-progress",
     "/career/timeline",
+    "/diagnosis",
     "/self-analysis",
     "/applications",
     "/documents",
 }
 WORK_ROUTE = re.compile(r"^/work/session-[a-f0-9]{12,64}$")
-STATIC_ASSETS = {"bootstrap.js", "app.js", "api.js", "i18n.js", "screens.js", "style.css"}
+STATIC_ASSETS = TEMPLATE_STATIC_ASSETS
 APPLICATION_DOCUMENT_TYPES = {"resume", "career_history", "self_pr", "cover_letter", "other"}
 
 

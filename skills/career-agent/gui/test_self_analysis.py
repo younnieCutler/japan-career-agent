@@ -16,8 +16,9 @@ RUNTIME_ROOT = Path(__file__).resolve().parents[1]
 if str(RUNTIME_ROOT) not in sys.path:
     sys.path.insert(0, str(RUNTIME_ROOT))
 
+from gui._test_client import client_source  # noqa: E402
 from gui.server import create_server  # noqa: E402
-from gui.templates import jiko_asset, static_asset  # noqa: E402
+from gui.templates import jiko_asset  # noqa: E402
 
 
 @contextmanager
@@ -63,7 +64,7 @@ class SelfAnalysisGuiTests(unittest.TestCase):
         ).read_bytes()
 
         self.assertEqual(served, source)
-        self.assertIn("/jiko/checklist.html", static_asset("screens.js").decode("utf-8"))
+        self.assertIn("/jiko/checklist.html", client_source())
         with self.assertRaises(FileNotFoundError):
             jiko_asset("../../../etc/passwd")
 
@@ -85,18 +86,17 @@ class SelfAnalysisGuiTests(unittest.TestCase):
             self.assertNotIn(call, checklist + runtime, call)
 
     def test_browser_contract_has_a_read_route_and_visible_handoff(self) -> None:
-        script = static_asset("screens.js").decode("utf-8")
+        script = client_source()
 
         self.assertIn("/api/self-analysis", script)
-        self.assertIn("selfAnalysisScreen", script)
+        self.assertIn("export default function SelfAnalysisScreen", script)
         self.assertIn("handoff", script)
-        self.assertIn("textContent", script)
-        self.assertIn("queueMicrotask(() => success.focus())", script)
-        self.assertIn("changesView(options.before, event)", script)
-        self.assertIn("before: proposed.review_before", script)
-        self.assertIn("function containsUnknown", script)
+        self.assertIn("success.self_analysis_approved", script)
+        self.assertIn("<ChangesView before={before} event={event} />", script)
+        self.assertIn("before={review.review_before}", script)
+        self.assertIn("export function containsUnknown", script)
         self.assertIn('key === "period" && value.current === true', script)
-        self.assertIn('kind === "profile" ? Object.keys(payload || {})', script)
+        self.assertIn('kind === "profile"\n    ? Object.keys(payload || {})', script)
 
     def test_authenticated_self_analysis_route_is_get_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

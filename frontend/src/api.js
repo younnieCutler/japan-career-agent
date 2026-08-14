@@ -1,3 +1,8 @@
+/* The HTTP boundary. Unchanged in contract from the previous client: same endpoints, same
+   single-use bootstrap token, same CSRF header, same error codes. The server is authoritative;
+   this file only carries requests and preserves the shape of failures so screens can tell the
+   user whether their input survived. */
+
 let csrfToken = "";
 
 export class ApiError extends Error {
@@ -35,6 +40,8 @@ export async function openLocalSession() {
   });
   const payload = await responseValue(response, "BROWSER_SESSION_EXPIRED");
   csrfToken = payload.csrf_token;
+  // The bootstrap token is single-use; erasing the fragment stops a reload from replaying a
+  // credential the server has already spent.
   window.history.replaceState(null, "", window.location.pathname + window.location.search);
 }
 
@@ -47,10 +54,7 @@ export async function write(path, payload) {
   const response = await fetch(path, {
     method: "POST",
     credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-Token": csrfToken,
-    },
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
     body: JSON.stringify(payload),
   });
   return responseValue(response, "SAVE_FAILED");
