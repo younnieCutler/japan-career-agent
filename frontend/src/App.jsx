@@ -102,7 +102,7 @@ function Shell({ path, children }) {
   return (
     <SideNavigationProvider>
       <div className="workspace">
-        <SideNavigation.Root style={{ borderRight: "1px solid var(--seed-color-stroke-neutral-muted)" }}>
+        <SideNavigation.Root>
           <SideNavigation.Header>
             <Text textStyle="t5Bold">{t("app.title")}</Text>
           </SideNavigation.Header>
@@ -110,10 +110,12 @@ function Shell({ path, children }) {
             <SideNavigation.Group>
               {ROUTES.map(([target, key]) => {
                 const current = target === "/career" ? isCareerPath(path) : path === target;
+                // `current` is the prop SEED reads; a bare `aria-current` is dropped, which left
+                // the rail with no indication of which screen you were on.
                 return (
                   <SideNavigation.Item
                     key={target}
-                    aria-current={current ? "page" : undefined}
+                    current={current}
                     onClick={() => navigate(target)}
                     style={{ cursor: "pointer" }}
                   >

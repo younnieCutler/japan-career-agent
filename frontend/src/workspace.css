@@ -43,6 +43,17 @@ i, em, cite, dfn, address, var { font-style: normal; }
   color: var(--seed-color-fg-neutral);
 }
 
+/* The rail is separated by its own fill rather than by a border, so the widest line on the screen
+   is not a decoration. */
+.workspace > :first-child { background: var(--seed-color-bg-layer-fill); }
+
+/* DESIGN.md asks for a visible ring on every interactive element; the sheet never had one, so
+   focus was invisible wherever SEED's own components did not supply it. */
+:focus-visible {
+  outline: 2px solid var(--seed-color-bg-brand-solid);
+  outline-offset: 2px;
+}
+
 /* The capture form is taller than the viewport, and a nav that scrolls away with it takes the
    only way out of the screen — and the language control — with it. */
 .workspace > :first-child {
@@ -65,52 +76,72 @@ i, em, cite, dfn, address, var { font-style: normal; }
   border-bottom: 1px solid var(--seed-color-stroke-neutral-muted);
 }
 
+/* No box around the pair: the divider between index and record is the only line the split needs,
+   and an outer border added a second one that enclosed the whole screen without separating
+   anything. */
 .split {
   display: grid;
   grid-template-columns: minmax(21rem, 27rem) minmax(0, 1fr);
   min-height: 30rem;
-  border: 1px solid var(--seed-color-stroke-neutral-muted);
-  border-radius: var(--seed-radius-r2);
-  overflow: hidden;
 }
 
 .split__index {
   min-width: 0;
-  padding: var(--seed-dimension-x3);
+  padding: var(--seed-dimension-x3) var(--seed-dimension-x3) var(--seed-dimension-x3) 0;
   border-right: 1px solid var(--seed-color-stroke-neutral-muted);
 }
 
 .split__record {
   min-width: 0;
-  padding: var(--seed-dimension-x5);
+  padding: var(--seed-dimension-x5) var(--seed-dimension-x5) var(--seed-dimension-x5) var(--seed-dimension-x6);
 }
 
 /* ---------- Dense index row ---------- */
 
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--seed-dimension-x2);
   width: 100%;
   min-height: 2.25rem;
   padding: 0 var(--seed-dimension-x2);
   border: 0;
-  /* The attestation rail: scanning the left edge alone says what is a record and what is still a
-     claim. Colour comes from the state chip's tone, set by `data-tone`. */
-  border-left: 3px solid var(--seed-color-stroke-neutral-muted);
+  border-radius: var(--seed-radius-r2);
   background: transparent;
   color: inherit;
   cursor: pointer;
   font: inherit;
   text-align: left;
 }
+
+/* The attestation dot: scanning the left edge alone says what is a record and what is still a
+   claim. Colour comes from the state chip's tone, set by `data-tone`.
+
+   A dot rather than a ruled margin because the rail was one more vertical line on a screen that
+   already had several, and at three per row the edge read as ruling rather than as state. The dot
+   carries the same four states and sits in the same column. */
+.row::before {
+  content: "";
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 999px;
+  background: var(--seed-color-fg-neutral-subtle);
+}
 .row:hover { background: var(--seed-color-bg-neutral-weak); }
-.row[data-tone="positive"] { border-left-color: var(--seed-color-bg-positive-solid); }
-.row[data-tone="warning"] { border-left-color: var(--seed-color-bg-warning-solid); }
-.row[data-tone="neutral"] { border-left-color: var(--seed-color-fg-neutral-subtle); border-left-style: dashed; }
+.row[data-tone="positive"]::before { background: var(--seed-color-bg-positive-solid); }
+.row[data-tone="warning"]::before { background: var(--seed-color-bg-warning-solid); }
+/* A draft is the absence of attestation, so it is drawn rather than tinted: a hollow ring, nothing
+   written in ink yet. This is the dot's form of the rule the dashed rail used to carry. */
+.row[data-tone="neutral"]::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--seed-color-fg-neutral-subtle);
+}
 /* Last, so a contradicted-but-approved row still reads as contradicted. */
-.row[data-conflict="true"] { border-left-color: var(--seed-color-bg-critical-solid); border-left-style: solid; }
+.row[data-conflict="true"]::before {
+  background: var(--seed-color-bg-critical-solid);
+  box-shadow: none;
+}
 .row[data-selected="true"] { background: var(--seed-color-bg-neutral-weak); font-weight: 700; }
 .row[data-depth="1"] { padding-left: var(--seed-dimension-x6); }
 .row[data-depth="2"] { padding-left: var(--seed-dimension-x9); }
@@ -175,6 +206,14 @@ i, em, cite, dfn, address, var { font-style: normal; }
 
 .toolbar { display: grid; gap: var(--seed-dimension-x2); margin-bottom: var(--seed-dimension-x2); }
 .result-count { margin: 0 0 var(--seed-dimension-x2); color: var(--seed-color-fg-neutral-muted); font-size: var(--seed-font-size-t2); }
+/* The single next action. Tinted rather than ruled: it is the only brand-coloured surface on the
+   screen, so it needs no border to be found. */
+.next-action {
+  padding: var(--seed-dimension-x5) var(--seed-dimension-x6);
+  border-radius: var(--seed-radius-r3);
+  background: var(--seed-color-bg-brand-weak);
+}
+
 .stack { display: grid; gap: var(--seed-dimension-x4); align-content: start; }
 .inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--seed-dimension-x2); }
 .back-to-index { display: none; }
@@ -193,11 +232,14 @@ i, em, cite, dfn, address, var { font-style: normal; }
 .field__label { color: var(--seed-color-fg-neutral); font-size: var(--seed-font-size-t3); font-weight: 700; }
 .field__help { margin: 0; color: var(--seed-color-fg-neutral-muted); font-size: var(--seed-font-size-t2); }
 
+/* Grouped by a fill rather than a border: a fieldset outline around a form that already sits
+   inside a panel was a box drawn inside a box. */
 .form-section {
   margin: 0 0 var(--seed-dimension-x5);
   padding: var(--seed-dimension-x4);
-  border: 1px solid var(--seed-color-stroke-neutral-muted);
-  border-radius: var(--seed-radius-r2);
+  border: 0;
+  border-radius: var(--seed-radius-r3);
+  background: var(--seed-color-bg-layer-fill);
 }
 .form-section legend {
   padding: 0 var(--seed-dimension-x2);
@@ -229,8 +271,9 @@ details.record__section > summary { cursor: pointer; padding: var(--seed-dimensi
 /* Not-entered and still-unknown are the two boxes the approval gate must keep apart. */
 .unknown-box {
   padding: var(--seed-dimension-x3);
-  border: 1px dashed var(--seed-color-stroke-neutral-muted);
+  border: 0;
   border-radius: var(--seed-radius-r2);
+  background: var(--seed-color-bg-layer-fill);
   margin-top: var(--seed-dimension-x3);
 }
 .unknown-box h4 { margin: 0 0 var(--seed-dimension-x1); font-size: var(--seed-font-size-t2); }
@@ -265,6 +308,7 @@ details.record__section > summary { cursor: pointer; padding: var(--seed-dimensi
   text-transform: uppercase;
 }
 .ledger td.figure { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ledger tbody tr:hover td { background: var(--seed-color-bg-neutral-weak); }
 
 /* ---------- Chronology ---------- */
 

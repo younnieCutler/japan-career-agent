@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.11.9] - 2026-08-16
+
+- Redraw the evidence state on each record row as a dot rather than a coloured left rail. The
+  screen had more lines than it had groupings — a rail on every row, inside a bordered split,
+  inside a bordered panel — and at that density the left edge read as ruling rather than as state.
+  The dot keeps the column and all four rules it carried: a marker per tone, conflict declared
+  last so a contradicted-but-approved row still reads as contradicted, draft drawn as a hollow
+  ring because a draft is the absence of attestation, and selection never repainting it. The
+  boxes it competed with go too, replaced by tinted fills, and focus finally draws the ring the
+  design always specified.
+- Fix the side navigation marking no screen at all. `aria-current` was passed to a component that
+  reads `current` and forwards no unknown attribute, so the open screen reached neither the
+  stylesheet nor the accessibility tree; the check guarding this asserted the source spelling and
+  stayed green throughout, and now asserts the rendered result.
+
 ## [2.11.8] - 2026-08-15
 
 - Refuse to rewrite an artifact version that has already been superseded. Demoting a version

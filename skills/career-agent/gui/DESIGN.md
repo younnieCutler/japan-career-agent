@@ -29,16 +29,26 @@ The previous system was warm cream + high-contrast serif display + warm accent. 
 reasonable look, but it is also the single most common default in machine-generated design, and it
 was doing nothing for this subject in particular. The ledger reading is specific to 棚卸し.
 
-## Signature: the attestation rail
-Every record row carries a fixed left margin whose rule colour and small label state that row's
+## Signature: the attestation dot
+Every record row opens with a dot in a fixed left column whose colour and form state that row's
 evidence state. Scanning only the left edge of the screen tells you what is real and what is still
 a claim. It is the trust model made visible, and it is the one element the screen is remembered by.
+
+This was a ruled left margin until the screen was reviewed as a whole. The rail was correct about
+*what* to say and wrong about *how*: it added a third vertical line to rows that already sat inside
+a bordered split inside a bordered panel, and at that density the left edge read as ruling rather
+than as state. The dot keeps the column, the four states, and the two colour rules below; it drops
+the line. The lines it competed with — the box around the split, the fieldset outline, the dashed
+unknown box — went with it, so the remaining hairlines separate things instead of enclosing them.
+
+A draft is drawn as a **hollow ring** rather than a tinted dot: the same rule the dashed rail
+carried, in the dot's vocabulary. Nothing has been written in ink yet.
 
 Everything else stays quiet: no gradients, no glass, no shadows except the two genuinely floating
 surfaces (modal, sticky action bar).
 
-Driven from CSS `:has()` against the existing status chip, so it needs no markup change and no
-JavaScript. The sheet already depends on `:has()` elsewhere.
+Driven from the `data-tone` and `data-conflict` attributes the row already carries, as a `::before`
+pseudo-element, so it needs no markup change and no JavaScript.
 
 ## Colour & Materials
 Six roles. Hue carries meaning; nothing is coloured for decoration.
@@ -112,8 +122,11 @@ Replaced by four surface levels:
 
 - **flat** — no border, separated by space alone. Default for content grouping.
 - **ruled** — separated by a hairline. Default for lists and rows.
-- **raised** — border plus a lifted background. Only for things you can act on.
-- **marked** — a 3px left rule in a role colour. Only for the single next action and for messages.
+- **filled** — a tinted background, no border. Groups a form or an aside without drawing a box
+  inside the box it already sits in.
+- **marked** — a tint in a role colour. Only for the single next action and for messages. This was
+  a 3px left rule until the rails came out; a lone coloured edge on an otherwise unruled screen
+  read as damage rather than as emphasis, and the brand tint is the only one of its kind here.
 
 ## Interaction Language
 Quiet and immediate. Hover changes background, never size or shadow. Focus is a 2px `--attest`
@@ -127,8 +140,8 @@ motion here would read as a product trying to feel impressive about someone's ca
 
 ## Responsive Rules
 Desktop-first; the data is dense and the primary use is at a desk. The side rail collapses to a
-bottom bar under 900px. The attestation rail keeps its full width at every size — it is the last
-thing to be sacrificed, not the first.
+bottom bar under 900px. The attestation dot is drawn at every size — it is the last thing to be
+sacrificed, not the first.
 
 ## Accessibility
 Every text and chip pair meets WCAG AA in both schemes, verified by computing contrast from

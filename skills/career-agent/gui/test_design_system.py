@@ -59,36 +59,42 @@ def without_comments(text: str) -> str:
     return re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.S)
 
 
-class AttestationRailTests(unittest.TestCase):
-    """The rail states each row's evidence state on its left edge."""
+class AttestationDotTests(unittest.TestCase):
+    """The dot states each row's evidence state on its left edge."""
 
     def setUp(self) -> None:
         self.css = workspace_css()
 
-    def test_every_evidence_tone_has_a_rail(self) -> None:
+    def test_every_evidence_tone_has_a_dot(self) -> None:
         for tone in ("positive", "warning", "neutral"):
             with self.subTest(tone=tone):
-                self.assertIn(f'.row[data-tone="{tone}"]', self.css)
-        self.assertIn('.row[data-conflict="true"]', self.css)
+                self.assertIn(f'.row[data-tone="{tone}"]::before', self.css)
+        self.assertIn('.row[data-conflict="true"]::before', self.css)
 
-    def test_conflict_rail_is_declared_after_the_lifecycle_rails(self) -> None:
+    def test_conflict_dot_is_declared_after_the_lifecycle_dots(self) -> None:
         """A conflicted record is still approved, so both rules match the same row.
 
         Equal specificity means source order decides. If conflict were declared first, the
-        approved rail would paint over it and a contradiction would be silently averaged into a
+        approved dot would paint over it and a contradiction would be silently averaged into a
         lifecycle state — exactly what the product forbids.
         """
         for tone in ("positive", "warning", "neutral"):
             with self.subTest(tone=tone):
                 self.assertLess(
-                    self.css.index(f'.row[data-tone="{tone}"]'),
-                    self.css.index('.row[data-conflict="true"]'),
-                    "conflict rail must be able to override a lifecycle rail",
+                    self.css.index(f'.row[data-tone="{tone}"]::before'),
+                    self.css.index('.row[data-conflict="true"]::before'),
+                    "conflict dot must be able to override a lifecycle dot",
                 )
 
-    def test_draft_rail_is_drawn_not_coloured(self) -> None:
-        """A draft is the absence of attestation, so it is dashed rather than tinted."""
-        self.assertIn("dashed", block(self.css, '.row[data-tone="neutral"]'))
+    def test_draft_dot_is_drawn_not_coloured(self) -> None:
+        """A draft is the absence of attestation, so it is a hollow ring rather than tinted.
+
+        The rule it has to break is the one every other tone follows — filling the dot. Asserting
+        the ring alone would still pass if a fill were added beside it, so both halves are checked.
+        """
+        draft = block(self.css, '.row[data-tone="neutral"]::before')
+        self.assertIn("background: transparent", draft)
+        self.assertIn("inset", draft)
 
     def test_draft_chip_is_outlined_rather_than_filled(self) -> None:
         chips = source("evidence.jsx")
@@ -125,15 +131,19 @@ class SplitPaneTests(unittest.TestCase):
         height = float(re.search(r"min-height: ([\d.]+)rem", row).group(1))
         self.assertLessEqual(height, 2.5)
 
-    def test_selecting_a_row_does_not_repaint_its_evidence_rail(self) -> None:
-        """Selection is a view state; the rail states what the Vault holds.
+    def test_selecting_a_row_does_not_repaint_its_evidence_dot(self) -> None:
+        """Selection is a view state; the dot states what the Vault holds.
 
         If selecting repainted the left edge, the column would stop being scannable as "what is
-        real" the moment the user clicked anything.
+        real" the moment the user clicked anything. Checked across every rule rather than in the
+        one we expect, so reaching the dot from a new selection selector fails too.
         """
-        selected = block(self.css, '.row[data-selected="true"]')
-        self.assertNotIn("border-left-color", selected)
-        self.assertIn("background", selected)
+        self.assertIn("background", block(self.css, '.row[data-selected="true"]'))
+        for rule in self.css.split("}"):
+            selector, _, _ = rule.rpartition("{")
+            if "data-selected" in selector:
+                with self.subTest(selector=selector.strip()):
+                    self.assertNotIn("::before", selector)
 
     def test_the_record_is_reachable_on_a_phone(self) -> None:
         narrow = self.css.split("@media (max-width: 900px)", 1)[1]

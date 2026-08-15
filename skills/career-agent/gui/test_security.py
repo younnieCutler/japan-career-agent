@@ -231,11 +231,14 @@ class GuiSecurityTests(unittest.TestCase):
     def test_the_current_view_is_marked_differently_from_a_hovered_one(self):
         """Where you are is a fact about the app; hover is a fact about the pointer.
 
-        Marking the current item with `aria-current` rather than a style alone also means a
-        screen reader announces it, which a hover colour never could.
+        `current` is the prop SEED reads; a bare `aria-current` is not forwarded, so it reached
+        neither the stylesheet nor the accessibility tree and the rail marked nothing at all.
+        This assertion pinned that spelling and stayed green throughout, which is why the
+        rendered proof lives in `App.test.jsx` — a source string cannot see that a prop was
+        dropped.
         """
         app = (FRONTEND_SRC / "App.jsx").read_text(encoding="utf-8")
-        self.assertIn('aria-current={current ? "page" : undefined}', app)
+        self.assertIn("current={current}", app)
         self.assertIn("const current = target ===", app)
 
     def test_csp_permits_every_browser_capability_the_shipped_client_uses(self):
