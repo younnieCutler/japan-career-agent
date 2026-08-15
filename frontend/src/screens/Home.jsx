@@ -127,15 +127,7 @@ export default function HomeScreen() {
         </Text>
       </header>
 
-      <section
-        className="record__section"
-        style={{
-          padding: "var(--seed-dimension-x5)",
-          borderLeft: "3px solid var(--seed-color-bg-brand-solid)",
-          background: "var(--seed-color-bg-layer-default)",
-          border: "1px solid var(--seed-color-stroke-neutral-muted)",
-        }}
-      >
+      <section className="record__section next-action">
         <h3 className="record__section-title">{t(next.eyebrow)}</h3>
         <Text textStyle="t6Bold">{nextTitle}</Text>
         <div>
