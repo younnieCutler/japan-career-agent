@@ -409,7 +409,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--tool", dest="tools_used", action="append", default=None,
         help="a tool or command the Skill used; repeat for several",
     )
-    skill_report_parser.add_argument("--error", help="what went wrong, for blocked or failed")
+    skill_report_parser.add_argument(
+        "--error", help="what went wrong; required for blocked/failed/unsupported",
+    )
     add_output_format(skill_report_parser)
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)

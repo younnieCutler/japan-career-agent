@@ -22,7 +22,15 @@
   The `skill-open → SOP → skill-report` handoff is now a Tier 0 `AGENTS.md` invariant, not only a
   Tier 1 lazy reference a host might never load; `select_skill()`'s `invoke_with` no longer emits a
   copy-pasteable command that silently closes `host_required` Skills as `unsupported` when run
-  as-is — it carries an `--entrypoint <claude|codex>` placeholder that fails loudly instead.
+  as-is — it carries an `--entrypoint HOST` placeholder that fails loudly instead. `hybrid` Skills
+  (e.g. `career-maintenance`) now get the same placeholder as `host_required` ones: without it,
+  a host following `invoke_with` literally recorded `entrypoint: cli` for work it actually did,
+  because `skill-open --entrypoint` defaults to `cli`. The placeholder itself changed from
+  `<claude|codex>` to `HOST` — the angle brackets and pipe are shell metacharacters, so pasting the
+  old placeholder into an actual shell redirected/piped instead of reaching `argparse`'s rejection;
+  `HOST` fails the same way whether passed as an argv list or through a shell. `skill-report --error`'s
+  help text now says `blocked/failed/unsupported` instead of just `blocked or failed`, matching what
+  `validate_skill_result` has required since the previous round.
 
 ## [2.11.9] - 2026-08-16
 

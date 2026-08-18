@@ -75,16 +75,12 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(selection["execution"], "host_required")
         validation.validate_skill_selection(selection)
 
-    def test_select_skill_carries_invoke_with(self) -> None:
-        selection = select_skill(SKILLS_ROOT, None, skill_override="career-maintenance")
-        self.assertEqual(selection["invoke_with"], "skill-open --skill career-maintenance")
-
     def test_host_required_invoke_with_carries_an_entrypoint_placeholder(self) -> None:
         # career-document is host_required. A caller running invoke_with unedited must not get a
         # silent "unsupported" that reads as an answer -- it must fail loudly on the placeholder.
         selection = select_skill(SKILLS_ROOT, None, skill_override="career-document")
         self.assertEqual(
-            selection["invoke_with"], "skill-open --skill career-document --entrypoint <claude|codex>",
+            selection["invoke_with"], "skill-open --skill career-document --entrypoint HOST",
         )
         result = subprocess.run(
             [sys.executable, str(SCRIPT)] + selection["invoke_with"].split(),
@@ -92,6 +88,34 @@ class SelectionTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid choice", result.stderr)
+
+    def test_entrypoint_placeholder_fails_loudly_through_a_real_shell_too(self) -> None:
+        # The old `<claude|codex>` placeholder used shell metacharacters (`<`, `|`, `>`): a caller
+        # pasting invoke_with into an actual shell hit redirection/piping instead of argparse's
+        # rejection. `HOST` has none, so a shell run and an argv-list run must fail the same way.
+        selection = select_skill(SKILLS_ROOT, None, skill_override="career-document")
+        self.assertFalse(set(selection["invoke_with"]) & set("<>|&;$`\"'\\"))
+        command = f"{sys.executable} {SCRIPT} {selection['invoke_with']}"
+        result = subprocess.run(
+            command, shell=True, text=True, encoding="utf-8", capture_output=True, check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid choice", result.stderr)
+
+    def test_hybrid_skill_invoke_with_also_carries_an_entrypoint_placeholder(self) -> None:
+        # career-maintenance is hybrid, not host_required -- but skill-open's --entrypoint still
+        # defaults to "cli". Without this hint, a host following invoke_with literally would record
+        # entrypoint: cli for a Skill invocation the host itself actually carried out.
+        selection = select_skill(SKILLS_ROOT, None, skill_override="career-maintenance")
+        self.assertEqual(
+            selection["invoke_with"], "skill-open --skill career-maintenance --entrypoint HOST",
+        )
+
+    def test_deterministic_skill_invoke_with_carries_no_entrypoint_hint(self) -> None:
+        # career-agent runs inside this CLI process itself, so --entrypoint cli's default is
+        # already true for it -- no placeholder needed.
+        selection = select_skill(SKILLS_ROOT, None, skill_override="career-agent")
+        self.assertEqual(selection["invoke_with"], "skill-open --skill career-agent")
 
 
 class SkillInvocationCliTests(unittest.TestCase):

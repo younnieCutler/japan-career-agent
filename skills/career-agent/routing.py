@@ -320,12 +320,17 @@ def select_skill(
     `proposals.run_chat()` both take this same dict, so a caller comparing the two for equality
     still sees one.
 
-    `invoke_with` for a `host_required` Skill carries a literal `<claude|codex>` placeholder
+    `invoke_with` for a `host_required` or `hybrid` Skill carries a literal `HOST` placeholder
     rather than defaulting to `--entrypoint cli`: this function has no way to know which host is
-    actually running it, and a copy-pasteable command that silently closes as `unsupported` when
-    run as-is would look like an answer instead of a broken command. `argparse` rejects the
-    placeholder outright if a caller runs it unedited, which is the point -- it forces choosing a
-    real value instead of quietly degrading.
+    actually running it, and a copy-pasteable command that silently records `entrypoint: cli` for
+    work a host actually did -- or, for `host_required`, silently closes as `unsupported` -- would
+    look like an answer instead of a broken command. `argparse` rejects the placeholder outright if
+    a caller runs it unedited, which is the point -- it forces choosing a real value instead of
+    quietly degrading. `HOST` (not `<claude|codex>`) because it carries no shell metacharacter: a
+    caller who pastes the whole command into an actual shell hits the same argparse rejection a
+    caller who passes it as an argv list does, instead of the shell redirecting or piping on `<`/`>`/
+    `|` before argparse ever runs. `deterministic` Skills get no hint -- they run inside this CLI
+    process, so `--entrypoint cli`'s default is already true for them.
     """
     context = skill_context(skills_root, stage, message, track, skill_override)
     if not context:
@@ -344,7 +349,7 @@ def select_skill(
         "execution": execution,
     }
     if context.get("available"):
-        entrypoint_hint = " --entrypoint <claude|codex>" if execution == "host_required" else ""
+        entrypoint_hint = " --entrypoint HOST" if execution in ("host_required", "hybrid") else ""
         selection["invoke_with"] = f"skill-open --skill {skill_name}{entrypoint_hint}"
     return selection
 
