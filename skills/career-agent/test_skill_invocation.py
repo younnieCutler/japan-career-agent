@@ -89,6 +89,10 @@ class SkillInvocationCliTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
+    def set_profile(self, **values: str) -> None:
+        lines = [f'{key} = {json.dumps(value, ensure_ascii=False)}' for key, value in values.items()]
+        (self.vault / "00-control" / "career-profile.toml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     def test_host_required_skill_opened_from_cli_is_unsupported_and_leaves_nothing_open(self) -> None:
         opened = output(run(self.vault, "skill-open", "--skill", "career-document"))
         self.assertEqual(opened["status"], "unsupported")
@@ -154,15 +158,18 @@ class SkillInvocationCliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(len(payload["skills"]), 13)
 
-
-class LegacyTrajectoryTests(unittest.TestCase):
-    def test_pre_gate_a_trajectory_has_no_selection_invocation_verification_keys(self) -> None:
-        legacy = {"act": {"proposal": None, "skill": "career-tanaoroshi"}}
-        self.assertNotIn("selection", legacy)
-        self.assertNotIn("invocation", legacy)
-        self.assertNotIn("verification", legacy)
-        # A reader must treat this as `legacy_selection_only`, never promote it to `completed`:
-        # there is no `started` record anywhere for this act.skill to point back to.
+    def test_chat_trajectory_gains_selection_only_not_invocation_or_verification(self) -> None:
+        # A trajectory records what select_skill() returned for the turn, never a claim that the
+        # Skill ran: skill-open takes no trajectory id and report_invocation never writes back to
+        # a trajectory, so an `invocation` or `verification` key here could only ever be a
+        # placeholder nothing writes to. Confirms neither one leaked back in.
+        self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
+        output(run(self.vault, "run", "--mode", "chat", "--message", "면접 준비해줘"))
+        trajectory = read_jsonl(self.vault / "02-state" / "trajectories.jsonl")[-1]
+        self.assertIn("selection", trajectory)
+        self.assertNotIn("invocation", trajectory)
+        self.assertNotIn("verification", trajectory)
+        self.assertEqual(trajectory["selection"], trajectory["act"]["skill"])
 
 
 if __name__ == "__main__":

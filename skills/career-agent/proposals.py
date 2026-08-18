@@ -50,17 +50,15 @@ INVENTORY_SKILL = "career-tanaoroshi"
 
 
 def _trajectory_skill_fields(selection: dict[str, Any]) -> dict[str, Any]:
-    """The three sibling keys every trajectory gains alongside the unchanged `act.skill`.
+    """The `selection` key every trajectory gains alongside the unchanged `act.skill`.
 
-    A pre-Gate-A trajectory has none of these and is read as `legacy_selection_only`, never
-    promoted to `completed` -- see PRD Skill-First §27 (migration) and AC-10 (the lifecycle a
-    genuine execution must pass through).
+    This records what `routing.select_skill()` returned for this turn -- it does not, and cannot,
+    record whether the Skill actually ran. Correlating a trajectory with the `skill-open` /
+    `skill-report` invocation it led to would need a shared id threaded across separate CLI
+    process invocations, which nothing in this runtime does yet (Gate D territory); this module
+    does not pretend otherwise with a placeholder field nothing ever writes to.
     """
-    return {
-        "selection": selection or None,
-        "invocation": None,
-        "verification": {"status": "not_attempted"},
-    }
+    return {"selection": selection or None}
 
 
 def make_work_event(

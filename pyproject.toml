@@ -73,7 +73,13 @@ only-include = [
 # The runtime's tests live beside the modules they exercise. They are part of the repository
 # contract, not of what an installed user runs; `scripts/test_pyproject_install.py` asserts they
 # stay out.
-exclude = ["test_*.py", "tests", "__pycache__"]
+# `*.code-workspace` is an editor artifact in every skill directory it appears in.
+# `skills/kigyou-bunseki/scripts/extract_url.sh` is a repo-only dev convenience: SKILL.md never
+# references it, so a host executing the SOP has no reason to call it, and it should not ship.
+exclude = [
+  "test_*.py", "tests", "__pycache__", "*.code-workspace",
+  "skills/kigyou-bunseki/scripts/extract_url.sh",
+]
 
 [tool.hatch.build.targets.wheel.sources]
 "packaging" = ""

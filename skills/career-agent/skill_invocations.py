@@ -92,51 +92,50 @@ def report_invocation(
 ) -> dict[str, Any]:
     """Close an invocation the host (or a deterministic path) actually ran.
 
-    Refuses an unknown id, refuses closing an id with no `started` record (AC-10: `selected ->
-    completed` may only happen through a `started` record an executor wrote), and refuses a second
-    terminal report on an id already closed -- a closed invocation cannot un-close itself.
+    Refuses an unknown id, and refuses a second terminal report on an id already closed -- a
+    closed invocation cannot un-close itself. `open_invocation` only ever writes a `started` row
+    or a terminal one (never anything else), so a known id with no terminal row always has a
+    `started` row to report against; there is no third case to guard against here.
+
+    The read and both guards run *inside* the lock, matching every other read-modify-write in this
+    runtime (`lifecycle.review_work_event`, `lifecycle.approve`): reading outside the lock would
+    let two concurrent `skill-report` calls for the same id -- a host retry racing the user's CLI,
+    or the GUI and CLI against one Vault -- both observe no terminal record, both pass the
+    "already closed" guard, and both append, leaving two conflicting terminal records for one
+    invocation.
     """
-    rows = _by_invocation(home).get(invocation_id)
-    if not rows:
-        raise CareerError(f"unknown skill invocation: {invocation_id}")
-    started = next((row for row in rows if row.get("status") == "started"), None)
-    already_closed = next(
-        (row for row in rows if row.get("status") in SKILL_INVOCATION_TERMINAL_STATUSES), None,
-    )
-    if already_closed is not None:
-        raise CareerError(
-            f"skill invocation {invocation_id} is already closed with status "
-            f"{already_closed['status']!r}"
-        )
-    if started is None:
-        raise CareerError(
-            f"skill invocation {invocation_id} has no 'started' record to report against"
-        )
-    record = {
-        "invocation_id": invocation_id,
-        "skill": started["skill"],
-        "execution": started["execution"],
-        "entrypoint": started["entrypoint"],
-        "status": status,
-        "artifacts": list(artifacts or []),
-        "evidence_used": list(evidence_used or []),
-        "tools_used": list(tools_used or []),
-        "error": error,
-        "created_at": utc_now(),
-    }
-    validate_skill_result(record, terminal=True)
     with vault_lock(home):
+        rows = _by_invocation(home).get(invocation_id)
+        if not rows:
+            raise CareerError(f"unknown skill invocation: {invocation_id}")
+        already_closed = next(
+            (row for row in rows if row.get("status") in SKILL_INVOCATION_TERMINAL_STATUSES), None,
+        )
+        if already_closed is not None:
+            raise CareerError(
+                f"skill invocation {invocation_id} is already closed with status "
+                f"{already_closed['status']!r}"
+            )
+        started = next(row for row in rows if row.get("status") == "started")
+        record = {
+            "invocation_id": invocation_id,
+            "skill": started["skill"],
+            "execution": started["execution"],
+            "entrypoint": started["entrypoint"],
+            "status": status,
+            "artifacts": list(artifacts or []),
+            "evidence_used": list(evidence_used or []),
+            "tools_used": list(tools_used or []),
+            "error": error,
+            "created_at": utc_now(),
+        }
+        validate_skill_result(record, terminal=True)
         append_jsonl(home.invocations, record)
-    return record
+        return record
 
 
-def open_invocations(home: CareerVault, *, as_of: str | None = None) -> list[dict[str, Any]]:
-    """Every invocation with a `started` record and no terminal record, oldest first.
-
-    `as_of` is accepted for the same reason every other reader in this runtime takes it -- a
-    reproducible view for tests and for `doctor` -- but the returned `started_at` is what callers
-    actually use to compute an age; this does not filter by it.
-    """
+def open_invocations(home: CareerVault) -> list[dict[str, Any]]:
+    """Every invocation with a `started` record and no terminal record, oldest-`created_at` first."""
     open_rows: list[dict[str, Any]] = []
     for invocation_id, rows in _by_invocation(home).items():
         if any(row.get("status") in SKILL_INVOCATION_TERMINAL_STATUSES for row in rows):

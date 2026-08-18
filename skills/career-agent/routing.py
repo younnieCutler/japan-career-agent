@@ -313,21 +313,31 @@ def select_skill(
     resolution are exactly what they were -- and adds the fields that make the difference between
     "selected" and "run" legible to a caller: `status`, `invocation` (always `None` here, because
     selecting a Skill is not calling it), `execution` (whether the Skill can even run without a
-    host), and `invoke_with` (the `skill-open` command that actually starts one). A selection is a
-    plan, not a promise it happened. `act.skill` and `result["skill"]` in `proposals.run_chat()`
-    both take this same dict, so a caller comparing the two for equality still sees one.
+    host), and `invoke_with` (the `skill-open` command that actually starts one, omitted when the
+    Skill has no SKILL.md on disk right now -- `skill-open` would only fail with "unknown skill"
+    for it, via the same `skill_registry.discover()` that skips directories with no SKILL.md).
+    A selection is a plan, not a promise it happened. `act.skill` and `result["skill"]` in
+    `proposals.run_chat()` both take this same dict, so a caller comparing the two for equality
+    still sees one.
     """
     context = skill_context(skills_root, stage, message, track, skill_override)
     if not context:
         return context
     skill_name = context["skill"]
-    return {
+    if skill_name not in SKILL_EXECUTION:
+        # `skill_registry.discover()` raises on exactly this gap; a lookup here that silently
+        # returned `execution: None` for the same missing entry would just move the failure
+        # somewhere quieter.
+        raise CareerError(f"skill '{skill_name}' has no entry in models.SKILL_EXECUTION")
+    selection = {
         **context,
         "status": "selected",
         "invocation": None,
-        "execution": SKILL_EXECUTION.get(skill_name),
-        "invoke_with": f"skill-open --skill {skill_name}",
+        "execution": SKILL_EXECUTION[skill_name],
     }
+    if context.get("available"):
+        selection["invoke_with"] = f"skill-open --skill {skill_name}"
+    return selection
 
 
 def load_flow_reference() -> dict[str, Any]:
