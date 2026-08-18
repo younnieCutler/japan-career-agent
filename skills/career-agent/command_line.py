@@ -26,6 +26,7 @@ from models import (
     FACT_CATEGORIES,
     PROFILE_AXES,
     PROJECT_STATUSES,
+    SKILL_INVOCATION_TERMINAL_STATUSES,
     TRACKS,
 )
 from private_store import DOCUMENT_TYPES, PRIVATE_ENV
@@ -363,6 +364,48 @@ def build_parser() -> argparse.ArgumentParser:
         help="replace the payload instead of merging, e.g. to clear a field back to Unknown",
     )
     add_output_format(review_parser)
+    skills_parser = subparsers.add_parser(
+        "skills",
+        help="every installed domain Skill and whether it can run without a host; reads nothing from a Vault",
+    )
+    add_output_format(skills_parser)
+    skill_open_parser = subparsers.add_parser(
+        "skill-open",
+        help="open a Skill invocation before its SOP runs; the host closes it with skill-report",
+    )
+    add_vault_argument(skill_open_parser)
+    skill_open_parser.add_argument("--skill", required=True, help="a Skill named in `skills`")
+    skill_open_parser.add_argument(
+        "--entrypoint", choices=sorted(SESSION_ENTRYPOINTS - {"unknown"}), default="cli",
+        help="who is opening this invocation; a host-required Skill opened from cli or gui closes "
+             "immediately as unsupported rather than left running with nothing to close it",
+    )
+    skill_open_parser.add_argument("--reason", help="why this Skill was selected")
+    skill_open_parser.add_argument("--goal", help="the task this invocation is meant to accomplish")
+    add_output_format(skill_open_parser)
+    skill_report_parser = subparsers.add_parser(
+        "skill-report",
+        help="close a Skill invocation opened by skill-open with what actually happened",
+    )
+    add_vault_argument(skill_report_parser)
+    skill_report_parser.add_argument("invocation_id")
+    skill_report_parser.add_argument(
+        "--status", required=True, choices=sorted(SKILL_INVOCATION_TERMINAL_STATUSES),
+    )
+    skill_report_parser.add_argument(
+        "--artifact", dest="artifacts", action="append", default=None,
+        help="a file or reference the Skill produced; repeat for several",
+    )
+    skill_report_parser.add_argument(
+        "--evidence", dest="evidence_used", action="append", default=None,
+        help="evidence the Skill drew on; repeat for several",
+    )
+    skill_report_parser.add_argument(
+        "--tool", dest="tools_used", action="append", default=None,
+        help="a tool or command the Skill used; repeat for several",
+    )
+    skill_report_parser.add_argument("--error", help="what went wrong, for blocked or failed")
+    add_output_format(skill_report_parser)
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)
     add_workspace_argument(status_parser)

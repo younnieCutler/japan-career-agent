@@ -215,6 +215,11 @@ class CareerVault:
         self.trajectories = self.state_dir / "trajectories.jsonl"
         self.proposals = self.state_dir / "proposals.jsonl"
         self.postings = self.state_dir / "postings.jsonl"
+        # Runtime telemetry for whether a selected Skill was actually invoked, not a career fact --
+        # never routed through the approval gate the way `events.jsonl` is. Append-only for the same
+        # reason every other ledger here is: two records per invocation (a `started` one and one
+        # terminal one referencing it), never a rewrite of either.
+        self.invocations = self.state_dir / "invocations.jsonl"
         self.state = self.runtime / "state.json"
         self.vault_index = self.runtime / "vault-index.jsonl"
         self.versions = self.runtime / "versions"

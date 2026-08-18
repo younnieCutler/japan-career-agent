@@ -36,6 +36,7 @@ from projection import (  # noqa: E402
     work_event_project_ids,
     workspace_path,
 )
+from skill_invocations import open_invocations  # noqa: E402
 from validation import iso_date  # noqa: E402
 from vault import CareerVault, utc_now  # noqa: E402
 
@@ -428,4 +429,7 @@ def status(home: CareerVault, workspace: str | Path | None = None) -> dict[str, 
         "pending_kind": pending_kind,
         "posting_count": len(read_jsonl(home.postings)),
         "workspace": workspace_summary(workspace),
+        # Detected, not prevented: nothing here can force a host to call skill-report, only
+        # surface that one was opened and never closed.
+        "open_skill_invocations": open_invocations(home),
     }

@@ -46,6 +46,7 @@ CHECKS = (
     ("career-agent guided frontend", (PYTHON, "skills/career-agent/test_guided.py")),
     ("career-agent localization", (PYTHON, "skills/career-agent/test_localization.py")),
     ("career-agent domain vocabulary", (PYTHON, "skills/career-agent/test_domain_vocabulary.py")),
+    ("career-agent skill invocation", (PYTHON, "skills/career-agent/test_skill_invocation.py")),
     ("career-agent UX regression eval", (PYTHON, "skills/career-agent/test_ux_regression_eval.py")),
     ("Career Agent P1 workflows", (PYTHON, "scripts/test_workflows.py")),
     ("career-agent boundary imports", (PYTHON, "skills/career-agent/test_boundary_imports.py")),

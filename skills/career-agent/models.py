@@ -353,6 +353,43 @@ REQUIRED_EVENT_FIELDS = (
     "status",
 )
 
+# One entry per `skills/*/` directory, exhaustively. `skill_registry.discover()` raises rather than
+# defaulting when a directory is missing here, because a silent default is exactly how a
+# host-required skill (one whose SOP needs an LLM to execute at all) would get graded deterministic.
+#
+# `deterministic`: the runtime itself, or a skill whose actual capture path is a plain CLI command
+# with no LLM step. `hybrid`: has both a deterministic CLI path and a conversational one.
+# `host_required`: the SKILL.md is the SOP; nothing here can run it without a host.
+SKILL_EXECUTION = {
+    "career-agent": "deterministic",
+    "career-document": "host_required",
+    "career-maintenance": "hybrid",
+    "career-tanaoroshi": "host_required",
+    "company-battlecard": "host_required",
+    "hiring-manager-agent": "host_required",
+    "humanize-japanese-career": "host_required",
+    "jiko-bunseki": "host_required",
+    "job-seeker-agent": "host_required",
+    "kigyou-bunseki": "host_required",
+    "matching-simulator": "host_required",
+    "mock-interviewer": "host_required",
+    "tenshoku-strategy": "host_required",
+}
+
+SKILL_INVOCATION_STATUSES = frozenset({
+    "selected",
+    "started",
+    "completed",
+    "blocked",
+    "failed",
+    "needs_input",
+    "needs_approval",
+    "unsupported",
+})
+# Every status except the two that mean "not finished yet". A terminal status is what
+# skill-report is allowed to write; skill-open only ever writes "started" or "unsupported".
+SKILL_INVOCATION_TERMINAL_STATUSES = SKILL_INVOCATION_STATUSES - {"selected", "started"}
+
 
 class CareerError(ValueError):
     """A user-correctable Career Agent contract or lifecycle error.

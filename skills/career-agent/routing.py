@@ -11,6 +11,7 @@ from models import (
     REFERENCE_BY_STAGE,
     SHINSOTSU_STAGES,
     SKILL_BY_STAGE,
+    SKILL_EXECUTION,
     TRACKS,
     CareerError,
 )
@@ -296,6 +297,36 @@ def skill_context(
         "path": str(skill_path),
         "description": description,
         "references": references,
+    }
+
+
+def select_skill(
+    skills_root: Path,
+    stage: str | None,
+    message: str | None = None,
+    track: str | None = None,
+    skill_override: str | None = None,
+) -> dict[str, Any]:
+    """The Skill this turn would use, with a status that says so is all this claims.
+
+    This wraps `skill_context()` unchanged -- the discovery, the description parse, the reference
+    resolution are exactly what they were -- and adds the fields that make the difference between
+    "selected" and "run" legible to a caller: `status`, `invocation` (always `None` here, because
+    selecting a Skill is not calling it), `execution` (whether the Skill can even run without a
+    host), and `invoke_with` (the `skill-open` command that actually starts one). A selection is a
+    plan, not a promise it happened. `act.skill` and `result["skill"]` in `proposals.run_chat()`
+    both take this same dict, so a caller comparing the two for equality still sees one.
+    """
+    context = skill_context(skills_root, stage, message, track, skill_override)
+    if not context:
+        return context
+    skill_name = context["skill"]
+    return {
+        **context,
+        "status": "selected",
+        "invocation": None,
+        "execution": SKILL_EXECUTION.get(skill_name),
+        "invoke_with": f"skill-open --skill {skill_name}",
     }
 
 

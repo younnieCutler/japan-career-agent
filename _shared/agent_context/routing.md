@@ -52,3 +52,25 @@ artifacts and are sequential, not interchangeable.
 `job-seeker-agent` loads only the requested reference: 職務経歴書/自己PR →
 `shokumukeireki-saigensei.md`, ATS → `ats-keywords.md`, 志望動機 → `shibo-doki.md`, interview →
 `mensetsu-rounds.md`, 新卒 → `shinsotsu.md`, 中途 segment → `segments.md`, platform → `platforms.md`.
+
+## Skill invocation handoff
+
+The table above says which Skill to route to; it does not, by itself, prove the Skill ran. This
+runtime cannot call the host back, so it cannot execute a Skill's SOP and hand back a result the
+way a normal function call would. A host that reads a Skill's SOP and carries it out must close the
+loop itself:
+
+1. Run `career-agent skill-open --skill <name> --entrypoint claude` before starting the SOP. A
+   `host_required` Skill returns `status: "started"` here — a `deterministic` or `hybrid` one may
+   already be runnable through its own CLI command instead.
+2. Carry out the SOP: read the SKILL.md, load only the reference the routing table names, do the
+   work.
+3. Run `career-agent skill-report <invocation_id> --status completed --artifact <path>` (or
+   `blocked` / `failed` / `needs_input` / `needs_approval`, with `--error` describing what
+   happened) when done. `career-agent skills` lists every Skill's execution class first, if that is
+   unclear.
+
+An invocation nobody reports stays open and surfaces as a warning in `status` and `doctor` — this
+is a detection, not a guarantee. Skipping `skill-open`/`skill-report` does not stop a host from
+answering; it only means nothing recorded that the answer came from actually running the Skill,
+which is the distinction the invocation lifecycle exists to make legible.

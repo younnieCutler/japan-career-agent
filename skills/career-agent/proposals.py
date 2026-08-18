@@ -31,7 +31,7 @@ from routing import (  # noqa: E402
     maintenance_intent,
     opportunity_review_intent,
     review_closed_intent,
-    skill_context,
+    select_skill,
     stage_for,
     tanaoroshi_intent,
     transition_intent,
@@ -47,6 +47,20 @@ def approval_action_for(message: str) -> str:
 
 MAINTENANCE_SKILL = "career-maintenance"
 INVENTORY_SKILL = "career-tanaoroshi"
+
+
+def _trajectory_skill_fields(selection: dict[str, Any]) -> dict[str, Any]:
+    """The three sibling keys every trajectory gains alongside the unchanged `act.skill`.
+
+    A pre-Gate-A trajectory has none of these and is read as `legacy_selection_only`, never
+    promoted to `completed` -- see PRD Skill-First §27 (migration) and AC-10 (the lifecycle a
+    genuine execution must pass through).
+    """
+    return {
+        "selection": selection or None,
+        "invocation": None,
+        "verification": {"status": "not_attempted"},
+    }
 
 
 def make_work_event(
@@ -250,6 +264,7 @@ def _start_inventory(
     mid-career", and that second question has no bearing on the first.
     """
     language = language_for(message)
+    selection = select_skill(skills_root, None, skill_override=INVENTORY_SKILL)
     trajectory = {
         "id": f"traj-{uuid.uuid4().hex[:12]}",
         "created_at": utc_now(),
@@ -267,6 +282,7 @@ def _start_inventory(
             "moves_career_mode": False,
         },
         "act": {"proposal": None, "skill": INVENTORY_SKILL},
+        **_trajectory_skill_fields(selection),
         "verify": {"route_resolved": False, "external_side_effect": False},
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
         "persist": {"trajectory_only": True},
@@ -279,7 +295,7 @@ def _start_inventory(
         "stage": None,
         "flow_phase": None,
         "career_mode": state.get("career_mode"),
-        "skill": skill_context(skills_root, None, skill_override=INVENTORY_SKILL),
+        "skill": selection,
         "context": [],
         "personal_context": [],
         "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
@@ -311,6 +327,7 @@ def _propose_work_event(
     """
     event = make_work_event(message, non_work=non_work)
     language = language_for(message)
+    selection = select_skill(skills_root, None, skill_override=MAINTENANCE_SKILL)
     proposal = {
         "id": f"proposal-{uuid.uuid4().hex[:12]}",
         "kind": "event",
@@ -333,6 +350,7 @@ def _propose_work_event(
         },
         "plan": {"goal": "capture a work event as reusable career evidence", "moves_career_mode": False},
         "act": {"proposal_id": proposal["id"], "skill": MAINTENANCE_SKILL},
+        **_trajectory_skill_fields(selection),
         "verify": {"event_schema": "valid", "route_resolved": False, "external_side_effect": False},
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
         "persist": {"proposal_id": proposal["id"]},
@@ -349,7 +367,7 @@ def _propose_work_event(
         # The mode the user is already in, not a claim that this turn set it. Recording work does
         # not move the mode, so reporting "maintenance" here would be wrong for anyone mid-search.
         "career_mode": state.get("career_mode"),
-        "skill": skill_context(skills_root, None, skill_override=MAINTENANCE_SKILL),
+        "skill": selection,
         "context": [],
         "personal_context": select_personal_context(recent_events, None, str(event["occurred_at"])[:10]),
         "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
@@ -485,7 +503,7 @@ def run_chat(
     personal = select_personal_context(read_jsonl(home.events), stage, as_of)
     event = make_event(message, track, stage, flow_phase)
     approval_action = approval_action_for(message)
-    selected_skill = skill_context(skills_root, stage, message, track)
+    selection = select_skill(skills_root, stage, message, track)
     proposal = {
         "id": f"proposal-{uuid.uuid4().hex[:12]}",
         "kind": "event",
@@ -500,7 +518,8 @@ def run_chat(
         "mode": "chat",
         "observe": {"track": state.get("track"), "stage": state.get("stage"), "deadlines": state.get("deadlines", []), "recent_events": recent_events, "message": message, "data_trust": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"},
         "plan": {"track": track, "stage": stage, "flow_phase": flow_phase, "goal": "route and propose a grounded event", "next_action": approval_action},
-        "act": {"proposal_id": proposal["id"], "skill": selected_skill, "context_count": len(context), "personal_fact_count": len(personal["facts"])},
+        "act": {"proposal_id": proposal["id"], "skill": selection, "context_count": len(context), "personal_fact_count": len(personal["facts"])},
+        **_trajectory_skill_fields(selection),
         "verify": {"event_schema": "valid", "context_is_metadata_only": True, "external_side_effect": False},
         "correct": {"retry_count": 0, "needs_user_confirmation": True},
         "persist": {"proposal_id": proposal["id"]},
@@ -510,7 +529,7 @@ def run_chat(
         home.append_trajectory(trajectory)
     # The signal, not the write. Reaching a real domain task is what ends onboarding, but the
     # profile belongs to the runtime orchestration layer, so this module only reports it.
-    result = {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": selected_skill, "context": context, "personal_context": personal, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
+    result = {"mode": "chat", "language": language_for(message), "track": track, "stage": stage, "flow_phase": flow_phase, "skill": selection, "context": context, "personal_context": personal, "context_trust": {"data": UNTRUSTED_DATA_MARKER, "instruction_authority": "none"}, "proposal": proposal, "saved": str(home.proposals)}
     if onboarding:
         result["onboarding_completed"] = True
     return result

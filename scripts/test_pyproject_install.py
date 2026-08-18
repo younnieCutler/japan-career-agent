@@ -42,6 +42,19 @@ REQUIRED_MEMBERS = (
     f"{PACKAGE_NAME}/skills/career-agent/gui/static/app/app.css",
     f"{PACKAGE_NAME}/skills/career-agent/sessions.py",
 )
+# Skill-First Gate C: every domain Skill's SKILL.md must ship, or `skill-open` for it in an
+# installed CLI would name a Skill with nothing on disk to point a host at. Kept as a literal
+# list, not a glob over the repository, so a Skill directory added without a `pyproject.toml`
+# update fails this check instead of shipping silently.
+REQUIRED_SKILL_MANIFESTS = tuple(
+    f"{PACKAGE_NAME}/skills/{name}/SKILL.md"
+    for name in (
+        "career-agent", "career-document", "career-maintenance", "career-tanaoroshi",
+        "company-battlecard", "hiring-manager-agent", "humanize-japanese-career",
+        "jiko-bunseki", "job-seeker-agent", "kigyou-bunseki", "matching-simulator",
+        "mock-interviewer", "tenshoku-strategy",
+    )
+)
 
 
 def _venv_bin(venv: Path) -> Path:
@@ -94,6 +107,9 @@ def check_contents(wheel: Path) -> None:
     missing = [member for member in REQUIRED_MEMBERS if member not in names]
     if missing:
         raise RuntimeError(f"wheel is missing runtime files: {missing}")
+    missing_skills = [member for member in REQUIRED_SKILL_MANIFESTS if member not in names]
+    if missing_skills:
+        raise RuntimeError(f"wheel is missing domain Skill manifests: {missing_skills}")
     # Tests and caches are repository artefacts. Shipping them would also mean a stray
     # `__pycache__` from a local run could travel into a published artefact.
     stowaways = sorted(
