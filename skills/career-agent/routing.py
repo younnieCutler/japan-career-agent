@@ -319,6 +319,13 @@ def select_skill(
     A selection is a plan, not a promise it happened. `act.skill` and `result["skill"]` in
     `proposals.run_chat()` both take this same dict, so a caller comparing the two for equality
     still sees one.
+
+    `invoke_with` for a `host_required` Skill carries a literal `<claude|codex>` placeholder
+    rather than defaulting to `--entrypoint cli`: this function has no way to know which host is
+    actually running it, and a copy-pasteable command that silently closes as `unsupported` when
+    run as-is would look like an answer instead of a broken command. `argparse` rejects the
+    placeholder outright if a caller runs it unedited, which is the point -- it forces choosing a
+    real value instead of quietly degrading.
     """
     context = skill_context(skills_root, stage, message, track, skill_override)
     if not context:
@@ -329,14 +336,16 @@ def select_skill(
         # returned `execution: None` for the same missing entry would just move the failure
         # somewhere quieter.
         raise CareerError(f"skill '{skill_name}' has no entry in models.SKILL_EXECUTION")
+    execution = SKILL_EXECUTION[skill_name]
     selection = {
         **context,
         "status": "selected",
         "invocation": None,
-        "execution": SKILL_EXECUTION[skill_name],
+        "execution": execution,
     }
     if context.get("available"):
-        selection["invoke_with"] = f"skill-open --skill {skill_name}"
+        entrypoint_hint = " --entrypoint <claude|codex>" if execution == "host_required" else ""
+        selection["invoke_with"] = f"skill-open --skill {skill_name}{entrypoint_hint}"
     return selection
 
 

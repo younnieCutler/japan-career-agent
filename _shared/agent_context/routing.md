@@ -65,12 +65,24 @@ loop itself:
    already be runnable through its own CLI command instead.
 2. Carry out the SOP: read the SKILL.md, load only the reference the routing table names, do the
    work.
-3. Run `career-agent skill-report <invocation_id> --status completed --artifact <path>` (or
-   `blocked` / `failed` / `needs_input` / `needs_approval`, with `--error` describing what
-   happened) when done. `career-agent skills` lists every Skill's execution class first, if that is
-   unclear.
+3. Run `career-agent skill-report <invocation_id> --status completed --summary "<what happened>"
+   --artifact <path>` (or `blocked` / `failed` / `needs_input` / `needs_approval`, with `--error`
+   describing what went wrong) when done. `--summary` is required for `completed` /
+   `needs_input` / `needs_approval`, and `--error` is required for `failed` / `blocked` /
+   `unsupported` — a status this runtime cannot verify still has to carry evidence it means
+   something, or `completed` with nothing behind it would be as empty a claim as `selected` was
+   before this lifecycle existed. `career-agent skills` lists every Skill's execution class first,
+   if that is unclear.
 
 An invocation nobody reports stays open and surfaces as a warning in `status` and `doctor` — this
 is a detection, not a guarantee. Skipping `skill-open`/`skill-report` does not stop a host from
-answering; it only means nothing recorded that the answer came from actually running the Skill,
-which is the distinction the invocation lifecycle exists to make legible.
+answering; it only means nothing recorded that the answer came from actually running the Skill.
+This is why the same obligation is also stated in `AGENTS.md` (Tier 0, always loaded) rather than
+only here: a lazy reference a caller never opens cannot be the sole place an execution invariant
+lives.
+
+`--entrypoint` is declared by the caller, not detected by this runtime — there is no mechanism here
+that verifies a process claiming `--entrypoint claude` is actually Claude. Treat `entrypoint` as the
+caller's own attestation of which host is running the SOP, not as a cryptographic guarantee. For a
+local-first, single-operator tool this matches every other user-supplied field's trust boundary;
+it stops meaning that the moment more than one party can write to a shared Vault.

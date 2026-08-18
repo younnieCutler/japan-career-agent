@@ -569,3 +569,23 @@ def validate_skill_result(result: Any, *, terminal: bool) -> None:
         value = result.get(field, [])
         if not isinstance(value, list):
             raise CareerError(f"skill_invocation.{field} must be a list")
+    if terminal:
+        # A terminal status is a claim about what happened, and an empty one is indistinguishable
+        # from a host that reported `completed` without doing anything: `selected != completed`
+        # only means something if `completed` itself carries evidence it happened.
+        if status == "completed":
+            if result.get("error") is not None:
+                raise CareerError("a completed skill_invocation must not carry an error")
+            summary = result.get("summary")
+            if not isinstance(summary, str) or not summary.strip():
+                raise CareerError("a completed skill_invocation requires a non-empty summary")
+        elif status in {"failed", "blocked", "unsupported"}:
+            error = result.get("error")
+            if not isinstance(error, str) or not error.strip():
+                raise CareerError(f"a {status} skill_invocation requires a non-empty error")
+        elif status in {"needs_input", "needs_approval"}:
+            summary = result.get("summary")
+            if not isinstance(summary, str) or not summary.strip():
+                raise CareerError(
+                    f"a {status} skill_invocation requires a non-empty summary of what is needed"
+                )

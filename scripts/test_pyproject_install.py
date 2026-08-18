@@ -46,14 +46,14 @@ REQUIRED_MEMBERS = (
 # installed CLI would name a Skill with nothing on disk to point a host at. Kept as a literal
 # list, not a glob over the repository, so a Skill directory added without a `pyproject.toml`
 # update fails this check instead of shipping silently.
+PACKAGED_SKILL_NAMES = (
+    "career-agent", "career-document", "career-maintenance", "career-tanaoroshi",
+    "company-battlecard", "hiring-manager-agent", "humanize-japanese-career",
+    "jiko-bunseki", "job-seeker-agent", "kigyou-bunseki", "matching-simulator",
+    "mock-interviewer", "tenshoku-strategy",
+)
 REQUIRED_SKILL_MANIFESTS = tuple(
-    f"{PACKAGE_NAME}/skills/{name}/SKILL.md"
-    for name in (
-        "career-agent", "career-document", "career-maintenance", "career-tanaoroshi",
-        "company-battlecard", "hiring-manager-agent", "humanize-japanese-career",
-        "jiko-bunseki", "job-seeker-agent", "kigyou-bunseki", "matching-simulator",
-        "mock-interviewer", "tenshoku-strategy",
-    )
+    f"{PACKAGE_NAME}/skills/{name}/SKILL.md" for name in PACKAGED_SKILL_NAMES
 )
 
 
@@ -110,6 +110,22 @@ def check_contents(wheel: Path) -> None:
     missing_skills = [member for member in REQUIRED_SKILL_MANIFESTS if member not in names]
     if missing_skills:
         raise RuntimeError(f"wheel is missing domain Skill manifests: {missing_skills}")
+    # A shipped SKILL.md that references a missing file is a broken prompt a host cannot follow.
+    # This walks the repository's own references/ trees rather than trusting a fixed list, so a
+    # reference added to a Skill without a packaging change fails this check instead of shipping
+    # a SKILL.md whose links 404 inside the installed wheel.
+    missing_references = []
+    for name in PACKAGED_SKILL_NAMES:
+        references_dir = ROOT / "skills" / name / "references"
+        if not references_dir.is_dir():
+            continue
+        for path in references_dir.rglob("*"):
+            if path.is_file():
+                member = f"{PACKAGE_NAME}/skills/{name}/references/{path.relative_to(references_dir).as_posix()}"
+                if member not in names:
+                    missing_references.append(member)
+    if missing_references:
+        raise RuntimeError(f"wheel is missing Skill reference files: {missing_references}")
     # Tests and caches are repository artefacts. Shipping them would also mean a stray
     # `__pycache__` from a local run could travel into a published artefact.
     stowaways = sorted(

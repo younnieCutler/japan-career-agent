@@ -393,6 +393,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--status", required=True, choices=sorted(SKILL_INVOCATION_TERMINAL_STATUSES),
     )
     skill_report_parser.add_argument(
+        "--summary",
+        help="what happened; required for completed/needs_input/needs_approval so a status this "
+             "runtime cannot verify still carries evidence it means something",
+    )
+    skill_report_parser.add_argument(
         "--artifact", dest="artifacts", action="append", default=None,
         help="a file or reference the Skill produced; repeat for several",
     )

@@ -79,6 +79,20 @@ class SelectionTests(unittest.TestCase):
         selection = select_skill(SKILLS_ROOT, None, skill_override="career-maintenance")
         self.assertEqual(selection["invoke_with"], "skill-open --skill career-maintenance")
 
+    def test_host_required_invoke_with_carries_an_entrypoint_placeholder(self) -> None:
+        # career-document is host_required. A caller running invoke_with unedited must not get a
+        # silent "unsupported" that reads as an answer -- it must fail loudly on the placeholder.
+        selection = select_skill(SKILLS_ROOT, None, skill_override="career-document")
+        self.assertEqual(
+            selection["invoke_with"], "skill-open --skill career-document --entrypoint <claude|codex>",
+        )
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT)] + selection["invoke_with"].split(),
+            text=True, encoding="utf-8", capture_output=True, check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid choice", result.stderr)
+
 
 class SkillInvocationCliTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -128,10 +142,30 @@ class SkillInvocationCliTests(unittest.TestCase):
             self.vault, "skill-open", "--skill", "career-document", "--entrypoint", "claude",
         ))
         invocation_id = opened["invocation_id"]
-        output(run(self.vault, "skill-report", invocation_id, "--status", "completed"))
-        failed = run(self.vault, "skill-report", invocation_id, "--status", "failed")
+        output(run(
+            self.vault, "skill-report", invocation_id, "--status", "completed",
+            "--summary", "generated the 職務経歴書",
+        ))
+        failed = run(self.vault, "skill-report", invocation_id, "--status", "failed", "--error", "retry")
         self.assertEqual(failed.returncode, 2)
         self.assertIn("already closed", failed.stderr)
+
+    def test_completed_report_without_summary_is_refused(self) -> None:
+        # completed != selected only means something if completed carries evidence it happened.
+        opened = output(run(
+            self.vault, "skill-open", "--skill", "career-document", "--entrypoint", "claude",
+        ))
+        failed = run(self.vault, "skill-report", opened["invocation_id"], "--status", "completed")
+        self.assertEqual(failed.returncode, 2)
+        self.assertIn("non-empty summary", failed.stderr)
+
+    def test_failed_report_without_error_is_refused(self) -> None:
+        opened = output(run(
+            self.vault, "skill-open", "--skill", "career-document", "--entrypoint", "claude",
+        ))
+        failed = run(self.vault, "skill-report", opened["invocation_id"], "--status", "failed")
+        self.assertEqual(failed.returncode, 2)
+        self.assertIn("non-empty error", failed.stderr)
 
     def test_reported_invocation_closes_and_leaves_status_empty(self) -> None:
         opened = output(run(
@@ -139,7 +173,7 @@ class SkillInvocationCliTests(unittest.TestCase):
         ))
         output(run(
             self.vault, "skill-report", opened["invocation_id"], "--status", "completed",
-            "--artifact", "career-docs/shokumu.html",
+            "--summary", "generated the 職務経歴書", "--artifact", "career-docs/shokumu.html",
         ))
         status_result = output(run(self.vault, "status"))
         self.assertEqual(status_result["open_skill_invocations"], [])

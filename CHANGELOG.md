@@ -14,8 +14,15 @@
   closes an invocation with what actually happened, and refuses to close one twice or one with no
   `started` record. An invocation nobody reports stays open and is surfaced by `status` and
   `doctor` — detected, never prevented, and `doctor` still exits 0 on the finding. All thirteen
-  domain Skill manifests now ship in the wheel and sdist, not just `career-agent` and
-  `jiko-bunseki`, so an installed CLI can actually discover what `skills` lists.
+  domain Skill manifests (and every file under each one's `references/`) now ship in the wheel and
+  sdist, not just `career-agent` and `jiko-bunseki`, so an installed CLI can actually discover what
+  `skills` lists. `skill-report --status completed` now requires `--summary`
+  (`needs_input`/`needs_approval` too), and `failed`/`blocked`/`unsupported` require `--error`, so
+  a terminal status carries some evidence of what happened rather than closing on an empty claim.
+  The `skill-open → SOP → skill-report` handoff is now a Tier 0 `AGENTS.md` invariant, not only a
+  Tier 1 lazy reference a host might never load; `select_skill()`'s `invoke_with` no longer emits a
+  copy-pasteable command that silently closes `host_required` Skills as `unsupported` when run
+  as-is — it carries an `--entrypoint <claude|codex>` placeholder that fails loudly instead.
 
 ## [2.11.9] - 2026-08-16
 

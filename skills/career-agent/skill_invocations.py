@@ -85,6 +85,7 @@ def report_invocation(
     invocation_id: str,
     *,
     status: str,
+    summary: str | None = None,
     artifacts: list[str] | None = None,
     evidence_used: list[str] | None = None,
     tools_used: list[str] | None = None,
@@ -103,6 +104,11 @@ def report_invocation(
     or the GUI and CLI against one Vault -- both observe no terminal record, both pass the
     "already closed" guard, and both append, leaving two conflicting terminal records for one
     invocation.
+
+    `validate_skill_result` requires `summary` for `completed`/`needs_input`/`needs_approval` and
+    `error` for `failed`/`blocked`/`unsupported`, so a `completed` report with nothing behind it
+    (no artifact, no evidence, no summary) is refused here rather than accepted as indistinguishable
+    from one that did something.
     """
     with vault_lock(home):
         rows = _by_invocation(home).get(invocation_id)
@@ -123,6 +129,7 @@ def report_invocation(
             "execution": started["execution"],
             "entrypoint": started["entrypoint"],
             "status": status,
+            "summary": summary,
             "artifacts": list(artifacts or []),
             "evidence_used": list(evidence_used or []),
             "tools_used": list(tools_used or []),

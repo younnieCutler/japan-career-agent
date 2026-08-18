@@ -416,7 +416,7 @@ def _run_vault_command(
         )
     if args.command == "skill-report":
         return report_invocation(
-            home, args.invocation_id, status=args.status,
+            home, args.invocation_id, status=args.status, summary=args.summary,
             artifacts=args.artifacts, evidence_used=args.evidence_used,
             tools_used=args.tools_used, error=args.error,
         )
