@@ -11,6 +11,7 @@ from models import (
     REFERENCE_BY_STAGE,
     SHINSOTSU_STAGES,
     SKILL_BY_STAGE,
+    SKILL_EXECUTION,
     TRACKS,
     CareerError,
 )
@@ -297,6 +298,60 @@ def skill_context(
         "description": description,
         "references": references,
     }
+
+
+def select_skill(
+    skills_root: Path,
+    stage: str | None,
+    message: str | None = None,
+    track: str | None = None,
+    skill_override: str | None = None,
+) -> dict[str, Any]:
+    """The Skill this turn would use, with a status that says so is all this claims.
+
+    This wraps `skill_context()` unchanged -- the discovery, the description parse, the reference
+    resolution are exactly what they were -- and adds the fields that make the difference between
+    "selected" and "run" legible to a caller: `status`, `invocation` (always `None` here, because
+    selecting a Skill is not calling it), `execution` (whether the Skill can even run without a
+    host), and `invoke_with` (the `skill-open` command that actually starts one, omitted when the
+    Skill has no SKILL.md on disk right now -- `skill-open` would only fail with "unknown skill"
+    for it, via the same `skill_registry.discover()` that skips directories with no SKILL.md).
+    A selection is a plan, not a promise it happened. `act.skill` and `result["skill"]` in
+    `proposals.run_chat()` both take this same dict, so a caller comparing the two for equality
+    still sees one.
+
+    `invoke_with` for a `host_required` or `hybrid` Skill carries a literal `HOST` placeholder
+    rather than defaulting to `--entrypoint cli`: this function has no way to know which host is
+    actually running it, and a copy-pasteable command that silently records `entrypoint: cli` for
+    work a host actually did -- or, for `host_required`, silently closes as `unsupported` -- would
+    look like an answer instead of a broken command. `argparse` rejects the placeholder outright if
+    a caller runs it unedited, which is the point -- it forces choosing a real value instead of
+    quietly degrading. `HOST` (not `<claude|codex>`) because it carries no shell metacharacter: a
+    caller who pastes the whole command into an actual shell hits the same argparse rejection a
+    caller who passes it as an argv list does, instead of the shell redirecting or piping on `<`/`>`/
+    `|` before argparse ever runs. `deterministic` Skills get no hint -- they run inside this CLI
+    process, so `--entrypoint cli`'s default is already true for them.
+    """
+    context = skill_context(skills_root, stage, message, track, skill_override)
+    if not context:
+        return context
+    skill_name = context["skill"]
+    if skill_name not in SKILL_EXECUTION:
+        # `skill_registry.discover()` raises on exactly this gap; a lookup here that silently
+        # returned `execution: None` for the same missing entry would just move the failure
+        # somewhere quieter.
+        raise CareerError(f"skill '{skill_name}' has no entry in models.SKILL_EXECUTION")
+    execution = SKILL_EXECUTION[skill_name]
+    selection = {
+        **context,
+        "status": "selected",
+        "invocation": None,
+        "execution": execution,
+    }
+    if context.get("available"):
+        entrypoint_hint = " --entrypoint HOST" if execution in ("host_required", "hybrid") else ""
+        selection["invoke_with"] = f"skill-open --skill {skill_name}{entrypoint_hint}"
+    return selection
 
 
 def load_flow_reference() -> dict[str, Any]:

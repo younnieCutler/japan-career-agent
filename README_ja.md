@@ -32,7 +32,7 @@
 
 ---
 
-現在のリリース: `2.11.9`。
+現在のリリース: `2.12.0`。
 
 ## これは何か
 
@@ -143,6 +143,11 @@ JD ごとの根拠選択、決定的な書類ゲート、HTML 生成はいずれ
 は到達の仕方だけで、答えの中身ではありません。どれがどちらかは
 [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) に一覧があります。
 
+Skill を選ぶことと実際に実行することは別です。`run --mode chat` と `skills` はこの要求がどの
+Skill を使うかを示すだけで、実際に実行したという記録は `skill-open` と `skill-report` で host が
+残します。host が必要な Skill なのに使える host がないときは、実行したかのように答える代わりに
+`unsupported` を返します。
+
 ## できること
 
 | 目的 | できること | Skill |
@@ -247,7 +252,7 @@ python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format hu
 あります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを参照し、`main`
 は追跡しません。
 
-現在はソースメタデータが `2.11.9` である一方、stable marketplace ref はまだ `v2.1.1` です。この
+現在はソースメタデータが `2.12.0` である一方、stable marketplace ref はまだ `v2.1.1` です。この
 ソースに対するタグをリリース workflow がまだ公開していないためで、marketplace から入れると今日は
 `2.1.1` が入ります。次のタグが公開されれば差は閉じます。`uvx` と `npx` はこの ref ではなく公開済み
 パッケージのバージョンを解決するので、どちらの場合も影響を受けません。

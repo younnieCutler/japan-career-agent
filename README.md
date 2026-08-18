@@ -34,7 +34,7 @@
 
 ---
 
-Current release: `2.11.9`.
+Current release: `2.12.0`.
 
 ## What this is
 
@@ -144,6 +144,11 @@ A plugin never holds its own copy of your career facts. The Vault, the evidence 
 recovery, readiness, JD evidence selection, the deterministic document gate and HTML rendering all
 work with no host installed; the plugin changes how you reach them, never what they say.
 [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) lists which is which.
+
+Selecting a Skill is not the same as running it. `run --mode chat` and `skills` report which Skill a
+request would use; `skill-open` and `skill-report` are how a host records that it actually ran one.
+When a Skill needs a host and none is available, the runtime returns `unsupported` instead of
+answering as if it had run.
 
 ## What it can help with
 
@@ -259,7 +264,7 @@ The repository version can be ahead of the stable marketplace channel while a re
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
 follows `main`.
 
-Source metadata is `2.11.9` while the stable marketplace ref is still `v2.1.1`, because the release
+Source metadata is `2.12.0` while the stable marketplace ref is still `v2.1.1`, because the release
 workflow has not published a tag for this source yet. Installing from the marketplace therefore
 gives you `2.1.1` today, and the gap closes when the next tag is published. `uvx` and `npx` are not
 affected either way, since they resolve a published package version rather than this ref.

@@ -21,6 +21,9 @@ from models import (
     PROJECT_EVENT_TYPE,
     PROJECT_STATUSES,
     REQUIRED_EVENT_FIELDS,
+    SKILL_EXECUTION,
+    SKILL_INVOCATION_STATUSES,
+    SKILL_INVOCATION_TERMINAL_STATUSES,
     TRACKS,
     WORK_EVENT_TYPE,
     CareerError,
@@ -517,3 +520,72 @@ def validate_fact(fact: Any) -> None:
     supersedes = fact.get("supersedes")
     if supersedes is not None and (not isinstance(supersedes, str) or not supersedes.strip()):
         raise CareerError("event.fact.supersedes must be an event id or null")
+
+
+def validate_skill_selection(selection: Any) -> None:
+    """Validate the record `routing.select_skill()` returns.
+
+    A selection is not an invocation: this only checks that the skill named exists in
+    `SKILL_EXECUTION` and that the record says nothing that would let a reader mistake it for a
+    completed run.
+    """
+    if not isinstance(selection, dict):
+        raise CareerError("skill selection must be an object")
+    skill = selection.get("skill")
+    if not isinstance(skill, str) or not skill.strip():
+        raise CareerError("skill_selection.skill must be a non-empty string")
+    if skill not in SKILL_EXECUTION:
+        raise CareerError(f"unknown skill: {skill}")
+    if selection.get("status") != "selected":
+        raise CareerError("skill_selection.status must be 'selected'")
+    if selection.get("invocation") is not None:
+        raise CareerError("skill_selection.invocation must be null; selection precedes invocation")
+
+
+def validate_skill_result(result: Any, *, terminal: bool) -> None:
+    """Validate an invocation record written by `skill-open` or `skill-report`.
+
+    `terminal=False` is the shape `skill-open` writes (status is `started` or `unsupported`);
+    `terminal=True` is what `skill-report` writes to close it. The two are checked separately
+    because a `skill-report` call must never be allowed to reintroduce `started` -- that would let
+    an invocation un-close itself.
+    """
+    if not isinstance(result, dict):
+        raise CareerError("skill invocation must be an object")
+    invocation_id = result.get("invocation_id")
+    if not isinstance(invocation_id, str) or not invocation_id.strip():
+        raise CareerError("skill_invocation.invocation_id must be a non-empty string")
+    skill = result.get("skill")
+    if skill not in SKILL_EXECUTION:
+        raise CareerError(f"unknown skill: {skill}")
+    status = result.get("status")
+    if status not in SKILL_INVOCATION_STATUSES:
+        raise CareerError(f"skill_invocation.status must be one of: {', '.join(sorted(SKILL_INVOCATION_STATUSES))}")
+    if terminal and status not in SKILL_INVOCATION_TERMINAL_STATUSES:
+        raise CareerError("skill-report must write a terminal status, not 'started' or 'selected'")
+    if not terminal and status not in {"started", "unsupported"}:
+        raise CareerError("skill-open must write 'started' or 'unsupported'")
+    for field in ("artifacts", "evidence_used", "tools_used"):
+        value = result.get(field, [])
+        if not isinstance(value, list):
+            raise CareerError(f"skill_invocation.{field} must be a list")
+    if terminal:
+        # A terminal status is a claim about what happened, and an empty one is indistinguishable
+        # from a host that reported `completed` without doing anything: `selected != completed`
+        # only means something if `completed` itself carries evidence it happened.
+        if status == "completed":
+            if result.get("error") is not None:
+                raise CareerError("a completed skill_invocation must not carry an error")
+            summary = result.get("summary")
+            if not isinstance(summary, str) or not summary.strip():
+                raise CareerError("a completed skill_invocation requires a non-empty summary")
+        elif status in {"failed", "blocked", "unsupported"}:
+            error = result.get("error")
+            if not isinstance(error, str) or not error.strip():
+                raise CareerError(f"a {status} skill_invocation requires a non-empty error")
+        elif status in {"needs_input", "needs_approval"}:
+            summary = result.get("summary")
+            if not isinstance(summary, str) or not summary.strip():
+                raise CareerError(
+                    f"a {status} skill_invocation requires a non-empty summary of what is needed"
+                )

@@ -45,10 +45,15 @@ persistent install. Those four are the same program.
 | Turn a sentence into a proposal | `host-enhanced` | `run --mode chat` | ✅ keyword routing | ✅ model routing | ✅ model routing |
 | Find the right skill for what you are doing | `host-enhanced` | — | ⚠️ read the table in the README | ✅ SKILL.md discovery | ✅ SKILL.md discovery |
 | Draft a 職務経歴書 from confirmed evidence | `host-enhanced` | `document-model` then the host | ⚠️ model and gate only, no prose | ✅ | ✅ |
+| List installed Skills and their execution class | `core` | `skills` | ✅ | ✅ | ✅ |
+| Open a Skill invocation record before its SOP runs | `core` | `skill-open` | ✅ | ✅ | ✅ |
+| Report a Skill invocation's result and close it | `core` | `skill-report` | ✅ | ✅ | ✅ |
 | Status line in the host's own chrome | `host-only` | — | — | ✅ | ⚠️ host-dependent |
+| Execute a `host_required` Skill's SOP | `host-only` | — | — | ✅ | ✅ |
 | Submit an application, send a recruiter message | `not-supported` | — | — | — | — |
 | Predict whether you will be hired | `not-supported` | — | — | — | — |
 | Import an arbitrary `.docx` as a template | `not-supported` | — | — | — | — |
+| Chain several Skills automatically inside one request | `not-supported` | — | — | — | — |
 
 ## Two rules this table exists to keep
 

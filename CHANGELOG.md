@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.12.0] - 2026-08-18
+
+- Add a Skill invocation lifecycle (Skill-First Gate A-C). Routing a message to a Skill and
+  actually running it were the same recorded fact before this: `trajectory.act.skill` proved a
+  Skill was selected, never that it ran. `routing.select_skill()` now marks a selection
+  `status: "selected"` with `invocation: null`, and three new CLI commands close the gap Python
+  cannot close on its own — this runtime cannot call an LLM host back, so it cannot execute a
+  Skill's SOP and hand back a result synchronously. `skills` lists every installed Skill and
+  whether it can run without a host (`deterministic`, `hybrid`, `host_required`); `skill-open`
+  opens an invocation before a host runs the SOP, and returns `unsupported` immediately, with no
+  dangling record, when a `host_required` Skill is opened from `cli` or `gui`; `skill-report`
+  closes an invocation with what actually happened, and refuses to close one twice or one with no
+  `started` record. An invocation nobody reports stays open and is surfaced by `status` and
+  `doctor` — detected, never prevented, and `doctor` still exits 0 on the finding. All thirteen
+  domain Skill manifests (and every file under each one's `references/`) now ship in the wheel and
+  sdist, not just `career-agent` and `jiko-bunseki`, so an installed CLI can actually discover what
+  `skills` lists. `skill-report --status completed` now requires `--summary`
+  (`needs_input`/`needs_approval` too), and `failed`/`blocked`/`unsupported` require `--error`, so
+  a terminal status carries some evidence of what happened rather than closing on an empty claim.
+  The `skill-open → SOP → skill-report` handoff is now a Tier 0 `AGENTS.md` invariant, not only a
+  Tier 1 lazy reference a host might never load; `select_skill()`'s `invoke_with` no longer emits a
+  copy-pasteable command that silently closes `host_required` Skills as `unsupported` when run
+  as-is — it carries an `--entrypoint HOST` placeholder that fails loudly instead. `hybrid` Skills
+  (e.g. `career-maintenance`) now get the same placeholder as `host_required` ones: without it,
+  a host following `invoke_with` literally recorded `entrypoint: cli` for work it actually did,
+  because `skill-open --entrypoint` defaults to `cli`. The placeholder itself changed from
+  `<claude|codex>` to `HOST` — the angle brackets and pipe are shell metacharacters, so pasting the
+  old placeholder into an actual shell redirected/piped instead of reaching `argparse`'s rejection;
+  `HOST` fails the same way whether passed as an argv list or through a shell. `skill-report --error`'s
+  help text now says `blocked/failed/unsupported` instead of just `blocked or failed`, matching what
+  `validate_skill_result` has required since the previous round.
+
 ## [2.11.9] - 2026-08-16
 
 - Redraw the evidence state on each record row as a dot rather than a coloured left rail. The

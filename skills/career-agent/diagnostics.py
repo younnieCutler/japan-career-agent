@@ -32,6 +32,7 @@ from models import (  # noqa: E402
 )
 from projection import migrate_pipeline_file, pipeline_file  # noqa: E402
 from routing import load_flow_reference  # noqa: E402
+from skill_invocations import open_invocations  # noqa: E402
 from validation import iso_date  # noqa: E402
 from vault import CareerVault, index_vault_notes, today  # noqa: E402
 
@@ -114,6 +115,14 @@ def doctor(
             )
         if "companies" in pipeline_data and not isinstance(pipeline_data["companies"], list):
             errors.append(f"{pipeline_path}: companies must be a list")
+    # A finding, not a failure: an open invocation means a Skill was opened and never reported,
+    # which `doctor` can only detect, never prevent. It stays a warning, not an error, so this
+    # never moves `ok` or the exit code.
+    for invocation in open_invocations(vault):
+        warnings.append(
+            f"skill invocation {invocation['invocation_id']} for '{invocation['skill']}' "
+            f"opened at {invocation['created_at']} and was never reported"
+        )
     return {
         "mode": "doctor",
         "vault": str(vault.path),

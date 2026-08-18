@@ -52,6 +52,8 @@ from private_store import (
     resolve_private_home,
 )
 from proposals import list_proposals, propose_career_context, propose_fact, review_proposal, run_chat
+from skill_invocations import open_invocation, report_invocation
+from skill_registry import discover as discover_skills
 from sessions import (
     approve_proposal as approve_workflow_proposal,
     archive_session,
@@ -310,6 +312,8 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
         result = run_private_command(args)
         context["ok_is_exit_status"] = True
         return result
+    if args.command == "skills":
+        return {"skills": discover_skills(skills_root)}
     # These two read a model file that was already produced from the Vault, so requiring one
     # again would only ask for a path the answer does not depend on. The gate in particular
     # must stay runnable on its own: it is the check a caller runs before sending anything.
@@ -404,6 +408,17 @@ def _run_vault_command(
     if args.command == "work-events":
         return work_events(
             home, confirmed_only=args.confirmed_only, as_of=args.as_of,
+        )
+    if args.command == "skill-open":
+        return open_invocation(
+            home, skills_root, args.skill,
+            entrypoint=args.entrypoint, reason=args.reason, goal=args.goal,
+        )
+    if args.command == "skill-report":
+        return report_invocation(
+            home, args.invocation_id, status=args.status, summary=args.summary,
+            artifacts=args.artifacts, evidence_used=args.evidence_used,
+            tools_used=args.tools_used, error=args.error,
         )
     if args.command == "status":
         return status(home, workspace=args.workspace)

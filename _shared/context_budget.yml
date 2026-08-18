@@ -8,8 +8,11 @@ baseline:
 
 always_loaded:
   AGENTS.md:
-    max_bytes: 6800
-    max_chars: 6800
+    # Bumped for the Skill-First Gate A-C handoff invariant (PR review, 2nd round): the host
+    # skill-open/SOP/skill-report contract had to move from a Tier 1 lazy reference into Tier 0
+    # so it is actually always loaded, not merely documented somewhere a caller might skip.
+    max_bytes: 7100
+    max_chars: 7100
     max_lines: 115
   CLAUDE.md:
     max_bytes: 500

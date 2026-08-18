@@ -27,6 +27,9 @@ in [`_shared/agent_context/development.md`](_shared/agent_context/development.md
   Vault metadata context, and workspace projection. `career-agent approve` is approval-gated and
   append-only; repeated event approval is idempotent. `restore-state` is recovery, not rollback.
 - Vault note bodies are never loaded automatically. Only confirmed context may flow downstream.
+- A domain Skill counts as run only through `skill-open` → SOP → `skill-report`
+  (`skills/career-agent/skill_invocations.py`); a host that answers from a Skill's SOP without this
+  handoff leaves no invocation record and must not claim the Skill ran.
 - `legacy_v1` values remain readable history only; new legacy writes and numeric migration are
   forbidden.
 - `data/pipeline.yml` is the workspace projection. Its lock + atomic writer is

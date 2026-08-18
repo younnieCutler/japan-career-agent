@@ -553,9 +553,33 @@ def attach(
         outcome = _outcome("completed" if command == "private-import" else "ready", text(language, "summary.private_store_ready"), reason_code="PRIVATE_STORE_READY", reason_message=text(language, "reason.private_store"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")], changed=changed, unchanged=unchanged, disclosures=[_disclosure("private-store-boundary", "private_store", text(language, "disclosure.private_store"))])
         return finish(outcome)
 
-    if command in {"personal-profile", "personal-context", "context"}:
+    if command in {"personal-profile", "personal-context", "context", "skills"}:
         outcome = _outcome("ready", text(language, "summary.read_only"), reason_code="READ_ONLY_RESULT", reason_message=text(language, "reason.read_only"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")], unchanged=["canonical state"])
         return finish(_with_state_actions(outcome, _state_issues(result), command=command, language=language))
+
+    if command in {"skill-open", "skill-report"}:
+        # AC-7: `skill-open` on a host_required Skill from cli/gui closes itself as `unsupported`
+        # instead of leaving an open record. That refusal must not read as success -- the whole
+        # point of this gate is that a Skill not actually run must not look like one that was.
+        if result.get("status") == "unsupported":
+            outcome = _outcome(
+                "blocked",
+                text(language, "summary.skill_unsupported"),
+                reason_code="SKILL_HOST_REQUIRED",
+                reason_message=text(language, "reason.skill_unsupported"),
+                actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")],
+                unchanged=["canonical career facts"],
+            )
+        else:
+            outcome = _outcome(
+                "completed",
+                text(language, "summary.skill_invocation_recorded"),
+                reason_code="SKILL_INVOCATION_RECORDED",
+                reason_message=text(language, "reason.skill_invocation_recorded"),
+                actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")],
+                changed=["skill invocation record"],
+            )
+        return finish(outcome)
 
     outcome = _outcome("ready", text(language, "summary.operation_complete"), reason_code="OPERATION_COMPLETE", reason_message=text(language, "reason.operation_complete"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")])
     return finish(_with_state_actions(outcome, _state_issues(result), command=command, language=language))
@@ -662,6 +686,19 @@ def _domain_detail_lines(payload: Mapping[str, Any], language: str) -> list[str]
         for label_key, namespace, value in fields:
             if value is not None:
                 lines.append(f"{text(language, label_key)}: {domain_label(language, namespace, value)}")
+        open_invocations = payload.get("open_skill_invocations")
+        if isinstance(open_invocations, list) and open_invocations:
+            lines.append(f"{text(language, 'section.open_skill_invocations')}:")
+            for invocation in open_invocations:
+                if not isinstance(invocation, Mapping):
+                    continue
+                lines.append(
+                    "- " + text(
+                        language, "section.skill_invocation",
+                        id=invocation.get("invocation_id"), skill=invocation.get("skill"),
+                        status=invocation.get("status"),
+                    )
+                )
     elif mode == "readiness":
         dimensions = payload.get("dimensions") if isinstance(payload.get("dimensions"), Mapping) else {}
         if dimensions:
@@ -740,6 +777,18 @@ def _domain_detail_lines(payload: Mapping[str, Any], language: str) -> list[str]
                 lines.append(f"- {label} · {status}{stage_text}")
             if len(rows) > 1:
                 lines.append(text(language, "session.resume_hint"))
+    elif "invocation_id" in payload and "execution" in payload:
+        # skill-open / skill-report results carry no `mode` key; matched by shape instead. The
+        # id is the one thing `skill-report` needs from a prior `skill-open`, and without this
+        # line here the open -> report loop `_shared/agent_context/routing.md` documents was only
+        # completable with `--format json`.
+        lines.append(
+            text(
+                language, "section.skill_invocation",
+                id=payload.get("invocation_id"), skill=payload.get("skill"),
+                status=payload.get("status"),
+            )
+        )
     return lines
 
 

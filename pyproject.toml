@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "japan-career-agent"
-version = "2.11.9"
+version = "2.12.0"
 description = "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions."
 readme = "README.md"
 license = "MIT"
@@ -48,33 +48,73 @@ career-agent = "japan_career_agent.cli:main"
 # `sources` rather than `force-include`: force-included paths bypass file selection entirely, so
 # `exclude` below would be silently ignored and every `test_*.py` would ship.
 [tool.hatch.build.targets.wheel]
-# `skills/jiko-bunseki` ships for its checklist form only: the GUI serves that file rather than
-# reimplementing the same 13 required profile fields a second time. `exclude` below drops its
-# tests, and SKILL.md travels with it as the prompt the CLI handoff refers to.
+# Skill-First Gate C: every domain Skill ships, not just the two the CLI directly drives. A
+# `skill-open` for a Skill absent from the wheel would have nothing to point a host at, and
+# `skills` would list Skills a standalone install can never actually discover. `exclude` below
+# drops each one's tests; SKILL.md and references travel as the prompt a host handoff refers to.
 only-include = [
   "packaging/japan_career_agent",
   "_shared",
   "skills/career-agent",
+  "skills/career-document",
+  "skills/career-maintenance",
+  "skills/career-tanaoroshi",
+  "skills/company-battlecard",
+  "skills/hiring-manager-agent",
+  "skills/humanize-japanese-career",
   "skills/jiko-bunseki",
+  "skills/job-seeker-agent",
+  "skills/kigyou-bunseki",
+  "skills/matching-simulator",
+  "skills/mock-interviewer",
+  "skills/tenshoku-strategy",
 ]
 
 # The runtime's tests live beside the modules they exercise. They are part of the repository
 # contract, not of what an installed user runs; `scripts/test_pyproject_install.py` asserts they
 # stay out.
-exclude = ["test_*.py", "tests", "__pycache__"]
+# `*.code-workspace` is an editor artifact in every skill directory it appears in.
+# `skills/kigyou-bunseki/scripts/extract_url.sh` is a repo-only dev convenience: SKILL.md never
+# references it, so a host executing the SOP has no reason to call it, and it should not ship.
+exclude = [
+  "test_*.py", "tests", "__pycache__", "*.code-workspace",
+  "skills/kigyou-bunseki/scripts/extract_url.sh",
+]
 
 [tool.hatch.build.targets.wheel.sources]
 "packaging" = ""
 "_shared" = "japan_career_agent/_shared"
 "skills/career-agent" = "japan_career_agent/skills/career-agent"
+"skills/career-document" = "japan_career_agent/skills/career-document"
+"skills/career-maintenance" = "japan_career_agent/skills/career-maintenance"
+"skills/career-tanaoroshi" = "japan_career_agent/skills/career-tanaoroshi"
+"skills/company-battlecard" = "japan_career_agent/skills/company-battlecard"
+"skills/hiring-manager-agent" = "japan_career_agent/skills/hiring-manager-agent"
+"skills/humanize-japanese-career" = "japan_career_agent/skills/humanize-japanese-career"
 "skills/jiko-bunseki" = "japan_career_agent/skills/jiko-bunseki"
+"skills/job-seeker-agent" = "japan_career_agent/skills/job-seeker-agent"
+"skills/kigyou-bunseki" = "japan_career_agent/skills/kigyou-bunseki"
+"skills/matching-simulator" = "japan_career_agent/skills/matching-simulator"
+"skills/mock-interviewer" = "japan_career_agent/skills/mock-interviewer"
+"skills/tenshoku-strategy" = "japan_career_agent/skills/tenshoku-strategy"
 
 [tool.hatch.build.targets.sdist]
 include = [
   "/packaging/japan_career_agent",
   "/_shared",
   "/skills/career-agent",
+  "/skills/career-document",
+  "/skills/career-maintenance",
+  "/skills/career-tanaoroshi",
+  "/skills/company-battlecard",
+  "/skills/hiring-manager-agent",
+  "/skills/humanize-japanese-career",
   "/skills/jiko-bunseki",
+  "/skills/job-seeker-agent",
+  "/skills/kigyou-bunseki",
+  "/skills/matching-simulator",
+  "/skills/mock-interviewer",
+  "/skills/tenshoku-strategy",
   "/README.md",
   "/LICENSE",
   "/CHANGELOG.md",
