@@ -25,6 +25,17 @@ blocks the plan even though the original invocation row remains append-only and 
 --approval continue|abort` records a workflow resolution in the plan snapshot and never changes or
 reruns the terminal invocation that requested approval. This is not Career evidence approval.
 
-The first plan policy is the flat `career-document → humanize-japanese-career → sip` chain. A
-Quality Skill never invokes another Skill; Gate D owns ordering. Existing unplanned `skill-open` /
-`skill-report` callers continue to work unchanged.
+The policy is bounded and conditional. Gate D currently accepts only these Domain roots:
+`career-document`, `kigyou-bunseki`, `jiko-bunseki`, and `tenshoku-strategy`; every other Skill
+continues through its existing single-Skill workflow.
+
+```text
+career-document → humanize → debloat? → factchk? → sip
+kigyou-bunseki → factchk → sip
+strategy → hate? → debloat? → factchk? → sip?
+```
+
+`readchk` is an explicit first step for high-cost or ambiguous requests. `factchk` requires the
+Host signal `external_claims_present`; generic `sip` requires `substantial_artifact`. `hate` and
+`debloat` require explicit `--quality` opt-in. A Quality Skill never invokes another Skill; Gate D
+owns ordering. Existing unplanned `skill-open` / `skill-report` callers continue to work unchanged.

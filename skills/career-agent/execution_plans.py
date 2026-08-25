@@ -15,6 +15,7 @@ from typing import Any
 from lifecycle import vault_lock
 from models import (
     PLAN_MAX_ATTEMPTS,
+    PLAN_QUALITY_OPTIONS,
     PLAN_SIGNALS,
     PLAN_STATUSES,
     PLAN_STEP_STATUSES,
@@ -59,28 +60,63 @@ def _write_plan(home: CareerVault, plan: dict[str, Any]) -> None:
     ) + "\n")
 
 
-def _policy_steps(skill: str) -> list[dict[str, Any]]:
+def _policy_steps(skill: str, quality: set[str]) -> list[dict[str, Any]]:
+    names: list[tuple[str, str, str | None, str | None]] = []
+
+    def add(step_id: str, step_skill: str, condition: str | None = None) -> None:
+        dependency = names[-1][0] if names else None
+        names.append((step_id, step_skill, dependency, condition))
+
+    if "readchk" in quality:
+        add("read", "readchk")
     if skill == "career-document":
-        names = (
-            ("draft", "career-document", None, True, False),
-            ("humanize", "humanize-japanese-career", "draft", True, False),
-            ("verify", "sip", "humanize", False, True),
-        )
+        add("draft", "career-document")
+        add("humanize", "humanize-japanese-career")
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk", "external_claims_present")
+        add("verify", "sip")
+    elif skill == "kigyou-bunseki":
+        add("research", skill)
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk")
+        add("verify", "sip")
     else:
-        names = (("domain", skill, None, False, False),)
+        add("domain", skill)
+        if "hate" in quality:
+            add("challenge", "hate")
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk", "external_claims_present")
+        add("verify", "sip", "substantial_artifact")
+    elif skill == "kigyou-bunseki":
+        add("research", skill)
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk")
+        add("verify", "sip")
+    else:
+        add("domain", skill)
+        if "hate" in quality:
+            add("challenge", "hate")
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk", "external_claims_present")
+        add("verify", "sip", "substantial_artifact")
     return [
         {
             "id": step_id,
             "skill": step_skill,
             "status": "pending",
             "depends_on": [] if dependency is None else [dependency],
-            "condition": None,
+            "condition": condition,
             "invocation_id": None,
             "requires_artifact": requires_artifact,
             "requires_artifact_reference": requires_artifact_reference,
             "approval_resolution": None,
         }
-        for step_id, step_skill, dependency, requires_artifact, requires_artifact_reference in names
+        for step_id, step_skill, dependency, condition in names
     ]
 
 
@@ -90,6 +126,7 @@ def create_plan(
     *,
     goal: str,
     skill: str,
+    quality: list[str] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(goal, str) or not goal.strip():
         raise CareerError("plan goal must be a non-empty string", code="INVALID_INPUT")
@@ -98,13 +135,22 @@ def create_plan(
         raise CareerError("plan must start with a routed Domain Skill", code="INVALID_INPUT")
     if entry["execution"] not in {"deterministic", "hybrid", "host_required"}:
         raise CareerError(f"unsupported execution class for plan Skill: {skill}")
+    requested_quality = set(quality or [])
+    if len(requested_quality) != len(quality or []):
+        raise CareerError("duplicate --quality option", code="INVALID_INPUT")
+    if not requested_quality.issubset(PLAN_QUALITY_OPTIONS):
+        raise CareerError("unsupported Quality Skill option", code="INVALID_INPUT")
+    if "hate" in requested_quality and skill in {"career-document", "kigyou-bunseki"}:
+        raise CareerError("hate is reserved for an explicitly adversarial strategy plan", code="INVALID_INPUT")
+    for quality_skill in requested_quality:
+        find_skill(skills_root, quality_skill)
     now = utc_now()
     plan = {
         "plan_schema_version": PLAN_SCHEMA_VERSION,
         "plan_id": _plan_id(),
         "goal": goal.strip(),
         "status": "running",
-        "steps": _policy_steps(skill),
+        "steps": _policy_steps(skill, requested_quality),
         "created_at": now,
         "updated_at": now,
     }

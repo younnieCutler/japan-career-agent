@@ -25,6 +25,7 @@ from models import (
     EXPERIENCE_CONTEXT_KINDS,
     FACT_CATEGORIES,
     PLAN_SIGNALS,
+    PLAN_QUALITY_OPTIONS,
     PROFILE_AXES,
     PROJECT_STATUSES,
     SKILL_INVOCATION_TERMINAL_STATUSES,
@@ -377,6 +378,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_vault_argument(plan_parser)
     plan_parser.add_argument("--skill", required=True, help="the routed Domain Skill to start")
     plan_parser.add_argument("--goal", required=True, help="the user goal for this plan")
+    plan_parser.add_argument(
+        "--quality", action="append", choices=sorted(PLAN_QUALITY_OPTIONS), default=None,
+        help="an explicitly requested optional Quality Skill; repeat for several",
+    )
     add_output_format(plan_parser)
     plan_next_parser = subparsers.add_parser(
         "plan-next",

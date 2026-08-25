@@ -348,7 +348,7 @@ def _run_vault_command(
 ) -> dict[str, Any]:
     """Every command that needs an initialized Vault, in one place."""
     if args.command == "plan":
-        return create_plan(home, skills_root, goal=args.goal, skill=args.skill)
+        return create_plan(home, skills_root, goal=args.goal, skill=args.skill, quality=args.quality)
     if args.command == "plan-next":
         return next_step(
             home, args.plan_id, resume=args.resume, retry=args.retry, approval=args.approval,
