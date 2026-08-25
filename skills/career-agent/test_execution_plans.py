@@ -79,6 +79,11 @@ class ExecutionPlanTests(unittest.TestCase):
             "--summary",
             f"{step['skill']} completed",
         ]
+        if step["skill"] in {
+            "career-document", "humanize-japanese-career", "kigyou-bunseki",
+            "jiko-bunseki", "tenshoku-strategy", "debloat", "sip",
+        }:
+            report_args.extend(("--artifact", f"career-docs/{step['skill']}.json"))
         if signal:
             report_args.extend(("--signal", signal))
         output(run(self.vault, "skill-report", *report_args))
@@ -393,6 +398,10 @@ class ExecutionPlanTests(unittest.TestCase):
         rejected = run(self.vault, "plan", "--skill", "career-document", "--goal", "doc", "--quality", "hate")
         self.assertEqual(rejected.returncode, 2)
         self.assertIn("reserved", rejected.stderr)
+        for unsupported in ("career-maintenance", "humanize-japanese-career"):
+            rejected = run(self.vault, "plan", "--skill", unsupported, "--goal", "unsupported")
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("policy is not defined", rejected.stderr)
 
     def test_document_policy_keeps_optional_read_and_compression_explicit(self) -> None:
         plan = self.create_plan("career-document", ("readchk", "debloat"))
@@ -477,6 +486,65 @@ class ExecutionPlanTests(unittest.TestCase):
         self.assertEqual(paused["status"], "paused")
         resumed = output(run(self.vault, "plan-next", plan["plan_id"], "--resume"))
         self.assertEqual(resumed["next_step"]["id"], step["id"])
+
+    def test_hate_objection_requires_approval_before_factchk(self) -> None:
+        plan = self.create_plan("tenshoku-strategy", ("hate",))
+        self.complete_step(plan["plan_id"], signal="external_claims_present")
+        hate = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        self.assertEqual(hate["skill"], "hate")
+        opened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            "hate",
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            hate["id"],
+        ))
+        output(run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "needs_approval",
+            "--summary",
+            "root objection requires user review",
+        ))
+        paused = output(run(self.vault, "plan-next", plan["plan_id"]))
+        self.assertEqual(paused["status"], "paused")
+        self.assertEqual(paused["current_step"]["result"]["summary"], "root objection requires user review")
+
+    def test_factchk_contradiction_blocks_sip(self) -> None:
+        plan = self.create_plan("kigyou-bunseki")
+        self.complete_step(plan["plan_id"])
+        factcheck = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        opened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            "factchk",
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            factcheck["id"],
+        ))
+        output(run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "blocked",
+            "--error",
+            "material claim contradicted by source",
+        ))
+        blocked = output(run(self.vault, "plan-next", plan["plan_id"]))
+        self.assertEqual(blocked["status"], "blocked")
+        self.assertIsNone(blocked["next_step"])
 
     def test_failed_step_allows_one_retry_then_stops(self) -> None:
         plan = self.create_plan("jiko-bunseki")

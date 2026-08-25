@@ -30,6 +30,12 @@ from vault import CareerVault, utc_now
 
 
 _QUALITY_SKILLS = {"debloat", "factchk", "hate", "readchk", "sip"}
+_PLAN_POLICIES = {
+    "career-document": "document",
+    "kigyou-bunseki": "research",
+    "jiko-bunseki": "strategy",
+    "tenshoku-strategy": "strategy",
+}
 _TERMINAL_STEP_STATUSES = PLAN_STEP_STATUSES - {"pending", "started"}
 
 
@@ -61,49 +67,51 @@ def _write_plan(home: CareerVault, plan: dict[str, Any]) -> None:
 
 
 def _policy_steps(skill: str, quality: set[str]) -> list[dict[str, Any]]:
-    names: list[tuple[str, str, str | None, str | None]] = []
+    policy = _PLAN_POLICIES.get(skill)
+    if policy is None:
+        raise CareerError(
+            f"Gate D policy is not defined for Skill: {skill}",
+            code="UNSUPPORTED_PLAN_POLICY",
+        )
+    names: list[tuple[str, str, str | None, str | None, bool, bool]] = []
 
-    def add(step_id: str, step_skill: str, condition: str | None = None) -> None:
+    def add(
+        step_id: str,
+        step_skill: str,
+        condition: str | None = None,
+        *,
+        requires_artifact: bool = False,
+        requires_artifact_reference: bool = False,
+    ) -> None:
         dependency = names[-1][0] if names else None
-        names.append((step_id, step_skill, dependency, condition))
+        names.append((
+            step_id, step_skill, dependency, condition,
+            requires_artifact, requires_artifact_reference,
+        ))
 
     if "readchk" in quality:
         add("read", "readchk")
-    if skill == "career-document":
-        add("draft", "career-document")
-        add("humanize", "humanize-japanese-career")
+    if policy == "document":
+        add("draft", "career-document", requires_artifact=True)
+        add("humanize", "humanize-japanese-career", requires_artifact=True)
         if "debloat" in quality:
-            add("debloat", "debloat")
+            add("debloat", "debloat", requires_artifact=True)
         add("factcheck", "factchk", "external_claims_present")
-        add("verify", "sip")
-    elif skill == "kigyou-bunseki":
-        add("research", skill)
+        add("verify", "sip", requires_artifact_reference=True)
+    elif policy == "research":
+        add("research", skill, requires_artifact=True)
         if "debloat" in quality:
-            add("debloat", "debloat")
+            add("debloat", "debloat", requires_artifact=True)
         add("factcheck", "factchk")
-        add("verify", "sip")
+        add("verify", "sip", requires_artifact_reference=True)
     else:
-        add("domain", skill)
+        add("domain", skill, requires_artifact=True)
         if "hate" in quality:
             add("challenge", "hate")
         if "debloat" in quality:
-            add("debloat", "debloat")
+            add("debloat", "debloat", requires_artifact=True)
         add("factcheck", "factchk", "external_claims_present")
-        add("verify", "sip", "substantial_artifact")
-    elif skill == "kigyou-bunseki":
-        add("research", skill)
-        if "debloat" in quality:
-            add("debloat", "debloat")
-        add("factcheck", "factchk")
-        add("verify", "sip")
-    else:
-        add("domain", skill)
-        if "hate" in quality:
-            add("challenge", "hate")
-        if "debloat" in quality:
-            add("debloat", "debloat")
-        add("factcheck", "factchk", "external_claims_present")
-        add("verify", "sip", "substantial_artifact")
+        add("verify", "sip", "substantial_artifact", requires_artifact_reference=True)
     return [
         {
             "id": step_id,
@@ -116,7 +124,10 @@ def _policy_steps(skill: str, quality: set[str]) -> list[dict[str, Any]]:
             "requires_artifact_reference": requires_artifact_reference,
             "approval_resolution": None,
         }
-        for step_id, step_skill, dependency, condition in names
+        for (
+            step_id, step_skill, dependency, condition,
+            requires_artifact, requires_artifact_reference,
+        ) in names
     ]
 
 
@@ -133,6 +144,11 @@ def create_plan(
     entry = find_skill(skills_root, skill)
     if skill in _QUALITY_SKILLS:
         raise CareerError("plan must start with a routed Domain Skill", code="INVALID_INPUT")
+    if skill not in _PLAN_POLICIES:
+        raise CareerError(
+            f"Gate D policy is not defined for Skill: {skill}",
+            code="UNSUPPORTED_PLAN_POLICY",
+        )
     if entry["execution"] not in {"deterministic", "hybrid", "host_required"}:
         raise CareerError(f"unsupported execution class for plan Skill: {skill}")
     requested_quality = set(quality or [])
@@ -140,7 +156,7 @@ def create_plan(
         raise CareerError("duplicate --quality option", code="INVALID_INPUT")
     if not requested_quality.issubset(PLAN_QUALITY_OPTIONS):
         raise CareerError("unsupported Quality Skill option", code="INVALID_INPUT")
-    if "hate" in requested_quality and skill in {"career-document", "kigyou-bunseki"}:
+    if "hate" in requested_quality and _PLAN_POLICIES[skill] != "strategy":
         raise CareerError("hate is reserved for an explicitly adversarial strategy plan", code="INVALID_INPUT")
     for quality_skill in requested_quality:
         find_skill(skills_root, quality_skill)
