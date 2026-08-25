@@ -4,7 +4,8 @@
 
 - Add the selected Paperthin quality primitives as real Host Skills: `readchk`, `factchk`, `hate`,
   and `debloat`. They keep Career Agent's Unknown, provenance, approval, and user-decision rules;
-  `hate` and `debloat` remain explicit user-invoked operations, and no Quality Skill invokes another.
+  `hate` and `debloat` remain explicit user-invoked operations, no Quality Skill invokes another,
+  and `hate`/`factchk` terminal semantics stop objection or contradiction findings before `sip`.
 
 ## [2.13.0] - 2026-08-25
 

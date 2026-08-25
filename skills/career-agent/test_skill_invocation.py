@@ -59,6 +59,13 @@ class RegistryTests(unittest.TestCase):
         self.assertTrue(QUALITY_SKILLS.issubset(entries))
         self.assertTrue(all(entries[name]["execution"] == "host_required" for name in QUALITY_SKILLS))
 
+    def test_quality_terminal_semantics_keep_objections_and_contradictions_from_passing(self) -> None:
+        factchk = (SKILLS_ROOT / "factchk" / "SKILL.md").read_text(encoding="utf-8")
+        hate = (SKILLS_ROOT / "hate" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("material contradiction → report `blocked`", factchk)
+        self.assertIn("required claim cannot be verified safely", factchk)
+        self.assertIn("load-bearing objection is found → report `needs_approval`", hate)
+
     def test_directory_missing_from_skill_execution_raises(self) -> None:
         original = dict(models.SKILL_EXECUTION)
         try:

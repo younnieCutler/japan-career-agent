@@ -34,6 +34,15 @@ visible when a source cannot be reached.
 - A blocked external source is `Unknown`, not evidence from memory.
 - This Skill is read-only and never invokes another Skill.
 
+## Gate D terminal semantics
+
+- All material claims are acceptable and traceable → report `completed`.
+- A material contradiction → report `blocked`; the incorrect artifact must not flow to `sip`.
+- A required claim cannot be verified safely → report `needs_approval` when the user must decide how
+  to proceed, or `blocked` when no safe continuation exists.
+- A stale, low-confidence, or unknown claim is included in the summary so the next step receives the
+  exact uncertainty rather than treating `completed` as a clean fact pass.
+
 ## Verification
 
 Every verdict must name its source or explicitly say that verification was unavailable. Report
