@@ -84,6 +84,8 @@ class ExecutionPlanTests(unittest.TestCase):
             "jiko-bunseki", "tenshoku-strategy", "debloat", "sip",
         }:
             report_args.extend(("--artifact", f"career-docs/{step['skill']}.json"))
+        if step["requires_artifact"] or step["requires_artifact_reference"]:
+            report_args.extend(("--artifact", f"career-docs/{step['id']}.json"))
         if signal:
             report_args.extend(("--signal", signal))
         output(run(self.vault, "skill-report", *report_args))
@@ -418,6 +420,53 @@ class ExecutionPlanTests(unittest.TestCase):
         )
         self.assertEqual(plan["steps"][4]["condition"], "external_claims_present")
         self.assertIsNone(plan["steps"][5]["condition"])
+        self.assertFalse(plan["steps"][3]["requires_artifact"])
+
+    def test_artifact_context_survives_read_only_and_skipped_quality_steps(self) -> None:
+        skipped = self.create_plan()
+        skipped_id = skipped["plan_id"]
+        self.complete_step(skipped_id)
+        self.complete_step(skipped_id)
+        sip = output(run(self.vault, "plan-next", skipped_id))["next_step"]
+        self.assertEqual(sip["skill"], "sip")
+        self.assertNotIn("dependency_result", sip)
+        self.assertEqual(sip["artifact_context"]["from_step"], "humanize")
+
+        checked = self.create_plan()
+        checked_id = checked["plan_id"]
+        self.complete_step(checked_id)
+        self.complete_step(checked_id, signal="external_claims_present")
+        self.complete_step(checked_id)
+        sip = output(run(self.vault, "plan-next", checked_id))["next_step"]
+        self.assertEqual(sip["dependency_result"]["from_step"], "factcheck")
+        self.assertEqual(sip["artifact_context"]["from_step"], "humanize")
+
+        research = self.create_plan("kigyou-bunseki")
+        research_id = research["plan_id"]
+        self.complete_step(research_id)
+        self.complete_step(research_id)
+        sip = output(run(self.vault, "plan-next", research_id))["next_step"]
+        self.assertEqual(sip["artifact_context"]["from_step"], "research")
+
+    def test_debloat_noop_preserves_strategy_artifact_context(self) -> None:
+        plan = self.create_plan("tenshoku-strategy", ("hate", "debloat"))
+        plan_id = plan["plan_id"]
+        self.complete_step(plan_id, signal="external_claims_present")
+        self.complete_step(plan_id)
+        debloat = output(run(self.vault, "plan-next", plan_id))["next_step"]
+        self.assertEqual(debloat["skill"], "debloat")
+        opened = output(run(
+            self.vault, "skill-open", "--skill", "debloat", "--entrypoint", "claude",
+            "--plan-id", plan_id, "--step-id", debloat["id"],
+        ))
+        output(run(
+            self.vault, "skill-report", opened["invocation_id"], "--status", "completed",
+            "--summary", "no bloat found",
+        ))
+        factcheck = output(run(self.vault, "plan-next", plan_id))["next_step"]
+        self.assertEqual(factcheck["skill"], "factchk")
+        self.assertEqual(factcheck["dependency_result"]["from_step"], "debloat")
+        self.assertEqual(factcheck["artifact_context"]["from_step"], "domain")
 
     def test_missing_quality_signals_skip_optional_steps(self) -> None:
         plan = self.create_plan("jiko-bunseki")

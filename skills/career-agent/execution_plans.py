@@ -95,13 +95,13 @@ def _policy_steps(skill: str, quality: set[str]) -> list[dict[str, Any]]:
         add("draft", "career-document", requires_artifact=True)
         add("humanize", "humanize-japanese-career", requires_artifact=True)
         if "debloat" in quality:
-            add("debloat", "debloat", requires_artifact=True)
+            add("debloat", "debloat")
         add("factcheck", "factchk", "external_claims_present")
         add("verify", "sip", requires_artifact_reference=True)
     elif policy == "research":
         add("research", skill, requires_artifact=True)
         if "debloat" in quality:
-            add("debloat", "debloat", requires_artifact=True)
+            add("debloat", "debloat")
         add("factcheck", "factchk")
         add("verify", "sip", requires_artifact_reference=True)
     else:
@@ -109,7 +109,7 @@ def _policy_steps(skill: str, quality: set[str]) -> list[dict[str, Any]]:
         if "hate" in quality:
             add("challenge", "hate")
         if "debloat" in quality:
-            add("debloat", "debloat", requires_artifact=True)
+            add("debloat", "debloat")
         add("factcheck", "factchk", "external_claims_present")
         add("verify", "sip", "substantial_artifact", requires_artifact_reference=True)
     return [
