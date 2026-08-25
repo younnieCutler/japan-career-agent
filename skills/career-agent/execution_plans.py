@@ -237,7 +237,6 @@ def _public_step(
             f"--plan-id {plan['plan_id']} --step-id {clean['id']}"
         )
     return clean
-    return clean
 
 
 def validate_plan_step_open(home: CareerVault, plan_id: str, step_id: str, skill: str) -> None:
