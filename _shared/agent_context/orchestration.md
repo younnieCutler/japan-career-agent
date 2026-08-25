@@ -18,8 +18,8 @@ dependency and `artifact_context` for the closest upstream non-empty artifact, e
 the invocation ledger with summary, error, artifacts, evidence, tools, and signals.
 
 Each step declares its output contract. Artifact-producing steps must report at least one artifact;
-`sip` must report an artifact reference. A completed invocation that violates its step contract
-blocks the plan even though the original invocation row remains append-only and auditable.
+`sip` must report an artifact reference. A report that violates its contract is rejected before it
+is appended, so the Host can submit a valid report for the still-open invocation.
 
 `needs_input` resumes by rerunning the same Skill. `needs_approval` is different: `plan-next
 --approval continue|abort` records a workflow resolution in the plan snapshot and never changes or
@@ -27,7 +27,7 @@ reruns the terminal invocation that requested approval. This is not Career evide
 
 The policy is bounded and conditional. Gate D currently accepts only these Domain roots:
 `career-document`, `kigyou-bunseki`, `jiko-bunseki`, and `tenshoku-strategy`; every other Skill
-continues through its existing single-Skill workflow.
+must be handled by its existing single-Skill workflow until a policy is explicitly added.
 
 ```text
 career-document → humanize → debloat? → factchk? → sip
