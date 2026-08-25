@@ -557,6 +557,25 @@ def attach(
         outcome = _outcome("ready", text(language, "summary.read_only"), reason_code="READ_ONLY_RESULT", reason_message=text(language, "reason.read_only"), actions=[_action("inspect_status", action_label(language, "inspect_status"), command="status")], unchanged=["canonical state"])
         return finish(_with_state_actions(outcome, _state_issues(result), command=command, language=language))
 
+    if command in {"plan", "plan-next", "plan-status"}:
+        plan_state = str(result.get("status") or "running")
+        ux_state = {
+            "completed": "completed",
+            "blocked": "blocked",
+            "failed": "blocked",
+            "unsupported": "blocked",
+            "paused": "needs_input",
+        }.get(plan_state, "ready")
+        outcome = _outcome(
+            ux_state,
+            text(language, "summary.operation_complete"),
+            reason_code="EXECUTION_PLAN_RESULT",
+            reason_message=text(language, "reason.operation_complete"),
+            actions=[_action("inspect_status", action_label(language, "inspect_status"), command="plan-status")],
+            changed=["execution plan snapshot"] if command == "plan" else [],
+        )
+        return finish(outcome)
+
     if command in {"skill-open", "skill-report"}:
         # AC-7: `skill-open` on a host_required Skill from cli/gui closes itself as `unsupported`
         # instead of leaving an open record. That refusal must not read as success -- the whole
@@ -670,7 +689,20 @@ def _domain_detail_lines(payload: Mapping[str, Any], language: str) -> list[str]
     """Render known user concepts only; JSON retains canonical keys and values."""
     lines: list[str] = []
     mode = str(payload.get("mode") or "")
-    if mode == "status" or (
+    if mode in {"plan", "plan-next", "plan-status"}:
+        plan_id = payload.get("plan_id")
+        status = payload.get("status")
+        if plan_id and status:
+            lines.append(text(language, "section.execution_plan", id=plan_id, status=status))
+        if payload.get("goal"):
+            lines.append(text(language, "section.plan_goal", goal=payload["goal"]))
+        current = payload.get("current_step") if isinstance(payload.get("current_step"), Mapping) else None
+        next_step = payload.get("next_step") if isinstance(payload.get("next_step"), Mapping) else None
+        if current:
+            lines.append(text(language, "section.plan_current", step=current.get("skill") or current.get("id")))
+        if next_step:
+            lines.append(text(language, "section.plan_next", step=next_step.get("skill") or next_step.get("id")))
+    elif mode == "status" or (
         not mode and {"profile", "state", "workspace", "pending_proposals"}.issubset(payload)
     ):
         profile = payload.get("profile") if isinstance(payload.get("profile"), Mapping) else {}

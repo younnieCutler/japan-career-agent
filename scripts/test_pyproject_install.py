@@ -50,7 +50,7 @@ PACKAGED_SKILL_NAMES = (
     "career-agent", "career-document", "career-maintenance", "career-tanaoroshi",
     "company-battlecard", "hiring-manager-agent", "humanize-japanese-career",
     "jiko-bunseki", "job-seeker-agent", "kigyou-bunseki", "matching-simulator",
-    "mock-interviewer", "tenshoku-strategy",
+    "mock-interviewer", "sip", "tenshoku-strategy",
 )
 REQUIRED_SKILL_MANIFESTS = tuple(
     f"{PACKAGE_NAME}/skills/{name}/SKILL.md" for name in PACKAGED_SKILL_NAMES

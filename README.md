@@ -34,7 +34,7 @@
 
 ---
 
-Current release: `2.12.0`.
+Current release: `2.13.0`.
 
 ## What this is
 
@@ -162,6 +162,7 @@ answering as if it had run.
 | Read roles and employers | Turn JD requirements and company or posting sources into labelled observations | `hiring-manager-agent`, `kigyou-bunseki` |
 | Compare opportunities | Review candidate/JD evidence on separate axes and compare companies or offers without a total score | `matching-simulator`, `company-battlecard` |
 | Prepare and keep moving | Practise interviews, plan a transition, and manage local career state and next actions | `mock-interviewer`, `tenshoku-strategy`, `career-agent` |
+| Verify a planned artifact | Run the repository's existing checks at the end of a host-coordinated plan | `sip` |
 
 ## How evidence is handled
 
@@ -264,7 +265,7 @@ The repository version can be ahead of the stable marketplace channel while a re
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
 follows `main`.
 
-Source metadata is `2.12.0` while the stable marketplace ref is still `v2.1.1`, because the release
+Source metadata is `2.13.0` while the stable marketplace ref is still `v2.1.1`, because the release
 workflow has not published a tag for this source yet. Installing from the marketplace therefore
 gives you `2.1.1` today, and the gap closes when the next tag is published. `uvx` and `npx` are not
 affected either way, since they resolve a published package version rather than this ref.

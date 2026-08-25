@@ -220,6 +220,9 @@ class CareerVault:
         # reason every other ledger here is: two records per invocation (a `started` one and one
         # terminal one referencing it), never a rewrite of either.
         self.invocations = self.state_dir / "invocations.jsonl"
+        # Gate D workflow state is a replaceable snapshot, not a career fact or a second
+        # invocation ledger. Invocation results remain authoritative in `invocations.jsonl`.
+        self.execution_plans = self.state_dir / "execution-plans"
         self.state = self.runtime / "state.json"
         self.vault_index = self.runtime / "vault-index.jsonl"
         self.versions = self.runtime / "versions"

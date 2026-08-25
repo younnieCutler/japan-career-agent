@@ -373,6 +373,7 @@ SKILL_EXECUTION = {
     "kigyou-bunseki": "host_required",
     "matching-simulator": "host_required",
     "mock-interviewer": "host_required",
+    "sip": "host_required",
     "tenshoku-strategy": "host_required",
 }
 
@@ -389,6 +390,26 @@ SKILL_INVOCATION_STATUSES = frozenset({
 # Every status except the two that mean "not finished yet". A terminal status is what
 # skill-report is allowed to write; skill-open only ever writes "started" or "unsupported".
 SKILL_INVOCATION_TERMINAL_STATUSES = SKILL_INVOCATION_STATUSES - {"selected", "started"}
+
+# Gate D stays a bounded linear plan, not a general workflow engine. Conditions are deliberately
+# named signals rather than an expression language; the Host may report them, while the runtime
+# only validates and evaluates the fixed vocabulary.
+PLAN_SCHEMA_VERSION = 1
+PLAN_STATUSES = frozenset({"running", "paused", "completed", "blocked", "failed", "unsupported"})
+PLAN_STEP_STATUSES = frozenset({
+    "pending",
+    "started",
+    "completed",
+    "skipped",
+    "blocked",
+    "failed",
+    "needs_input",
+    "needs_approval",
+    "unsupported",
+})
+PLAN_SIGNALS = frozenset({"external_claims_present", "substantial_artifact"})
+PLAN_MAX_STEPS = 8
+PLAN_MAX_ATTEMPTS = 2
 
 
 class CareerError(ValueError):

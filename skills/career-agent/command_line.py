@@ -24,6 +24,7 @@ from models import (
     CareerError,
     EXPERIENCE_CONTEXT_KINDS,
     FACT_CATEGORIES,
+    PLAN_SIGNALS,
     PROFILE_AXES,
     PROJECT_STATUSES,
     SKILL_INVOCATION_TERMINAL_STATUSES,
@@ -366,9 +367,33 @@ def build_parser() -> argparse.ArgumentParser:
     add_output_format(review_parser)
     skills_parser = subparsers.add_parser(
         "skills",
-        help="every installed domain Skill and whether it can run without a host; reads nothing from a Vault",
+        help="every installed Skill and whether it can run without a host; reads nothing from a Vault",
     )
     add_output_format(skills_parser)
+    plan_parser = subparsers.add_parser(
+        "plan",
+        help="create a bounded host-coordinated Skill execution plan",
+    )
+    add_vault_argument(plan_parser)
+    plan_parser.add_argument("--skill", required=True, help="the routed Domain Skill to start")
+    plan_parser.add_argument("--goal", required=True, help="the user goal for this plan")
+    add_output_format(plan_parser)
+    plan_next_parser = subparsers.add_parser(
+        "plan-next",
+        help="reconcile a plan and return its next Host Skill step",
+    )
+    add_vault_argument(plan_next_parser)
+    plan_next_parser.add_argument("plan_id")
+    plan_next_parser.add_argument("--resume", action="store_true", help="resume an input- or approval-paused step")
+    plan_next_parser.add_argument("--retry", action="store_true", help="retry one failed step")
+    add_output_format(plan_next_parser)
+    plan_status_parser = subparsers.add_parser(
+        "plan-status",
+        help="show one execution plan and its current linked invocation",
+    )
+    add_vault_argument(plan_status_parser)
+    plan_status_parser.add_argument("plan_id")
+    add_output_format(plan_status_parser)
     skill_open_parser = subparsers.add_parser(
         "skill-open",
         help="open a Skill invocation before its SOP runs; the host closes it with skill-report",
@@ -382,6 +407,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     skill_open_parser.add_argument("--reason", help="why this Skill was selected")
     skill_open_parser.add_argument("--goal", help="the task this invocation is meant to accomplish")
+    skill_open_parser.add_argument("--plan-id", help="Gate D execution plan id")
+    skill_open_parser.add_argument("--step-id", help="Gate D execution plan step id")
     add_output_format(skill_open_parser)
     skill_report_parser = subparsers.add_parser(
         "skill-report",
@@ -411,6 +438,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     skill_report_parser.add_argument(
         "--error", help="what went wrong; required for blocked/failed/unsupported",
+    )
+    skill_report_parser.add_argument(
+        "--signal", dest="signals", action="append", choices=sorted(PLAN_SIGNALS), default=None,
+        help="a fixed plan condition signal observed by the Host; repeat for several",
     )
     add_output_format(skill_report_parser)
     status_parser = subparsers.add_parser("status")

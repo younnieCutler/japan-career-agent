@@ -17,6 +17,7 @@ from typing import Any
 from approvals import approve, recover_approval
 from diagnostics import doctor
 from documents import build_document_model, check_document, render_document
+from execution_plans import create_plan, next_step, plan_status
 from experiences import (
     add_context,
     add_project,
@@ -346,6 +347,12 @@ def _run_vault_command(
     args: argparse.Namespace, home: CareerVault, skills_root: Path
 ) -> dict[str, Any]:
     """Every command that needs an initialized Vault, in one place."""
+    if args.command == "plan":
+        return create_plan(home, skills_root, goal=args.goal, skill=args.skill)
+    if args.command == "plan-next":
+        return next_step(home, args.plan_id, resume=args.resume, retry=args.retry)
+    if args.command == "plan-status":
+        return plan_status(home, args.plan_id)
     if args.command == "set-job-search":
         return set_profile_axis(home, "job_search", args.value)
     if args.command == "set-employment-status":
@@ -413,12 +420,13 @@ def _run_vault_command(
         return open_invocation(
             home, skills_root, args.skill,
             entrypoint=args.entrypoint, reason=args.reason, goal=args.goal,
+            plan_id=args.plan_id, step_id=args.step_id,
         )
     if args.command == "skill-report":
         return report_invocation(
             home, args.invocation_id, status=args.status, summary=args.summary,
             artifacts=args.artifacts, evidence_used=args.evidence_used,
-            tools_used=args.tools_used, error=args.error,
+            tools_used=args.tools_used, error=args.error, signals=args.signals,
         )
     if args.command == "status":
         return status(home, workspace=args.workspace)

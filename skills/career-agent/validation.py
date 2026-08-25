@@ -20,6 +20,11 @@ from models import (
     FACT_CATEGORIES,
     PROJECT_EVENT_TYPE,
     PROJECT_STATUSES,
+    PLAN_MAX_STEPS,
+    PLAN_SCHEMA_VERSION,
+    PLAN_SIGNALS,
+    PLAN_STATUSES,
+    PLAN_STEP_STATUSES,
     REQUIRED_EVENT_FIELDS,
     SKILL_EXECUTION,
     SKILL_INVOCATION_STATUSES,
@@ -542,6 +547,92 @@ def validate_skill_selection(selection: Any) -> None:
         raise CareerError("skill_selection.invocation must be null; selection precedes invocation")
 
 
+def validate_execution_plan(plan: Any) -> None:
+    """Validate Gate D's bounded linear execution-plan snapshot.
+
+    The runtime owns a fixed linear chain. It accepts no arbitrary graph or condition language;
+    this validator keeps persisted plans honest before any Host handoff is opened.
+    """
+    if not isinstance(plan, dict):
+        raise CareerError("execution plan must be an object")
+    if plan.get("plan_schema_version") != PLAN_SCHEMA_VERSION:
+        raise CareerError("unsupported execution plan schema version")
+    plan_id = plan.get("plan_id")
+    if not isinstance(plan_id, str) or not re.fullmatch(r"plan-[a-f0-9]{12,64}", plan_id):
+        raise CareerError("execution_plan.plan_id must be a generated plan id")
+    if not isinstance(plan.get("goal"), str) or not plan["goal"].strip():
+        raise CareerError("execution_plan.goal must be a non-empty string")
+    if plan.get("status") not in PLAN_STATUSES:
+        raise CareerError("execution_plan.status is invalid")
+    for field in ("created_at", "updated_at"):
+        iso_timestamp(plan.get(field), f"execution_plan.{field}")
+    steps = plan.get("steps")
+    if not isinstance(steps, list) or not steps:
+        raise CareerError("execution_plan.steps must be a non-empty list")
+    if len(steps) > PLAN_MAX_STEPS:
+        raise CareerError(f"execution_plan.steps cannot exceed {PLAN_MAX_STEPS}")
+
+    ids: list[str] = []
+    skills: set[str] = set()
+    for step in steps:
+        if not isinstance(step, dict):
+            raise CareerError("execution_plan.steps must contain objects")
+        step_id = step.get("id")
+        if not isinstance(step_id, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,63}", step_id):
+            raise CareerError("execution_plan.step.id must be a stable lowercase id")
+        if step_id in ids:
+            raise CareerError(f"duplicate execution plan step id: {step_id}")
+        ids.append(step_id)
+        skill = step.get("skill")
+        if skill not in SKILL_EXECUTION:
+            raise CareerError(f"unknown execution plan Skill: {skill}")
+        if skill in skills:
+            raise CareerError(f"execution plan repeats Skill: {skill}")
+        skills.add(skill)
+        if step.get("status") not in PLAN_STEP_STATUSES:
+            raise CareerError(f"execution plan step {step_id} has an invalid status")
+        dependencies = step.get("depends_on")
+        if not isinstance(dependencies, list) or any(
+            not isinstance(item, str) or not item.strip() for item in dependencies
+        ):
+            raise CareerError(f"execution plan step {step_id}.depends_on must be a list of ids")
+        condition = step.get("condition")
+        if condition is not None and condition not in PLAN_SIGNALS:
+            raise CareerError(f"execution plan step {step_id}.condition is unsupported")
+        invocation_id = step.get("invocation_id")
+        if invocation_id is not None and (not isinstance(invocation_id, str) or not invocation_id.strip()):
+            raise CareerError(f"execution plan step {step_id}.invocation_id must be a string or null")
+
+    for index, step in enumerate(steps):
+        dependencies = step["depends_on"]
+        if len(dependencies) > 1:
+            raise CareerError("execution plan dependencies must remain linear")
+        expected = [] if index == 0 else [ids[index - 1]]
+        if dependencies != expected:
+            raise CareerError(
+                f"execution plan step {step['id']} must depend on the immediately previous step"
+            )
+
+    # Keep the cycle check explicit even though the linear shape above rejects cycles earlier.
+    edges = {step["id"]: set(step["depends_on"]) for step in steps}
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(step_id: str) -> None:
+        if step_id in visiting:
+            raise CareerError("execution plan dependency cycle detected")
+        if step_id in visited:
+            return
+        visiting.add(step_id)
+        for dependency in edges[step_id]:
+            visit(dependency)
+        visiting.remove(step_id)
+        visited.add(step_id)
+
+    for step_id in ids:
+        visit(step_id)
+
+
 def validate_skill_result(result: Any, *, terminal: bool) -> None:
     """Validate an invocation record written by `skill-open` or `skill-report`.
 
@@ -569,6 +660,23 @@ def validate_skill_result(result: Any, *, terminal: bool) -> None:
         value = result.get(field, [])
         if not isinstance(value, list):
             raise CareerError(f"skill_invocation.{field} must be a list")
+    signals = result.get("signals", [])
+    if not isinstance(signals, list) or any(signal not in PLAN_SIGNALS for signal in signals):
+        raise CareerError(
+            f"skill_invocation.signals must contain only: {', '.join(sorted(PLAN_SIGNALS))}"
+        )
+    plan_id = result.get("plan_id")
+    step_id = result.get("step_id")
+    if (plan_id is None) != (step_id is None):
+        raise CareerError("skill_invocation.plan_id and step_id must be supplied together")
+    if plan_id is not None and (
+        not isinstance(plan_id, str) or not re.fullmatch(r"plan-[a-f0-9]{12,64}", plan_id)
+    ):
+        raise CareerError("skill_invocation.plan_id must be a generated plan id")
+    if step_id is not None and (
+        not isinstance(step_id, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,63}", step_id)
+    ):
+        raise CareerError("skill_invocation.step_id must be a stable lowercase id")
     if terminal:
         # A terminal status is a claim about what happened, and an empty one is indistinguishable
         # from a host that reported `completed` without doing anything: `selected != completed`

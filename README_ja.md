@@ -32,7 +32,7 @@
 
 ---
 
-現在のリリース: `2.12.0`。
+現在のリリース: `2.13.0`。
 
 ## これは何か
 
@@ -160,6 +160,7 @@ Skill を使うかを示すだけで、実際に実行したという記録は `
 | 職務と企業を読む | JDの要件と企業・求人の出典付き観察を分けて整理します | `hiring-manager-agent`, `kigyou-bunseki` |
 | 選択肢を比べる | 候補者とJDを独立した軸で確認し、合計点なしで企業やオファーを比べます | `matching-simulator`, `company-battlecard` |
 | 準備を続ける | 面接練習、転職戦略、ローカルのキャリア状態と次の行動を扱います | `mock-interviewer`, `tenshoku-strategy`, `career-agent` |
+| 計画した成果物を検証する | host が調整する計画の最後に、リポジトリの既存チェックを実行します | `sip` |
 
 ## 根拠の扱い方
 
@@ -252,7 +253,7 @@ python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format hu
 あります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを参照し、`main`
 は追跡しません。
 
-現在はソースメタデータが `2.12.0` である一方、stable marketplace ref はまだ `v2.1.1` です。この
+現在はソースメタデータが `2.13.0` である一方、stable marketplace ref はまだ `v2.1.1` です。この
 ソースに対するタグをリリース workflow がまだ公開していないためで、marketplace から入れると今日は
 `2.1.1` が入ります。次のタグが公開されれば差は閉じます。`uvx` と `npx` はこの ref ではなく公開済み
 パッケージのバージョンを解決するので、どちらの場合も影響を受けません。

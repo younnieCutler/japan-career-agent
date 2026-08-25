@@ -11,9 +11,9 @@ always_loaded:
     # Bumped for the Skill-First Gate A-C handoff invariant (PR review, 2nd round): the host
     # skill-open/SOP/skill-report contract had to move from a Tier 1 lazy reference into Tier 0
     # so it is actually always loaded, not merely documented somewhere a caller might skip.
-    max_bytes: 7100
-    max_chars: 7100
-    max_lines: 115
+    max_bytes: 7400
+    max_chars: 7400
+    max_lines: 120
   CLAUDE.md:
     max_bytes: 500
     max_chars: 500
@@ -47,3 +47,4 @@ lazy_context:
     - _shared/agent_context/persistence.md
     - _shared/agent_context/learning.md
     - _shared/agent_context/architecture.md
+    - _shared/agent_context/orchestration.md
