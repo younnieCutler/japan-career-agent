@@ -394,6 +394,22 @@ class ExecutionPlanTests(unittest.TestCase):
         self.assertEqual(rejected.returncode, 2)
         self.assertIn("reserved", rejected.stderr)
 
+    def test_document_policy_keeps_optional_read_and_compression_explicit(self) -> None:
+        plan = self.create_plan("career-document", ("readchk", "debloat"))
+        self.assertEqual(
+            [step["skill"] for step in plan["steps"]],
+            [
+                "readchk",
+                "career-document",
+                "humanize-japanese-career",
+                "debloat",
+                "factchk",
+                "sip",
+            ],
+        )
+        self.assertEqual(plan["steps"][4]["condition"], "external_claims_present")
+        self.assertIsNone(plan["steps"][5]["condition"])
+
     def test_missing_quality_signals_skip_optional_steps(self) -> None:
         plan = self.create_plan("jiko-bunseki")
         self.complete_step(plan["plan_id"])
