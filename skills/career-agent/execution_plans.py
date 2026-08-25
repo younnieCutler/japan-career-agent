@@ -277,7 +277,7 @@ def _public_step(
             if artifact_result and artifact_result["artifacts"]:
                 clean["artifact_context"] = {"from_step": previous["id"], **artifact_result}
                 break
-    if step["status"] == "pending":
+    if clean["status"] == "pending":
         clean["invoke_with"] = (
             f"skill-open --skill {clean['skill']} --entrypoint HOST "
             f"--plan-id {plan['plan_id']} --step-id {clean['id']}"

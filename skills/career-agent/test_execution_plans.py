@@ -126,6 +126,7 @@ class ExecutionPlanTests(unittest.TestCase):
 
         waiting = output(run(self.vault, "plan-next", plan_id))
         self.assertEqual(waiting["current_step"]["id"], step["id"])
+        self.assertNotIn("invoke_with", waiting["current_step"])
         self.assertIsNone(waiting["next_step"])
 
         output(run(
