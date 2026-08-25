@@ -602,6 +602,10 @@ def validate_execution_plan(plan: Any) -> None:
         invocation_id = step.get("invocation_id")
         if invocation_id is not None and (not isinstance(invocation_id, str) or not invocation_id.strip()):
             raise CareerError(f"execution plan step {step_id}.invocation_id must be a string or null")
+        for field in ("requires_artifact", "requires_artifact_reference"):
+            value = step.get(field, False)
+            if not isinstance(value, bool):
+                raise CareerError(f"execution plan step {step_id}.{field} must be boolean")
 
     for index, step in enumerate(steps):
         dependencies = step["depends_on"]

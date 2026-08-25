@@ -62,12 +62,12 @@ def _write_plan(home: CareerVault, plan: dict[str, Any]) -> None:
 def _policy_steps(skill: str) -> list[dict[str, Any]]:
     if skill == "career-document":
         names = (
-            ("draft", "career-document", None),
-            ("humanize", "humanize-japanese-career", "draft"),
-            ("verify", "sip", "humanize"),
+            ("draft", "career-document", None, True, False),
+            ("humanize", "humanize-japanese-career", "draft", True, False),
+            ("verify", "sip", "humanize", False, True),
         )
     else:
-        names = (("domain", skill, None),)
+        names = (("domain", skill, None, False, False),)
     return [
         {
             "id": step_id,
@@ -76,8 +76,10 @@ def _policy_steps(skill: str) -> list[dict[str, Any]]:
             "depends_on": [] if dependency is None else [dependency],
             "condition": None,
             "invocation_id": None,
+            "requires_artifact": requires_artifact,
+            "requires_artifact_reference": requires_artifact_reference,
         }
-        for step_id, step_skill, dependency in names
+        for step_id, step_skill, dependency, requires_artifact, requires_artifact_reference in names
     ]
 
 
@@ -134,6 +136,35 @@ def _latest_row(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     return rows[-1] if rows else None
 
 
+def _contract_error(step: dict[str, Any], row: dict[str, Any]) -> str | None:
+    if row.get("status") != "completed":
+        return None
+    artifacts = row.get("artifacts") or []
+    if step.get("requires_artifact") and not artifacts:
+        return "step output contract requires at least one artifact"
+    if step.get("requires_artifact_reference") and not artifacts:
+        return "step output contract requires an artifact reference"
+    return None
+
+
+def _result_projection(step: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    row = _latest_row(rows)
+    if row is None or row.get("status") not in SKILL_INVOCATION_TERMINAL_STATUSES:
+        return None
+    error = row.get("error") or _contract_error(step, row)
+    return {
+        "invocation_id": row.get("invocation_id"),
+        "status": "blocked" if error and row.get("status") == "completed" else row.get("status"),
+        "invocation_status": row.get("status"),
+        "summary": row.get("summary"),
+        "error": error,
+        "artifacts": list(row.get("artifacts") or []),
+        "evidence_used": list(row.get("evidence_used") or []),
+        "tools_used": list(row.get("tools_used") or []),
+        "signals": list(row.get("signals") or []),
+    }
+
+
 def _materialize(plan: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
     materialized = {**plan, "steps": [dict(step) for step in plan["steps"]]}
     for step in materialized["steps"]:
@@ -151,7 +182,7 @@ def _materialize(plan: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, 
             continue
         step["invocation_id"] = linked.get("invocation_id")
         if linked.get("status") in PLAN_STEP_STATUSES:
-            step["status"] = linked["status"]
+            step["status"] = "blocked" if _contract_error(step, linked) else linked["status"]
 
     current = next(
         (step for step in materialized["steps"] if step["status"] == "started"),
@@ -178,12 +209,31 @@ def _materialize(plan: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, 
     return materialized
 
 
-def _public_step(plan: dict[str, Any], step: dict[str, Any]) -> dict[str, Any]:
+def _public_step(
+    plan: dict[str, Any], step: dict[str, Any], rows: list[dict[str, Any]],
+) -> dict[str, Any]:
     clean = {key: value for key, value in step.items() if key != "_plan_id"}
-    clean["invoke_with"] = (
-        f"skill-open --skill {clean['skill']} --entrypoint HOST "
-        f"--plan-id {plan['plan_id']} --step-id {clean['id']}"
-    )
+    result = _result_projection(step, _rows_for_step(rows, step["id"]))
+    if result is not None and step["status"] not in {"skipped", "pending", "started"}:
+        clean["result"] = result
+    if step["status"] == "pending" and step.get("depends_on"):
+        dependency = step["depends_on"][0]
+        dependency_step = next(
+            (candidate for candidate in plan["steps"] if candidate["id"] == dependency),
+            None,
+        )
+        if dependency_step is not None:
+            dependency_result = _result_projection(
+                dependency_step, _rows_for_step(rows, dependency),
+            )
+            if dependency_result is not None:
+                clean["input"] = {"from_step": dependency, **dependency_result}
+    if step["status"] == "pending":
+        clean["invoke_with"] = (
+            f"skill-open --skill {clean['skill']} --entrypoint HOST "
+            f"--plan-id {plan['plan_id']} --step-id {clean['id']}"
+        )
+    return clean
     return clean
 
 
@@ -204,7 +254,7 @@ def validate_plan_step_open(home: CareerVault, plan_id: str, step_id: str, skill
         raise CareerError("execution plan dependencies are not complete", code="INVALID_INPUT")
     if step["condition"] and step["condition"] not in _signals(rows):
         raise CareerError("execution plan step condition is not satisfied", code="INVALID_INPUT")
-    if any(row.get("status") == "started" for row in _rows_for_step(rows, step_id)):
+    if (_latest_row(_rows_for_step(rows, step_id)) or {}).get("status") == "started":
         raise CareerError("execution plan step already has an open invocation", code="INVALID_INPUT")
 
 
@@ -257,7 +307,7 @@ def next_step(
                     "mode": "plan-next",
                     "plan_id": plan_id,
                     "status": "running",
-                    "current_step": _public_step(materialized, current),
+                    "current_step": _public_step(materialized, current, rows),
                     "next_step": None,
                 }
             if materialized != plan:
@@ -267,7 +317,7 @@ def next_step(
                 "mode": "plan-next",
                 "plan_id": plan_id,
                 "status": materialized["status"],
-                "current_step": _public_step(materialized, current),
+                "current_step": _public_step(materialized, current, rows),
                 "next_step": None,
                 "resume": current["status"] in {"needs_input", "needs_approval"},
                 "retry": current["status"] == "failed",
@@ -291,7 +341,7 @@ def next_step(
                 "plan_id": plan_id,
                 "status": "running",
                 "current_step": None,
-                "next_step": _public_step(materialized, step),
+                "next_step": _public_step(materialized, step, rows),
             }
 
         materialized["status"] = "completed"
@@ -309,7 +359,8 @@ def next_step(
 def plan_status(home: CareerVault, plan_id: str) -> dict[str, Any]:
     with vault_lock(home):
         plan = _load_plan(home, plan_id)
-        materialized = _materialize(plan, _rows_for_plan(home, plan_id))
+        rows = _rows_for_plan(home, plan_id)
+        materialized = _materialize(plan, rows)
     current = next(
         (
             step for step in materialized["steps"]
@@ -322,8 +373,8 @@ def plan_status(home: CareerVault, plan_id: str) -> dict[str, Any]:
         "plan_id": plan_id,
         "status": materialized["status"],
         "goal": materialized["goal"],
-        "steps": materialized["steps"],
-        "current_step": current,
+        "steps": [_public_step(materialized, step, rows) for step in materialized["steps"]],
+        "current_step": _public_step(materialized, current, rows) if current else None,
         "created_at": materialized["created_at"],
         "updated_at": materialized["updated_at"],
     }

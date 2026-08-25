@@ -4,9 +4,10 @@
 
 - Add the first host-coordinated Gate D execution plan. A bounded linear plan links the existing
   `skill-open` → Host SOP → `skill-report` lifecycle, persists its current snapshot in the Vault,
-  and returns the next step without calling an LLM from Python. The first quality consumer is the
-  flat `career-document` → `humanize-japanese-career` → `sip` chain; unplanned single-Skill callers
-  remain unchanged.
+  projects terminal result data into the next step without copying it into the snapshot, and
+  refuses completed steps that violate their artifact output contract. The first quality consumer
+  is the flat `career-document` → `humanize-japanese-career` → `sip` chain; unplanned single-Skill
+  callers remain unchanged.
 
 ## [2.12.0] - 2026-08-18
 

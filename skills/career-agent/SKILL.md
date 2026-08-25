@@ -58,9 +58,12 @@ python skills/career-agent/career_agent.py plan-next --vault "$VAULT" <plan-id>
 python skills/career-agent/career_agent.py plan-status --vault "$VAULT" <plan-id>
 ```
 
-The first policy is `career-document → humanize-japanese-career → sip`. `plan-next` only chooses
-the next step; Python never calls an LLM Host or another Skill. Each plan step uses the existing
-`skill-open → SOP → skill-report` lifecycle and remains resumable from the Vault.
+The first policy is `career-document → humanize-japanese-career → sip`. `plan-next` passes the
+previous terminal result as a read projection (`summary`, `error`, `artifacts`, `evidence_used`,
+`tools_used`, and `signals`) without copying it into the plan snapshot. Artifact-producing steps
+must report their artifact path; `sip` must report an artifact reference. Python never calls an
+LLM Host or another Skill. Each plan step uses the existing `skill-open → SOP → skill-report`
+lifecycle and remains resumable from the Vault.
 
 Set `CAREER_VAULT` instead of passing `--vault` repeatedly. The runtime never defaults to the
 repository or current working directory.

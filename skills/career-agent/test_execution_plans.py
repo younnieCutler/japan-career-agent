@@ -106,6 +106,13 @@ class ExecutionPlanTests(unittest.TestCase):
         ))
         advanced = output(run(self.vault, "plan-next", plan_id))
         self.assertEqual(advanced["next_step"]["skill"], "humanize-japanese-career")
+        self.assertEqual(advanced["next_step"]["input"]["from_step"], "draft")
+        self.assertEqual(advanced["next_step"]["input"]["summary"], "draft created")
+        self.assertEqual(advanced["next_step"]["input"]["artifacts"], ["career-docs/draft.json"])
+        persisted = json.loads(
+            (self.vault / "02-state" / "execution-plans" / f"{plan_id}.json").read_text(encoding="utf-8")
+        )
+        self.assertTrue(all("result" not in step for step in persisted["steps"]))
 
     def test_plan_status_recovers_an_open_invocation(self) -> None:
         plan = self.create_plan()
@@ -126,6 +133,101 @@ class ExecutionPlanTests(unittest.TestCase):
         status = output(run(self.vault, "plan-status", plan["plan_id"]))
         self.assertEqual(status["status"], "running")
         self.assertEqual(status["current_step"]["invocation_id"], opened["invocation_id"])
+
+    def test_plan_status_projects_pause_result_for_resume(self) -> None:
+        plan = self.create_plan()
+        next_step = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        opened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            next_step["skill"],
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            next_step["id"],
+        ))
+        output(run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "needs_input",
+            "--summary",
+            "confirm the target posting",
+        ))
+        status = output(run(self.vault, "plan-status", plan["plan_id"]))
+        self.assertEqual(status["current_step"]["result"]["summary"], "confirm the target posting")
+
+    def test_required_artifact_contract_blocks_empty_completed_step(self) -> None:
+        plan = self.create_plan()
+        next_step = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        opened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            next_step["skill"],
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            next_step["id"],
+        ))
+        output(run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "completed",
+            "--summary",
+            "draft created without a path",
+        ))
+        blocked = output(run(self.vault, "plan-next", plan["plan_id"]))
+        self.assertEqual(blocked["status"], "blocked")
+        self.assertIn("artifact", blocked["current_step"]["result"]["error"])
+
+    def test_retry_reopens_after_historical_started_row(self) -> None:
+        plan = self.create_plan()
+        next_step = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        opened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            next_step["skill"],
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            next_step["id"],
+        ))
+        output(run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "failed",
+            "--error",
+            "transient failure",
+        ))
+        output(run(self.vault, "plan-next", plan["plan_id"]))
+        retried = output(run(self.vault, "plan-next", plan["plan_id"], "--retry"))
+        reopened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            next_step["skill"],
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            retried["next_step"]["id"],
+        ))
+        self.assertEqual(reopened["status"], "started")
 
     def test_vertical_slice_reaches_completed_plan(self) -> None:
         plan = self.create_plan()
@@ -153,6 +255,8 @@ class ExecutionPlanTests(unittest.TestCase):
                 "completed",
                 "--summary",
                 f"{expected_skill} completed",
+                "--artifact",
+                f"career-docs/{expected_skill}.json",
             ))
         final = output(run(self.vault, "plan-next", plan_id))
         self.assertEqual(final["status"], "completed")
