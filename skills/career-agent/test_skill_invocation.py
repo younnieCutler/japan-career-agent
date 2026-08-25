@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
 CAREER_ROOT = ROOT / "skills" / "career-agent"
 SKILLS_ROOT = ROOT / "skills"
+QUALITY_SKILLS = {"readchk", "factchk", "hate", "debloat", "sip"}
 if str(CAREER_ROOT) not in sys.path:
     sys.path.insert(0, str(CAREER_ROOT))
 
@@ -52,6 +53,11 @@ class RegistryTests(unittest.TestCase):
     def test_every_discovered_skill_has_an_execution_class(self) -> None:
         for entry in skill_registry.discover(SKILLS_ROOT):
             self.assertIn(entry["execution"], {"deterministic", "hybrid", "host_required"})
+
+    def test_paperthin_quality_skills_are_host_required(self) -> None:
+        entries = {entry["skill"]: entry for entry in skill_registry.discover(SKILLS_ROOT)}
+        self.assertTrue(QUALITY_SKILLS.issubset(entries))
+        self.assertTrue(all(entries[name]["execution"] == "host_required" for name in QUALITY_SKILLS))
 
     def test_directory_missing_from_skill_execution_raises(self) -> None:
         original = dict(models.SKILL_EXECUTION)

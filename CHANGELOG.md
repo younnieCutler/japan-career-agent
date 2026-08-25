@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.14.0] - 2026-08-25
+
+- Add the selected Paperthin quality primitives as real Host Skills: `readchk`, `factchk`, `hate`,
+  and `debloat`. They keep Career Agent's Unknown, provenance, approval, and user-decision rules;
+  `hate` and `debloat` remain explicit user-invoked operations, and no Quality Skill invokes another.
+
 ## [2.13.0] - 2026-08-25
 
 - Add the first host-coordinated Gate D execution plan. A bounded linear plan links the existing

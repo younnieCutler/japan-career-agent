@@ -28,7 +28,7 @@ from validation import validate_execution_plan
 from vault import CareerVault, utc_now
 
 
-_QUALITY_SKILLS = {"sip"}
+_QUALITY_SKILLS = {"debloat", "factchk", "hate", "readchk", "sip"}
 _TERMINAL_STEP_STATUSES = PLAN_STEP_STATUSES - {"pending", "started"}
 
 
