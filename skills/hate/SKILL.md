@@ -31,7 +31,7 @@ one cheap falsification test. The user still owns the decision.
 - Run only after explicit user opt-in or an explicitly user-confirmed consequential-decision policy.
 - Do not produce a total, hiring prediction, recommendation, or decision on the user's behalf.
 - Do not average independent axes or hide a confirmed hard conflict.
- - One root and one test; no checklist expansion.
+- One root and one test; no checklist expansion.
 - This Skill is read-only and never invokes another Skill.
 
 ## Gate D terminal semantics
