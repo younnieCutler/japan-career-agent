@@ -106,9 +106,10 @@ class ExecutionPlanTests(unittest.TestCase):
         ))
         advanced = output(run(self.vault, "plan-next", plan_id))
         self.assertEqual(advanced["next_step"]["skill"], "humanize-japanese-career")
-        self.assertEqual(advanced["next_step"]["input"]["from_step"], "draft")
-        self.assertEqual(advanced["next_step"]["input"]["summary"], "draft created")
-        self.assertEqual(advanced["next_step"]["input"]["artifacts"], ["career-docs/draft.json"])
+        self.assertEqual(advanced["next_step"]["dependency_result"]["from_step"], "draft")
+        self.assertEqual(advanced["next_step"]["dependency_result"]["summary"], "draft created")
+        self.assertEqual(advanced["next_step"]["artifact_context"]["from_step"], "draft")
+        self.assertEqual(advanced["next_step"]["artifact_context"]["artifacts"], ["career-docs/draft.json"])
         persisted = json.loads(
             (self.vault / "02-state" / "execution-plans" / f"{plan_id}.json").read_text(encoding="utf-8")
         )
@@ -161,7 +162,51 @@ class ExecutionPlanTests(unittest.TestCase):
         status = output(run(self.vault, "plan-status", plan["plan_id"]))
         self.assertEqual(status["current_step"]["result"]["summary"], "confirm the target posting")
 
-    def test_required_artifact_contract_blocks_empty_completed_step(self) -> None:
+    def test_required_artifact_contract_refuses_empty_report_before_append(self) -> None:
+        plan = self.create_plan()
+        next_step = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        opened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            next_step["skill"],
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            next_step["id"],
+        ))
+        refused = run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "completed",
+            "--summary",
+            "draft created without a path",
+        )
+        self.assertEqual(refused.returncode, 2)
+        self.assertIn("artifact", refused.stderr)
+        waiting = output(run(self.vault, "plan-next", plan["plan_id"]))
+        self.assertEqual(waiting["current_step"]["status"], "started")
+        output(run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "completed",
+            "--summary",
+            "draft created with a path",
+            "--artifact",
+            "career-docs/draft.json",
+        ))
+        self.assertEqual(
+            output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]["skill"],
+            "humanize-japanese-career",
+        )
+
+    def test_needs_approval_requires_resolution_without_reopening_skill(self) -> None:
         plan = self.create_plan()
         next_step = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
         opened = output(run(
@@ -181,13 +226,44 @@ class ExecutionPlanTests(unittest.TestCase):
             "skill-report",
             opened["invocation_id"],
             "--status",
-            "completed",
+            "needs_approval",
             "--summary",
-            "draft created without a path",
+            "confirm the strategy before continuing",
         ))
-        blocked = output(run(self.vault, "plan-next", plan["plan_id"]))
-        self.assertEqual(blocked["status"], "blocked")
-        self.assertIn("artifact", blocked["current_step"]["result"]["error"])
+        refused = run(self.vault, "plan-next", plan["plan_id"], "--resume")
+        self.assertEqual(refused.returncode, 2)
+        continued = output(run(self.vault, "plan-next", plan["plan_id"], "--approval", "continue"))
+        self.assertEqual(continued["next_step"]["skill"], "humanize-japanese-career")
+        status = output(run(self.vault, "plan-status", plan["plan_id"]))
+        self.assertEqual(status["steps"][0]["approval_resolution"]["decision"], "continue")
+
+    def test_needs_approval_can_abort_without_reopening_skill(self) -> None:
+        plan = self.create_plan()
+        next_step = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        opened = output(run(
+            self.vault,
+            "skill-open",
+            "--skill",
+            next_step["skill"],
+            "--entrypoint",
+            "claude",
+            "--plan-id",
+            plan["plan_id"],
+            "--step-id",
+            next_step["id"],
+        ))
+        output(run(
+            self.vault,
+            "skill-report",
+            opened["invocation_id"],
+            "--status",
+            "needs_approval",
+            "--summary",
+            "confirm the strategy before continuing",
+        ))
+        aborted = output(run(self.vault, "plan-next", plan["plan_id"], "--approval", "abort"))
+        self.assertEqual(aborted["status"], "blocked")
+        self.assertEqual(aborted["current_step"]["approval_resolution"]["decision"], "abort")
 
     def test_retry_reopens_after_historical_started_row(self) -> None:
         plan = self.create_plan()

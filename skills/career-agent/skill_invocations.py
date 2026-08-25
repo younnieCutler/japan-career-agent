@@ -157,6 +157,16 @@ def report_invocation(
         if started.get("plan_id") is not None:
             record["plan_id"] = started["plan_id"]
             record["step_id"] = started["step_id"]
+            from execution_plans import validate_plan_step_report
+
+            validate_plan_step_report(
+                home,
+                started["plan_id"],
+                started["step_id"],
+                started["skill"],
+                status=status,
+                artifacts=record["artifacts"],
+            )
         validate_skill_result(record, terminal=True)
         append_jsonl(home.invocations, record)
         return record

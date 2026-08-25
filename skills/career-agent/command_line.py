@@ -384,8 +384,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_vault_argument(plan_next_parser)
     plan_next_parser.add_argument("plan_id")
-    plan_next_parser.add_argument("--resume", action="store_true", help="resume an input- or approval-paused step")
+    plan_next_parser.add_argument("--resume", action="store_true", help="rerun an input-paused step")
     plan_next_parser.add_argument("--retry", action="store_true", help="retry one failed step")
+    plan_next_parser.add_argument(
+        "--approval", choices=("continue", "abort"),
+        help="resolve a needs_approval step without rerunning its Skill",
+    )
     add_output_format(plan_next_parser)
     plan_status_parser = subparsers.add_parser(
         "plan-status",

@@ -13,12 +13,17 @@ plan → plan-next → skill-open(plan_id, step_id) → Host SOP → skill-repor
 Plan snapshots are workflow state under `02-state/execution-plans/`. Career facts remain in the
 approval-gated event ledger, company state remains in `data/pipeline.yml`, and invocation results
 remain in `02-state/invocations.jsonl`. Do not create a second invocation ledger or copy terminal
-results into the plan: `plan-next` and `plan-status` expose a read projection of the immediate
-dependency's summary, error, artifacts, evidence, tools, and signals.
+results into the plan: `plan-next` and `plan-status` expose `dependency_result` for the immediate
+dependency and `artifact_context` for the closest upstream non-empty artifact, each projected from
+the invocation ledger with summary, error, artifacts, evidence, tools, and signals.
 
 Each step declares its output contract. Artifact-producing steps must report at least one artifact;
 `sip` must report an artifact reference. A completed invocation that violates its step contract
 blocks the plan even though the original invocation row remains append-only and auditable.
+
+`needs_input` resumes by rerunning the same Skill. `needs_approval` is different: `plan-next
+--approval continue|abort` records a workflow resolution in the plan snapshot and never changes or
+reruns the terminal invocation that requested approval. This is not Career evidence approval.
 
 The first plan policy is the flat `career-document → humanize-japanese-career → sip` chain. A
 Quality Skill never invokes another Skill; Gate D owns ordering. Existing unplanned `skill-open` /

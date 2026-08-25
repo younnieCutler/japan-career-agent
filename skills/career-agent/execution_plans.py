@@ -78,6 +78,7 @@ def _policy_steps(skill: str) -> list[dict[str, Any]]:
             "invocation_id": None,
             "requires_artifact": requires_artifact,
             "requires_artifact_reference": requires_artifact_reference,
+            "approval_resolution": None,
         }
         for step_id, step_skill, dependency, requires_artifact, requires_artifact_reference in names
     ]
@@ -136,28 +137,16 @@ def _latest_row(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     return rows[-1] if rows else None
 
 
-def _contract_error(step: dict[str, Any], row: dict[str, Any]) -> str | None:
-    if row.get("status") != "completed":
-        return None
-    artifacts = row.get("artifacts") or []
-    if step.get("requires_artifact") and not artifacts:
-        return "step output contract requires at least one artifact"
-    if step.get("requires_artifact_reference") and not artifacts:
-        return "step output contract requires an artifact reference"
-    return None
-
-
 def _result_projection(step: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     row = _latest_row(rows)
     if row is None or row.get("status") not in SKILL_INVOCATION_TERMINAL_STATUSES:
         return None
-    error = row.get("error") or _contract_error(step, row)
     return {
         "invocation_id": row.get("invocation_id"),
-        "status": "blocked" if error and row.get("status") == "completed" else row.get("status"),
+        "status": row.get("status"),
         "invocation_status": row.get("status"),
         "summary": row.get("summary"),
-        "error": error,
+        "error": row.get("error"),
         "artifacts": list(row.get("artifacts") or []),
         "evidence_used": list(row.get("evidence_used") or []),
         "tools_used": list(row.get("tools_used") or []),
@@ -181,8 +170,15 @@ def _materialize(plan: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, 
         ):
             continue
         step["invocation_id"] = linked.get("invocation_id")
+        if linked.get("status") == "needs_approval" and step.get("approval_resolution"):
+            step["status"] = (
+                "completed"
+                if step["approval_resolution"]["decision"] == "continue"
+                else "blocked"
+            )
+            continue
         if linked.get("status") in PLAN_STEP_STATUSES:
-            step["status"] = "blocked" if _contract_error(step, linked) else linked["status"]
+            step["status"] = linked["status"]
 
     current = next(
         (step for step in materialized["steps"] if step["status"] == "started"),
@@ -227,7 +223,14 @@ def _public_step(
                 dependency_step, _rows_for_step(rows, dependency),
             )
             if dependency_result is not None:
-                clean["input"] = {"from_step": dependency, **dependency_result}
+                clean["dependency_result"] = {"from_step": dependency, **dependency_result}
+    if step["status"] == "pending":
+        current_index = next(index for index, item in enumerate(plan["steps"]) if item["id"] == step["id"])
+        for previous in reversed(plan["steps"][:current_index]):
+            artifact_result = _result_projection(previous, _rows_for_step(rows, previous["id"]))
+            if artifact_result and artifact_result["artifacts"]:
+                clean["artifact_context"] = {"from_step": previous["id"], **artifact_result}
+                break
     if step["status"] == "pending":
         clean["invoke_with"] = (
             f"skill-open --skill {clean['skill']} --entrypoint HOST "
@@ -258,6 +261,28 @@ def validate_plan_step_open(home: CareerVault, plan_id: str, step_id: str, skill
         raise CareerError("execution plan step already has an open invocation", code="INVALID_INPUT")
 
 
+def validate_plan_step_report(
+    home: CareerVault,
+    plan_id: str,
+    step_id: str,
+    skill: str,
+    *,
+    status: str,
+    artifacts: list[str],
+) -> None:
+    """Validate a linked terminal report while the caller holds ``vault_lock``."""
+    if status != "completed":
+        return
+    plan = _load_plan(home, plan_id)
+    step = next((item for item in plan["steps"] if item["id"] == step_id), None)
+    if step is None or step["skill"] != skill:
+        raise CareerError("linked report does not match the plan step", code="INVALID_INPUT")
+    if step.get("requires_artifact") and not artifacts:
+        raise CareerError("step output contract requires at least one artifact", code="INVALID_INPUT")
+    if step.get("requires_artifact_reference") and not artifacts:
+        raise CareerError("step output contract requires an artifact reference", code="INVALID_INPUT")
+
+
 def _reset_for_resume(plan: dict[str, Any], step: dict[str, Any]) -> None:
     step["status"] = "pending"
     plan["status"] = "running"
@@ -270,9 +295,10 @@ def next_step(
     *,
     resume: bool = False,
     retry: bool = False,
+    approval: str | None = None,
 ) -> dict[str, Any]:
-    if resume and retry:
-        raise CareerError("choose either --resume or --retry", code="INVALID_INPUT")
+    if sum(value is not None and value is not False for value in (resume, retry, approval)) > 1:
+        raise CareerError("choose one of --resume, --retry, or --approval", code="INVALID_INPUT")
     with vault_lock(home):
         plan = _load_plan(home, plan_id)
         rows = _rows_for_plan(home, plan_id)
@@ -284,11 +310,28 @@ def next_step(
             ),
             None,
         )
+        if approval is not None:
+            if current is None or current["status"] != "needs_approval":
+                raise CareerError("--approval requires an approval-paused step", code="INVALID_INPUT")
+            current["approval_resolution"] = {"decision": approval, "resolved_at": utc_now()}
+            current["status"] = "completed" if approval == "continue" else "blocked"
+            materialized["updated_at"] = utc_now()
+            _write_plan(home, materialized)
+            plan = materialized
+            rows = _rows_for_plan(home, plan_id)
+            materialized = _materialize(plan, rows)
+            current = next(
+                (
+                    step for step in materialized["steps"]
+                    if step["status"] in {"started", "needs_input", "needs_approval", "blocked", "failed", "unsupported"}
+                ),
+                None,
+            )
         if resume or retry:
             if current is None:
                 raise CareerError("execution plan has no resumable step", code="INVALID_INPUT")
-            if resume and current["status"] not in {"needs_input", "needs_approval"}:
-                raise CareerError("--resume requires an input- or approval-paused step", code="INVALID_INPUT")
+            if resume and current["status"] != "needs_input":
+                raise CareerError("--resume requires an input-paused step", code="INVALID_INPUT")
             if retry and current["status"] != "failed":
                 raise CareerError("--retry requires a failed step", code="INVALID_INPUT")
             attempts = sum(row.get("status") == "started" for row in _rows_for_step(rows, current["id"]))

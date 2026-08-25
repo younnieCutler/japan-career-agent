@@ -153,6 +153,7 @@ OWNED_SYMBOLS = {
     "plan_status": "execution_plans",
     "active_plans": "execution_plans",
     "validate_plan_step_open": "execution_plans",
+    "validate_plan_step_report": "execution_plans",
     "run_chat": "proposals",
     "stated_career_mode": "proposals",
     "propose_career_context": "proposals",

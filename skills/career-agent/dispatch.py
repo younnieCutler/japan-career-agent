@@ -350,7 +350,9 @@ def _run_vault_command(
     if args.command == "plan":
         return create_plan(home, skills_root, goal=args.goal, skill=args.skill)
     if args.command == "plan-next":
-        return next_step(home, args.plan_id, resume=args.resume, retry=args.retry)
+        return next_step(
+            home, args.plan_id, resume=args.resume, retry=args.retry, approval=args.approval,
+        )
     if args.command == "plan-status":
         return plan_status(home, args.plan_id)
     if args.command == "set-job-search":

@@ -606,6 +606,14 @@ def validate_execution_plan(plan: Any) -> None:
             value = step.get(field, False)
             if not isinstance(value, bool):
                 raise CareerError(f"execution plan step {step_id}.{field} must be boolean")
+        resolution = step.get("approval_resolution")
+        if resolution is not None:
+            if (
+                not isinstance(resolution, dict)
+                or resolution.get("decision") not in {"continue", "abort"}
+            ):
+                raise CareerError(f"execution plan step {step_id}.approval_resolution is invalid")
+            iso_timestamp(resolution.get("resolved_at"), f"execution plan step {step_id}.approval_resolution.resolved_at")
 
     for index, step in enumerate(steps):
         dependencies = step["depends_on"]
