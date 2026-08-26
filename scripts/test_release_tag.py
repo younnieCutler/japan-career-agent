@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 import check_release_tag
+from sync_version import version_from_pyproject
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,20 +25,24 @@ def git(root: Path, *args: str) -> str:
 
 
 def write_release_files(root: Path, version: str) -> None:
-    (root / ".claude-plugin").mkdir(exist_ok=True)
-    (root / ".codex-plugin").mkdir(exist_ok=True)
-    for relative in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
-        (root / relative).write_text(json.dumps({"version": version}) + "\n", encoding="utf-8")
+    """Write the files a release identity is actually read from.
+
+    Only `pyproject.toml` and `CHANGELOG.md`. This fixture used to manufacture plugin manifests and
+    a `Current release:` line in each README, which is why this suite kept passing after the READMEs
+    stopped carrying that line: the fixture supplied what the repository no longer had, so the
+    duplicated rule in `check_release_tag.py` was never exercised against a realistic tree and only
+    failed when the release workflow ran — after it had already pushed the tag.
+    """
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "japan-career-agent"\nversion = "{version}"\n', encoding="utf-8"
+    )
     (root / "CHANGELOG.md").write_text(f"# Changelog\n\n## [{version}] — 2026-08-04\n", encoding="utf-8")
-    (root / "README.md").write_text(f"Current release: `{version}`.\n", encoding="utf-8")
-    (root / "README_ko.md").write_text(f"현재 릴리스: `{version}`.\n", encoding="utf-8")
-    (root / "README_ja.md").write_text(f"現在のリリース: `{version}`。\n", encoding="utf-8")
 
 
 def release_version_changed(root: Path, previous_ref: str) -> bool:
     """Mirror the workflow's previous-main-ref release version gate for fixture tests."""
-    current = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
-    previous = json.loads(git(root, "show", f"{previous_ref}:.claude-plugin/plugin.json"))["version"]
+    current = version_from_pyproject((root / "pyproject.toml").read_text(encoding="utf-8"))
+    previous = version_from_pyproject(git(root, "show", f"{previous_ref}:pyproject.toml"))
     return current != previous
 
 
@@ -121,6 +125,24 @@ class ReleaseTagTests(unittest.TestCase):
             git(root, "tag", "-a", "v1.6.3", "-m", "Release v1.6.3")
             errors = check_release_tag.validate_release_tag(root, "v1.6.3")
             self.assertTrue(any("declared version" in error for error in errors), errors)
+
+    def test_the_real_repository_satisfies_every_non_git_rule(self) -> None:
+        """Run the validator against this repository, not a fixture.
+
+        Every other test here builds the tree it then validates, so a rule asserting a file property
+        the repository no longer has stays green forever: the fixture keeps writing what the rule
+        expects. That is exactly how the `Current release:` marker survived its removal from the
+        READMEs and stopped a release *after* the tag had been pushed — the only irreversible step.
+        Errors about the tag or the commit are expected here (the tag for an unreleased version does
+        not exist yet); errors about repository metadata are the regression.
+        """
+        version = version_from_pyproject((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        errors = check_release_tag.validate_release_tag(ROOT, f"v{version}")
+        metadata_errors = [
+            error for error in errors
+            if "points to" not in error and "is missing or invalid" not in error
+        ]
+        self.assertEqual(metadata_errors, [], metadata_errors)
 
     def test_workflow_runs_checks_before_immutable_tag_and_release(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")

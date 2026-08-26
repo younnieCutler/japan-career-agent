@@ -46,6 +46,7 @@ def load_routing() -> dict[str, Any]:
         or not isinstance(data.get("active_search"), dict)
         or not _phrase_list(data.get("active_search", {}).get("terms"))
         or not _phrase_list(data.get("active_search", {}).get("negation"))
+        or not _phrase_list(data.get("message_context_exclusion"))
         or not isinstance(routes, list)
         or not routes
         or any(
@@ -69,6 +70,11 @@ ROUTING = load_routing()
 # "yes", "best"). Everything else, including intentional stems like "graduat", still matches as a
 # substring.
 _WORD_BOUNDARY_TERMS = {"es", "jd"}
+
+# Clause boundaries for exclusion scoping. Both sentence enders and the CJK/ASCII comma are included:
+# joining a disposed-of topic to the request that follows it with a comma is as common as ending the
+# sentence, and the two forms have to scope the same way.
+_CLAUSE_BOUNDARY = re.compile(r"[。．.!?！？、,;；\n]+")
 
 # Alias groups that only say which track the user is on. They are a legitimate stage fallback, but
 # they are not a statement about what the user wants to do next, so onboarding must not read them
@@ -147,6 +153,31 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
     if graduation_signal(message) is not None:
         return "shinsotsu"
     return None
+
+
+def _open_clauses(message: str) -> tuple[str, ...]:
+    """The clauses of a message that are not closing their own subject out.
+
+    Reference selection used to read the message as one bag of words, so a sentence that names a
+    topic only to dispose of it -- refusing it, contrasting it against what is wanted instead, or
+    reporting it already finished -- still handed back that topic's reference, and the request that
+    followed never got a turn. The marker binds to the clause it sits in, which is why the clause
+    and not the message is what gets dropped: vetoing the whole message would lose the second half
+    along with the first.
+
+    Splitting on punctuation is deliberately coarse. A clause that is merely too long carries its
+    marker with it and stays excluded; a missed split can only fall back to the previous behaviour
+    for that one message, never select a reference the user has ruled out.
+    """
+    lowered = message.lower()
+    clauses: list[str] = []
+    for clause in _CLAUSE_BOUNDARY.split(lowered):
+        if not clause.strip():
+            continue
+        if any(term_present(marker.lower(), clause) for marker in ROUTING["message_context_exclusion"]):
+            continue
+        clauses.append(clause)
+    return tuple(clauses)
 
 
 def _any_term(message: str, terms: list[str]) -> bool:
@@ -257,10 +288,10 @@ def skill_context(
 ) -> dict[str, Any]:
     route = None
     if message and track == "chuto" and not skill_override:
-        lowered = message.lower()
+        clauses = _open_clauses(message)
         route = next((
             item for item in ROUTING["message_context"]
-            if any(term_present(term.lower(), lowered) for term in item["terms"])
+            if any(term_present(term.lower(), clause) for clause in clauses for term in item["terms"])
         ), None)
     # A maintenance turn has no stage to look up, so the caller names the skill directly. The rest
     # of this function -- the SKILL.md read, the description parse, the missing-file answer -- is

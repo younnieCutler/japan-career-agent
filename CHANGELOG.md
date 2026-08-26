@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.17.0] - 2026-08-26
+
+- Stop selecting a reference the message has already ruled out. Reference routing read the whole
+  message as one bag of words, so a sentence that named a topic in order to dispose of it — refusing
+  it, contrasting it against what was actually wanted, or reporting it already finished — still
+  returned that topic's reference, and the request that followed never got a turn. Route matching is
+  now scoped to the clauses that are not closing their own subject out, driven by a generic marker
+  table in `references/routing.yml` rather than a rule per route. This closed all seven critical
+  failures on the frozen routing benchmark (dev 2, holdout 5) and lifted holdout accuracy from
+  157/182 to 162/182 with no anti-gaming violations.
+- Make the routing benchmark a build condition. `scripts/routing_eval.py --gate` exits non-zero on a
+  critical or anti-gaming failure and is registered in the repository check matrix; the benchmark
+  previously reported its numbers and failed nothing, which is how seven critical failures sat in a
+  passing build. Overall accuracy stays a research target rather than a gate, so a paraphrase the
+  benchmark scores as a miss does not block an unrelated change. Fixed alongside it: the evaluator's
+  failure output crashed with a `cp932` encoding error on a Japanese Windows console, which would
+  have turned a reported gate failure into a traceback.
+- Fix a release blocker introduced in 2.16.0. `scripts/check_release_tag.py` carried a second copy of
+  the `Current release:` README assertion that 2.16.0 removed from the READMEs, and a second copy of
+  the plugin-manifest version read that `sync_version.py` had made a generated copy. Both now route
+  through `pyproject.toml`, the file that owns the version. The duplicate survived because every test
+  here validated a fixture tree the test itself wrote — so the fixture kept supplying the marker the
+  repository no longer had — and `test_release_tag.py` now also validates the real repository, which
+  is what makes a rule about a file that no longer exists fail at test time rather than mid-release.
+
 ## [2.16.0] - 2026-08-26
 
 - Slim the three README entry points to a landing page and move the advanced CLI, GUI startup,

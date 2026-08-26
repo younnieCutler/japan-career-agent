@@ -9,10 +9,13 @@ produce the same numbers.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import re
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -277,6 +280,53 @@ class ReproducibilityTests(unittest.TestCase):
     def test_holdout_detail_is_withheld_unless_explicitly_revealed(self) -> None:
         self.assertNotIn("failures", report()["holdout"])
         self.assertIn("failures", report(reveal=True)["holdout"])
+
+
+class GateTests(unittest.TestCase):
+    """`--gate` is what stops the benchmark from being a number nobody has to act on."""
+
+    def _exit_code(self, summary: dict[str, object]) -> int:
+        with unittest.mock.patch.object(routing_eval, "report", return_value=summary):
+            with contextlib.redirect_stdout(io.StringIO()):
+                return routing_eval.main()
+
+    def _summary(self, **overrides: int) -> dict[str, object]:
+        counts = {"dev_critical": 0, "holdout_critical": 0, "gaming": 0, **overrides}
+        empty = {"total": 1, "correct": 1, "philosophy_failures": 0, "fallback_failures": 0}
+        return {
+            "benchmark": "routing-eval-v3",
+            "evaluator_version": 2,
+            "dev": {**empty, "critical_failures": counts["dev_critical"], "failures": []},
+            "holdout": {**empty, "critical_failures": counts["holdout_critical"]},
+            "gaming_failures": counts["gaming"],
+            "gaming_detail": [],
+            "routing_terms": 1,
+        }
+
+    def test_the_gate_fails_on_a_critical_or_gaming_failure_from_either_set(self) -> None:
+        for field in ("dev_critical", "holdout_critical", "gaming"):
+            with self.subTest(field=field):
+                with unittest.mock.patch.object(sys, "argv", ["routing_eval.py", "--gate"]):
+                    self.assertEqual(self._exit_code(self._summary(**{field: 1})), 1)
+
+    def test_the_gate_passes_a_clean_tree_and_ignores_paraphrase_misses(self) -> None:
+        # Overall accuracy is the autoresearch loop's target, not a build condition: failing on a
+        # paraphrase the benchmark scores as a miss would block every unrelated change.
+        summary = self._summary()
+        summary["dev"] = {**summary["dev"], "total": 36, "correct": 30}
+        with unittest.mock.patch.object(sys, "argv", ["routing_eval.py", "--gate"]):
+            self.assertEqual(self._exit_code(summary), 0)
+
+    def test_without_the_flag_a_critical_failure_still_reports_success(self) -> None:
+        # The autoresearch runner reads the report of a candidate that is allowed to be worse.
+        with unittest.mock.patch.object(sys, "argv", ["routing_eval.py"]):
+            self.assertEqual(self._exit_code(self._summary(holdout_critical=3)), 0)
+
+    def test_the_current_tree_passes_the_gate(self) -> None:
+        summary = report()
+        self.assertEqual(summary["dev"]["critical_failures"], 0)
+        self.assertEqual(summary["holdout"]["critical_failures"], 0)
+        self.assertEqual(summary["gaming_failures"], 0)
 
 
 if __name__ == "__main__":

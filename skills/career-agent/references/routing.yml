@@ -10,6 +10,82 @@ track:
   shinsotsu: ["新卒", "신졸", "학チカ", "학チ카", "学チカ", "졸업", "graduat", "new grad", "spi3", "学生", "就活", "취활"]
   chuto: ["中途", "중途", "경력채용", "경력 채용", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
 
+# A clause that closes its own subject out must not select that subject's reference. Naming a topic
+# in order to set it aside is ordinary phrasing -- one clause disposes of a step, the next asks about
+# the step that actually remains -- and matching the message as one bag of words handed back the
+# reference the sentence had just disposed of, while the real request never got a turn. These markers
+# are checked per clause rather than per message: the marker binds to the clause it sits in, and
+# vetoing the whole message would throw away the request that follows it.
+#
+# Three ways to close a topic out, all with the same effect on what the user wants next:
+# refusing it, contrasting it against what is wanted instead, and reporting it already finished.
+# "I already looked up market rates, now tell me how to negotiate" rules the first topic out just as
+# firmly as refusing it does.
+#
+# Generic closing forms only, never topic phrases. A marker naming a reference topic would be a rule
+# about one route instead of a rule about clause scope, and every other route would need its own copy.
+# Over-vetoing is the safe direction: a clause dropped by mistake falls back to the stage's own
+# references, while a clause missed selects a reference the user has just ruled out.
+message_context_exclusion:
+  # Refusal.
+  - "必要ありません"
+  - "必要ない"
+  - "必要はない"
+  - "不要です"
+  - "は不要"
+  - "しません"
+  - "しないです"
+  - "するつもりはない"
+  - "つもりはありません"
+  - "ではありません"
+  - "予定はありません"
+  - "予定はない"
+  # Korean negates at the end of the clause and an adverb slots in freely before it, so the closing
+  # form is what generalizes -- an entry per adverb would never finish.
+  - "하지 않"
+  - "안 할"
+  - "안 합니다"
+  - "필요 없"
+  - "필요없"
+  - "생각 없"
+  - "생각은 없"
+  - "no need for"
+  - "no need to"
+  - "don't need"
+  - "do not need"
+  - "not going to"
+  - "won't be"
+  - "will not be"
+  - "am not"
+  - "i'm not"
+  - "skip the"
+  # Contrast: names the topic only to point past it at the one that is wanted.
+  - "ではなく"
+  - "じゃなく"
+  - "の話ではなく"
+  - "이 아니라"
+  - "가 아니라"
+  - "말고"
+  - "rather than"
+  - "instead of"
+  # Completion: the topic is settled, so its reference answers a question that is no longer open.
+  - "済んでいます"
+  - "済んでます"
+  - "済みです"
+  - "済み"
+  - "終わっています"
+  - "終わりました"
+  - "完了しています"
+  - "끝냈"
+  - "끝났"
+  - "완료했"
+  - "완료됐"
+  - "이미 정리"
+  - "already done"
+  - "already sorted"
+  - "already finished"
+  - "have already"
+
 # First matching entry selects one reference for a chuto message. Keep phrases specific:
 # generic interview, research, and document requests continue to use the stage fallback below.
 message_context:
