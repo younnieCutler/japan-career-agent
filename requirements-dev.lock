@@ -1,4 +1,6 @@
-# Verification dependencies for the supported Python 3.11 Ubuntu/Windows matrix.
+# Verification dependencies for the supported Python 3.11, 3.12 and 3.13 Ubuntu/Windows matrix.
+# Every wheel pinned here is either pure Python or built per platform rather than per interpreter
+# version, so unlike requirements.lock this file needed no new hashes for 3.12.
 -r requirements.lock
 ruff==0.15.10 \
     --hash=sha256:51cb8cc943e891ba99989dd92d61e29b1d231e14811db9be6440ecf25d5c1609 \

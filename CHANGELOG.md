@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.18.0] - 2026-08-26
+
+- Check what the registries actually serve. `scripts/test_pyproject_install.py --pypi X.Y.Z` runs the
+  existing wheel smoke against the published distribution instead of a locally built one, and asserts
+  the installed tree carries the GUI bundle and all eighteen Skill manifests. A new `verify-published`
+  job runs it after every publish, followed by the README's own quick-start commands against the
+  published npm entry point. Until now every check verified the artifact this repository builds, and
+  none could see the one a user downloads — which is how a published wheel carrying a single Skill and
+  no GUI coexisted with a README describing eighteen Skills and a local GUI.
+- Default `--format` to `human` when both stdin and stdout are an interactive terminal, and to `json`
+  everywhere else. The human projections, including `guided`'s interactive menu that reads a choice
+  from stdin, were already implemented and unreachable without knowing to ask for them: a first run of
+  `guided` printed a state object at someone who had been told it would walk them through recording
+  something. Pipes, redirects, `$(...)`, plugin hosts and the test suite are all not a terminal, so the
+  machine JSON contract is unchanged for every caller that had one.
+- Support Python 3.12 in fact rather than only in the packaging classifiers. `requirements.lock` now
+  carries the cp312 wheel hashes it was missing, and the CI matrix has a 3.12 runner, so the one
+  advertised version that nothing verified is now the only kind this repository has.
+- Fix `_run` in the wheel smoke silently returning `stdout=None`. A tool writing a byte the declared
+  encoding cannot decode — `python -m venv` on a Japanese Windows console emits cp932 on stderr —
+  kills subprocess's reader thread, and `run()` then reports success having produced nothing.
+
 ## [2.17.0] - 2026-08-26
 
 - Stop selecting a reference the message has already ruled out. Reference routing read the whole

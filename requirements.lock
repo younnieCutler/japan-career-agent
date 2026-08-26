@@ -1,10 +1,15 @@
-# Generated for the supported Python 3.11 Ubuntu/Windows matrix and CPython 3.13 Ubuntu/Windows.
+# Generated for every Python version this project claims to support -- 3.11, 3.12 and 3.13 -- on the
+# Ubuntu and Windows runners the CI matrix uses. The 3.12 wheels were missing while the packaging
+# classifiers and the README badge advertised 3.12, so a hash-pinned install on the one version
+# nothing verified was the only one that could fail.
 # Keep this file hash-pinned. Update it together with requirements.txt and the SBOM.
 --require-hashes
 PyYAML==6.0.3 \
     --hash=sha256:b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d \
     --hash=sha256:9f3bfb4965eb874431221a3ff3fdcddc7e74e3b07799e0e84ca4a0f867d449bf \
     --hash=sha256:79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c \
+    --hash=sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc \
+    --hash=sha256:5fcd34e47f6e0b794d17de1b4ff496c00986e1c83f7ab2fb8fcfe9616ff7477b \
     --hash=sha256:d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f
 attrs==25.3.0 \
     --hash=sha256:427318ce031701fea540783410126f03899a97ffc6f61596ad581ac2e40e3bc3
@@ -21,6 +26,10 @@ rpds-py==0.26.0 \
     --hash=sha256:696764a5be111b036256c0b18cd29783fab22154690fc698062fc1b0084b511d \
     --hash=sha256:2c03c9b0c64afd0320ae57de4c982801271c0c211aa2d37f3003ff5feb75bb04 \
     --hash=sha256:0a0b60701f2300c81b2ac88a5fb893ccfa408e1c4a555a77f908a2596eb875a5 \
+    --hash=sha256:894514d47e012e794f1350f076c427d2347ebf82f9b958d554d12819849a369d \
+    --hash=sha256:fc921b96fa95a097add244da36a1d9e4f3039160d1d30f1b35837bf108c21136 \
+    --hash=sha256:82b165b07f416bdccf5c84546a484cc8f15137ca38325403864bfdf2b5b72f6a \
+    --hash=sha256:cf47cfdabc2194a669dcf7a8dbba62e37a04c5041d2125fae0233b720da6f05c \
     --hash=sha256:1e6c15d2080a63aaed876e228efe4f814bc7889c63b1e112ad46fdc8b368b9e1
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \

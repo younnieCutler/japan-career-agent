@@ -170,6 +170,27 @@ class ReleaseTagTests(unittest.TestCase):
         self.assertNotIn("github.event.before", workflow)
         self.assertLess(workflow.index("python scripts/run_all_checks.py"), workflow.index("git tag --annotate"))
 
+    def test_a_publish_is_followed_by_a_check_of_what_the_registries_serve(self) -> None:
+        """Building a good artifact and publishing a good artifact are separate claims.
+
+        Every other step here verifies the bundle this workflow built. None of them can see what
+        PyPI and npm then hand a user, which is how a published wheel carrying one Skill and no GUI
+        coexisted with a README describing eighteen Skills and a local GUI.
+        """
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        for marker in (
+            "verify-published:",
+            "needs: release",
+            "if: inputs.publish == true",
+            "scripts/test_pyproject_install.py --pypi",
+            # The README's own quick-start commands, run against the published npm entry point.
+            'setup --track chuto --target-role "Platform Engineer"',
+            "guided --format json",
+        ):
+            self.assertIn(marker, workflow)
+        # It has to run after publishing, not beside it: there is nothing to resolve before then.
+        self.assertLess(workflow.index("publish to PyPI"), workflow.index("verify-published:"))
+
     def test_publish_requires_current_main_head(self) -> None:
         self.assertFalse(publish_allowed("true", "refs/heads/agent/v17-11-canary-final", "abc", "abc"))
         self.assertFalse(publish_allowed("true", "refs/heads/main", "abc", "def"))

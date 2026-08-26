@@ -7,12 +7,17 @@ on:
 jobs:
   test:
     strategy:
+      # One runner per Python version the packaging metadata advertises, plus Windows on the oldest
+      # of them because that is where the path and console-encoding differences live. 3.12 used to
+      # be claimed in the classifiers and the README badge without any runner behind it.
       matrix:
         include:
           - os: ubuntu-latest
             python-version: "3.11"
           - os: windows-latest
             python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
           - os: ubuntu-latest
             python-version: "3.13"
     runs-on: ${{ matrix.os }}
