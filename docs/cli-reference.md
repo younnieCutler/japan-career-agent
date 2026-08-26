@@ -13,13 +13,23 @@ For an explicit local setup and guided menu:
 ```bash
 VAULT=/path/to/career-agent-vault
 python skills/career-agent/career_agent.py setup --vault "$VAULT" --track chuto --target-role "Platform Engineer"
-python skills/career-agent/career_agent.py guided --vault "$VAULT" --format human
+python skills/career-agent/career_agent.py guided --vault "$VAULT"
 ```
 
 `guided` shows setup status, pending proposals, `Unknown` and `Conflict` counts, workspace metadata,
 and valid next actions. Use `--choice <id-or-number>` for scripted input. A write-capable action
 also requires `--confirm`; guided mode does not approve proposals automatically or read private note
 bodies.
+
+### Output format
+
+`--format` accepts `human` or `json` and defaults to whichever suits the caller: `human` when both
+stdin and stdout are an interactive terminal, `json` otherwise. A pipe, a redirect, `$(...)`, a
+plugin host and a test all fall on the `json` side of that, so the machine contract is unchanged;
+pass `--format json` explicitly if you want it at a terminal too.
+
+At a terminal `guided` goes further than printing the menu: it reads your choice from stdin and runs
+it, which is the walkthrough the README describes. `--choice` bypasses the prompt.
 
 ## Recover past experience, then write for one target
 

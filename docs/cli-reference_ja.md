@@ -15,13 +15,23 @@
 ```bash
 VAULT=/path/to/career-agent-vault
 python skills/career-agent/career_agent.py setup --vault "$VAULT" --track chuto --target-role "Platform Engineer"
-python skills/career-agent/career_agent.py guided --vault "$VAULT" --format human
+python skills/career-agent/career_agent.py guided --vault "$VAULT"
 ```
 
 `guided` は setup 状態、pending proposal、`Unknown` と `Conflict` の数、workspace metadata、実行
 できる次の操作を表示します。スクリプトでは `--choice <id-or-number>` を使えます。書き込みを行う
 操作には `--confirm` が必要です。guided mode がproposalを自動承認したり、private noteの本文を
 読んだりすることはありません。
+
+### 出力形式
+
+`--format` は `human` と `json` を受け取り、呼び出す側に合わせて既定値が決まります。stdin と
+stdout の両方が対話的な端末なら `human`、それ以外は `json` です。パイプ、リダイレクト、`$(...)`、
+plugin host、テストはすべて `json` 側なので、機械向けの契約は変わりません。端末でも JSON が必要なら
+`--format json` を明示してください。
+
+端末での `guided` はメニューを表示するだけではなく、stdin から選択を読んで実行します。README が
+述べている walkthrough はこれです。`--choice` を渡すとプロンプトを飛ばします。
 
 ## 過去の経験を復元し、応募先ごとに書類を作る
 

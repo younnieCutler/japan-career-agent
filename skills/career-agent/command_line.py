@@ -39,6 +39,23 @@ from ux import attach as project_ux, error_payload, render_human
 from vault import CareerVault, today, utc_now
 
 
+def _default_output_format() -> str:
+    """`human` for a person at a terminal, `json` for everything else.
+
+    The human projections have always existed -- `guided` even has an interactive menu that reads a
+    choice from stdin -- but `--format` defaulted to `json`, so the only way to reach them was to
+    know they were there. A first run of `guided` printed a state object at someone who had been
+    told it would walk them through recording something.
+
+    A terminal is the signal, not a flag or an environment variable, because it is the one thing
+    that distinguishes the two audiences without either having to declare itself. Every machine
+    caller is on the json side of it: a plugin host runs this as a subprocess with pipes, `$(...)`
+    captures, redirects to a file and the test suite are all not a tty. Both streams are checked --
+    stdin because the interactive menu reads from it, stdout because that is where the result goes.
+    """
+    return "human" if sys.stdin.isatty() and sys.stdout.isatty() else "json"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local-first Japan career agent runtime")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -66,8 +83,9 @@ def build_parser() -> argparse.ArgumentParser:
             "--format",
             dest="output_format",
             choices=("json", "human"),
-            default="json",
-            help="output format; JSON remains the default machine-readable contract",
+            default=_default_output_format(),
+            help="output format; defaults to human at an interactive terminal and to json "
+            "everywhere else, so the machine contract is unchanged for any caller",
         )
 
     init_parser = subparsers.add_parser("init")
