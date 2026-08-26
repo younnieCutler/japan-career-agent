@@ -41,12 +41,13 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 class RegistryTests(unittest.TestCase):
-    def test_registry_discovers_all_thirteen_skill_directories(self) -> None:
+    def test_registry_discovers_all_shipped_skill_directories(self) -> None:
         entries = skill_registry.discover(SKILLS_ROOT)
         names = {entry["skill"] for entry in entries}
         on_disk = {p.name for p in SKILLS_ROOT.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
         self.assertEqual(names, on_disk)
-        self.assertEqual(len(entries), 13)
+        self.assertEqual(len(entries), len(on_disk))
+        self.assertIn("sip", names)
 
     def test_every_discovered_skill_has_an_execution_class(self) -> None:
         for entry in skill_registry.discover(SKILLS_ROOT):
@@ -214,7 +215,8 @@ class SkillInvocationCliTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         payload = json.loads(result.stdout)
-        self.assertEqual(len(payload["skills"]), 13)
+        self.assertEqual(len(payload["skills"]), len(skill_registry.discover(SKILLS_ROOT)))
+        self.assertIn("sip", {entry["skill"] for entry in payload["skills"]})
 
     def test_chat_trajectory_gains_selection_only_not_invocation_or_verification(self) -> None:
         # A trajectory records what select_skill() returned for the turn, never a claim that the

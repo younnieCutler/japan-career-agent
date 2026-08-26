@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "japan-career-agent"
-version = "2.12.0"
+version = "2.13.0"
 description = "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions."
 readme = "README.md"
 license = "MIT"
@@ -67,6 +67,7 @@ only-include = [
   "skills/kigyou-bunseki",
   "skills/matching-simulator",
   "skills/mock-interviewer",
+  "skills/sip",
   "skills/tenshoku-strategy",
 ]
 
@@ -96,6 +97,7 @@ exclude = [
 "skills/kigyou-bunseki" = "japan_career_agent/skills/kigyou-bunseki"
 "skills/matching-simulator" = "japan_career_agent/skills/matching-simulator"
 "skills/mock-interviewer" = "japan_career_agent/skills/mock-interviewer"
+"skills/sip" = "japan_career_agent/skills/sip"
 "skills/tenshoku-strategy" = "japan_career_agent/skills/tenshoku-strategy"
 
 [tool.hatch.build.targets.sdist]
@@ -114,6 +116,7 @@ include = [
   "/skills/kigyou-bunseki",
   "/skills/matching-simulator",
   "/skills/mock-interviewer",
+  "/skills/sip",
   "/skills/tenshoku-strategy",
   "/README.md",
   "/LICENSE",

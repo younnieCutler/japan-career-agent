@@ -142,6 +142,14 @@ A clean check is a floor, not a certificate. The gate's rules are enumerated, so
 that no known protected-claim violation is present — not that every sentence has been proven
 faithful. Read the result yourself before it goes anywhere, with the evidence beside it.
 
+### Gate D handoff
+
+When this Skill is the `career-document` step of a Gate D plan, stop after STEP 5 and report the
+model plus evidence-grounded draft artifacts. Do not invoke another Skill from this SOP. The next
+plan step is `humanize-japanese-career`, which receives those artifacts and owns the post-humanize
+check and render. A direct, unplanned invocation keeps the complete STEP 6–7 workflow below for
+backward compatibility.
+
 ### STEP 7 — Render
 
 ```bash

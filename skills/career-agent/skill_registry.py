@@ -1,4 +1,4 @@
-"""Discover the domain Skills this runtime knows about, and what each one requires to run.
+"""Discover the installed Skills this runtime knows about, and what each one requires to run.
 
 This is a read-only view over `skills/*/SKILL.md` plus the execution class table in `models.py`. It
 duplicates no metadata SKILL.md already carries -- name and description come from the same

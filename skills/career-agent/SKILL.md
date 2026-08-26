@@ -48,6 +48,25 @@ python skills/career-agent/career_agent.py context --vault "$VAULT"
 python skills/career-agent/career_agent.py propose-context --vault "$VAULT" --source data/self_analysis_profile.yml
 ```
 
+For a multi-Skill Host turn, use the bounded Gate D handoff:
+
+```bash
+python skills/career-agent/career_agent.py plan --vault "$VAULT" \
+  --skill career-document --goal "지원 회사용 職務経歴書 작성"
+python skills/career-agent/career_agent.py plan-next --vault "$VAULT" <plan-id>
+# The Host runs the returned skill-open command, reads that Skill's SOP, then reports it.
+python skills/career-agent/career_agent.py plan-status --vault "$VAULT" <plan-id>
+```
+
+The first policy is `career-document → humanize-japanese-career → sip`. `plan-next` returns a
+`dependency_result` for the immediate previous step plus an `artifact_context` for the closest
+upstream non-empty artifact, both read from the invocation ledger without copying terminal results
+into the plan snapshot. Artifact-producing steps must satisfy their output contract before
+`skill-report` appends; `sip` must report an artifact reference. `needs_input` reruns its Skill,
+while `needs_approval` requires `plan-next --approval continue|abort` and never reruns the Skill.
+Python never calls an LLM Host or another Skill. Each plan step uses the existing `skill-open → SOP
+→ skill-report` lifecycle and remains resumable from the Vault.
+
 Set `CAREER_VAULT` instead of passing `--vault` repeatedly. The runtime never defaults to the
 repository or current working directory.
 

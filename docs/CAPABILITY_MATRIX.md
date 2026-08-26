@@ -48,12 +48,16 @@ persistent install. Those four are the same program.
 | List installed Skills and their execution class | `core` | `skills` | ✅ | ✅ | ✅ |
 | Open a Skill invocation record before its SOP runs | `core` | `skill-open` | ✅ | ✅ | ✅ |
 | Report a Skill invocation's result and close it | `core` | `skill-report` | ✅ | ✅ | ✅ |
+| Create a bounded host-coordinated execution plan | `core` | `plan` | ✅ | ✅ | ✅ |
+| Return the next step of a host-coordinated plan | `core` | `plan-next` | ✅ | ✅ | ✅ |
+| Inspect a resumable execution plan | `core` | `plan-status` | ✅ | ✅ | ✅ |
 | Status line in the host's own chrome | `host-only` | — | — | ✅ | ⚠️ host-dependent |
 | Execute a `host_required` Skill's SOP | `host-only` | — | — | ✅ | ✅ |
 | Submit an application, send a recruiter message | `not-supported` | — | — | — | — |
 | Predict whether you will be hired | `not-supported` | — | — | — | — |
 | Import an arbitrary `.docx` as a template | `not-supported` | — | — | — | — |
 | Chain several Skills automatically inside one request | `not-supported` | — | — | — | — |
+| Coordinate a bounded linear Skill chain through a Host | `host-enhanced` | `plan` + `plan-next` | ⚠️ host handoff required | ✅ | ✅ |
 
 ## Two rules this table exists to keep
 

@@ -30,6 +30,8 @@ in [`_shared/agent_context/development.md`](_shared/agent_context/development.md
 - A domain Skill counts as run only through `skill-open` → SOP → `skill-report`
   (`skills/career-agent/skill_invocations.py`); a host that answers from a Skill's SOP without this
   handoff leaves no invocation record and must not claim the Skill ran.
+- Gate D plans are host-coordinated linear state only: use `plan-next` and linked `skill-open` /
+  `skill-report`; Python never calls an LLM Host or recursively invokes a Skill.
 - `legacy_v1` values remain readable history only; new legacy writes and numeric migration are
   forbidden.
 - `data/pipeline.yml` is the workspace projection. Its lock + atomic writer is
@@ -77,6 +79,7 @@ metadata; do not create a second state store when runtime configuration is missi
 | Vault/workspace persistence | `_shared/agent_context/persistence.md` |
 | learning from mistakes | `_shared/agent_context/learning.md` |
 | repository implementation | `_shared/agent_context/development.md` |
+| host-coordinated orchestration | `_shared/agent_context/orchestration.md` |
 | repository layout | `_shared/agent_context/architecture.md` |
 | module boundaries, host capability, release | `docs/ARCHITECTURE_BOUNDARIES.md` |
 | job-seeker work | `skills/job-seeker-agent/SKILL.md` and only the requested reference |

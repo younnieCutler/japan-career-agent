@@ -32,6 +32,7 @@ from models import (  # noqa: E402
 )
 from projection import migrate_pipeline_file, pipeline_file  # noqa: E402
 from routing import load_flow_reference  # noqa: E402
+from execution_plans import active_plans  # noqa: E402
 from skill_invocations import open_invocations  # noqa: E402
 from validation import iso_date  # noqa: E402
 from vault import CareerVault, index_vault_notes, today  # noqa: E402
@@ -122,6 +123,11 @@ def doctor(
         warnings.append(
             f"skill invocation {invocation['invocation_id']} for '{invocation['skill']}' "
             f"opened at {invocation['created_at']} and was never reported"
+        )
+    for plan in active_plans(vault):
+        warnings.append(
+            f"execution plan {plan['plan_id']} is {plan['status']}"
+            + (f" at step '{plan['current_step']}'" if plan.get("current_step") else "")
         )
     return {
         "mode": "doctor",

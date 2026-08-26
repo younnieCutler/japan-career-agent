@@ -34,6 +34,8 @@ def open_invocation(
     entrypoint: str,
     reason: str | None = None,
     goal: str | None = None,
+    plan_id: str | None = None,
+    step_id: str | None = None,
 ) -> dict[str, Any]:
     """Open an invocation, or refuse it outright when the Skill cannot run here.
 
@@ -42,6 +44,8 @@ def open_invocation(
     a permanently-open record standing in for a run that will never happen.
     """
     entry = find_skill(skills_root, skill)
+    if (plan_id is None) != (step_id is None):
+        raise CareerError("--plan-id and --step-id must be supplied together", code="INVALID_INPUT")
     invocation_id = _invocation_id()
     base = {
         "invocation_id": invocation_id,
@@ -52,6 +56,9 @@ def open_invocation(
         "goal": goal,
         "created_at": utc_now(),
     }
+    if plan_id is not None:
+        base["plan_id"] = plan_id
+        base["step_id"] = step_id
     if entry["execution"] == "host_required" and entrypoint in ("cli", "gui"):
         record = {
             **base,
@@ -61,14 +68,23 @@ def open_invocation(
             "artifacts": [],
             "evidence_used": [],
             "tools_used": [],
+            "signals": [],
         }
         validate_skill_result(record, terminal=True)
         with vault_lock(home):
+            if plan_id is not None:
+                from execution_plans import validate_plan_step_open
+
+                validate_plan_step_open(home, plan_id, step_id, skill)
             append_jsonl(home.invocations, record)
         return record
     record = {**base, "status": "started"}
     validate_skill_result(record, terminal=False)
     with vault_lock(home):
+        if plan_id is not None:
+            from execution_plans import validate_plan_step_open
+
+            validate_plan_step_open(home, plan_id, step_id, skill)
         append_jsonl(home.invocations, record)
     return record
 
@@ -90,6 +106,7 @@ def report_invocation(
     evidence_used: list[str] | None = None,
     tools_used: list[str] | None = None,
     error: str | None = None,
+    signals: list[str] | None = None,
 ) -> dict[str, Any]:
     """Close an invocation the host (or a deterministic path) actually ran.
 
@@ -134,8 +151,22 @@ def report_invocation(
             "evidence_used": list(evidence_used or []),
             "tools_used": list(tools_used or []),
             "error": error,
+            "signals": list(signals or []),
             "created_at": utc_now(),
         }
+        if started.get("plan_id") is not None:
+            record["plan_id"] = started["plan_id"]
+            record["step_id"] = started["step_id"]
+            from execution_plans import validate_plan_step_report
+
+            validate_plan_step_report(
+                home,
+                started["plan_id"],
+                started["step_id"],
+                started["skill"],
+                status=status,
+                artifacts=record["artifacts"],
+            )
         validate_skill_result(record, terminal=True)
         append_jsonl(home.invocations, record)
         return record

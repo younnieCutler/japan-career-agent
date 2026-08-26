@@ -21,6 +21,7 @@ Application      onboarding · diagnostics · views · experiences · documents
 Domain           models · validation · persistence · vault · routing · proposals
                  lifecycle · projection · document · render · personal_timeline
                  private_store · ux · localization
+                 execution_plans
                                     ▼
 Local data       Career Vault · event ledger · private store · data/pipeline.yml
 ```
@@ -53,6 +54,10 @@ Dependencies point down. Application modules may call each other sideways; the g
 Nothing at any layer imports an entry point, and the domain does not know that a CLI exists.
 
 `runtime.py` sits outside this stack. It imports from every layer and implements none of it.
+
+`execution_plans.py` owns only bounded Gate D plan snapshots and next-step reconciliation. It may
+read the existing invocation ledger, but it never calls a Host, writes career facts, or creates a
+second invocation ledger.
 
 ## The rules
 
