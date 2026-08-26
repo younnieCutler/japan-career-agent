@@ -181,3 +181,50 @@ jobs:
             # --provenance attests that this tarball came from this workflow run on this commit.
             npm publish --provenance --access public
           fi
+
+  # Everything above proves this commit builds and uploads a good artifact. This job is the only
+  # thing that checks what the registries then hand to a user, which is not the same claim: a
+  # published wheel once carried a single Skill and no GUI while the README described eighteen
+  # Skills and a local GUI, and nothing in the repository could see it.
+  verify-published:
+    needs: release
+    if: inputs.publish == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.11"
+      - name: read the release version
+        id: identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # The same smoke the repository runs against a locally built wheel, pointed at the published
+      # distribution instead: install it, run setup/doctor/chat/status/guided, and assert the
+      # installed tree carries the GUI bundle and all eighteen Skill manifests.
+      - name: smoke the published PyPI distribution
+        run: python scripts/test_pyproject_install.py --pypi "${{ steps.identity.outputs.version }}"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      # The npm channel is a bootstrapper, not a copy of the runtime, so installing it proves
+      # nothing on its own. Running the two commands the README's quick start prints is what
+      # checks that the documented first five minutes work against what was just published.
+      - name: run the README quick start against the published npm entry point
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet pipx
+          workspace="$(mktemp -d)"
+          cd "$workspace"
+          npx --yes "japan-career-agent@$VERSION" setup --track chuto --target-role "Platform Engineer" --format json > setup.json
+          python -c "import json,sys; d=json.load(open('setup.json')); sys.exit(0 if d.get('mode')=='setup' else 'setup did not return setup mode')"
+          npx --yes "japan-career-agent@$VERSION" guided --format json > guided.json
+          python -c "import json,sys; d=json.load(open('guided.json')); sys.exit(0 if d.get('guided',{}).get('available_actions') else 'guided returned no actions')"

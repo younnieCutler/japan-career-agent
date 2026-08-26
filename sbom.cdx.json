@@ -244,6 +244,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
+          "content": "5fcd34e47f6e0b794d17de1b4ff496c00986e1c83f7ab2fb8fcfe9616ff7477b"
+        },
+        {
+          "alg": "SHA-256",
           "content": "79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c"
         },
         {
@@ -253,6 +257,10 @@
         {
           "alg": "SHA-256",
           "content": "b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc"
         },
         {
           "alg": "SHA-256",
@@ -318,11 +326,27 @@
         },
         {
           "alg": "SHA-256",
+          "content": "82b165b07f416bdccf5c84546a484cc8f15137ca38325403864bfdf2b5b72f6a"
+        },
+        {
+          "alg": "SHA-256",
           "content": "87a5531de9f71aceb8af041d72fc4cab4943648d91875ed56d2e629bef6d4c03"
         },
         {
           "alg": "SHA-256",
+          "content": "894514d47e012e794f1350f076c427d2347ebf82f9b958d554d12819849a369d"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "cf47cfdabc2194a669dcf7a8dbba62e37a04c5041d2125fae0233b720da6f05c"
+        },
+        {
+          "alg": "SHA-256",
           "content": "d80bf832ac7b1920ee29a426cdca335f96a2b5caa839811803e999b41ba9030d"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "fc921b96fa95a097add244da36a1d9e4f3039160d1d30f1b35837bf108c21136"
         }
       ],
       "licenses": [
@@ -422,16 +446,16 @@
     "component": {
       "name": "japan-career-agent",
       "type": "application",
-      "version": "2.17.0"
+      "version": "2.18.0"
     },
     "properties": [
       {
         "name": "lock.sha256",
-        "value": "3d1c93e5d885c21d7294a55d5013b6a468b06a054cc0f3ffbc6b1ec446f703e6"
+        "value": "8f60ef47086233bbbc6603dc5fe8008a025d2b0f95c2f65eff95fbcdbfda62e1"
       }
     ]
   },
-  "serialNumber": "urn:uuid:3d1c93e5-d885-c21d-7294-a55d5013b6a4",
+  "serialNumber": "urn:uuid:8f60ef47-0862-33bb-bc66-03dc5fe8008a",
   "specVersion": "1.5",
   "version": 1
 }

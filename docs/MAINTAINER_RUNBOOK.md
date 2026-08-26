@@ -157,10 +157,16 @@ would be a second artifact nobody verified.
 
 ## 7. Registry and marketplace verification
 
-After publishing, confirm each registry actually serves the version:
+The workflow's `verify-published` job already does the substantive check: it installs the published
+PyPI distribution, runs the same smoke as the local wheel check, asserts the installed tree carries
+the GUI bundle and all eighteen Skill manifests, and then runs the README's own quick-start commands
+against the published npm entry point. Read its log before doing anything by hand — that job exists
+because a published wheel once shipped one Skill and no GUI while every repository check was green.
+
+To confirm by hand, or to check a release published before that job existed:
 
 ```bash
-pip index versions japan-career-agent           # or: pip download japan-career-agent==X.Y.Z --no-deps -d /tmp/x
+python scripts/test_pyproject_install.py --pypi X.Y.Z   # the same assertions, on demand
 npm view japan-career-agent version
 gh release view vX.Y.Z --json tagName,assets
 ```

@@ -15,13 +15,23 @@
 ```bash
 VAULT=/path/to/career-agent-vault
 python skills/career-agent/career_agent.py setup --vault "$VAULT" --track chuto --target-role "Platform Engineer"
-python skills/career-agent/career_agent.py guided --vault "$VAULT" --format human
+python skills/career-agent/career_agent.py guided --vault "$VAULT"
 ```
 
 `guided`는 setup 상태, pending proposal, `Unknown`·`Conflict` 개수, workspace metadata, 가능한 다음
 행동을 보여줍니다. 스크립트에서는 `--choice <id-or-number>`를 사용할 수 있습니다. 쓰기가 발생하는
 action에는 `--confirm`이 필요하며, guided mode가 proposal을 자동 승인하거나 개인 note 본문을 읽지는
 않습니다.
+
+### 출력 형식
+
+`--format`은 `human`과 `json`을 받으며, 호출하는 쪽에 맞추어 기본값이 결정됩니다. stdin과
+stdout이 모두 대화형 터미널이면 `human`, 그 외에는 `json`입니다. 파이프, 리다이렉션, `$(...)`,
+plugin host, 테스트는 전부 `json` 쪽이므로 기계 계약은 그대로입니다. 터미널에서도 JSON을 원하면
+`--format json`을 명시하세요.
+
+터미널에서 `guided`는 메뉴를 출력하는 데서 멈추지 않고 stdin으로 선택을 받아 실행합니다. README가
+말하는 walkthrough가 이것입니다. `--choice`를 주면 프롬프트를 건너뜁니다.
 
 ## 과거 경험 복원하고, 지원처별로 문서 만들기
 

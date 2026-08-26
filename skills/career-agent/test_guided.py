@@ -7,12 +7,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
 sys.path.insert(0, str(SCRIPT.parent))
+import command_line  # noqa: E402
 from guided import build_summary, derive_actions, render_human, resolve_choice  # noqa: E402
 
 
@@ -246,6 +248,47 @@ class OnboardingDisplayTests(unittest.TestCase):
         done = render_human(confirmed)
         self.assertIn("Onboarding: complete", done)
         self.assertIn("Target role: Data Engineer", done)
+
+
+class OutputFormatDefaultTests(unittest.TestCase):
+    """A person at a terminal gets the human projection; every machine caller still gets JSON."""
+
+    def _default(self, *, stdin: bool, stdout: bool) -> str:
+        with (
+            unittest.mock.patch.object(sys.stdin, "isatty", return_value=stdin),
+            unittest.mock.patch.object(sys.stdout, "isatty", return_value=stdout),
+        ):
+            return command_line._default_output_format()
+
+    def test_only_a_terminal_on_both_streams_defaults_to_human(self) -> None:
+        self.assertEqual(self._default(stdin=True, stdout=True), "human")
+        # A pipe, a redirect, or a subprocess leaves at least one of these false, and every machine
+        # caller is one of those: a plugin host runs this with pipes, `$(...)` captures stdout, and
+        # this test suite itself reads stdout through subprocess.
+        self.assertEqual(self._default(stdin=True, stdout=False), "json")
+        self.assertEqual(self._default(stdin=False, stdout=True), "json")
+        self.assertEqual(self._default(stdin=False, stdout=False), "json")
+
+    def test_a_subprocess_still_receives_json_without_asking_for_it(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            vault = root / "vault"
+            run(vault, "setup", "--track", "chuto", "--target-role", "Data Engineer", cwd=workspace)
+            # No --format: this is exactly how a plugin host invokes the runtime.
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "guided", "--vault", str(vault)],
+                cwd=workspace, capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(json.loads(result.stdout).get("mode"), "guided")
+
+    def test_an_explicit_format_still_wins_over_the_terminal(self) -> None:
+        with unittest.mock.patch.object(sys.stdin, "isatty", return_value=True), \
+             unittest.mock.patch.object(sys.stdout, "isatty", return_value=True):
+            parser = command_line.build_parser()
+            arguments = parser.parse_args(["guided", "--vault", "x", "--format", "json"])
+            self.assertEqual(arguments.output_format, "json")
 
 
 if __name__ == "__main__":

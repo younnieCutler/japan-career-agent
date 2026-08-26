@@ -40,7 +40,7 @@ python skills/career-agent/career_agent.py run --vault "$VAULT" --mode chat --me
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode heartbeat
 python skills/career-agent/career_agent.py run --vault "$VAULT" --mode discover --source postings.json
 python skills/career-agent/career_agent.py status --vault "$VAULT"
-python skills/career-agent/career_agent.py guided --vault "$VAULT" --format human
+python skills/career-agent/career_agent.py guided --vault "$VAULT"
 python skills/career-agent/career_agent.py approve --vault "$VAULT" --workspace "/path/to/job-search-workspace" <proposal-id> --evidence "resume line 12" --next-action "Prepare interview notes"
 python skills/career-agent/career_agent.py restore-state --vault "$VAULT" <version>
 python skills/career-agent/career_agent.py index --vault "$VAULT"
