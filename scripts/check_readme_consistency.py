@@ -10,19 +10,26 @@ from policy_patterns import CANDIDATE_OUTCOME_PERCENTAGE_PATTERNS
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [ROOT / "README.md", ROOT / "README_ko.md", ROOT / "README_ja.md"]
-REQUIRED = ("_shared/decision_philosophy.md", "_shared/schemas.yml", "_shared/career_claims.yml", "Unknown")
+# The README is the landing page; the contract documents it used to name inline now live one click
+# away, so the markers that guarantee they are still reachable follow them to the hub.
+HUBS = [ROOT / "docs" / "README.md", ROOT / "docs" / "README_ko.md", ROOT / "docs" / "README_ja.md"]
+HUB_REQUIRED = (
+    "_shared/decision_philosophy.md", "_shared/schemas.yml", "_shared/career_claims.yml",
+    "run_all_checks.py", "check_version_bump.py",
+)
+REQUIRED = ("Unknown",)
 REQUIRED_BY_FILE = {
     "README.md": (
         "JAPAN_CAREER_NO_UPDATE_CHECK", "24-hour", "CONTRIBUTING.md", "CHANGELOG.md",
-        "run_all_checks.py", "mock-interviewer", "1.6.2", "1.6.3", "check_version_bump.py",
+        "mock-interviewer", "docs/README.md",
     ),
     "README_ko.md": (
         "JAPAN_CAREER_NO_UPDATE_CHECK", "24시간", "CONTRIBUTING.md", "CHANGELOG.md",
-        "run_all_checks.py", "mock-interviewer", "1.6.2", "1.6.3", "check_version_bump.py",
+        "mock-interviewer", "docs/README_ko.md",
     ),
     "README_ja.md": (
         "JAPAN_CAREER_NO_UPDATE_CHECK", "24時間", "CONTRIBUTING.md", "CHANGELOG.md",
-        "run_all_checks.py", "mock-interviewer", "1.6.2", "1.6.3", "check_version_bump.py",
+        "mock-interviewer", "docs/README_ja.md",
     ),
 }
 FORBIDDEN = (
@@ -93,6 +100,12 @@ def main() -> int:
         for target in IN_PAGE_LINK.findall(text):
             if target not in anchors:
                 errors.append(f"{path.name}: navigation link #{target} matches no heading")
+
+    for hub in HUBS:
+        hub_text = hub.read_text(encoding="utf-8")
+        for phrase in HUB_REQUIRED:
+            if phrase not in hub_text:
+                errors.append(f"docs/{hub.name}: missing contract marker {phrase}")
 
     # A section added to one language and not the others is the failure mode this catches: the
     # headings differ by translation, but the shape must not. Comparing the level sequence is what

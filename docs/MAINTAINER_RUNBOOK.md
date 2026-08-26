@@ -18,8 +18,12 @@ git fetch origin main            # feeds the version-bump gate; it skips cleanly
 python scripts/run_all_checks.py
 ```
 
-Expected: `All 70 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
+Expected: `All 93 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
 the check and stops; everything after it is unrun, not passing.
+
+That number is held to `len(CHECKS)` by `scripts/check_docs_drift.py`; adding a check to the matrix
+and leaving this line alone fails the build rather than quietly going stale, which is how it came to
+claim 70 while the matrix had grown to 90.
 
 Install the hash-pinned locks, not `requirements.txt`. The loose `ruff` range there resolves a
 different linter version than CI, so local and CI disagree for reasons unrelated to the change.
@@ -82,21 +86,30 @@ fix counts — requires a version bump. `scripts/check_version_bump.py` fails th
 Bump **first**, at the start of the branch, so every intermediate commit is consistent rather than
 only the last one.
 
-Thirteen places carry the version. `.claude-plugin/plugin.json` is the de-facto master: it is what
-`check_version_bump.py`, `test_npm_bootstrapper.py`, `test_pyproject_install.py` and `release.yml`
-all read.
+`pyproject.toml` is the single source of truth. Everything else that names the version is a
+generated copy: the two plugin manifests, the npm bootstrapper and `sbom.cdx.json` are all written
+by `scripts/sync_version.py`, and nothing reads a version out of them. `build_release.py`,
+`build_sbom.py`, `check_version_bump.py` and `release.yml` all go through
+`sync_version.canonical_version()`.
+
+Edit two files by hand, then run one command:
 
 | File | What to change |
 |---|---|
-| `.claude-plugin/plugin.json` | `version` |
-| `.codex-plugin/plugin.json` | `version` |
-| `packaging/npm/package.json` | `version` |
-| `pyproject.toml` | `version` |
+| `pyproject.toml` | `version` — the only version you type |
 | `CHANGELOG.md` | a new `## [X.Y.Z] - YYYY-MM-DD` heading at the top |
-| `README.md` | `Current release:` and the version named in the release-channel section |
-| `README_ko.md` | `현재 릴리스:` and the release-channel section |
-| `README_ja.md` | `現在のリリース:` and the release-channel section |
-| `sbom.cdx.json` | regenerate: `python scripts/build_sbom.py` |
+
+```bash
+python scripts/sync_version.py     # writes both plugin manifests, the npm package, and the SBOM
+```
+
+One prose paragraph still moves with a release: the release-channel section in `docs/upgrading.md`
+and its `_ko` / `_ja` translations names both the source version and the marketplace ref. It is not
+generated, because it explains the gap rather than restating a number — but
+`check_release_consistency.py` reads both numbers from the files that own them, so it cannot go
+stale silently.
+
+The READMEs no longer carry a version at all; the release badges are dynamic.
 
 `.agents/plugins/marketplace.json`'s `ref` is **not** bumped here. See §7.
 
@@ -104,7 +117,7 @@ Then:
 
 ```bash
 python scripts/check_release_consistency.py     # expect: release consistency: vX.Y.Z
-python scripts/build_sbom.py --check            # expect: no diff
+python scripts/sync_version.py --check          # expect: version sync: vX.Y.Z (copies agree)
 ```
 
 ## 5. Release dry run
@@ -161,9 +174,10 @@ python scripts/check_release_consistency.py
 ```
 
 The ref moves **after** publish, not with the version bump, because it points at a tag that does not
-exist until the release workflow creates it. The release-channel section in all three READMEs names
-both numbers — the source version and the current ref — and `check_release_consistency.py` fails if
-either goes stale. While they differ, that section is what tells a user which one they will get.
+exist until the release workflow creates it. The release-channel section in `docs/upgrading.md` and
+its `_ko` / `_ja` translations names both numbers — the source version and the current ref — and
+`check_release_consistency.py` fails if either goes stale. While they differ, that section is what
+tells a user which one they will get.
 
 ## 8. Failed publish recovery
 

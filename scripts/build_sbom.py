@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from check_dependency_lock import ROOT, LockedPackage, parse_lock
+from sync_version import canonical_version
 
 
 def _component(package: LockedPackage, scope: str) -> dict[str, Any]:
@@ -58,7 +59,7 @@ def build_document(runtime_lock: Path, development_lock: Path) -> dict[str, Any]
             "component": {
                 "type": "application",
                 "name": "japan-career-agent",
-                "version": json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"],
+                "version": canonical_version(),
             },
             "properties": [
                 {

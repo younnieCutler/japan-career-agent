@@ -16,10 +16,10 @@ from pathlib import Path
 from typing import Any
 
 from e2e_artifact import _path_variants
+from sync_version import VersionError, canonical_version
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----"),
     re.compile(r"\b(?:ghp|github_pat|sk)-[A-Za-z0-9_-]{20,}\b"),
@@ -168,10 +168,10 @@ def _write_checksums(path: Path, files: list[Path]) -> None:
 
 def build(output_dir: Path, expected_commit: str | None = None) -> dict[str, Any]:
     commit = _assert_clean(expected_commit)
-    manifest_path = ROOT / ".claude-plugin" / "plugin.json"
-    version = json.loads(manifest_path.read_text(encoding="utf-8"))["version"]
-    if not isinstance(version, str) or not VERSION_PATTERN.fullmatch(version):
-        raise ReleaseBuildError(f"invalid plugin version: {version!r}")
+    try:
+        version = canonical_version()
+    except VersionError as exc:
+        raise ReleaseBuildError(str(exc)) from exc
     output_dir.mkdir(parents=True, exist_ok=True)
     if not output_dir.resolve().is_relative_to(ROOT.resolve()):
         output_dir = output_dir.resolve()
