@@ -4,22 +4,18 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
+from sync_version import VersionError, version_from_pyproject  # noqa: E402
+
+
 TAG_PATTERN = re.compile(r"^v(\d+\.\d+\.\d+)$")
 CHANGELOG_HEADING = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
-README_RELEASE_PATTERNS = {
-    "README.md": re.compile(r"^Current release:\s*`([^`]+)`\.", re.MULTILINE),
-    "README_ko.md": re.compile(r"^현재 릴리스:\s*`([^`]+)`\.", re.MULTILINE),
-    "README_ja.md": re.compile(r"^現在のリリース:\s*`([^`]+)`。", re.MULTILINE),
-}
-MANIFESTS = (".claude-plugin/plugin.json", ".codex-plugin/plugin.json")
 
 
 class ReleaseTagError(RuntimeError):
@@ -42,23 +38,18 @@ def _git(root: Path, *args: str) -> str:
 
 
 def _declared_version(root: Path) -> tuple[str | None, list[str]]:
-    errors: list[str] = []
-    versions: list[str] = []
-    for relative in MANIFESTS:
-        path = root / relative
-        try:
-            document = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            errors.append(f"{relative}: cannot read manifest ({exc})")
-            continue
-        version = document.get("version")
-        if not isinstance(version, str) or not VERSION_PATTERN.fullmatch(version):
-            errors.append(f"{relative}: invalid version {version!r}")
-            continue
-        versions.append(version)
-    if versions and len(set(versions)) != 1:
-        errors.append(f"plugin manifest version mismatch: {versions}")
-    return (versions[0] if versions else None), errors
+    """The release version the tag has to match, read from the file that owns it.
+
+    The plugin manifests used to be read here as well, so a tag was checked against a generated
+    copy. `sync_version.py` writes those copies and `sync_version --check` compares them; reading
+    them here too gave one fact two owners. That is the same mistake this file made with the
+    README release marker it also used to assert: the READMEs stopped carrying the line, the copy
+    of the rule here did not, and the release stopped after pushing the tag.
+    """
+    try:
+        return version_from_pyproject((root / "pyproject.toml").read_text(encoding="utf-8")), []
+    except (OSError, VersionError) as exc:
+        return None, [f"pyproject.toml: cannot read the release version ({exc})"]
 
 
 def validate_release_tag(root: Path, tag: str, expected_sha: str | None = None) -> list[str]:
@@ -81,13 +72,6 @@ def validate_release_tag(root: Path, tag: str, expected_sha: str | None = None) 
         errors.append("CHANGELOG.md: missing top release heading")
     elif changelog_match.group(1) != version:
         errors.append(f"CHANGELOG.md: top release {changelog_match.group(1)!r} != {version!r}")
-
-    for relative, pattern in README_RELEASE_PATTERNS.items():
-        match = pattern.search((root / relative).read_text(encoding="utf-8"))
-        if match is None:
-            errors.append(f"{relative}: missing current release marker")
-        elif match.group(1) != version:
-            errors.append(f"{relative}: current release {match.group(1)!r} != {version!r}")
 
     try:
         tag_sha = _git(root, "rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}")

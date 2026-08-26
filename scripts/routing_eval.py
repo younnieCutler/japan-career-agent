@@ -353,6 +353,7 @@ def routing_term_count() -> int:
     total += sum(len(signal["terms"]) for phases in data["flow_phase"].values() for signal in phases)
     # The intent tables count too. A table left out of the complexity signal is where a candidate
     # would put the phrases it did not want counted.
+    total += len(data.get("message_context_exclusion") or [])
     total += len(data.get("maintenance") or [])
     total += len(data.get("opportunity_review") or [])
     total += len(data.get("transition") or [])
@@ -463,13 +464,30 @@ def main() -> int:
         choices=sorted(BENCHMARKS),
         help="Which frozen benchmark to score against.",
     )
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="Exit non-zero on a critical or gaming failure, for the repository check matrix. "
+        "Reporting accuracy without gating anything is how a benchmark becomes decoration.",
+    )
     arguments = parser.parse_args()
 
+    # The dev failure lines below carry an em dash and fixture text in three scripts. `text=True`
+    # output through a Japanese Windows console encodes with cp932 and dies on the em dash, which
+    # turned a reported failure into a traceback -- unacceptable once this is a gate.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
     result = report(reveal=arguments.reveal_holdout, benchmark=arguments.benchmark)
+    dev, holdout = result["dev"], result["holdout"]
+    # Critical failures and gaming only. Overall accuracy is a research target the autoresearch loop
+    # moves; pinning it here would fail the build for a paraphrase the benchmark scores as a miss.
+    # A critical failure is different in kind: it means a message selected a reference the user
+    # explicitly ruled out, or the stage moved underneath them.
+    failed = bool(dev["critical_failures"] or holdout["critical_failures"] or result["gaming_failures"])
     if arguments.json:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 0
-    dev, holdout = result["dev"], result["holdout"]
+        return 1 if arguments.gate and failed else 0
     print(f"benchmark: {result['benchmark']} (evaluator v{result['evaluator_version']})")
     print(f"dev:     {dev['correct']}/{dev['total']} correct, {dev['critical_failures']} critical")
     print(
@@ -481,6 +499,11 @@ def main() -> int:
         print(f"  ! {problem}")
     for failure in dev.get("failures", []):
         print(f"  dev {failure['id']}: {failure['rule']} — {failure['detail']}")
+    if arguments.gate and failed:
+        print("routing gate: FAIL (critical or gaming failures are not allowed on main)")
+        return 1
+    if arguments.gate:
+        print("routing gate: PASS (0 critical, 0 gaming)")
     return 0
 
 

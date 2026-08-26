@@ -83,6 +83,9 @@ CHECKS = (
     ("career-agent durability", (PYTHON, "skills/career-agent/test_state_durability.py")),
     ("career-agent routing", (PYTHON, "skills/career-agent/test_routing.py")),
     ("career-agent routing intents", (PYTHON, "skills/career-agent/test_routing_intents.py")),
+    # The benchmark itself, not only its contract test. Measuring routing accuracy without letting
+    # it fail anything is what left 7 critical failures sitting in a passing build.
+    ("routing benchmark", (PYTHON, "scripts/routing_eval.py", "--gate")),
     ("routing benchmark contract", (PYTHON, "scripts/test_routing_eval.py")),
     ("routing runner contract", (PYTHON, "scripts/test_routing_autoresearch.py")),
     ("career-agent onboarding", (PYTHON, "skills/career-agent/test_onboarding.py")),

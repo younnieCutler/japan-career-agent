@@ -205,6 +205,45 @@ class OnboardingSignalTests(unittest.TestCase):
             with self.subTest(message=message):
                 self.assertEqual(career_agent.explicit_stage_alias(message), expected)
 
+    def test_a_clause_that_closes_a_topic_out_does_not_select_its_reference(self) -> None:
+        """The clause naming a topic to dispose of it must not outrank the clause asking for help.
+
+        Reading the message as one bag of words returned the reference the user had just ruled out,
+        which the benchmark scores as a critical failure: the answer addresses a question that is
+        closed. All three closing forms are checked, because each one leaves the topic's own
+        keywords in the sentence and only the surrounding clause says they no longer apply.
+        """
+        skills_root = ROOT / "skills"
+        cases = (
+            # Refused outright.
+            ("年収交渉は不要です。入社手続きだけ確認したいです", "references/nyusha-teichaku.md"),
+            ("연봉 협상은 하지 않습니다. 입사 절차만 알고 싶어요", "references/nyusha-teichaku.md"),
+            ("I am not sending a thank-you email; I need the handover plan", "references/enman-taishoku.md"),
+            # Contrasted against what is actually wanted.
+            ("円満退職の話ではなく、入社書類を進めたいです", "references/nyusha-teichaku.md"),
+            # Already settled, so its reference answers a closed question.
+            ("市場年収は調べ済みです。年収交渉の進め方を教えてください", "references/nenshu-koushou.md"),
+        )
+        for message, reference in cases:
+            with self.subTest(message=message):
+                context = career_agent.skill_context(
+                    skills_root, career_agent.stage_for(message, "chuto"), message, "chuto"
+                )
+                self.assertEqual(context["references"], [reference])
+
+    def test_an_exclusion_marker_only_scopes_to_its_own_clause(self) -> None:
+        """A marker anywhere in the message must not veto a topic raised in a different clause.
+
+        Dropping the whole message on one marker would be the easy over-fix and would silently
+        disable message-context routing for any sentence containing a negation.
+        """
+        skills_root = ROOT / "skills"
+        message = "すぐ転職するつもりはありません。ただ市場年収の相場は知っておきたいです"
+        context = career_agent.skill_context(
+            skills_root, career_agent.stage_for(message, "chuto"), message, "chuto"
+        )
+        self.assertEqual(context["references"], ["references/market-positioning-2025-2026.md"])
+
     def test_short_ascii_terms_still_need_an_ascii_boundary(self) -> None:
         self.assertTrue(career_agent.term_present("jd", "このjdと私の経験"))
         self.assertFalse(career_agent.term_present("jd", "jda platform"))
