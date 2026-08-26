@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.16.0] - 2026-08-26
+
+- Slim the three README entry points to a landing page and move the advanced CLI, GUI startup,
+  release-channel and migration material into `docs/`, in all three languages, behind a new
+  documentation hub. Documentation facts that can be derived from code are now gated:
+  `scripts/check_docs_drift.py` holds Python versions, skill-table completeness, the Gate D root
+  Skills, the repository check count, relative-link resolution and the PyPI absolute-link rule to
+  what the code actually says. Three claims had already drifted and are corrected here. The release
+  version is owned by `pyproject.toml` and written into the plugin and npm manifests by
+  `scripts/sync_version.py`, replacing the hand-matched `Current release` lines.
+
 ## [2.15.0] - 2026-08-25
 
 - Complete the Gate D quality policy for company research, strategy work, and document plans.
