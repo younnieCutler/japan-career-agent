@@ -119,3 +119,9 @@ student, project, or job-posting evidence.
 Only confirmed career context may flow to Career Agent. The allowlisted fields remain
 `career_anchors`, `career_theme`, `energy_map`, and `career_values`; Vault approval is still required.
 `matching_v3` does not consume RIASEC activities or behavior tendencies as a fit input.
+
+### Gate D handoff
+
+When a plan explicitly requests `readchk` or `hate`, this Skill remains the Domain step. Report
+only the artifact and whether external claims or a substantial artifact were actually produced;
+Gate D chooses the optional Quality steps. This SOP never invokes another Skill.

@@ -1,6 +1,6 @@
 # Third-party notices
 
-The `sip` Quality Skill adapts the quality-oriented workflow of
+The `readchk`, `factchk`, `hate`, `debloat`, and `sip` Quality Skills adapt the quality-oriented workflows of
 [LilMGenius/paperthin](https://github.com/LilMGenius/paperthin/tree/3bca079a51bcfff5dafb53d1d7f9f523d66ee317).
 The adaptation is rewritten for Japan Career Agent's Host invocation, evidence, provenance, and
 approval boundaries. No Paperthin runtime or catalog tooling is bundled.

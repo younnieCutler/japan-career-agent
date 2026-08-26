@@ -366,6 +366,9 @@ SKILL_EXECUTION = {
     "career-maintenance": "hybrid",
     "career-tanaoroshi": "host_required",
     "company-battlecard": "host_required",
+    "debloat": "host_required",
+    "factchk": "host_required",
+    "hate": "host_required",
     "hiring-manager-agent": "host_required",
     "humanize-japanese-career": "host_required",
     "jiko-bunseki": "host_required",
@@ -373,6 +376,7 @@ SKILL_EXECUTION = {
     "kigyou-bunseki": "host_required",
     "matching-simulator": "host_required",
     "mock-interviewer": "host_required",
+    "readchk": "host_required",
     "sip": "host_required",
     "tenshoku-strategy": "host_required",
 }
@@ -408,6 +412,7 @@ PLAN_STEP_STATUSES = frozenset({
     "unsupported",
 })
 PLAN_SIGNALS = frozenset({"external_claims_present", "substantial_artifact"})
+PLAN_QUALITY_OPTIONS = frozenset({"readchk", "hate", "debloat"})
 PLAN_MAX_STEPS = 8
 PLAN_MAX_ATTEMPTS = 2
 

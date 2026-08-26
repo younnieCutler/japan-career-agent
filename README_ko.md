@@ -32,7 +32,7 @@
 
 ---
 
-현재 릴리스: `2.13.0`.
+현재 릴리스: `2.15.0`.
 
 ## 이건 무엇인가
 
@@ -159,6 +159,7 @@ Skill을 선택하는 것과 실제로 실행하는 것은 다릅니다. `run --
 | 기회 비교하기 | 후보자와 JD를 독립된 축으로 보고, 합계 점수 없이 기업·오퍼를 비교합니다 | `matching-simulator`, `company-battlecard` |
 | 준비를 이어가기 | 면접 연습, 이직 전략, 로컬 커리어 상태와 다음 행동을 관리합니다 | `mock-interviewer`, `tenshoku-strategy`, `career-agent` |
 | 계획된 산출물 검증하기 | host가 조정하는 계획의 마지막에 저장소의 기존 검사를 실행합니다 | `sip` |
+| 계획된 산출물 점검하기 | 요청 이해, 출처 감사, 반대 검토, 사용자 요청 압축을 수행합니다 | `readchk`, `factchk`, `hate`, `debloat` |
 
 ## 근거를 다루는 방식
 
@@ -250,7 +251,7 @@ python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format hu
 릴리스를 준비하는 동안 저장소의 버전이 stable marketplace 채널보다 앞설 수 있습니다.
 stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지 않습니다.
 
-지금은 소스 메타데이터가 `2.13.0`인데 stable marketplace ref는 아직 `v2.1.1`입니다. 이 소스에 대한
+지금은 소스 메타데이터가 `2.15.0`인데 stable marketplace ref는 아직 `v2.1.1`입니다. 이 소스에 대한
 태그를 릴리스 workflow가 아직 발행하지 않았기 때문이며, 따라서 marketplace로 설치하면 오늘은
 `2.1.1`이 설치됩니다. 다음 태그가 발행되면 차이가 닫힙니다. `uvx`와 `npx`는 이 ref가 아니라 발행된
 패키지 버전을 해석하므로 어느 경우든 영향을 받지 않습니다.

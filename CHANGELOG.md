@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.15.0] - 2026-08-25
+
+- Complete the Gate D quality policy for company research, strategy work, and document plans.
+  `factchk` and `sip` now run only when their fixed conditions are met, while `readchk`, `hate`,
+  and `debloat` remain explicit plan options. Paused, failed, blocked, unsupported, skipped, and
+  one-retry step states are resumable and auditable through the existing invocation ledger. The
+  policy now rejects unsupported root Skills instead of applying a catch-all strategy chain.
+
+## [2.14.0] - 2026-08-25
+
+- Add the selected Paperthin quality primitives as real Host Skills: `readchk`, `factchk`, `hate`,
+  and `debloat`. They keep Career Agent's Unknown, provenance, approval, and user-decision rules;
+  `hate` and `debloat` remain explicit user-invoked operations, no Quality Skill invokes another,
+  and `hate`/`factchk` terminal semantics stop objection or contradiction findings before `sip`.
+
 ## [2.13.0] - 2026-08-25
 
 - Add the first host-coordinated Gate D execution plan. A bounded linear plan links the existing

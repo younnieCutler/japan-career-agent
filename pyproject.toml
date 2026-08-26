@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "japan-career-agent"
-version = "2.13.0"
+version = "2.15.0"
 description = "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions."
 readme = "README.md"
 license = "MIT"
@@ -60,6 +60,9 @@ only-include = [
   "skills/career-maintenance",
   "skills/career-tanaoroshi",
   "skills/company-battlecard",
+  "skills/debloat",
+  "skills/factchk",
+  "skills/hate",
   "skills/hiring-manager-agent",
   "skills/humanize-japanese-career",
   "skills/jiko-bunseki",
@@ -67,6 +70,7 @@ only-include = [
   "skills/kigyou-bunseki",
   "skills/matching-simulator",
   "skills/mock-interviewer",
+  "skills/readchk",
   "skills/sip",
   "skills/tenshoku-strategy",
 ]
@@ -90,6 +94,9 @@ exclude = [
 "skills/career-maintenance" = "japan_career_agent/skills/career-maintenance"
 "skills/career-tanaoroshi" = "japan_career_agent/skills/career-tanaoroshi"
 "skills/company-battlecard" = "japan_career_agent/skills/company-battlecard"
+"skills/debloat" = "japan_career_agent/skills/debloat"
+"skills/factchk" = "japan_career_agent/skills/factchk"
+"skills/hate" = "japan_career_agent/skills/hate"
 "skills/hiring-manager-agent" = "japan_career_agent/skills/hiring-manager-agent"
 "skills/humanize-japanese-career" = "japan_career_agent/skills/humanize-japanese-career"
 "skills/jiko-bunseki" = "japan_career_agent/skills/jiko-bunseki"
@@ -97,6 +104,7 @@ exclude = [
 "skills/kigyou-bunseki" = "japan_career_agent/skills/kigyou-bunseki"
 "skills/matching-simulator" = "japan_career_agent/skills/matching-simulator"
 "skills/mock-interviewer" = "japan_career_agent/skills/mock-interviewer"
+"skills/readchk" = "japan_career_agent/skills/readchk"
 "skills/sip" = "japan_career_agent/skills/sip"
 "skills/tenshoku-strategy" = "japan_career_agent/skills/tenshoku-strategy"
 
@@ -109,6 +117,9 @@ include = [
   "/skills/career-maintenance",
   "/skills/career-tanaoroshi",
   "/skills/company-battlecard",
+  "/skills/debloat",
+  "/skills/factchk",
+  "/skills/hate",
   "/skills/hiring-manager-agent",
   "/skills/humanize-japanese-career",
   "/skills/jiko-bunseki",
@@ -116,6 +127,7 @@ include = [
   "/skills/kigyou-bunseki",
   "/skills/matching-simulator",
   "/skills/mock-interviewer",
+  "/skills/readchk",
   "/skills/sip",
   "/skills/tenshoku-strategy",
   "/README.md",
