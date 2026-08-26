@@ -615,17 +615,11 @@ def validate_execution_plan(plan: Any) -> None:
                 raise CareerError(f"execution plan step {step_id}.approval_resolution is invalid")
             iso_timestamp(resolution.get("resolved_at"), f"execution plan step {step_id}.approval_resolution.resolved_at")
 
-    for index, step in enumerate(steps):
-        dependencies = step["depends_on"]
-        if len(dependencies) > 1:
-            raise CareerError("execution plan dependencies must remain linear")
-        expected = [] if index == 0 else [ids[index - 1]]
-        if dependencies != expected:
-            raise CareerError(
-                f"execution plan step {step['id']} must depend on the immediately previous step"
-            )
+    for step in steps:
+        if any(dependency not in ids for dependency in step["depends_on"]):
+            raise CareerError(f"execution plan step {step['id']} has a missing dependency")
 
-    # Keep the cycle check explicit even though the linear shape above rejects cycles earlier.
+    # Keep cycle detection explicit before applying the stricter linear policy.
     edges = {step["id"]: set(step["depends_on"]) for step in steps}
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -643,6 +637,16 @@ def validate_execution_plan(plan: Any) -> None:
 
     for step_id in ids:
         visit(step_id)
+
+    for index, step in enumerate(steps):
+        dependencies = step["depends_on"]
+        if len(dependencies) > 1:
+            raise CareerError("execution plan dependencies must remain linear")
+        expected = [] if index == 0 else [ids[index - 1]]
+        if dependencies != expected:
+            raise CareerError(
+                f"execution plan step {step['id']} must depend on the immediately previous step"
+            )
 
 
 def validate_skill_result(result: Any, *, terminal: bool) -> None:

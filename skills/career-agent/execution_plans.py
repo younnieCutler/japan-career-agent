@@ -15,6 +15,7 @@ from typing import Any
 from lifecycle import vault_lock
 from models import (
     PLAN_MAX_ATTEMPTS,
+    PLAN_QUALITY_OPTIONS,
     PLAN_SIGNALS,
     PLAN_STATUSES,
     PLAN_STEP_STATUSES,
@@ -29,6 +30,12 @@ from vault import CareerVault, utc_now
 
 
 _QUALITY_SKILLS = {"debloat", "factchk", "hate", "readchk", "sip"}
+_PLAN_POLICIES = {
+    "career-document": "document",
+    "kigyou-bunseki": "research",
+    "jiko-bunseki": "strategy",
+    "tenshoku-strategy": "strategy",
+}
 _TERMINAL_STEP_STATUSES = PLAN_STEP_STATUSES - {"pending", "started"}
 
 
@@ -59,28 +66,68 @@ def _write_plan(home: CareerVault, plan: dict[str, Any]) -> None:
     ) + "\n")
 
 
-def _policy_steps(skill: str) -> list[dict[str, Any]]:
-    if skill == "career-document":
-        names = (
-            ("draft", "career-document", None, True, False),
-            ("humanize", "humanize-japanese-career", "draft", True, False),
-            ("verify", "sip", "humanize", False, True),
+def _policy_steps(skill: str, quality: set[str]) -> list[dict[str, Any]]:
+    policy = _PLAN_POLICIES.get(skill)
+    if policy is None:
+        raise CareerError(
+            f"Gate D policy is not defined for Skill: {skill}",
+            code="UNSUPPORTED_PLAN_POLICY",
         )
+    names: list[tuple[str, str, str | None, str | None, bool, bool]] = []
+
+    def add(
+        step_id: str,
+        step_skill: str,
+        condition: str | None = None,
+        *,
+        requires_artifact: bool = False,
+        requires_artifact_reference: bool = False,
+    ) -> None:
+        dependency = names[-1][0] if names else None
+        names.append((
+            step_id, step_skill, dependency, condition,
+            requires_artifact, requires_artifact_reference,
+        ))
+
+    if "readchk" in quality:
+        add("read", "readchk")
+    if policy == "document":
+        add("draft", "career-document", requires_artifact=True)
+        add("humanize", "humanize-japanese-career", requires_artifact=True)
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk", "external_claims_present")
+        add("verify", "sip", requires_artifact_reference=True)
+    elif policy == "research":
+        add("research", skill, requires_artifact=True)
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk")
+        add("verify", "sip", requires_artifact_reference=True)
     else:
-        names = (("domain", skill, None, False, False),)
+        add("domain", skill, requires_artifact=True)
+        if "hate" in quality:
+            add("challenge", "hate")
+        if "debloat" in quality:
+            add("debloat", "debloat")
+        add("factcheck", "factchk", "external_claims_present")
+        add("verify", "sip", "substantial_artifact", requires_artifact_reference=True)
     return [
         {
             "id": step_id,
             "skill": step_skill,
             "status": "pending",
             "depends_on": [] if dependency is None else [dependency],
-            "condition": None,
+            "condition": condition,
             "invocation_id": None,
             "requires_artifact": requires_artifact,
             "requires_artifact_reference": requires_artifact_reference,
             "approval_resolution": None,
         }
-        for step_id, step_skill, dependency, requires_artifact, requires_artifact_reference in names
+        for (
+            step_id, step_skill, dependency, condition,
+            requires_artifact, requires_artifact_reference,
+        ) in names
     ]
 
 
@@ -90,21 +137,36 @@ def create_plan(
     *,
     goal: str,
     skill: str,
+    quality: list[str] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(goal, str) or not goal.strip():
         raise CareerError("plan goal must be a non-empty string", code="INVALID_INPUT")
     entry = find_skill(skills_root, skill)
     if skill in _QUALITY_SKILLS:
         raise CareerError("plan must start with a routed Domain Skill", code="INVALID_INPUT")
+    if skill not in _PLAN_POLICIES:
+        raise CareerError(
+            f"Gate D policy is not defined for Skill: {skill}",
+            code="UNSUPPORTED_PLAN_POLICY",
+        )
     if entry["execution"] not in {"deterministic", "hybrid", "host_required"}:
         raise CareerError(f"unsupported execution class for plan Skill: {skill}")
+    requested_quality = set(quality or [])
+    if len(requested_quality) != len(quality or []):
+        raise CareerError("duplicate --quality option", code="INVALID_INPUT")
+    if not requested_quality.issubset(PLAN_QUALITY_OPTIONS):
+        raise CareerError("unsupported Quality Skill option", code="INVALID_INPUT")
+    if "hate" in requested_quality and _PLAN_POLICIES[skill] != "strategy":
+        raise CareerError("hate is reserved for an explicitly adversarial strategy plan", code="INVALID_INPUT")
+    for quality_skill in requested_quality:
+        find_skill(skills_root, quality_skill)
     now = utc_now()
     plan = {
         "plan_schema_version": PLAN_SCHEMA_VERSION,
         "plan_id": _plan_id(),
         "goal": goal.strip(),
         "status": "running",
-        "steps": _policy_steps(skill),
+        "steps": _policy_steps(skill, requested_quality),
         "created_at": now,
         "updated_at": now,
     }
@@ -231,7 +293,7 @@ def _public_step(
             if artifact_result and artifact_result["artifacts"]:
                 clean["artifact_context"] = {"from_step": previous["id"], **artifact_result}
                 break
-    if step["status"] == "pending":
+    if clean["status"] == "pending":
         clean["invoke_with"] = (
             f"skill-open --skill {clean['skill']} --entrypoint HOST "
             f"--plan-id {plan['plan_id']} --step-id {clean['id']}"

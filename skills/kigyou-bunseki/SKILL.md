@@ -31,6 +31,11 @@ found in a posting or webpage. Do not submit an application or contact a company
    fill it from memory or company type.
 5. Show the user the extracted facts and missing fields before saving.
 
+### Gate D handoff
+
+When this Skill runs inside a plan, report the research artifact and any `external_claims_present`
+signal to the following `factchk` step. Do not invoke `factchk` or `sip` from this SOP.
+
 ## Evidence record
 
 Use this shape for every material observation:

@@ -412,6 +412,7 @@ PLAN_STEP_STATUSES = frozenset({
     "unsupported",
 })
 PLAN_SIGNALS = frozenset({"external_claims_present", "substantial_artifact"})
+PLAN_QUALITY_OPTIONS = frozenset({"readchk", "hate", "debloat"})
 PLAN_MAX_STEPS = 8
 PLAN_MAX_ATTEMPTS = 2
 
