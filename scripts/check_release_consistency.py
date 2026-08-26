@@ -20,11 +20,6 @@ MANIFESTS = (
 # The wheel carries the same release. `uvx japan-career-agent` and the plugin must not be able to
 # be two different builds of two different versions.
 PYPROJECT_VERSION_PATTERN = re.compile(r"^version = \"([^\"]+)\"", re.MULTILINE)
-README_RELEASE_PATTERNS = {
-    ROOT / "README.md": re.compile(r"^Current release:\s*`([^`]+)`\.", re.MULTILINE),
-    ROOT / "README_ko.md": re.compile(r"^현재 릴리스:\s*`([^`]+)`\.", re.MULTILINE),
-    ROOT / "README_ja.md": re.compile(r"^現在のリリース:\s*`([^`]+)`。", re.MULTILINE),
-}
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 CHANGELOG_HEADING = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
 
@@ -33,10 +28,12 @@ CHANGELOG_HEADING = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
 # matched while the marketplace actually installed something older — the one thing that section
 # exists to answer. Both numbers are now read from the files that own them.
 MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
+# The section moved off the README entry pages and into the upgrade docs, one per language. The
+# check follows it: a translation that keeps an old number is the same failure as an English one.
 RELEASE_CHANNEL_HEADINGS = {
-    ROOT / "README.md": "### Release channels",
-    ROOT / "README_ko.md": "### 릴리스 채널",
-    ROOT / "README_ja.md": "### リリースチャンネル",
+    ROOT / "docs" / "upgrading.md": "## Release channels",
+    ROOT / "docs" / "upgrading_ko.md": "## 릴리스 채널",
+    ROOT / "docs" / "upgrading_ja.md": "## リリースチャンネル",
 }
 
 
@@ -109,15 +106,6 @@ def main() -> int:
         errors.append(
             f"CHANGELOG.md: top release {changelog_match.group(1)!r} != manifest {release_version!r}"
         )
-
-    for path, pattern in README_RELEASE_PATTERNS.items():
-        match = pattern.search(path.read_text(encoding="utf-8"))
-        if match is None:
-            errors.append(f"{path.name}: missing current release marker")
-        elif release_version is not None and match.group(1) != release_version:
-            errors.append(
-                f"{path.name}: current release {match.group(1)!r} != manifest {release_version!r}"
-            )
 
     marketplace_ref = _marketplace_ref()
     if marketplace_ref is None:

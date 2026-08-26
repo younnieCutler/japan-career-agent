@@ -18,8 +18,12 @@ git fetch origin main            # feeds the version-bump gate; it skips cleanly
 python scripts/run_all_checks.py
 ```
 
-Expected: `All 70 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
+Expected: `All 93 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
 the check and stops; everything after it is unrun, not passing.
+
+That number is held to `len(CHECKS)` by `scripts/check_docs_drift.py`; adding a check to the matrix
+and leaving this line alone fails the build rather than quietly going stale, which is how it came to
+claim 70 while the matrix had grown to 90.
 
 Install the hash-pinned locks, not `requirements.txt`. The loose `ruff` range there resolves a
 different linter version than CI, so local and CI disagree for reasons unrelated to the change.

@@ -30,6 +30,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/younnieCutler/japan-career-agent"
 Repository = "https://github.com/younnieCutler/japan-career-agent"
+Documentation = "https://github.com/younnieCutler/japan-career-agent/blob/main/docs/README.md"
 Changelog = "https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md"
 
 # Both names run the same launcher. `uvx <package>` looks for a script matching the package name,

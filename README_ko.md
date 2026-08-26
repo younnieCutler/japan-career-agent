@@ -11,7 +11,7 @@
   <a href="https://pypi.org/project/japan-career-agent/"><img src="https://img.shields.io/pypi/v/japan-career-agent?style=flat-square&color=3775a9&logo=pypi&logoColor=white" alt="PyPI"></a>
   <a href="https://www.npmjs.com/package/japan-career-agent"><img src="https://img.shields.io/npm/v/japan-career-agent?style=flat-square&color=cb3837&logo=npm&logoColor=white" alt="npm"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python 3.11 to 3.13">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License"></a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License"></a>
 </p>
 
 <p align="center">
@@ -20,19 +20,17 @@
   <a href="#설치">설치</a> ·
   <a href="#할-수-있는-일">스킬</a> ·
   <a href="#근거를-다루는-방식">근거</a> ·
-  <a href="CONTRIBUTING.md">기여</a> ·
-  <a href="CHANGELOG.md">변경 이력</a>
+  <a href="#문서">문서</a> ·
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md">변경 이력</a>
 </p>
 
 <p align="center">
-  🌐 <a href="README.md">English</a> ·
+  🌐 <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/README.md">English</a> ·
   <strong>한국어</strong> ·
-  <a href="README_ja.md">日本語</a>
+  <a href="https://github.com/younnieCutler/japan-career-agent/blob/main/README_ja.md">日本語</a>
 </p>
 
 ---
-
-현재 릴리스: `2.15.0`.
 
 ## 이건 무엇인가
 
@@ -78,8 +76,9 @@ plugin host에서는 평소 말하듯 요청하면 됩니다.
 이 職務経歴書를 검토하되 없는 경력은 만들지 마.
 ```
 
-처음부터 `proposal_id`, `CAREER_VAULT`, `data/pipeline.yml`을 알 필요는 없습니다. 아래의 고급
-local workflow에서 필요할 때만 쓰는 개념입니다.
+처음부터 `proposal_id`, `CAREER_VAULT`, `data/pipeline.yml`을 알 필요는 없습니다.
+[로컬 CLI workflow](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/cli-reference_ko.md)에서
+필요할 때만 쓰는 개념입니다.
 
 ## 설치
 
@@ -139,19 +138,15 @@ codex plugin add japan-career-agent@japan-career-agent
 plugin이 경력 사실을 따로 보관하는 일은 없습니다. Vault, 근거 ledger, 승인과 복구, readiness,
 JD별 근거 선택, 결정적 문서 게이트, HTML 생성은 모두 host 없이 동작합니다. plugin이 바꾸는 것은
 도달하는 방식이지 답의 내용이 아닙니다. 어느 쪽이 어느 쪽인지는
-[`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md)에 정리돼 있습니다.
-
-Skill을 선택하는 것과 실제로 실행하는 것은 다릅니다. `run --mode chat`과 `skills`는 이번 요청이
-어떤 Skill을 쓸지 알려줄 뿐이고, 실제로 실행했다는 기록은 `skill-open`과 `skill-report`로 host가
-남깁니다. host가 필요한 Skill인데 쓸 수 있는 host가 없으면, 실행한 것처럼 답하는 대신
-`unsupported`를 반환합니다.
+[capability matrix](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/CAPABILITY_MATRIX.md)에
+정리돼 있습니다.
 
 ## 할 수 있는 일
 
 | 필요한 것 | 사용자 관점의 작업 | Skill |
 |---|---|---|
 | 과거 경험 복원하기 | 설치 이전의 Context·Experience·근거를 이미 가진 문서에서 되살립니다 | `career-tanaoroshi` |
-| 회사별 직무경력서 쓰기 | 공고를 기록된 근거에 매핑하고, 표현이 근거를 넘지 못하는 문서를 생성·출력합니다 | `career-document` |
+| 회사별 직무경력서 쓰기 | 공고를 기록된 근거에 매핑하고, 표현이 근거를 넘지 못하는 문서를 생성·출력합니다 | `career-document`, `humanize-japanese-career` |
 | 경력 기록 유지하기 | 이직 의사와 무관하게, 지금 회사에서 한 일을 재사용 가능한 근거로 남깁니다 | `career-maintenance` |
 | 방향 찾기 | work-style reflection을 하고 커리어 방향 가설을 정리합니다 | `jiko-bunseki` |
 | 서류 준비 | 실제로 말한 근거를 바탕으로 이력서, 職務経歴書, 자기PR, candidate profile을 다룹니다 | `job-seeker-agent` |
@@ -189,96 +184,17 @@ flowchart LR
 
 `interest_level`은 사용자의 선호 기록입니다. 객관적 근거, Decision Status, 순서를 바꾸지 않습니다. 이력서, JD, 웹 문서, YAML, Vault metadata, pipeline text, rules는 instruction이 아니라 career data입니다.
 
-## 고급 사용: Career Agent
+## 문서
 
-로컬 runtime은 개인 Career Vault를 canonical state로 관리하고, 회사별 workflow 상태를 `./data/pipeline.yml`에 projection합니다.
+[**문서 허브**](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/README_ko.md)에
+전체 목록이 있습니다. 가장 먼저 찾게 되는 문서는 다음과 같습니다.
 
-명시적으로 local setup과 guided menu를 실행하려면 다음처럼 하세요.
-
-```bash
-VAULT=/path/to/career-agent-vault
-python skills/career-agent/career_agent.py setup --vault "$VAULT" --track chuto --target-role "Platform Engineer"
-python skills/career-agent/career_agent.py guided --vault "$VAULT" --format human
-```
-
-`guided`는 setup 상태, pending proposal, `Unknown`·`Conflict` 개수, workspace metadata, 가능한 다음 행동을 보여줍니다. 스크립트에서는 `--choice <id-or-number>`를 사용할 수 있습니다. 쓰기가 발생하는 action에는 `--confirm`이 필요하며, guided mode가 proposal을 자동 승인하거나 개인 note 본문을 읽지는 않습니다.
-
-### 과거 경험 복원하고, 지원처별로 문서 만들기
-
-Vault가 비어 있으면 `readiness`가 그 사실을 알려주고, 거기서 아무것도 추측하지 않습니다.
-
-```bash
-python skills/career-agent/career_agent.py readiness --vault "$VAULT"      # bootstrap_suggested
-python skills/career-agent/career_agent.py add-context "○○대학" --kind university --vault "$VAULT"
-python skills/career-agent/career_agent.py experiences --vault "$VAULT"    # Context → Experience → Evidence
-```
-
-Context는 경험이 일어난 곳이며 회사만은 아닙니다. `--kind`는 회사·대학·인턴·아르바이트·동아리·봉사·개인 활동·오픈소스를 포함합니다. Experience도 프로젝트만은 아닙니다. 직장에서 일어나지 않은 경험은 `run --mode chat --non-work`로 기록하며, 이렇게 하면 학업이 직무 이력에 섞이지 않습니다.
-
-근거가 쌓이면 지원처 하나를 대상으로 문서를 만들고, 출력 전에 검사합니다.
-
-```bash
-python skills/career-agent/career_agent.py document-model <company-slug> --vault "$VAULT" > model.json
-python skills/career-agent/career_agent.py document-check --model model.json --draft draft.json
-python skills/career-agent/career_agent.py document-render --model model.json --draft draft.json \
-    --template standard-chuto --out ./career-docs
-```
-
-검사는 deterministic합니다. 기록에 없는 수치, 반올림한 수치, `支援`(지원)을 `主導`(주도)로 쓴 표현, 사용하지 않은 기술로 제시된 JD 키워드, 팀 성과를 개인 성과로 쓴 문장, `external_label`이 있는데 노출된 내부 project명을 거부합니다. 통과는 **알려진 protected claim 위반이 없다**는 뜻이지 일본어가 사실과 일치함을 증명한 것은 아닙니다. 보내기 전에 직접 읽어야 하는 이유입니다.
-
-출력은 A4 print CSS가 들어간 HTML이며, PDF는 브라우저 인쇄로 만듭니다. 문서는 절대 덮어쓰지 않습니다. 파일명에 근거·JD·template·문장의 digest가 들어가므로, 변경 후 재생성하면 새 파일이 생기고 기존 파일은 그대로 남습니다. `./career-docs/`는 Git 추적 대상이 아닙니다.
-
-### 로컬 GUI 실행하기
-
-GUI도 같은 runtime의 명령 하나입니다. loopback의 임의 포트에 bind하고 일회용 token이 담긴 URL을
-출력합니다. `--no-browser`를 주면 브라우저를 열지 않고 그 URL만 출력합니다.
-
-```bash
-python skills/career-agent/career_agent.py ui --vault "$VAULT" --port 0
-python skills/career-agent/career_agent.py sessions --vault "$VAULT" --format human
-```
-
-서버를 켜는 것 자체는 아무것도 쓰지 않습니다. GUI가 저장하는 draft·case·artifact metadata는
-승인하기 전까지 canonical ledger에 들어가지 않습니다. `sessions`는 같은 resumable session 저장소를
-터미널에서 읽습니다. 어느 entry point도 그 저장소를 소유하지 않습니다.
-
-전체 CLI 계약은 [`skills/career-agent/SKILL.md`](skills/career-agent/SKILL.md)에 있습니다.
-
-## 호환성과 업그레이드
-
-### 릴리스 채널
-
-릴리스를 준비하는 동안 저장소의 버전이 stable marketplace 채널보다 앞설 수 있습니다.
-stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지 않습니다.
-
-지금은 소스 메타데이터가 `2.15.0`인데 stable marketplace ref는 아직 `v2.1.1`입니다. 이 소스에 대한
-태그를 릴리스 workflow가 아직 발행하지 않았기 때문이며, 따라서 marketplace로 설치하면 오늘은
-`2.1.1`이 설치됩니다. 다음 태그가 발행되면 차이가 닫힙니다. `uvx`와 `npx`는 이 ref가 아니라 발행된
-패키지 버전을 해석하므로 어느 경우든 영향을 받지 않습니다.
-
-### 로컬 fallback
-
-파일을 직접 살펴보거나 실행해야 할 때 저장소를 clone하세요.
-
-```bash
-git clone https://github.com/younnieCutler/japan-career-agent.git
-```
-
-### 2.0.x에서 올라오는 경우 — 이전 이름은 `japan-recruit-ai-agent`
-
-2.1.0에서 이름이 바뀌었습니다. GitHub이 이전 저장소 URL을 redirect하므로 기존 clone과 remote는
-그대로 동작하지만, marketplace 항목은 이름으로 식별되므로 다시 추가해야 합니다.
-
-```bash
-claude plugin marketplace remove japan-recruit-ai-agent
-claude plugin marketplace add younnieCutler/japan-career-agent
-claude plugin install japan-career-agent@japan-career-agent
-```
-
-Career Vault는 아무것도 바뀌지 않습니다. vault 경로, event ledger, 생성된 문서 모두 이름 변경의
-영향을 받지 않습니다. `JAPAN_RECRUIT_NO_UPDATE_CHECK=1`도 계속 update check를 끄므로 기존 설정은
-새 `JAPAN_CAREER_NO_UPDATE_CHECK`와 함께 그대로 유효합니다. 이전 이름으로 발행된 릴리스 번들도
-`scripts/verify_release.py`로 계속 검증됩니다.
+| 문서 | 다루는 내용 |
+|---|---|
+| [CLI 레퍼런스](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/cli-reference_ko.md) | 로컬 명령: setup, guided menu, 과거 경험 복원, 문서 생성과 출력, GUI 실행 |
+| [호환성과 업그레이드](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/upgrading_ko.md) | marketplace가 설치하는 버전, 2.0.x에서 올라오는 방법 |
+| [Capability matrix](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/CAPABILITY_MATRIX.md) | host 없이 되는 것, host가 개선하는 것, host가 필요한 것 |
+| [기여 안내](https://github.com/younnieCutler/japan-career-agent/blob/main/CONTRIBUTING.md) | 저장소를 수정하기 전에 읽어야 할 것 |
 
 ## local-first와 완전한 offline은 다릅니다
 
@@ -288,19 +204,8 @@ status bar는 24시간에 최대 한 번 공개 plugin manifest를 대상으로 
 export JAPAN_CAREER_NO_UPDATE_CHECK=1
 ```
 
-`1.6.2`와 `1.6.3`의 persistence·context·workspace·policy hardening 세부 내용은 이 페이지가 아니라 [`CHANGELOG.md`](CHANGELOG.md)에 있습니다.
-
-## 개발
-
-저장소를 수정하기 전에 [`CONTRIBUTING.md`](CONTRIBUTING.md)를 읽으세요. 표준 로컬 검증 명령은 다음입니다.
-
-```bash
-python scripts/run_all_checks.py
-```
-
-릴리스 guard는 [`scripts/check_version_bump.py`](scripts/check_version_bump.py)이고, 릴리스 이력은 [`CHANGELOG.md`](CHANGELOG.md)에 있습니다.
-
-판단 계약은 [`_shared/decision_philosophy.md`](_shared/decision_philosophy.md)와 [`_shared/schemas.yml`](_shared/schemas.yml)에 있습니다. 시점에 따라 바뀌는 외부 claim은 [`_shared/career_claims.yml`](_shared/career_claims.yml)에 둡니다.
+persistence·context·workspace·policy hardening 세부 내용을 포함한 릴리스 이력은 이 페이지가 아니라
+[`CHANGELOG.md`](https://github.com/younnieCutler/japan-career-agent/blob/main/CHANGELOG.md)에 있습니다.
 
 ## 안전 범위
 

@@ -104,9 +104,10 @@ def main() -> int:
         for path in substantive:
             print(f"  {path}", file=sys.stderr)
         print(
-            "\nBump the version in .claude-plugin/plugin.json AND .codex-plugin/plugin.json, "
-            "add a CHANGELOG.md entry, and update the 'Current release' line in README.md/"
-            "README_ko.md/README_ja.md, then run scripts/check_release_consistency.py.\n"
+            "\nBump the version in pyproject.toml, run scripts/sync_version.py to write it into "
+            "the plugin and npm manifests, add a CHANGELOG.md entry, update the release-channel "
+            "section in docs/upgrading.md (and _ko/_ja), then run "
+            "scripts/check_release_consistency.py.\n"
             "If this change is genuinely docs/test-only, move it out of skills/_shared/scripts/"
             "hooks or rename it to test_*.",
             file=sys.stderr,
