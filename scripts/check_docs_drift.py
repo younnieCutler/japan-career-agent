@@ -103,16 +103,41 @@ def check_python_versions() -> list[str]:
     return errors
 
 
+def _skill_table(text: str) -> str | None:
+    """The rows of the one Markdown table whose last column is headed `Skill`.
+
+    Scoped deliberately: searching the whole file would pass as long as a Skill is named anywhere,
+    so a row deleted from the table would still look present because the prose mentions it.
+    Matching the header rather than a translated section title keeps this working in all three
+    languages.
+    """
+    rows: list[str] = []
+    collecting = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("|") and stripped.rstrip("| ").endswith("Skill"):
+            collecting = True
+            continue
+        if collecting:
+            if not stripped.startswith("|"):
+                break
+            rows.append(stripped)
+    return "\n".join(rows) if rows else None
+
+
 def check_skill_coverage() -> list[str]:
-    """Every shipped Skill appears in every README's table.
+    """Every shipped Skill appears in every README's skill table.
 
     Counting them in prose would only move the staleness; naming all of them is checkable.
     """
     skills = {path.parent.name for path in ROOT.glob("skills/*/SKILL.md")}
     errors: list[str] = []
     for path in READMES:
-        text = path.read_text(encoding="utf-8")
-        missing = sorted(skill for skill in skills if f"`{skill}`" not in text)
+        table = _skill_table(path.read_text(encoding="utf-8"))
+        if table is None:
+            errors.append(f"{path.name}: no table with a `Skill` column")
+            continue
+        missing = sorted(skill for skill in skills if f"`{skill}`" not in table)
         if missing:
             errors.append(f"{path.name}: skill table does not name {', '.join(missing)}")
     return errors

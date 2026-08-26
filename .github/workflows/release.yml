@@ -42,7 +42,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          current_version="$(python -c 'import json; print(json.load(open(".claude-plugin/plugin.json", encoding="utf-8"))["version"])')"
+          # pyproject.toml is the single source of truth; the manifests are generated copies.
+          current_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           publish="${{ inputs.publish || 'false' }}"
           dry_run="${{ inputs.dry_run || 'false' }}"
           echo "version=$current_version" >> "$GITHUB_OUTPUT"

@@ -91,9 +91,11 @@ PRs keep required internal version identities without publishing every intermedi
 ## Version and release docs
 
 Any behavior change or bug fix under `skills/`, `_shared/`, `scripts/`, or `hooks/` (a fix counts —
-this is not only for new features) bumps the version in **both** `.claude-plugin/plugin.json` and
-`.codex-plugin/plugin.json`, adds a `CHANGELOG.md` entry, and updates the `Current release` line in
-all three READMEs. `scripts/check_version_bump.py` enforces this: it diffs the PR against
+this is not only for new features) bumps the version in `pyproject.toml`, adds a `CHANGELOG.md`
+entry, and then runs `python scripts/sync_version.py`, which writes that version into both plugin
+manifests, the npm package and the SBOM. `pyproject.toml` is the single source of truth; those
+files are generated copies and are not edited by hand.
+`scripts/check_version_bump.py` enforces this: it diffs the PR against
 `origin/main` and fails if a substantive (non-`test_*`, non-`.md`) file changed under those
 directories with no version change. It skips cleanly for a genuinely docs/test-only PR, and skips
 locally when `origin/main` hasn't been fetched — `git fetch origin main` before running

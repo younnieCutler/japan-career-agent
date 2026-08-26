@@ -94,6 +94,27 @@ class DocsDriftTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("career-tanaoroshi", result.stdout)
 
+    def test_a_skill_named_only_outside_the_table_does_not_count(self) -> None:
+        """The rule reads the table, not the file.
+
+        A whole-file substring search would pass here, because the name still appears in the
+        paragraph this test adds -- while the row it was deleted from is gone.
+        """
+        self._edit(
+            "README.md",
+            "| Recover past experience |",
+            "Ask `career-tanaoroshi` about it.\n\n| Recover past experience |",
+        )
+        self._edit(
+            "README.md",
+            "Rebuild contexts, experiences and evidence from before you installed this, "
+            "from documents you already have | `career-tanaoroshi` |",
+            "moved into the paragraph above | `career-agent` |",
+        )
+        result = _run(self.workspace)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("career-tanaoroshi", result.stdout)
+
     def test_a_gate_d_root_the_policy_does_not_support_is_caught(self) -> None:
         self._edit(
             "_shared/agent_context/orchestration.md",

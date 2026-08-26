@@ -7,7 +7,8 @@ should have happened at all, and that gap let a real hardening PR merge as an un
 "1.6.2" (README.md#L63's `1.6.2` bullet list gained a whole new paragraph of behavior
 changes with no CHANGELOG entry or version bump). This script closes that gap: any PR
 that touches a non-test, non-doc file under skills/, _shared/, scripts/, or hooks/ must
-also change `.claude-plugin/plugin.json`'s `version` field relative to the base branch.
+also change `pyproject.toml`'s `version` field relative to the base branch. That file is the
+single source of truth; the plugin and npm manifests are generated copies and are not read here.
 
 Skips cleanly (exit 0) whenever there is nothing to compare against — a shallow local
 clone without `origin/main` fetched, or a push that lands exactly on `origin/main` (e.g.
@@ -17,22 +18,25 @@ an actual PR diff.
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
 
+from sync_version import VersionError, version_from_pyproject
+
 ROOT = Path(__file__).resolve().parent.parent
 BASE_REF = "origin/main"
-MANIFEST = ".claude-plugin/plugin.json"
+CANONICAL = "pyproject.toml"
 
 SUBSTANTIVE_ROOTS = ("skills/", "_shared/", "scripts/", "hooks/")
 EXEMPT_SUFFIXES = (".md",)
 
 
 def _git(*args: str) -> str:
+    # Explicit UTF-8: `text=True` alone decodes with the locale codec, and pyproject.toml is not
+    # ASCII. On a Japanese Windows shell that is a cp932 UnicodeDecodeError rather than a version.
     return subprocess.run(
-        ["git", *args], cwd=ROOT, check=True, capture_output=True, text=True,
+        ["git", *args], cwd=ROOT, check=True, capture_output=True, text=True, encoding="utf-8",
     ).stdout.strip()
 
 
@@ -66,14 +70,15 @@ def is_substantive(path: str) -> bool:
     return True
 
 
-def manifest_version(ref: str) -> str | None:
+def declared_version(ref: str) -> str | None:
+    """The canonical version at a git ref, parsed the same way as the worktree's."""
     try:
-        text = _git("show", f"{ref}:{MANIFEST}")
+        text = _git("show", f"{ref}:{CANONICAL}")
     except subprocess.CalledProcessError:
         return None
     try:
-        return json.loads(text).get("version")
-    except json.JSONDecodeError:
+        return version_from_pyproject(text)
+    except VersionError:
         return None
 
 
@@ -92,12 +97,12 @@ def main() -> int:
         print("version bump check: skipped (no substantive skills/_shared/scripts/hooks changes)")
         return 0
 
-    base_version = manifest_version(BASE_REF)
-    head_version = manifest_version("HEAD")
+    base_version = declared_version(BASE_REF)
+    head_version = declared_version("HEAD")
     if base_version is not None and base_version == head_version:
         print("version bump check: FAILED", file=sys.stderr)
         print(
-            f"{len(substantive)} substantive file(s) changed but {MANIFEST}'s version "
+            f"{len(substantive)} substantive file(s) changed but {CANONICAL}'s version "
             f"is still {head_version!r}:",
             file=sys.stderr,
         )
