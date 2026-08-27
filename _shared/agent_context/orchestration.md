@@ -18,7 +18,7 @@ dependency and `artifact_context` for the closest upstream non-empty artifact, e
 the invocation ledger with summary, error, artifacts, evidence, tools, and signals.
 
 Each step declares its output contract. Artifact-producing steps must report at least one artifact;
-`sip` must report an artifact reference. A report that violates its contract is rejected before it
+`verify` must report an artifact reference. A report that violates its contract is rejected before it
 is appended, so the Host can submit a valid report for the still-open invocation.
 
 `needs_input` resumes by rerunning the same Skill. `needs_approval` is different: `plan-next
@@ -30,12 +30,12 @@ The policy is bounded and conditional. Gate D currently accepts only these Domai
 must be handled by its existing single-Skill workflow until a policy is explicitly added.
 
 ```text
-career-document → humanize → debloat? → factchk? → sip
-kigyou-bunseki → factchk → sip
-strategy → hate? → debloat? → factchk? → sip?
+career-document → humanize → trim? → factcheck? → verify
+kigyou-bunseki → factcheck → verify
+strategy → challenge? → trim? → factcheck? → verify?
 ```
 
-`readchk` is an explicit first step for high-cost or ambiguous requests. `factchk` requires the
-Host signal `external_claims_present`; generic `sip` requires `substantial_artifact`. `hate` and
-`debloat` require explicit `--quality` opt-in. A Quality Skill never invokes another Skill; Gate D
+`intent` is an explicit first step for high-cost or ambiguous requests. `factcheck` requires the
+Host signal `external_claims_present`; generic `verify` requires `substantial_artifact`. `challenge` and
+`trim` require explicit `--quality` opt-in. A Quality Skill never invokes another Skill; Gate D
 owns ordering. Existing unplanned `skill-open` / `skill-report` callers continue to work unchanged.

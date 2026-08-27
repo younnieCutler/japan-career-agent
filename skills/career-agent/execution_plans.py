@@ -29,7 +29,7 @@ from validation import validate_execution_plan
 from vault import CareerVault, utc_now
 
 
-_QUALITY_SKILLS = {"debloat", "factchk", "hate", "readchk", "sip"}
+_QUALITY_SKILLS = {"trim", "factcheck", "challenge", "intent", "verify"}
 _PLAN_POLICIES = {
     "career-document": "document",
     "kigyou-bunseki": "research",
@@ -89,29 +89,29 @@ def _policy_steps(skill: str, quality: set[str]) -> list[dict[str, Any]]:
             requires_artifact, requires_artifact_reference,
         ))
 
-    if "readchk" in quality:
-        add("read", "readchk")
+    if "intent" in quality:
+        add("read", "intent")
     if policy == "document":
         add("draft", "career-document", requires_artifact=True)
         add("humanize", "humanize-japanese-career", requires_artifact=True)
-        if "debloat" in quality:
-            add("debloat", "debloat")
-        add("factcheck", "factchk", "external_claims_present")
-        add("verify", "sip", requires_artifact_reference=True)
+        if "trim" in quality:
+            add("trim", "trim")
+        add("factcheck", "factcheck", "external_claims_present")
+        add("verify", "verify", requires_artifact_reference=True)
     elif policy == "research":
         add("research", skill, requires_artifact=True)
-        if "debloat" in quality:
-            add("debloat", "debloat")
-        add("factcheck", "factchk")
-        add("verify", "sip", requires_artifact_reference=True)
+        if "trim" in quality:
+            add("trim", "trim")
+        add("factcheck", "factcheck")
+        add("verify", "verify", requires_artifact_reference=True)
     else:
         add("domain", skill, requires_artifact=True)
-        if "hate" in quality:
-            add("challenge", "hate")
-        if "debloat" in quality:
-            add("debloat", "debloat")
-        add("factcheck", "factchk", "external_claims_present")
-        add("verify", "sip", "substantial_artifact", requires_artifact_reference=True)
+        if "challenge" in quality:
+            add("challenge", "challenge")
+        if "trim" in quality:
+            add("trim", "trim")
+        add("factcheck", "factcheck", "external_claims_present")
+        add("verify", "verify", "substantial_artifact", requires_artifact_reference=True)
     return [
         {
             "id": step_id,
@@ -156,8 +156,8 @@ def create_plan(
         raise CareerError("duplicate --quality option", code="INVALID_INPUT")
     if not requested_quality.issubset(PLAN_QUALITY_OPTIONS):
         raise CareerError("unsupported Quality Skill option", code="INVALID_INPUT")
-    if "hate" in requested_quality and _PLAN_POLICIES[skill] != "strategy":
-        raise CareerError("hate is reserved for an explicitly adversarial strategy plan", code="INVALID_INPUT")
+    if "challenge" in requested_quality and _PLAN_POLICIES[skill] != "strategy":
+        raise CareerError("challenge is reserved for an explicitly adversarial strategy plan", code="INVALID_INPUT")
     for quality_skill in requested_quality:
         find_skill(skills_root, quality_skill)
     now = utc_now()

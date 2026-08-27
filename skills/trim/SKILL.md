@@ -1,5 +1,5 @@
 ---
-name: debloat
+name: trim
 disable-model-invocation: true
 description: >
   User-invoked compression pass for an otherwise correct career artifact. Preserve every evidence
@@ -7,7 +7,7 @@ description: >
 license: MIT
 ---
 
-# debloat — load-bearing artifact compression
+# trim — load-bearing artifact compression
 
 Use only when the user requests a shorter artifact or a real length constraint makes compression
 necessary. A long document is not automatically bloated.
@@ -24,7 +24,7 @@ artifact remains untouched so the user can compare the change.
 3. Preserve employer, period, role, action, individual contribution, team result, metric, source,
    uncertainty, confidentiality, and approval wording exactly in strength.
 4. Write a new relative output only after confirming the input exists.
-5. Hand the new artifact to the following `sip` check.
+5. Hand the new artifact to the following `verify` check.
 
 ## Rules
 

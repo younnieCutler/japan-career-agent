@@ -109,8 +109,8 @@ nothing is rendered.
 
 When this Skill is the child step after `career-document`, the Host runs the existing
 `career-agent document-check` against the humanized output and renders only after that check passes.
-The Host then reports the checked artifact paths to the following `sip` step. This is a flat plan
-handoff; this Skill does not invoke `sip` or any other Skill.
+The Host then reports the checked artifact paths to the following `verify` step. This is a flat plan
+handoff; this Skill does not invoke `verify` or any other Skill.
 
 ## What to fix
 

@@ -143,7 +143,7 @@ overwriting. After every save, print the absolute path and verify that it exists
 ### Gate D handoff
 
 Inside a plan, report the strategy artifact and any `external_claims_present` or
-`substantial_artifact` signal. An explicitly requested `hate` step is the adversarial review boundary;
+`substantial_artifact` signal. An explicitly requested `challenge` step is the adversarial review boundary;
 this SOP does not invoke it or any other Skill.
 
 ## Related skills

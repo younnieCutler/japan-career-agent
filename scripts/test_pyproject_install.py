@@ -57,9 +57,9 @@ REQUIRED_MEMBERS = (
 # update fails this check instead of shipping silently.
 PACKAGED_SKILL_NAMES = (
     "career-agent", "career-document", "career-maintenance", "career-tanaoroshi",
-    "company-battlecard", "debloat", "factchk", "hate", "hiring-manager-agent",
+    "company-battlecard", "trim", "factcheck", "challenge", "hiring-manager-agent",
     "humanize-japanese-career", "jiko-bunseki", "job-seeker-agent", "kigyou-bunseki",
-    "matching-simulator", "mock-interviewer", "readchk", "sip", "tenshoku-strategy",
+    "matching-simulator", "mock-interviewer", "intent", "verify", "tenshoku-strategy",
 )
 REQUIRED_SKILL_MANIFESTS = tuple(
     f"{PACKAGE_NAME}/skills/{name}/SKILL.md" for name in PACKAGED_SKILL_NAMES

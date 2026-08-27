@@ -122,6 +122,6 @@ Only confirmed career context may flow to Career Agent. The allowlisted fields r
 
 ### Gate D handoff
 
-When a plan explicitly requests `readchk` or `hate`, this Skill remains the Domain step. Report
+When a plan explicitly requests `intent` or `challenge`, this Skill remains the Domain step. Report
 only the artifact and whether external claims or a substantial artifact were actually produced;
 Gate D chooses the optional Quality steps. This SOP never invokes another Skill.

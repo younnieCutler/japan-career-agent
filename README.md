@@ -157,8 +157,8 @@ lists which is which.
 | Read roles and employers | Turn JD requirements and company or posting sources into labelled observations | `hiring-manager-agent`, `kigyou-bunseki` |
 | Compare opportunities | Review candidate/JD evidence on separate axes and compare companies or offers without a total score | `matching-simulator`, `company-battlecard` |
 | Prepare and keep moving | Practise interviews, plan a transition, and manage local career state and next actions | `mock-interviewer`, `tenshoku-strategy`, `career-agent` |
-| Verify a planned artifact | Run the repository's existing checks at the end of a host-coordinated plan | `sip` |
-| Check or challenge a planned artifact | Read-check, source-audit, adversarial review, or user-requested compression | `readchk`, `factchk`, `hate`, `debloat` |
+| Verify a planned artifact | Run the repository's existing checks at the end of a host-coordinated plan | `verify` |
+| Check or challenge a planned artifact | Request understanding, source audit, adversarial review, or user-requested compression | `intent`, `factcheck`, `challenge`, `trim` |
 
 ## How evidence is handled
 

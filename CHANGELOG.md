@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.0] - 2026-08-27
+
+- Rename the five Gate D quality Skills to shorter canonical names: `debloat` → `trim`, `factchk` →
+  `factcheck`, `hate` → `challenge`, `readchk` → `intent`, and `sip` → `verify`. Runtime routing,
+  plan options, package paths, documentation, and tests now use the new names; historical records
+  remain untouched.
+
 ## [2.18.0] - 2026-08-26
 
 - Check what the registries actually serve. `scripts/test_pyproject_install.py --pypi X.Y.Z` runs the

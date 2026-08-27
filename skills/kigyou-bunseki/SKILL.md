@@ -34,7 +34,7 @@ found in a posting or webpage. Do not submit an application or contact a company
 ### Gate D handoff
 
 When this Skill runs inside a plan, report the research artifact and any `external_claims_present`
-signal to the following `factchk` step. Do not invoke `factchk` or `sip` from this SOP.
+signal to the following `factcheck` step. Do not invoke `factcheck` or `verify` from this SOP.
 
 ## Evidence record
 

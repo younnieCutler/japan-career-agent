@@ -81,7 +81,7 @@ class ExecutionPlanTests(unittest.TestCase):
         ]
         if step["skill"] in {
             "career-document", "humanize-japanese-career", "kigyou-bunseki",
-            "jiko-bunseki", "tenshoku-strategy", "debloat", "sip",
+            "jiko-bunseki", "tenshoku-strategy", "trim", "verify",
         }:
             report_args.extend(("--artifact", f"career-docs/{step['skill']}.json"))
         if step["requires_artifact"] or step["requires_artifact_reference"]:
@@ -98,7 +98,7 @@ class ExecutionPlanTests(unittest.TestCase):
         self.assertEqual(plan["status"], "running")
         self.assertEqual(
             [step["skill"] for step in plan["steps"]],
-            ["career-document", "humanize-japanese-career", "factchk", "sip"],
+            ["career-document", "humanize-japanese-career", "factcheck", "verify"],
         )
         self.assertEqual([step["status"] for step in plan["steps"]], ["pending"] * 4)
         self.assertEqual(plan["steps"][0]["depends_on"], [])
@@ -351,7 +351,7 @@ class ExecutionPlanTests(unittest.TestCase):
     def test_vertical_slice_reaches_completed_plan(self) -> None:
         plan = self.create_plan()
         plan_id = plan["plan_id"]
-        for expected_skill in ("career-document", "humanize-japanese-career", "sip"):
+        for expected_skill in ("career-document", "humanize-japanese-career", "verify"):
             step = output(run(self.vault, "plan-next", plan_id))["next_step"]
             self.assertEqual(step["skill"], expected_skill)
             opened = output(run(
@@ -385,19 +385,19 @@ class ExecutionPlanTests(unittest.TestCase):
         company = self.create_plan("kigyou-bunseki")
         self.assertEqual(
             [step["skill"] for step in company["steps"]],
-            ["kigyou-bunseki", "factchk", "sip"],
+            ["kigyou-bunseki", "factcheck", "verify"],
         )
         self.assertIsNone(company["steps"][1]["condition"])
 
-        strategy = self.create_plan("tenshoku-strategy", ("hate",))
+        strategy = self.create_plan("tenshoku-strategy", ("challenge",))
         self.assertEqual(
             [step["skill"] for step in strategy["steps"]],
-            ["tenshoku-strategy", "hate", "factchk", "sip"],
+            ["tenshoku-strategy", "challenge", "factcheck", "verify"],
         )
         self.assertEqual(strategy["steps"][2]["condition"], "external_claims_present")
         self.assertEqual(strategy["steps"][3]["condition"], "substantial_artifact")
 
-        rejected = run(self.vault, "plan", "--skill", "career-document", "--goal", "doc", "--quality", "hate")
+        rejected = run(self.vault, "plan", "--skill", "career-document", "--goal", "doc", "--quality", "challenge")
         self.assertEqual(rejected.returncode, 2)
         self.assertIn("reserved", rejected.stderr)
         for unsupported in ("career-maintenance", "humanize-japanese-career"):
@@ -406,16 +406,16 @@ class ExecutionPlanTests(unittest.TestCase):
             self.assertIn("policy is not defined", rejected.stderr)
 
     def test_document_policy_keeps_optional_read_and_compression_explicit(self) -> None:
-        plan = self.create_plan("career-document", ("readchk", "debloat"))
+        plan = self.create_plan("career-document", ("intent", "trim"))
         self.assertEqual(
             [step["skill"] for step in plan["steps"]],
             [
-                "readchk",
+                "intent",
                 "career-document",
                 "humanize-japanese-career",
-                "debloat",
-                "factchk",
-                "sip",
+                "trim",
+                "factcheck",
+                "verify",
             ],
         )
         self.assertEqual(plan["steps"][4]["condition"], "external_claims_present")
@@ -427,45 +427,45 @@ class ExecutionPlanTests(unittest.TestCase):
         skipped_id = skipped["plan_id"]
         self.complete_step(skipped_id)
         self.complete_step(skipped_id)
-        sip = output(run(self.vault, "plan-next", skipped_id))["next_step"]
-        self.assertEqual(sip["skill"], "sip")
-        self.assertNotIn("dependency_result", sip)
-        self.assertEqual(sip["artifact_context"]["from_step"], "humanize")
+        verify = output(run(self.vault, "plan-next", skipped_id))["next_step"]
+        self.assertEqual(verify["skill"], "verify")
+        self.assertNotIn("dependency_result", verify)
+        self.assertEqual(verify["artifact_context"]["from_step"], "humanize")
 
         checked = self.create_plan()
         checked_id = checked["plan_id"]
         self.complete_step(checked_id)
         self.complete_step(checked_id, signal="external_claims_present")
         self.complete_step(checked_id)
-        sip = output(run(self.vault, "plan-next", checked_id))["next_step"]
-        self.assertEqual(sip["dependency_result"]["from_step"], "factcheck")
-        self.assertEqual(sip["artifact_context"]["from_step"], "humanize")
+        verify = output(run(self.vault, "plan-next", checked_id))["next_step"]
+        self.assertEqual(verify["dependency_result"]["from_step"], "factcheck")
+        self.assertEqual(verify["artifact_context"]["from_step"], "humanize")
 
         research = self.create_plan("kigyou-bunseki")
         research_id = research["plan_id"]
         self.complete_step(research_id)
         self.complete_step(research_id)
-        sip = output(run(self.vault, "plan-next", research_id))["next_step"]
-        self.assertEqual(sip["artifact_context"]["from_step"], "research")
+        verify = output(run(self.vault, "plan-next", research_id))["next_step"]
+        self.assertEqual(verify["artifact_context"]["from_step"], "research")
 
-    def test_debloat_noop_preserves_strategy_artifact_context(self) -> None:
-        plan = self.create_plan("tenshoku-strategy", ("hate", "debloat"))
+    def test_trim_noop_preserves_strategy_artifact_context(self) -> None:
+        plan = self.create_plan("tenshoku-strategy", ("challenge", "trim"))
         plan_id = plan["plan_id"]
         self.complete_step(plan_id, signal="external_claims_present")
         self.complete_step(plan_id)
-        debloat = output(run(self.vault, "plan-next", plan_id))["next_step"]
-        self.assertEqual(debloat["skill"], "debloat")
+        trim = output(run(self.vault, "plan-next", plan_id))["next_step"]
+        self.assertEqual(trim["skill"], "trim")
         opened = output(run(
-            self.vault, "skill-open", "--skill", "debloat", "--entrypoint", "claude",
-            "--plan-id", plan_id, "--step-id", debloat["id"],
+            self.vault, "skill-open", "--skill", "trim", "--entrypoint", "claude",
+            "--plan-id", plan_id, "--step-id", trim["id"],
         ))
         output(run(
             self.vault, "skill-report", opened["invocation_id"], "--status", "completed",
             "--summary", "no bloat found",
         ))
         factcheck = output(run(self.vault, "plan-next", plan_id))["next_step"]
-        self.assertEqual(factcheck["skill"], "factchk")
-        self.assertEqual(factcheck["dependency_result"]["from_step"], "debloat")
+        self.assertEqual(factcheck["skill"], "factcheck")
+        self.assertEqual(factcheck["dependency_result"]["from_step"], "trim")
         self.assertEqual(factcheck["artifact_context"]["from_step"], "domain")
 
     def test_missing_quality_signals_skip_optional_steps(self) -> None:
@@ -479,11 +479,11 @@ class ExecutionPlanTests(unittest.TestCase):
             ["completed", "skipped", "skipped"],
         )
 
-    def test_external_claim_signal_runs_factchk_but_not_sip_without_artifact_signal(self) -> None:
+    def test_external_claim_signal_runs_factcheck_but_not_verify_without_artifact_signal(self) -> None:
         plan = self.create_plan("jiko-bunseki")
         self.complete_step(plan["plan_id"], signal="external_claims_present")
         factcheck = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
-        self.assertEqual(factcheck["skill"], "factchk")
+        self.assertEqual(factcheck["skill"], "factcheck")
         self.complete_step(plan["plan_id"])
         final = output(run(self.vault, "plan-next", plan["plan_id"]))
         self.assertEqual(final["status"], "completed")
@@ -493,11 +493,11 @@ class ExecutionPlanTests(unittest.TestCase):
             ["completed", "completed", "skipped"],
         )
 
-    def test_substantial_artifact_signal_runs_sip_without_factchk(self) -> None:
+    def test_substantial_artifact_signal_runs_verify_without_factcheck(self) -> None:
         plan = self.create_plan("jiko-bunseki")
         self.complete_step(plan["plan_id"], signal="substantial_artifact")
-        sip = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
-        self.assertEqual(sip["skill"], "sip")
+        verify = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        self.assertEqual(verify["skill"], "verify")
         self.complete_step(plan["plan_id"])
         final = output(run(self.vault, "plan-next", plan["plan_id"]))
         self.assertEqual(final["status"], "completed")
@@ -536,22 +536,22 @@ class ExecutionPlanTests(unittest.TestCase):
         resumed = output(run(self.vault, "plan-next", plan["plan_id"], "--resume"))
         self.assertEqual(resumed["next_step"]["id"], step["id"])
 
-    def test_hate_objection_requires_approval_before_factchk(self) -> None:
-        plan = self.create_plan("tenshoku-strategy", ("hate",))
+    def test_challenge_objection_requires_approval_before_factcheck(self) -> None:
+        plan = self.create_plan("tenshoku-strategy", ("challenge",))
         self.complete_step(plan["plan_id"], signal="external_claims_present")
-        hate = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
-        self.assertEqual(hate["skill"], "hate")
+        challenge = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
+        self.assertEqual(challenge["skill"], "challenge")
         opened = output(run(
             self.vault,
             "skill-open",
             "--skill",
-            "hate",
+            "challenge",
             "--entrypoint",
             "claude",
             "--plan-id",
             plan["plan_id"],
             "--step-id",
-            hate["id"],
+            challenge["id"],
         ))
         output(run(
             self.vault,
@@ -566,7 +566,7 @@ class ExecutionPlanTests(unittest.TestCase):
         self.assertEqual(paused["status"], "paused")
         self.assertEqual(paused["current_step"]["result"]["summary"], "root objection requires user review")
 
-    def test_factchk_contradiction_blocks_sip(self) -> None:
+    def test_factcheck_contradiction_blocks_verify(self) -> None:
         plan = self.create_plan("kigyou-bunseki")
         self.complete_step(plan["plan_id"])
         factcheck = output(run(self.vault, "plan-next", plan["plan_id"]))["next_step"]
@@ -574,7 +574,7 @@ class ExecutionPlanTests(unittest.TestCase):
             self.vault,
             "skill-open",
             "--skill",
-            "factchk",
+            "factcheck",
             "--entrypoint",
             "claude",
             "--plan-id",
@@ -644,7 +644,7 @@ class ExecutionPlanTests(unittest.TestCase):
             **base,
             "steps": [
                 {"id": "draft", "skill": "jiko-bunseki", "status": "pending", "depends_on": [], "condition": None, "invocation_id": None},
-                {"id": "draft", "skill": "sip", "status": "pending", "depends_on": ["draft"], "condition": None, "invocation_id": None},
+                {"id": "draft", "skill": "verify", "status": "pending", "depends_on": ["draft"], "condition": None, "invocation_id": None},
             ],
         }
         with self.assertRaises(CareerError):
@@ -667,7 +667,7 @@ class ExecutionPlanTests(unittest.TestCase):
                     "invocation_id": None,
                 }
                 for index, skill in enumerate([
-                    "jiko-bunseki", "sip", "factchk", "readchk", "hate", "debloat",
+                    "jiko-bunseki", "verify", "factcheck", "intent", "challenge", "trim",
                     "kigyou-bunseki", "tenshoku-strategy", "career-document",
                 ])
             ],
@@ -679,7 +679,7 @@ class ExecutionPlanTests(unittest.TestCase):
             **base,
             "steps": [
                 {"id": "first", "skill": "jiko-bunseki", "status": "pending", "depends_on": ["second"], "condition": None, "invocation_id": None},
-                {"id": "second", "skill": "sip", "status": "pending", "depends_on": ["first"], "condition": None, "invocation_id": None},
+                {"id": "second", "skill": "verify", "status": "pending", "depends_on": ["first"], "condition": None, "invocation_id": None},
             ],
         }
         with self.assertRaises(CareerError):

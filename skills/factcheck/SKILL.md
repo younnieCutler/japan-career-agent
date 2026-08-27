@@ -1,12 +1,12 @@
 ---
-name: factchk
+name: factcheck
 description: >
   Audit external world claims in a Career Agent artifact against cited sources in both directions.
   Use when a result asserts a company, market, role, date, policy, or other externally checkable fact.
 license: MIT
 ---
 
-# factchk — external claim audit
+# factcheck — external claim audit
 
 This is a source audit for external claims. Confirmed personal career evidence remains governed by
 the Vault approval and provenance contracts rather than being reinterpreted here.
@@ -37,7 +37,7 @@ visible when a source cannot be reached.
 ## Gate D terminal semantics
 
 - All material claims are acceptable and traceable → report `completed`.
-- A material contradiction → report `blocked`; the incorrect artifact must not flow to `sip`.
+- A material contradiction → report `blocked`; the incorrect artifact must not flow to `verify`.
 - A required claim cannot be verified safely → report `needs_approval` when the user must decide how
   to proceed, or `blocked` when no safe continuation exists.
 - A stale, low-confidence, or unknown claim is included in the summary so the next step receives the

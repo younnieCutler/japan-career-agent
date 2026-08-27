@@ -1,5 +1,5 @@
 ---
-name: sip
+name: verify
 description: >
   Final, read-only verification of a completed Career Agent artifact using the repository's own
   deterministic checks and evidence boundaries. Use as the terminal step of a Gate D plan; it never
@@ -7,7 +7,7 @@ description: >
 license: MIT
 ---
 
-# sip — final artifact verification
+# verify — final artifact verification
 
 Run this Skill only after the preceding Domain and expression steps have produced their artifact.
 The Host remains responsible for reading the artifact and reporting what the checks actually found.
@@ -32,7 +32,7 @@ hiring prediction or a guarantee that every sentence is faithful.
 ## Rules
 
 - This is a terminal verifier, not an orchestrator.
-- Do not invoke `factchk`, `debloat`, `re0`, `ssotize`, or any other Skill from this SOP.
+- Do not invoke `factcheck`, `trim`, `re0`, `ssotize`, or any other Skill from this SOP.
 - Do not overwrite a rendered artifact or canonical career record.
 - Preserve `Unknown`, source conflicts, confidentiality flags, and approval boundaries.
 - A deterministic check passing is a floor, not permission to invent evidence.

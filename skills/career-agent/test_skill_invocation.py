@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
 CAREER_ROOT = ROOT / "skills" / "career-agent"
 SKILLS_ROOT = ROOT / "skills"
-QUALITY_SKILLS = {"readchk", "factchk", "hate", "debloat", "sip"}
+QUALITY_SKILLS = {"intent", "factcheck", "challenge", "trim", "verify"}
 if str(CAREER_ROOT) not in sys.path:
     sys.path.insert(0, str(CAREER_ROOT))
 
@@ -42,13 +42,18 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 class RegistryTests(unittest.TestCase):
+    def test_quality_skills_use_the_approved_canonical_names(self) -> None:
+        names = {entry["skill"] for entry in skill_registry.discover(SKILLS_ROOT)}
+        self.assertTrue({"trim", "factcheck", "challenge", "intent", "verify"}.issubset(names))
+        self.assertTrue({"debloat", "factchk", "hate", "readchk", "sip"}.isdisjoint(names))
+
     def test_registry_discovers_all_shipped_skill_directories(self) -> None:
         entries = skill_registry.discover(SKILLS_ROOT)
         names = {entry["skill"] for entry in entries}
         on_disk = {p.name for p in SKILLS_ROOT.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
         self.assertEqual(names, on_disk)
         self.assertEqual(len(entries), len(on_disk))
-        self.assertIn("sip", names)
+        self.assertIn("verify", names)
 
     def test_every_discovered_skill_has_an_execution_class(self) -> None:
         for entry in skill_registry.discover(SKILLS_ROOT):
@@ -60,11 +65,11 @@ class RegistryTests(unittest.TestCase):
         self.assertTrue(all(entries[name]["execution"] == "host_required" for name in QUALITY_SKILLS))
 
     def test_quality_terminal_semantics_keep_objections_and_contradictions_from_passing(self) -> None:
-        factchk = (SKILLS_ROOT / "factchk" / "SKILL.md").read_text(encoding="utf-8")
-        hate = (SKILLS_ROOT / "hate" / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("material contradiction → report `blocked`", factchk)
-        self.assertIn("required claim cannot be verified safely", factchk)
-        self.assertIn("load-bearing objection is found → report `needs_approval`", hate)
+        factcheck = (SKILLS_ROOT / "factcheck" / "SKILL.md").read_text(encoding="utf-8")
+        challenge = (SKILLS_ROOT / "challenge" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("material contradiction → report `blocked`", factcheck)
+        self.assertIn("required claim cannot be verified safely", factcheck)
+        self.assertIn("load-bearing objection is found → report `needs_approval`", challenge)
 
     def test_directory_missing_from_skill_execution_raises(self) -> None:
         original = dict(models.SKILL_EXECUTION)
@@ -229,7 +234,7 @@ class SkillInvocationCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         payload = json.loads(result.stdout)
         self.assertEqual(len(payload["skills"]), len(skill_registry.discover(SKILLS_ROOT)))
-        self.assertIn("sip", {entry["skill"] for entry in payload["skills"]})
+        self.assertIn("verify", {entry["skill"] for entry in payload["skills"]})
 
     def test_chat_trajectory_gains_selection_only_not_invocation_or_verification(self) -> None:
         # A trajectory records what select_skill() returned for the turn, never a claim that the

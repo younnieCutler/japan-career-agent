@@ -1,5 +1,5 @@
 ---
-name: hate
+name: challenge
 disable-model-invocation: true
 description: >
   User-invoked adversarial review of one consequential career plan or decision. Return the single
@@ -7,7 +7,7 @@ description: >
 license: MIT
 ---
 
-# hate — adversarial decision review
+# challenge — adversarial decision review
 
 This is deliberately user-invoked. A permanently automatic objection reflex would distort the
 user's decision process and make every ordinary preparation task defensive.

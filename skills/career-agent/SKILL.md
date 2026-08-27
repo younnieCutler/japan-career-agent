@@ -53,19 +53,19 @@ For a multi-Skill Host turn, use the bounded Gate D handoff:
 ```bash
 python skills/career-agent/career_agent.py plan --vault "$VAULT" \
   --skill career-document --goal "지원 회사용 職務経歴書 작성" \
-  [--quality readchk] [--quality hate] [--quality debloat]
+  [--quality intent] [--quality challenge] [--quality trim]
 python skills/career-agent/career_agent.py plan-next --vault "$VAULT" <plan-id>
 # The Host runs the returned skill-open command, reads that Skill's SOP, then reports it.
 python skills/career-agent/career_agent.py plan-status --vault "$VAULT" <plan-id>
 ```
 
-The policy chains are conditional and bounded: `career-document` adds optional `factchk` for
-external claims, `kigyou-bunseki` uses `factchk` before `sip`, and strategy plans may add the
-explicitly requested `hate` or `debloat`. `plan-next` returns a
+The policy chains are conditional and bounded: `career-document` adds optional `factcheck` for
+external claims, `kigyou-bunseki` uses `factcheck` before `verify`, and strategy plans may add the
+explicitly requested `challenge` or `trim`. `plan-next` returns a
 `dependency_result` for the immediate previous step plus an `artifact_context` for the closest
 upstream non-empty artifact, both read from the invocation ledger without copying terminal results
 into the plan snapshot. Artifact-producing steps must satisfy their output contract before
-`skill-report` appends; `sip` must report an artifact reference. `needs_input` reruns its Skill,
+`skill-report` appends; `verify` must report an artifact reference. `needs_input` reruns its Skill,
 while `needs_approval` requires `plan-next --approval continue|abort` and never reruns the Skill.
 Python never calls an LLM Host or another Skill. Each plan step uses the existing `skill-open → SOP
 → skill-report` lifecycle and remains resumable from the Vault.

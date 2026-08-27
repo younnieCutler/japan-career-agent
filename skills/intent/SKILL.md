@@ -1,5 +1,5 @@
 ---
-name: readchk
+name: intent
 description: >
   Check the Host's understanding of a long, bundled, or high-cost career request before a plan
   spends work. Proceed silently when the repository and user context resolve the read; surface only
@@ -7,7 +7,7 @@ description: >
 license: MIT
 ---
 
-# readchk — request understanding check
+# intent — request understanding check
 
 This is an intent check, not a fact check. It protects a multi-step career workflow from being
 executed coherently against the wrong goal.
