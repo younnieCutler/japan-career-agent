@@ -17,6 +17,7 @@ import uuid
 from collections import defaultdict
 from typing import Any
 
+from lifecycle import vault_lock
 from models import CareerError
 from persistence import append_jsonl, read_jsonl
 from vault import CareerVault, utc_now
@@ -118,8 +119,11 @@ def _require_phase_sequence(home: CareerVault, judgment_id: str, phase: str) -> 
         )
 
 
-def _append(home: CareerVault, row: dict[str, Any]) -> dict[str, Any]:
-    append_jsonl(judgment_ledger(home), row)
+def _append_phase(home: CareerVault, row: dict[str, Any]) -> dict[str, Any]:
+    """Validate phase order and append while holding the same Vault-wide write lock as approval."""
+    with vault_lock(home):
+        _require_phase_sequence(home, str(row["judgment_id"]), str(row["phase"]))
+        append_jsonl(judgment_ledger(home), row)
     return row
 
 
@@ -146,8 +150,7 @@ def record_initial_judgment(
         "created_at": utc_now(),
         "source": "human",
     }
-    _require_phase_sequence(home, judgment_id, "human_initial")
-    return _append(home, row)
+    return _append_phase(home, row)
 
 
 def record_agent_assessment(
@@ -162,7 +165,6 @@ def record_agent_assessment(
 ) -> dict[str, Any]:
     """Record the agent assessment only after the human's initial judgment exists."""
     judgment_id = _text(judgment_id, "judgment_id")
-    _require_phase_sequence(home, judgment_id, "agent_assessment")
     row = {
         "schema_version": JUDGMENT_SCHEMA_VERSION,
         "judgment_id": judgment_id,
@@ -175,7 +177,7 @@ def record_agent_assessment(
         "created_at": utc_now(),
         "source": "agent",
     }
-    return _append(home, row)
+    return _append_phase(home, row)
 
 
 def record_final_judgment(
@@ -187,7 +189,6 @@ def record_final_judgment(
 ) -> dict[str, Any]:
     """Record the user's final decision after the agent assessment is visible."""
     judgment_id = _text(judgment_id, "judgment_id")
-    _require_phase_sequence(home, judgment_id, "human_final")
     row = {
         "schema_version": JUDGMENT_SCHEMA_VERSION,
         "judgment_id": judgment_id,
@@ -197,7 +198,7 @@ def record_final_judgment(
         "created_at": utc_now(),
         "source": "human",
     }
-    return _append(home, row)
+    return _append_phase(home, row)
 
 
 def record_outcome(
@@ -210,7 +211,6 @@ def record_outcome(
 ) -> dict[str, Any]:
     """Attach a later outcome without rewriting the decision that preceded it."""
     judgment_id = _text(judgment_id, "judgment_id")
-    _require_phase_sequence(home, judgment_id, "outcome")
     row = {
         "schema_version": JUDGMENT_SCHEMA_VERSION,
         "judgment_id": judgment_id,
@@ -221,7 +221,7 @@ def record_outcome(
         "created_at": utc_now(),
         "source": "human",
     }
-    return _append(home, row)
+    return _append_phase(home, row)
 
 
 def judgment_timeline(home: CareerVault, judgment_id: str) -> list[dict[str, Any]]:
