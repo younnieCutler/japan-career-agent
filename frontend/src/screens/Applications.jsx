@@ -13,6 +13,7 @@
 import React from "react";
 import { ActionButton, Callout, Text, TextField } from "@seed-design/react";
 import { read, write } from "../api.js";
+import { ApplicationJudgment } from "../applicationJudgment.jsx";
 import { useI18n } from "../i18n.jsx";
 import { CaseChip } from "../evidence.jsx";
 import { EmptyState, ErrorState, LoadingState, useAsync } from "../components/States.jsx";
@@ -429,6 +430,8 @@ function PositionRecord({ position, company, payload, onDone }) {
           </ul>
         ) : <Text textStyle="t3Regular">{t("documents.empty_body")}</Text>}
       </section>
+
+      {position.status === "active" ? <ApplicationJudgment positionRef={position.ref} /> : null}
 
       {position.status === "active" ? (
         <>

@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.21.0] - 2026-09-02
+
+- Add a deterministic, host-independent L0-L3 review policy and authenticated judgment API. Application judgments are always classified L3 by the server, phase writes stay append-only, the Host can record Agent assessment through the CLI without Python calling an LLM, and the browser withholds unresolved evidence references rather than presenting syntax as evidence.
+- Wire Human Judgment into active application records in the production React GUI. The user records an initial view before Agent advice can appear, sees an honest waiting state when no assessment exists, compares Human and Agent judgments, records a final decision and optional later outcome, and receives the same product copy in Korean, Japanese, and English.
+
 ## [2.20.0] - 2026-09-02
 
 - Add the Human Oversight foundation for consequential career decisions: an append-only local judgment ledger records the human initial judgment, agent assessment, human final judgment, and later outcome without mutating canonical career evidence. Phase ordering is serialized under the Vault lock, `Unknown` stays explicit, and architecture/test-registration gates own the new module.

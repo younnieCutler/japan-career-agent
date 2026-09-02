@@ -6,6 +6,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from localization import gui_catalog, normalize_language
+from gui.judgment_copy import judgment_messages
 from render import fill_slots
 
 
@@ -66,7 +67,9 @@ def normalize_gui_language(language: object) -> str:
 
 def gui_messages(language: object) -> dict[str, str]:
     """Return one complete locale catalog for the data-free browser client."""
-    return gui_catalog(language)
+    catalog = gui_catalog(language)
+    catalog.update(judgment_messages(language))
+    return catalog
 
 
 # The one list of files the server will serve. It was duplicated across the HTTP layer and three

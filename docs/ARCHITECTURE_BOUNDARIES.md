@@ -164,3 +164,7 @@ a successful `doctor`: a script that treated a new warning as a crash would stop
 appeared. Errors are different — a `CareerError` exits 2 from any command.
 
 `skills/career-agent/test_golden_cli.py` pins both halves.
+
+## Human judgment boundary
+
+`review_policy.py` owns deterministic L0-L3 interaction policy; callers never supply the effective impact. `judgments.py` owns the append-only decision lifecycle. `gui/judgments.py` adapts that lifecycle to browser-safe read/write payloads, while `gui/server.py` remains transport only. Raw unresolved evidence references do not cross the browser boundary. A Host may persist the Agent assessment with the `judgment assess` CLI command, but Python still never calls an LLM host.

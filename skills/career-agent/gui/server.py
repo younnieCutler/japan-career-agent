@@ -11,6 +11,7 @@ from typing import Any
 
 import gui.artifacts as artifacts
 import gui.cases as cases
+import gui.judgments as judgment_api
 from gui.security import SESSION_COOKIE, SecurityState
 import gui.tanaoroshi as tanaoroshi
 from self_analysis import profile_payload, workflow_profile
@@ -147,6 +148,11 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         status = {
             "INVALID_INPUT": HTTPStatus.BAD_REQUEST,
             "INVALID_RELATIONSHIP": HTTPStatus.CONFLICT,
+            "JUDGMENT_PHASE_ORDER": HTTPStatus.CONFLICT,
+            "JUDGMENT_PHASE_EXISTS": HTTPStatus.CONFLICT,
+            "JUDGMENT_SCHEMA_NEWER": HTTPStatus.CONFLICT,
+            "REVIEW_POLICY_UNKNOWN": HTTPStatus.CONFLICT,
+            "JUDGMENT_NOT_FOUND": HTTPStatus.NOT_FOUND,
             "PARENT_NOT_CONFIRMED": HTTPStatus.CONFLICT,
             "CONTEXT_REQUIRED": HTTPStatus.CONFLICT,
             "CASE_HAS_ACTIVE_CHILDREN": HTTPStatus.CONFLICT,
@@ -250,6 +256,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/self-analysis",
             "/api/applications",
             "/api/documents",
+            "/api/judgments",
             "/api/cases",
             "/api/projects",
             "/api/i18n",
@@ -277,6 +284,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         if path in {
             "/api/home", "/api/career", "/api/timeline", "/api/sessions",
             "/api/self-analysis", "/api/applications", "/api/documents",
+            "/api/judgments",
             "/api/projects", "/api/artifact-body", "/api/i18n", "/api/work",
         }:
             self._send(
@@ -319,6 +327,10 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/applications/positions",
             "/api/applications/research",
             "/api/applications/documents",
+            "/api/judgments/initial",
+            "/api/judgments/agent",
+            "/api/judgments/final",
+            "/api/judgments/outcome",
             "/api/artifacts",
             "/api/artifacts/update",
             "/api/artifacts/delete",
@@ -383,6 +395,9 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/self-analysis": lambda: profile_payload(self.server.workspace),
             "/api/applications": lambda: applications_payload(self.server.home),
             "/api/documents": lambda: documents_payload(self.server.home),
+            "/api/judgments": lambda: judgment_api.payload(
+                self.server.home, target_ref=self._query_value("target_ref")
+            ),
             "/api/cases": lambda: cases.payload(self.server.home),
             "/api/projects": lambda: projects_payload(self.server.home),
             "/api/i18n": lambda: {
@@ -613,6 +628,14 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                         payload["context_ref"],
                         expected_updated_at=payload["updated_at"],
                     )
+            elif path == "/api/judgments/initial":
+                result = judgment_api.start(self.server.home, payload)
+            elif path == "/api/judgments/agent":
+                result = judgment_api.assess(self.server.home, payload)
+            elif path == "/api/judgments/final":
+                result = judgment_api.finalize(self.server.home, payload)
+            elif path == "/api/judgments/outcome":
+                result = judgment_api.record_result(self.server.home, payload)
             elif path == "/api/applications/companies":
                 result = (
                     cases.update_company(
