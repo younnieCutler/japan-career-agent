@@ -17,13 +17,14 @@ Command line     command_line.py    │  the parser, and the one place a result 
                                     ▼
 Application      onboarding · diagnostics · views · experiences · documents
                  guided_flow · approvals · ingest · sessions · case_store · artifact_store
+                 judgments
                                     ▼
 Domain           models · validation · persistence · vault · routing · proposals
                  lifecycle · projection · document · render · personal_timeline
                  private_store · ux · localization
                  execution_plans
                                     ▼
-Local data       Career Vault · event ledger · private store · data/pipeline.yml
+Local data       Career Vault · event ledger · judgment ledger · private store · data/pipeline.yml
 ```
 
 The local GUI is a peer entrypoint, not a CLI frontend. `career-agent ui` has one directional
@@ -49,6 +50,14 @@ context is employment-like or non-work. Both strict writes and GUI projections c
 freelance, education, personal, volunteer, and other contexts cannot acquire different semantics
 through different entrypoints. Human renderers call namespaced labels in `localization.py`; stored
 enums, JSON/YAML output, and command arguments remain canonical.
+
+`judgments.py` is the application owner for Human Oversight records. Its append-only
+`02-state/judgments.jsonl` ledger is deliberately not part of canonical career evidence: recording a
+human initial judgment, agent assessment, human final judgment, or later outcome never appends to
+`events.jsonl`, never changes `proposals.jsonl`, and never projects into career state. It reuses the
+Vault-wide lifecycle lock only to serialize phase order. Approval answers whether reviewed evidence
+may become canonical; judgment records how a consequential decision was assessed. The two trust
+boundaries must not collapse into one writer.
 
 Dependencies point down. Application modules may call each other sideways; the graph stays acyclic.
 Nothing at any layer imports an entry point, and the domain does not know that a CLI exists.

@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.20.0] - 2026-09-02
+
+- Add the Human Oversight foundation for consequential career decisions: an append-only local judgment ledger records the human initial judgment, agent assessment, human final judgment, and later outcome without mutating canonical career evidence. Phase ordering is serialized under the Vault lock, `Unknown` stays explicit, and architecture/test-registration gates own the new module.
+- Add a human-first React judgment gate that keeps agent analysis hidden until the initial human judgment is persisted, surfaces human/agent divergence, and keeps the existing Capture → Review → Confirm approval boundary separate. The oversight contract documents the L0-L3 impact model and limits blind judgment to consequential L3 decisions.
+
 ## [2.19.0] - 2026-08-27
 
 - Rename the five Gate D quality Skills to shorter canonical names: `debloat` → `trim`, `factchk` →

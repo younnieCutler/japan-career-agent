@@ -18,6 +18,7 @@ the later sections are reference and history.
 |---|---|
 | [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md) | What works with no host, what a host improves, and what needs one |
 | [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) | Run identity and the routing decision rule behind the four-skill split |
+| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) | Why judgment is separate from approval, the L0-L3 impact model, and the human-first reveal contract |
 | [`_shared/decision_philosophy.md`](../_shared/decision_philosophy.md) | Why evidence, `Unknown` and confirmed conflicts behave the way they do |
 | [`_shared/schemas.yml`](../_shared/schemas.yml) | The canonical profile, pipeline and rules schemas |
 | [`_shared/career_claims.yml`](../_shared/career_claims.yml) | Time-sensitive external claims and their expiry |

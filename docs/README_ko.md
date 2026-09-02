@@ -20,6 +20,7 @@
 |---|---|
 | [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md) (영어) | host 없이 되는 것, host가 개선하는 것, host가 필요한 것 |
 | [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) (영어) | 4-skill 분리의 run identity와 routing 결정 규칙 |
+| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) (영어) | Judgment와 Approval을 분리하는 이유, L0-L3 영향도 모델, Human-first reveal 계약 |
 | [`_shared/decision_philosophy.md`](../_shared/decision_philosophy.md) (영어) | 근거·`Unknown`·확인된 conflict가 그렇게 동작하는 이유 |
 | [`_shared/schemas.yml`](../_shared/schemas.yml) | canonical profile·pipeline·rules 스키마 |
 | [`_shared/career_claims.yml`](../_shared/career_claims.yml) | 시점에 따라 바뀌는 외부 claim과 만료 |

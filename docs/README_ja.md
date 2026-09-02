@@ -20,6 +20,7 @@
 |---|---|
 | [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)（英語） | host 無しで動くもの、host が改善するもの、host が必要なもの |
 | [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md)（英語） | 4-skill 分割の run identity と routing 判断ルール |
+| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md)（英語） | Judgment と Approval を分離する理由、L0-L3 影響度モデル、Human-first reveal 契約 |
 | [`_shared/decision_philosophy.md`](../_shared/decision_philosophy.md)（英語） | 根拠・`Unknown`・確認済み conflict がその挙動である理由 |
 | [`_shared/schemas.yml`](../_shared/schemas.yml) | canonical な profile・pipeline・rules スキーマ |
 | [`_shared/career_claims.yml`](../_shared/career_claims.yml) | 時点で変わる外部 claim と失効 |

@@ -78,7 +78,7 @@ def append_jsonl(path: Path, value: dict[str, Any]) -> None:
         os.fsync(stream.fileno())
 
 
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
+def _read_jsonl(path: Path, *, require_object_rows: bool) -> list[dict[str, Any]]:
     # ponytail: linear JSONL scan; move to SQLite FTS5 when event volume makes it slow.
     if not path.exists():
         return []
@@ -90,9 +90,22 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
             row = json.loads(line)
         except json.JSONDecodeError as exc:
             raise CareerError(f"invalid JSONL at {path}:{line_number}: {exc}") from exc
-        if isinstance(row, dict):
-            rows.append(row)
+        if not isinstance(row, dict):
+            if require_object_rows:
+                raise CareerError(f"JSONL row must be an object at {path}:{line_number}")
+            continue
+        rows.append(row)
     return rows
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    """Read the historical tolerant JSONL contract, ignoring non-object rows."""
+    return _read_jsonl(path, require_object_rows=False)
+
+
+def read_jsonl_strict(path: Path) -> list[dict[str, Any]]:
+    """Read JSONL fail-closed when every line is contractually an object."""
+    return _read_jsonl(path, require_object_rows=True)
 
 
 def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
