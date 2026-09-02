@@ -100,14 +100,22 @@ class JudgmentLedgerTests(unittest.TestCase):
             decision="unknown",
         )
         judgment_id = initial["judgment_id"]
-        with self.assertRaises(CareerError) as caught:
-            # A second initial answer would rewrite history semantically even if appended physically.
-            # The ledger refuses it instead of inventing implicit supersession rules.
-            from judgments import _require_phase_sequence
+        record_agent_assessment(
+            self.home,
+            judgment_id,
+            recommendation="hold",
+            confidence="low",
+        )
 
-            _require_phase_sequence(self.home, judgment_id, "human_initial")
+        with self.assertRaises(CareerError) as caught:
+            record_agent_assessment(
+                self.home,
+                judgment_id,
+                recommendation="proceed",
+                confidence="high",
+            )
         self.assertEqual(caught.exception.code, "JUDGMENT_PHASE_EXISTS")
-        self.assertEqual(len(judgment_timeline(self.home, judgment_id)), 1)
+        self.assertEqual(len(judgment_timeline(self.home, judgment_id)), 2)
 
     def test_unknown_is_an_explicit_decision_not_a_default_score(self) -> None:
         initial = record_initial_judgment(
