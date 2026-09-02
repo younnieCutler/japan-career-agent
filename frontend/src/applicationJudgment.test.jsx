@@ -113,10 +113,11 @@ describe("ApplicationJudgment", () => {
     await waitFor(() => expect(screen.getByText("Diverged")).toBeTruthy());
     expect(screen.getByText("2 evidence refs")).toBeTruthy();
 
-    const finalGroup = screen.getByText("Final judgment").closest("form");
+    const finalButton = screen.getByRole("button", { name: "Save final" });
+    const finalGroup = finalButton.closest("form");
     expect(finalGroup).toBeTruthy();
     fireEvent.click(screen.getAllByRole("radio", { name: "Proceed" }).at(-1));
-    fireEvent.click(screen.getByRole("button", { name: "Save final" }));
+    fireEvent.click(finalButton);
 
     await waitFor(() => expect(write).toHaveBeenCalledWith(
       "/api/judgments/final",
