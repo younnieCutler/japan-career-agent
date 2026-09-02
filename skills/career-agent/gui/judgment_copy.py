@@ -7,8 +7,6 @@ same keys.
 
 from __future__ import annotations
 
-from localization import normalize_language
-
 
 JUDGMENT_TEXT: dict[str, dict[str, str]] = {
     "ko": {
@@ -125,8 +123,14 @@ JUDGMENT_TEXT: dict[str, dict[str, str]] = {
 }
 
 
+def _normalize_language(language: object) -> str:
+    raw = str(language or "").casefold().replace("_", "-")
+    base = raw.split("-", 1)[0]
+    return base if base in JUDGMENT_TEXT else "ko"
+
+
 def judgment_messages(language: object) -> dict[str, str]:
-    return dict(JUDGMENT_TEXT[normalize_language(language)])
+    return dict(JUDGMENT_TEXT[_normalize_language(language)])
 
 
 def validate_judgment_messages() -> list[str]:
