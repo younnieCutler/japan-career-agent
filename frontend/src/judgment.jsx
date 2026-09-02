@@ -3,8 +3,7 @@ import { ActionButton, Callout } from "@seed-design/react";
 
 export const JUDGMENT_CHOICES = ["proceed", "hold", "stop", "unknown"];
 
-/*
- * Human-first decision gate for consequential actions.
+/* Human-first decision gate for consequential actions.
  *
  * This component owns no product copy and no persistence. Callers provide localized labels and
  * an async onSubmit callback. Agent analysis is not rendered until the human's initial judgment
@@ -17,9 +16,31 @@ export function JudgmentGate({ labels, onSubmit, children }) {
   const [revealed, setRevealed] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [failure, setFailure] = React.useState(null);
+  const submitGuard = React.useRef(false);
+  const choiceRefs = React.useRef([]);
+  const questionId = React.useId();
+  const reasonId = React.useId();
+
+  const selectAndFocus = (index) => {
+    const normalized = (index + JUDGMENT_CHOICES.length) % JUDGMENT_CHOICES.length;
+    setDecision(JUDGMENT_CHOICES[normalized]);
+    choiceRefs.current[normalized]?.focus();
+  };
+
+  const onChoiceKeyDown = (event, index) => {
+    let next = null;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = index + 1;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = index - 1;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = JUDGMENT_CHOICES.length - 1;
+    if (next === null) return;
+    event.preventDefault();
+    selectAndFocus(next);
+  };
 
   const submit = async () => {
-    if (!decision || busy) return;
+    if (!decision || busy || submitGuard.current) return;
+    submitGuard.current = true;
     setBusy(true);
     setFailure(null);
     try {
@@ -28,6 +49,7 @@ export function JudgmentGate({ labels, onSubmit, children }) {
     } catch (error) {
       setFailure(error);
     } finally {
+      submitGuard.current = false;
       setBusy(false);
     }
   };
@@ -35,18 +57,21 @@ export function JudgmentGate({ labels, onSubmit, children }) {
   if (revealed) return children;
 
   return (
-    <section className="record__section" aria-labelledby="judgment-question">
-      <h3 id="judgment-question" className="record__section-title">{labels.question}</h3>
+    <section className="record__section" aria-labelledby={questionId}>
+      <h3 id={questionId} className="record__section-title">{labels.question}</h3>
       {labels.help ? <p className="muted">{labels.help}</p> : null}
 
-      <div role="radiogroup" aria-label={labels.question} className="choice-grid">
-        {JUDGMENT_CHOICES.map((choice) => (
+      <div role="radiogroup" aria-labelledby={questionId} className="choice-grid">
+        {JUDGMENT_CHOICES.map((choice, index) => (
           <ActionButton
             key={choice}
+            ref={(node) => { choiceRefs.current[index] = node; }}
             variant={decision === choice ? "brandSolid" : "neutralWeak"}
             size="medium"
             role="radio"
             aria-checked={decision === choice}
+            tabIndex={decision === choice || (!decision && index === 0) ? 0 : -1}
+            onKeyDown={(event) => onChoiceKeyDown(event, index)}
             onClick={() => setDecision(choice)}
             disabled={busy}
           >
@@ -55,9 +80,9 @@ export function JudgmentGate({ labels, onSubmit, children }) {
         ))}
       </div>
 
-      <label className="field-label" htmlFor="judgment-reason">{labels.reason}</label>
+      <label className="field-label" htmlFor={reasonId}>{labels.reason}</label>
       <textarea
-        id="judgment-reason"
+        id={reasonId}
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         disabled={busy}
@@ -82,12 +107,14 @@ export function JudgmentGate({ labels, onSubmit, children }) {
 
 export function JudgmentDifference({ humanDecision, agentDecision, labels }) {
   const diverged = humanDecision !== agentDecision;
+  const human = labels.choices[humanDecision] || labels.choices.unknown;
+  const agent = labels.choices[agentDecision] || labels.choices.unknown;
   return (
     <Callout.Root tone={diverged ? "informative" : "neutral"}>
       <Callout.Content>
         <Callout.Title>{diverged ? labels.divergedTitle : labels.alignedTitle}</Callout.Title>
         <Callout.Description>
-          {labels.human}: {labels.choices[humanDecision]} · {labels.agent}: {labels.choices[agentDecision]}
+          {labels.human}: {human} · {labels.agent}: {agent}
         </Callout.Description>
       </Callout.Content>
     </Callout.Root>
