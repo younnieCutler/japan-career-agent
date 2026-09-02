@@ -13,14 +13,24 @@ function decisionLabels(t) {
   return Object.fromEntries(DECISIONS.map((value) => [value, t(`judgment.choice.${value}`)]));
 }
 
+function differenceLabels(t) {
+  return {
+    choices: decisionLabels(t),
+    human: t("judgment.initial_title"),
+    agent: t("judgment.agent_title"),
+    divergedTitle: t("judgment.diverged"),
+    alignedTitle: t("judgment.aligned"),
+  };
+}
+
 function gateLabels(t) {
   return {
     question: t("judgment.question"),
     help: t("judgment.help"),
     reason: t("judgment.reason"),
-    submit: t("judgment.submit_initial"),
-    loading: t("judgment.saving"),
-    error: t("judgment.save_failed"),
+    continue: t("judgment.submit_initial"),
+    errorTitle: t("judgment.save_failed"),
+    error: t("error.SAVE_FAILED"),
     choices: decisionLabels(t),
   };
 }
@@ -76,7 +86,7 @@ function DecisionForm({ title, intro, reasonLabel, submitLabel, onSubmit }) {
         <textarea value={reason} onChange={(event) => setReason(event.target.value)} disabled={busy} />
       </label>
       {error ? <Text color="palette.fg.critical">{t("error.SAVE_FAILED")}</Text> : null}
-      <ActionButton type="submit" variant="brandSolid" loading={busy} disabled={busy}>
+      <ActionButton type="submit" variant="brandSolid" disabled={busy}>
         {submitLabel}
       </ActionButton>
     </form>
@@ -142,7 +152,7 @@ function CompletedJudgment({ judgment, refresh }) {
       <JudgmentDifference
         humanDecision={judgment.human_initial.decision}
         agentDecision={judgment.agent_assessment.recommendation}
-        labels={{ aligned: t("judgment.aligned"), diverged: t("judgment.diverged") }}
+        labels={differenceLabels(t)}
       />
       <div className="stack tight">
         <Text textStyle="t5Bold">{t("judgment.final_title")}</Text>
@@ -187,12 +197,12 @@ function InitialGate({ positionRef, refresh }) {
   return (
     <JudgmentGate
       labels={gateLabels(t)}
-      onSubmit={async ({ decision, reason }) => {
+      onSubmit={async ({ decision, reasons }) => {
         await write("/api/judgments/initial", {
           subject: "application",
           target_ref: positionRef,
           decision,
-          reasons: reason ? [reason] : [],
+          reasons,
         });
         refresh();
       }}
@@ -232,7 +242,7 @@ export function ApplicationJudgment({ positionRef }) {
           <JudgmentDifference
             humanDecision={latest.human_initial.decision}
             agentDecision={latest.agent_assessment.recommendation}
-            labels={{ aligned: t("judgment.aligned"), diverged: t("judgment.diverged") }}
+            labels={differenceLabels(t)}
           />
           <DecisionForm
             title={t("judgment.final_title")}
