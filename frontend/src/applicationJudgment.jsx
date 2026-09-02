@@ -1,7 +1,7 @@
 import React from "react";
 import { ActionButton, Badge, Text } from "@seed-design/react";
 
-import { useAsync } from "./components.jsx";
+import { useAsync } from "./components/States.jsx";
 import { read, write } from "./api.js";
 import { useI18n } from "./i18n.jsx";
 import { JudgmentDifference, JudgmentGate } from "./judgment.jsx";
