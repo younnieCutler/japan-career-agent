@@ -18,8 +18,7 @@ from judgments import (
     record_initial_judgment,
     record_outcome,
 )
-from models import CareerError
-from review_policy import judgment_policy
+from review_policy import CareerError, judgment_policy
 
 
 _PHASES = ("human_initial", "agent_assessment", "human_final", "outcome")
