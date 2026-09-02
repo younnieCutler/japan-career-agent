@@ -222,7 +222,7 @@ export function ApplicationJudgment({ positionRef }) {
   const latest = data?.judgments?.[0] || null;
 
   return (
-    <section className="record stack" aria-label={t("judgment.title")}>
+    <section className="record__section stack" aria-label={t("judgment.title")}>
       <div className="stack tight">
         <Text textStyle="t4Bold">{t("judgment.title")}</Text>
         <Text color="palette.fg.neutralSubtle">{t("judgment.intro")}</Text>

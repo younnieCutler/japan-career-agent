@@ -9,6 +9,8 @@ import unittest
 from pathlib import Path
 
 import case_store
+from command_line import build_parser
+from dispatch import run_command
 from gui import judgments as gui_judgments
 from models import CareerError
 from review_policy import judgment_policy, policy_catalog, policy_for
@@ -94,6 +96,26 @@ class JudgmentGuiAdapterTests(unittest.TestCase):
             self.home, target_ref=self.application["case_id"]
         ))
         self.assertNotIn("experience:not-resolved-yet", rendered)
+
+    def test_host_cli_records_agent_assessment_without_calling_an_llm(self) -> None:
+        started = gui_judgments.start(self.home, {
+            "subject": "application",
+            "target_ref": self.application["case_id"],
+            "decision": "hold",
+        })
+        args = build_parser().parse_args([
+            "judgment", "assess", "--vault", str(self.home.path),
+            "--id", started["judgment_id"],
+            "--recommendation", "proceed",
+            "--confidence", "medium",
+            "--reason", "confirmed scope fits",
+            "--unknown", "allocation ratio",
+        ])
+        result = run_command(args, {})
+        self.assertEqual(result["phase"], "agent_assessment")
+        timeline = gui_judgments.payload(self.home, target_ref=self.application["case_id"])["judgments"][0]
+        self.assertEqual(timeline["agent_assessment"]["recommendation"], "proceed")
+        self.assertEqual(timeline["human_initial"]["decision"], "hold")
 
     def test_final_and_outcome_stay_out_of_canonical_career_state(self) -> None:
         started = gui_judgments.start(self.home, {

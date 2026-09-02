@@ -46,6 +46,8 @@ class CareerAgentBoundaryTests(unittest.TestCase):
                 "gui.tanaoroshi",
                 "gui.cases",
                 "gui.artifacts",
+                "gui.judgments",
+                "gui.judgment_copy",
             },
         )
         self.assertIn("gui.templates", boundaries.APPLICATION_MODULES)
@@ -53,6 +55,8 @@ class CareerAgentBoundaryTests(unittest.TestCase):
         self.assertIn("gui.tanaoroshi", boundaries.APPLICATION_MODULES)
         self.assertIn("gui.cases", boundaries.APPLICATION_MODULES)
         self.assertIn("gui.artifacts", boundaries.APPLICATION_MODULES)
+        self.assertIn("gui.judgments", boundaries.APPLICATION_MODULES)
+        self.assertIn("gui.judgment_copy", boundaries.APPLICATION_MODULES)
         self.assertIn("sessions", boundaries.APPLICATION_MODULES)
         self.assertEqual(
             getattr(boundaries, "GUI_LAUNCH_IMPORTS", set()),

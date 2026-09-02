@@ -52,6 +52,7 @@ CHECKS = (
     ("career-agent skill invocation", (PYTHON, "skills/career-agent/test_skill_invocation.py")),
     ("career-agent execution plans", (PYTHON, "skills/career-agent/test_execution_plans.py")),
     ("career-agent human judgment", (PYTHON, "skills/career-agent/test_judgments.py")),
+    ("career-agent judgment impact policy", (PYTHON, "skills/career-agent/test_review_policy.py")),
     ("career-agent UX regression eval", (PYTHON, "skills/career-agent/test_ux_regression_eval.py")),
     ("Career Agent P1 workflows", (PYTHON, "scripts/test_workflows.py")),
     ("career-agent boundary imports", (PYTHON, "skills/career-agent/test_boundary_imports.py")),

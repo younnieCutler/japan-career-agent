@@ -471,6 +471,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="a fixed plan condition signal observed by the Host; repeat for several",
     )
     add_output_format(skill_report_parser)
+    judgment_parser = subparsers.add_parser(
+        "judgment",
+        help="list consequential judgments or let a Host record the Agent assessment",
+    )
+    add_vault_argument(judgment_parser)
+    judgment_parser.add_argument("action", choices=("list", "assess"))
+    judgment_parser.add_argument("--id", dest="judgment_id", help="judgment id to inspect or assess")
+    judgment_parser.add_argument("--target-ref", help="filter list output to one durable target")
+    judgment_parser.add_argument("--recommendation", choices=("proceed", "hold", "stop", "unknown"))
+    judgment_parser.add_argument("--confidence", choices=("high", "medium", "low", "unknown"), default="unknown")
+    judgment_parser.add_argument("--reason", dest="reasons", action="append", default=None)
+    judgment_parser.add_argument("--evidence", dest="evidence_refs", action="append", default=None)
+    judgment_parser.add_argument("--unknown", dest="unknowns", action="append", default=None)
+    add_output_format(judgment_parser)
     status_parser = subparsers.add_parser("status")
     add_vault_argument(status_parser)
     add_workspace_argument(status_parser)

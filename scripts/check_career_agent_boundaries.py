@@ -43,6 +43,7 @@ DOMAIN_MODULES = (
     "skill_invocations",
     "execution_plans",
     "judgments",
+    "review_policy",
     "dispatch",
     "command_line",
     "runtime",
@@ -55,6 +56,8 @@ DOMAIN_MODULES = (
     "gui.tanaoroshi",
     "gui.cases",
     "gui.artifacts",
+    "gui.judgments",
+    "gui.judgment_copy",
 )
 
 # The first extraction PRs intentionally leave the not-yet-moved compatibility files in place.
@@ -75,12 +78,13 @@ APPLICATION_MODULES = {
     "documents", "views", "approvals", "guided_flow",
     "sessions", "self_analysis",
     "case_store", "artifact_store", "skill_invocations", "execution_plans", "judgments",
+    "review_policy",
     "gui.templates", "gui.views_read", "gui.tanaoroshi",
-    "gui.cases", "gui.artifacts",
+    "gui.cases", "gui.artifacts", "gui.judgments", "gui.judgment_copy",
 }
 GUI_MODULES = {
     "gui.server", "gui.security", "gui.templates", "gui.views_read", "gui.tanaoroshi",
-    "gui.cases", "gui.artifacts",
+    "gui.cases", "gui.artifacts", "gui.judgments", "gui.judgment_copy",
 }
 # The dispatcher is the sole entrypoint bridge that starts the GUI. GUI modules never import it.
 GUI_LAUNCH_IMPORTS = {("dispatch", "gui.server")}
@@ -162,6 +166,9 @@ OWNED_SYMBOLS = {
     "record_outcome": "judgments",
     "judgment_timeline": "judgments",
     "list_judgments": "judgments",
+    "policy_for": "review_policy",
+    "judgment_policy": "review_policy",
+    "policy_catalog": "review_policy",
     "run_chat": "proposals",
     "stated_career_mode": "proposals",
     "propose_career_context": "proposals",

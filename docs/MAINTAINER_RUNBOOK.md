@@ -18,7 +18,7 @@ git fetch origin main            # feeds the version-bump gate; it skips cleanly
 python scripts/run_all_checks.py
 ```
 
-Expected: `All 95 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
+Expected: `All 96 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
 the check and stops; everything after it is unrun, not passing.
 
 That number is held to `len(CHECKS)` by `scripts/check_docs_drift.py`; adding a check to the matrix

@@ -34,6 +34,7 @@ from guided_flow import run_guided
 from ingest import read_stdin_utf8, run_discover, run_heartbeat, run_index
 from lifecycle import restore_state, review_work_event
 from models import CareerError
+from judgments import judgment_timeline, list_judgments, record_agent_assessment
 from onboarding import DEFAULT_VAULT_PATH, complete_onboarding, set_profile_axis, setup
 from personal_timeline import (
     candidate_profile_values,
@@ -429,6 +430,21 @@ def _run_vault_command(
             home, args.invocation_id, status=args.status, summary=args.summary,
             artifacts=args.artifacts, evidence_used=args.evidence_used,
             tools_used=args.tools_used, error=args.error, signals=args.signals,
+        )
+    if args.command == "judgment":
+        if args.action == "list":
+            if args.judgment_id:
+                return {"judgment": judgment_timeline(home, args.judgment_id)}
+            rows = list_judgments(home)
+            if args.target_ref:
+                rows = [row for row in rows if row.get("target_ref") == args.target_ref]
+            return {"judgments": rows}
+        if not args.judgment_id or not args.recommendation:
+            raise CareerError("judgment assess requires --id and --recommendation", code="INVALID_INPUT")
+        return record_agent_assessment(
+            home, args.judgment_id,
+            recommendation=args.recommendation, confidence=args.confidence,
+            reasons=args.reasons, evidence_refs=args.evidence_refs, unknowns=args.unknowns,
         )
     if args.command == "status":
         return status(home, workspace=args.workspace)

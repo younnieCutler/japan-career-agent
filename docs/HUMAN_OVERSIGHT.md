@@ -25,7 +25,7 @@ canonical profile/state, or count as evidence for a claim. The local append-only
 
 ## Impact policy
 
-The intended policy has four levels:
+The deterministic policy in `skills/career-agent/review_policy.py` has four levels:
 
 | Level | Meaning | Interaction |
 |---|---|---|
@@ -107,20 +107,21 @@ default confidence.
 - gives each instance unique accessibility ids and radio-group keyboard navigation;
 - can render the human/agent divergence explicitly.
 
-The foundation component is intentionally not imported into a production workflow yet. A later
-slice must route only L3 decisions through it after the deterministic impact policy exists. L0-L2
-workflows must remain unchanged unless their own requirements say otherwise. Because this slice does
-not import the primitive from the production app, it intentionally causes no committed GUI-bundle
-change; the bundle-drift gate must remain clean.
+The production Applications screen now routes active application decisions through this gate.
+The browser sends the semantic subject and decision only; the server derives L3 from
+`review_policy.py`, so a caller cannot downgrade the interaction by supplying an impact string.
+L0-L2 workflows remain unchanged. After the initial write succeeds, the screen shows a waiting state
+until an Agent assessment is recorded through the host-neutral runtime/API boundary; the server does
+not fabricate a recommendation from profile completeness or matching heuristics.
 
-Before any production L3 caller renders agent `evidence_refs`, those references must be resolved
-through the existing evidence boundary. An unresolved string is `Unknown`, not evidence merely
-because it has evidence-shaped syntax.
+The browser projection intentionally withholds raw agent `evidence_refs` and exposes only their count
+until those references are resolved through the existing evidence boundary. An unresolved string is
+`Unknown`, not evidence merely because it has evidence-shaped syntax.
 
 ## Review packet
 
-The existing approval UI already shows exact before/after state, Unknowns, evidence, and effect. The
-next implementation slice should standardize the L2/L3 review packet as:
+The existing approval UI already shows exact before/after state, Unknowns, evidence, and effect. A
+future cross-surface slice can standardize the remaining L2/L3 review packet vocabulary as:
 
 - What changes
 - Why the system proposes it
@@ -153,16 +154,17 @@ career evidence.
 ## Implementation slices
 
 1. **Foundation** — append-only judgment ledger, fail-closed read contract, concurrency/phase-order
-   regression tests, and a human-first source-level GUI primitive. (This document's initial slice.)
-2. **Impact policy** — deterministic L0-L3 classification and a normalized review packet.
-3. **Workflow wiring** — selected L3 company/application/offer/strategy decisions use the judgment
-   gate; L0-L2 remain fast; evidence references are resolved before rendering.
+   regression tests, and the human-first GUI primitive.
+2. **Impact + application wiring** — deterministic L0-L3 policy, authenticated judgment API,
+   production application gate, Host assessment bridge, human-final/outcome flow, and localized copy.
+3. **Broader review packet/evidence resolution** — resolve evidence references before rendering them
+   and apply the same bounded policy to additional company/offer/strategy surfaces where justified.
 4. **Calibration** — bounded read projection and optional oversight-health signals after real usage
    data exists.
 
 ## Merge/release discipline
 
-The foundation is not merge-ready merely because its focused tests pass. Before a behavior-changing
+A Human Oversight slice is not merge-ready merely because its focused tests pass. Before a behavior-changing
 slice merges:
 
 - register every new Python test in `scripts/run_all_checks.py`;
