@@ -51,6 +51,7 @@ CHECKS = (
     ("career-agent domain vocabulary", (PYTHON, "skills/career-agent/test_domain_vocabulary.py")),
     ("career-agent skill invocation", (PYTHON, "skills/career-agent/test_skill_invocation.py")),
     ("career-agent execution plans", (PYTHON, "skills/career-agent/test_execution_plans.py")),
+    ("career-agent human judgment", (PYTHON, "skills/career-agent/test_judgments.py")),
     ("career-agent UX regression eval", (PYTHON, "skills/career-agent/test_ux_regression_eval.py")),
     ("Career Agent P1 workflows", (PYTHON, "scripts/test_workflows.py")),
     ("career-agent boundary imports", (PYTHON, "skills/career-agent/test_boundary_imports.py")),
@@ -120,7 +121,6 @@ CHECKS = (
     ("Jiko source contract", (PYTHON, "skills/jiko-bunseki/tests/test_checklist_contract.py")),
     ("Jiko executable export", ("node", "skills/jiko-bunseki/tests/test_checklist_runtime.js")),
 )
-
 
 
 
