@@ -1,6 +1,6 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { JudgmentDifference, JudgmentGate } from "./judgment.jsx";
 
 const labels = {
@@ -21,6 +21,8 @@ const labels = {
     unknown: "Unknown",
   },
 };
+
+afterEach(() => cleanup());
 
 describe("JudgmentGate", () => {
   it("does not reveal agent analysis before the initial human judgment is persisted", async () => {
