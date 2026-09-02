@@ -3,11 +3,15 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from judgments import (
+    JUDGMENT_SCHEMA_VERSION,
     judgment_ledger,
     judgment_timeline,
     list_judgments,
@@ -17,6 +21,7 @@ from judgments import (
     record_outcome,
 )
 from models import CareerError
+from persistence import append_jsonl
 from vault import CareerVault
 
 
@@ -28,15 +33,19 @@ class JudgmentLedgerTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def initial(self, **changes):
+        payload = {
+            "subject": "company_fit",
+            "target_ref": "application:acme-platform-engineer",
+            "impact": "l3",
+            "decision": "hold",
+            "reasons": ["delivery model is still unclear"],
+        }
+        payload.update(changes)
+        return record_initial_judgment(self.home, **payload)
+
     def test_full_judgment_stays_separate_from_canonical_career_state(self) -> None:
-        initial = record_initial_judgment(
-            self.home,
-            subject="company_fit",
-            target_ref="application:acme-platform-engineer",
-            impact="l3",
-            decision="hold",
-            reasons=["delivery model is still unclear"],
-        )
+        initial = self.initial()
         judgment_id = initial["judgment_id"]
 
         record_agent_assessment(
@@ -80,11 +89,11 @@ class JudgmentLedgerTests(unittest.TestCase):
         self.assertTrue(projected[0]["complete"])
         self.assertFalse(projected[0]["outcome_known"])
 
-    def test_agent_cannot_be_shown_as_recorded_before_human_initial_judgment(self) -> None:
+    def test_agent_cannot_be_recorded_before_human_initial_judgment(self) -> None:
         with self.assertRaises(CareerError) as caught:
             record_agent_assessment(
                 self.home,
-                "jdg-missing",
+                "jdg-000000000000",
                 recommendation="proceed",
                 confidence="low",
             )
@@ -92,13 +101,7 @@ class JudgmentLedgerTests(unittest.TestCase):
         self.assertFalse(judgment_ledger(self.home).exists())
 
     def test_phase_is_append_only_and_cannot_be_replaced(self) -> None:
-        initial = record_initial_judgment(
-            self.home,
-            subject="career_direction",
-            target_ref="strategy:next-role",
-            impact="l3",
-            decision="unknown",
-        )
+        initial = self.initial(subject="career_direction", target_ref="strategy:next-role", decision="unknown")
         judgment_id = initial["judgment_id"]
         record_agent_assessment(
             self.home,
@@ -118,14 +121,7 @@ class JudgmentLedgerTests(unittest.TestCase):
         self.assertEqual(len(judgment_timeline(self.home, judgment_id)), 2)
 
     def test_unknown_is_an_explicit_decision_not_a_default_score(self) -> None:
-        initial = record_initial_judgment(
-            self.home,
-            subject="offer",
-            target_ref="offer:example",
-            impact="l3",
-            decision="unknown",
-            reasons=[],
-        )
+        initial = self.initial(subject="offer", target_ref="offer:example", decision="unknown", reasons=[])
         record_agent_assessment(
             self.home,
             initial["judgment_id"],
@@ -141,22 +137,87 @@ class JudgmentLedgerTests(unittest.TestCase):
 
     def test_invalid_impact_and_decision_are_rejected_before_write(self) -> None:
         with self.assertRaises(CareerError):
-            record_initial_judgment(
-                self.home,
-                subject="application",
-                target_ref="application:x",
-                impact="critical",
-                decision="proceed",
-            )
+            self.initial(impact="l2")
         with self.assertRaises(CareerError):
-            record_initial_judgment(
-                self.home,
-                subject="application",
-                target_ref="application:x",
-                impact="l3",
-                decision="yes",
-            )
+            self.initial(decision="yes")
         self.assertFalse(judgment_ledger(self.home).exists())
+
+    def test_future_schema_is_refused_on_read(self) -> None:
+        row = self.initial()
+        ledger = judgment_ledger(self.home)
+        row["schema_version"] = JUDGMENT_SCHEMA_VERSION + 1
+        ledger.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        with self.assertRaises(CareerError) as caught:
+            list_judgments(self.home)
+        self.assertEqual(caught.exception.code, "JUDGMENT_SCHEMA_NEWER")
+
+    def test_unknown_or_out_of_order_persisted_phase_fails_closed(self) -> None:
+        initial = self.initial()
+        ledger = judgment_ledger(self.home)
+        bad = dict(initial)
+        bad.update({"phase": "human_final", "decision": "proceed", "reasons": [], "source": "human"})
+        append_jsonl(ledger, bad)
+        with self.assertRaises(CareerError) as caught:
+            list_judgments(self.home)
+        self.assertEqual(caught.exception.code, "STATE_CORRUPTED")
+
+        ledger.write_text(
+            ledger.read_text(encoding="utf-8").replace('"human_final"', '"bogus_phase"'),
+            encoding="utf-8",
+        )
+        with self.assertRaises(CareerError) as caught:
+            list_judgments(self.home)
+        self.assertEqual(caught.exception.code, "STATE_CORRUPTED")
+
+    def test_duplicate_persisted_phase_fails_closed_instead_of_last_write_wins(self) -> None:
+        initial = self.initial()
+        append_jsonl(judgment_ledger(self.home), dict(initial))
+        with self.assertRaises(CareerError) as caught:
+            list_judgments(self.home)
+        self.assertEqual(caught.exception.code, "STATE_CORRUPTED")
+
+    def test_non_object_row_and_malformed_id_fail_closed(self) -> None:
+        ledger = judgment_ledger(self.home)
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        ledger.write_text("[]\n", encoding="utf-8")
+        with self.assertRaises(CareerError):
+            list_judgments(self.home)
+
+        ledger.write_text(
+            '{"schema_version":1,"judgment_id":"broken","phase":"human_initial",'
+            '"subject":"company_fit","target_ref":"application:x","impact":"l3",'
+            '"decision":"hold","reasons":[],"created_at":"2026-09-02T00:00:00Z","source":"human"}\n',
+            encoding="utf-8",
+        )
+        with self.assertRaises(CareerError) as caught:
+            list_judgments(self.home)
+        self.assertEqual(caught.exception.code, "STATE_CORRUPTED")
+
+    def test_concurrent_same_phase_append_allows_exactly_one_writer(self) -> None:
+        initial = self.initial()
+        barrier = threading.Barrier(2)
+
+        def write_agent(recommendation: str):
+            barrier.wait(timeout=5)
+            try:
+                return record_agent_assessment(
+                    self.home,
+                    initial["judgment_id"],
+                    recommendation=recommendation,
+                    confidence="medium",
+                )
+            except CareerError as exc:
+                return exc
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(write_agent, ("proceed", "hold")))
+
+        successes = [value for value in results if isinstance(value, dict)]
+        failures = [value for value in results if isinstance(value, CareerError)]
+        self.assertEqual(len(successes), 1)
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(failures[0].code, "JUDGMENT_PHASE_EXISTS")
+        self.assertEqual(len(judgment_timeline(self.home, initial["judgment_id"])), 2)
 
 
 if __name__ == "__main__":
