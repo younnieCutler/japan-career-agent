@@ -35,7 +35,8 @@ The intended policy has four levels:
 | L3 | Consequential career decision | Human initial judgment → agent assessment → difference → human final judgment |
 
 L3 is intentionally narrow. Blind judgment on every interaction would create the same fatigue this
-layer is meant to prevent.
+layer is meant to prevent. The judgment ledger therefore accepts L3 decisions only; lower-impact
+work stays on its existing execution/review path.
 
 ## L3 workflow
 
@@ -85,6 +86,12 @@ Each phase may be recorded at most once. A later phase cannot exist without all 
 There is no implicit rewrite or supersession in v1; changing that contract requires an explicit
 migration design.
 
+Readers fail closed. Every stored row is validated for schema version, id, phase, source, and the
+phase-specific payload before projection. The persisted phase sequence must be the exact prefix of
+the lifecycle above; duplicates, unknown/out-of-order phases, malformed rows, and unsupported
+schemas are errors rather than rows to skip or values to overwrite. The Vault-wide lifecycle lock
+serializes the read-check-append section so concurrent writers cannot both win the same phase.
+
 `Unknown` remains a first-class answer. It is not converted to a score, neutral recommendation, or
 default confidence.
 
@@ -95,12 +102,20 @@ default confidence.
 - owns no persistence and no product copy;
 - requires localized labels from the caller;
 - reveals children/agent analysis only after `onSubmit` resolves successfully;
-- keeps analysis hidden when persistence fails;
+- keeps analysis hidden when persistence fails and allows a retry;
+- guards a pending submission against duplicate same-tick writes;
+- gives each instance unique accessibility ids and radio-group keyboard navigation;
 - can render the human/agent divergence explicitly.
 
-The foundation component is intentionally not wired to every approval dialog. A later slice must
-route only L3 decisions through it after the deterministic impact policy exists. L0-L2 workflows
-must remain unchanged unless their own requirements say otherwise.
+The foundation component is intentionally not imported into a production workflow yet. A later
+slice must route only L3 decisions through it after the deterministic impact policy exists. L0-L2
+workflows must remain unchanged unless their own requirements say otherwise. Because this slice does
+not import the primitive from the production app, it intentionally causes no committed GUI-bundle
+change; the bundle-drift gate must remain clean.
+
+Before any production L3 caller renders agent `evidence_refs`, those references must be resolved
+through the existing evidence boundary. An unresolved string is `Unknown`, not evidence merely
+because it has evidence-shaped syntax.
 
 ## Review packet
 
@@ -137,11 +152,11 @@ career evidence.
 
 ## Implementation slices
 
-1. **Foundation** — append-only judgment ledger, phase-order regression tests, human-first GUI
-   primitive. (This document's initial slice.)
+1. **Foundation** — append-only judgment ledger, fail-closed read contract, concurrency/phase-order
+   regression tests, and a human-first source-level GUI primitive. (This document's initial slice.)
 2. **Impact policy** — deterministic L0-L3 classification and a normalized review packet.
 3. **Workflow wiring** — selected L3 company/application/offer/strategy decisions use the judgment
-   gate; L0-L2 remain fast.
+   gate; L0-L2 remain fast; evidence references are resolved before rendering.
 4. **Calibration** — bounded read projection and optional oversight-health signals after real usage
    data exists.
 
