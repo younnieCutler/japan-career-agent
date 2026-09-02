@@ -183,11 +183,9 @@ function CompletedJudgment({ judgment, refresh }) {
           }}
         />
       )}
-      {judgment.outcome ? (
-        <ActionButton type="button" variant="neutralWeak" onClick={() => setNewRound(true)}>
-          {t("judgment.new_round")}
-        </ActionButton>
-      ) : null}
+      <ActionButton type="button" variant="neutralWeak" onClick={() => setNewRound(true)}>
+        {t("judgment.new_round")}
+      </ActionButton>
     </div>
   );
 }
