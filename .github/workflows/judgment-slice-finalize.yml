@@ -39,6 +39,22 @@ jobs:
           target.write_text('\n'.join(body) + '\n', encoding='utf-8')
           PY
           python /tmp/apply_judgment_slice.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/test_career_agent_boundaries.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''                "gui.cases",\n                "gui.artifacts",\n            },\n'''
+          new = '''                "gui.cases",\n                "gui.artifacts",\n                "gui.judgments",\n                "gui.judgment_copy",\n            },\n'''
+          if old not in text:
+              raise SystemExit('missing GUI module expectation anchor')
+          text = text.replace(old, new, 1)
+          old_assert = '''        self.assertIn("gui.artifacts", boundaries.APPLICATION_MODULES)\n        self.assertIn("sessions", boundaries.APPLICATION_MODULES)\n'''
+          new_assert = '''        self.assertIn("gui.artifacts", boundaries.APPLICATION_MODULES)\n        self.assertIn("gui.judgments", boundaries.APPLICATION_MODULES)\n        self.assertIn("gui.judgment_copy", boundaries.APPLICATION_MODULES)\n        self.assertIn("sessions", boundaries.APPLICATION_MODULES)\n'''
+          if old_assert not in text:
+              raise SystemExit('missing GUI application expectation anchor')
+          path.write_text(text.replace(old_assert, new_assert, 1), encoding='utf-8')
+          PY
 
       - name: install Python verification dependencies
         run: |
@@ -60,6 +76,7 @@ jobs:
           python skills/career-agent/test_judgments.py
           python skills/career-agent/test_review_policy.py
           python scripts/check_career_agent_boundaries.py
+          python scripts/test_career_agent_boundaries.py
           python scripts/check_docs_drift.py
           python scripts/check_release_consistency.py
 
