@@ -1,0 +1,59 @@
+name: one-shot-release-sync
+
+on:
+  push:
+    branches:
+      - feat/human-judgment-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: feat/human-judgment-foundation
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.11'
+      - name: finalize generated release metadata
+        run: |
+          python scripts/sync_version.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('CHANGELOG.md')
+          text = path.read_text(encoding='utf-8')
+          prefix = '# Changelog\n\n'
+          if not text.startswith(prefix):
+              raise SystemExit('unexpected CHANGELOG.md header')
+          heading = '## [2.20.0] - 2026-09-02\n\n'
+          if heading not in text[:200]:
+              entry = (
+                  heading
+                  + '- Add the Human Oversight foundation for consequential career decisions: an append-only local '\
+                    'judgment ledger records the human initial judgment, agent assessment, human final judgment, '\
+                    'and later outcome without mutating canonical career evidence. Phase ordering is serialized '\
+                    'under the Vault lock, `Unknown` stays explicit, and architecture/test-registration gates '\
+                    'own the new module.\n'
+                  + '- Add a human-first React judgment gate that keeps agent analysis hidden until the initial '\
+                    'human judgment is persisted, surfaces human/agent divergence, and keeps the existing '\
+                    'Capture → Review → Confirm approval boundary separate. The oversight contract documents '\
+                    'the L0-L3 impact model and limits blind judgment to consequential L3 decisions.\n\n'
+              )
+              path.write_text(prefix + entry + text[len(prefix):], encoding='utf-8', newline='\n')
+          PY
+      - name: commit generated files and remove one-shot workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md sbom.cdx.json .claude-plugin/plugin.json .codex-plugin/plugin.json packaging/npm/package.json
+          git rm .github/workflows/one-shot-release-sync.yml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'release: finalize 2.20.0 consistency'
+          git push origin HEAD:feat/human-judgment-foundation
