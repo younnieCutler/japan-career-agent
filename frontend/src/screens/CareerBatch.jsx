@@ -14,7 +14,12 @@ function pendingDrafts(payload) {
       rows.push(context);
     }
     for (const project of context.projects || []) {
-      if (project.lifecycle !== "approved" && project.lifecycle !== "archived" && !isCanonical(project.ref)) {
+      if (
+        project.lifecycle !== "approved"
+        && project.lifecycle !== "archived"
+        && !project.relationship_conflict
+        && !isCanonical(project.ref)
+      ) {
         rows.push(project);
       }
     }
