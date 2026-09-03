@@ -14,6 +14,7 @@ import { Block, Choice, Field } from "../components/Fields.jsx";
 import {
   AddContext, AddProject, ConfirmRecord, LifecycleControl, UnassignedProjects, UnassignedWork,
 } from "./CareerForms.jsx";
+import CareerBatch from "./CareerBatch.jsx";
 
 const PAGE_SIZE = 25;
 const isCanonical = (ref) => String(ref || "").startsWith("canonical:");
@@ -442,6 +443,7 @@ export default function CareerScreen() {
 
       <UnassignedProjects payload={state.data} onDone={reload} />
       <UnassignedWork payload={state.data} />
+      <CareerBatch payload={state.data} onDone={reload} />
 
       {capture || !rows.length ? <ExistingHistoryCapture onError={setFailure} /> : null}
 
