@@ -12,82 +12,27 @@ jobs:
   fix:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.11"
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "22"
-      - name: replace labelled-line parser without raw localized copy
+      - run: python scripts/fix_p0_p1_source.py
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - run: python skills/career-agent/gui/test_product_localization.py
+      - run: npm run build
+        working-directory: frontend
+      - run: git diff --check
+      - name: push source and bundle
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("frontend/src/screens/Applications.jsx")
-          text = path.read_text(encoding="utf-8")
-          start = text.index('const normalize = (value) => String(value || "").trim().toLocaleLowerCase();')
-          end = text.index('/* Recommendations only reorder confirmed, externally usable evidence.', start)
-          replacement = r'''const normalize = (value) => String(value || "").trim().toLocaleLowerCase();
-
-const POSTING_LABELS = {
-  company: new Set([
-    "company", "company name",
-    "\u4f1a\u793e", "\u4f1a\u793e\u540d", "\u4f01\u696d", "\u4f01\u696d\u540d",
-    "\ud68c\uc0ac", "\ud68c\uc0ac\uba85",
-  ].map(normalize)),
-  position: new Set([
-    "position", "job title", "role",
-    "\u30dd\u30b8\u30b7\u30e7\u30f3", "\u8077\u7a2e", "\u52df\u96c6\u8077\u7a2e",
-    "\ud3ec\uc9c0\uc158", "\uc9c1\ubb34", "\ucc44\uc6a9\uc9c1\ubb34",
-  ].map(normalize)),
-};
-
-/* Only explicit labelled lines are read from pasted posting text. Free prose is never interpreted
-   as a company name or a position title; missing fields stay for the user to enter. */
-function explicitPostingField(text, labels) {
-  for (const line of splitLines(text)) {
-    const ascii = line.indexOf(":");
-    const fullwidth = line.indexOf("\uff1a");
-    const separator = ascii < 0 ? fullwidth : fullwidth < 0 ? ascii : Math.min(ascii, fullwidth);
-    if (separator < 0) continue;
-    const key = normalize(line.slice(0, separator));
-    const value = line.slice(separator + 1).trim();
-    if (value && labels.has(key)) return value;
-  }
-  return "";
-}
-
-function postingFields(text) {
-  return {
-    company: explicitPostingField(text, POSTING_LABELS.company),
-    position: explicitPostingField(text, POSTING_LABELS.position),
-  };
-}
-
-'''
-          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8", newline="\n")
-          PY
-      - name: install frontend deps
-        working-directory: frontend
-        run: npm ci
-      - name: frontend contracts
-        working-directory: frontend
-        run: npm test
-      - name: product localization policy
-        run: python skills/career-agent/gui/test_product_localization.py
-      - name: build production bundle
-        working-directory: frontend
-        run: npm run build
-      - name: source sanity
-        run: git diff --check
-      - name: push fixed source and bundle
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add frontend/src/screens/Applications.jsx skills/career-agent/gui/static/app
