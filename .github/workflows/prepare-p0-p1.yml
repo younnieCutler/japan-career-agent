@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
-      - name: update release prose and remove temporary artifact step
+      - name: update release prose
         shell: bash
         run: |
           python - <<'PY'
@@ -51,12 +51,6 @@ jobs:
                   path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
               elif new not in text:
                   raise SystemExit(f"{path}: source version marker missing")
-
-          workflow = Path(".github/workflows/test.yml")
-          text = workflow.read_text(encoding="utf-8")
-          temporary = '''      - name: upload temporary frontend build\n        uses: actions/upload-artifact@v4\n        with:\n          name: temporary-frontend-build\n          path: skills/career-agent/gui/static/app\n'''
-          if temporary in text:
-              workflow.write_text(text.replace(temporary, ""), encoding="utf-8", newline="\n")
           PY
       - name: sync generated release metadata and SBOM
         run: python scripts/sync_version.py
@@ -84,6 +78,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md docs/upgrading.md docs/upgrading_ko.md docs/upgrading_ja.md \
             .claude-plugin/plugin.json .codex-plugin/plugin.json packaging/npm/package.json \
-            sbom.cdx.json .github/workflows/test.yml skills/career-agent/gui/static/app
+            sbom.cdx.json skills/career-agent/gui/static/app
           git commit -m "prepare P0 P1 generated release state"
           git push origin HEAD:ux/job-seeker-p0-p1
