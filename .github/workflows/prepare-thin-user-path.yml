@@ -23,6 +23,7 @@ jobs:
           node-version: "22"
       - name: apply thin product changes
         run: |
+          # Keep preparation mechanics out of the final product diff.
           python scripts/fix_thin_preparation.py
           python scripts/apply_thin_user_path.py
           python scripts/sync_version.py
