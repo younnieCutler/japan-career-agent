@@ -90,6 +90,42 @@ describe("application edit", () => {
   });
 });
 
+describe("job seeker action budget", () => {
+  it("creates a new application from one JD paste and one submit decision", async () => {
+    const onDone = vi.fn();
+    write.mockResolvedValueOnce({ case_id: "company-1" }).mockResolvedValueOnce({});
+    render(<AddPosition
+      payload={{
+        companies: [],
+        evidence_options: [{
+          refs: ["evidence-python"], label: "Python API migration", context: "Recent work", sharing: "available",
+        }],
+      }}
+      onDone={onDone}
+    />);
+
+    const jd = screen.getByLabelText("applications.jd");
+    fireEvent.change(jd, { target: { value: "Company: Acme\nPosition: Platform Engineer\nPython API" } });
+
+    expect(screen.getByDisplayValue("Acme")).toBeTruthy();
+    expect(screen.getByDisplayValue("Platform Engineer")).toBeTruthy();
+    expect(screen.queryByText("applications.add_company_first")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "action.save" }));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write).toHaveBeenNthCalledWith(1, "/api/applications/companies", { label: "Acme" });
+    expect(write).toHaveBeenNthCalledWith(2, "/api/applications/positions", {
+      company_ref: "company-1",
+      label: "Platform Engineer",
+      jd: { text: "Company: Acme\nPosition: Platform Engineer\nPython API" },
+      evidence_refs: ["evidence-python"],
+      document_kinds: [],
+    });
+    expect(onDone).toHaveBeenCalledOnce();
+  });
+});
+
 describe("document edit", () => {
   const existing = {
     ref: "artifact-1", revision: "2026-08-14T00:00:00Z", type: "resume", status: "current",
