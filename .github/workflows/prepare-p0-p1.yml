@@ -1,0 +1,89 @@
+name: prepare-p0-p1
+
+on:
+  push:
+    branches:
+      - ux/job-seeker-p0-p1
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: update release prose and remove temporary artifact step
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          version = "2.24.0"
+          date = "2026-09-03"
+          entry = f'''## [{version}] - {date}\n\n- Make the local GUI start from what a job seeker already has instead of from internal hierarchy. An empty Vault can paste existing career material into an unassigned draft, experience capture can begin before a Project exists, and the application screen accepts a JD first. Company and position values are filled only from explicit labelled lines; free prose is never guessed into identity fields.\n- Reduce repeated input without weakening evidence controls. JD text can preselect up to three confirmed, externally usable experiences only when their visible text overlaps; experience, Context, and Project forms progressively reveal optional detail; and multiple ordinary Context/Project drafts can be reviewed from their server proposals and approved from one user action. Relationship-conflicted Projects are excluded, approval stops on the first failure, and no new canonical write path, schema, or backend batch transaction is introduced.\n\n'''
+
+          changelog = Path("CHANGELOG.md")
+          text = changelog.read_text(encoding="utf-8")
+          if f"## [{version}]" not in text:
+              marker = "# Changelog\n\n"
+              if not text.startswith(marker):
+                  raise SystemExit("unexpected CHANGELOG header")
+              text = marker + entry + text[len(marker):]
+              changelog.write_text(text, encoding="utf-8", newline="\n")
+
+          replacements = {
+              Path("docs/upgrading.md"): ("2.23.0", version),
+              Path("docs/upgrading_ko.md"): ("2.23.0", version),
+              Path("docs/upgrading_ja.md"): ("2.23.0", version),
+          }
+          for path, (old, new) in replacements.items():
+              text = path.read_text(encoding="utf-8")
+              if old in text:
+                  path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+              elif new not in text:
+                  raise SystemExit(f"{path}: source version marker missing")
+
+          workflow = Path(".github/workflows/test.yml")
+          text = workflow.read_text(encoding="utf-8")
+          temporary = '''      - name: upload temporary frontend build\n        uses: actions/upload-artifact@v4\n        with:\n          name: temporary-frontend-build\n          path: skills/career-agent/gui/static/app\n'''
+          if temporary in text:
+              workflow.write_text(text.replace(temporary, ""), encoding="utf-8", newline="\n")
+          PY
+      - name: sync generated release metadata and SBOM
+        run: python scripts/sync_version.py
+      - name: install frontend deps
+        working-directory: frontend
+        run: npm ci
+      - name: frontend tests
+        working-directory: frontend
+        run: npm test
+      - name: build production frontend bundle
+        working-directory: frontend
+        run: npm run build
+      - name: sanity checks
+        run: |
+          python scripts/check_release_consistency.py
+          git diff --check
+      - name: write prepared branch state
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md docs/upgrading.md docs/upgrading_ko.md docs/upgrading_ja.md \
+            .claude-plugin/plugin.json .codex-plugin/plugin.json packaging/npm/package.json \
+            sbom.cdx.json .github/workflows/test.yml skills/career-agent/gui/static/app
+          git commit -m "prepare P0 P1 generated release state"
+          git push origin HEAD:ux/job-seeker-p0-p1
