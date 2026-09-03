@@ -26,6 +26,14 @@ const splitLines = (value) => String(value || "")
   .split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 
 const SAVE_DEBOUNCE_MS = 650;
+const DETAIL_FIELDS = [
+  "work_date", "role", "scope", "problem", "direct_actions", "individual_contribution", "team_result", "metrics",
+];
+
+const draftHasDetails = (draft = {}) => DETAIL_FIELDS.some((key) => {
+  const value = draft[key];
+  return Array.isArray(value) ? value.length > 0 : Boolean(value);
+});
 
 function Breadcrumb({ session }) {
   const { t } = useI18n();
@@ -123,6 +131,7 @@ export function CaptureForm({ payload, onReload }) {
   const { t } = useI18n();
   const session = payload.session;
   const [form, setForm] = React.useState(() => fromDraft(payload.draft));
+  const [expanded, setExpanded] = React.useState(() => draftHasDetails(payload.draft));
   const [saveState, setSaveState] = React.useState(null);
   const [failure, setFailure] = React.useState(null);
   const [review, setReview] = React.useState(null);
@@ -312,69 +321,84 @@ export function CaptureForm({ payload, onReload }) {
             <Field label={t("workflow.summary")} help={t("workflow.summary_help")}>
               <Line value={form.summary} onChange={(v) => edit({ summary: v })} />
             </Field>
-            <Field label={t("date.when")} help={t("date.partial_help")}>
-              <Line type="month" value={form.work_date} onChange={(v) => edit({ work_date: v })} />
-            </Field>
-            <Field label={t("workflow.role")}>
-              <Line value={form.role} onChange={(v) => edit({ role: v })} />
-            </Field>
-            <Field label={t("workflow.scope")}>
-              <Block value={form.scope} onChange={(v) => edit({ scope: v })} />
-            </Field>
-          </fieldset>
-
-          <fieldset className="form-section">
-            <legend>{t("work.section.story")}</legend>
-            <Field label={t("workflow.problem")}>
-              <Block value={form.problem} onChange={(v) => edit({ problem: v })} />
-            </Field>
-            <Field label={t("workflow.actions")} help={t("workflow.actions_help")}>
-              <Block value={form.direct_actions} onChange={(v) => edit({ direct_actions: v })} />
-            </Field>
-            <Field label={t("workflow.contribution")} help={t("workflow.contribution_help")}>
-              <Block
-                value={form.individual_contribution}
-                onChange={(v) => edit({ individual_contribution: v })}
-              />
-            </Field>
-          </fieldset>
-
-          <fieldset className="form-section">
-            <legend>{t("work.section.outcome")}</legend>
-            <Field label={t("workflow.outcome")} help={t("workflow.outcome_help")}>
-              <Choice
-                value={form.outcome_state}
-                options={outcomes}
-                onChange={(v) => edit({ outcome_state: v, metrics: v === "quantitative" ? form.metrics : "" })}
-              />
-            </Field>
-            {measured ? (
-              <Field label={t("workflow.outcome_detail")}>
-                <Block value={form.team_result} onChange={(v) => edit({ team_result: v })} />
-              </Field>
+            {!expanded ? (
+              <div>
+                <ActionButton type="button" variant="neutralWeak" size="medium" onClick={() => setExpanded(true)}>
+                  {t("action.continue")}
+                </ActionButton>
+              </div>
             ) : null}
-            {form.outcome_state === "quantitative" ? (
-              <Field label={t("workflow.metrics")} help={t("workflow.metrics_help")}>
-                <Block value={form.metrics} onChange={(v) => edit({ metrics: v })} />
-              </Field>
+            {expanded ? (
+              <>
+                <Field label={t("date.when")} help={t("date.partial_help")}>
+                  <Line type="month" value={form.work_date} onChange={(v) => edit({ work_date: v })} />
+                </Field>
+                <Field label={t("workflow.role")}>
+                  <Line value={form.role} onChange={(v) => edit({ role: v })} />
+                </Field>
+                <Field label={t("workflow.scope")}>
+                  <Block value={form.scope} onChange={(v) => edit({ scope: v })} />
+                </Field>
+              </>
             ) : null}
           </fieldset>
 
-          <fieldset className="form-section">
-            <legend>{t("work.section.trust")}</legend>
-            <Field label={t("workflow.evidence")} help={t("workflow.evidence_help")}>
-              <Block value={form.evidence} onChange={(v) => edit({ evidence: v })} />
-            </Field>
-            <Field label={t("workflow.contains_confidential")} help={t("confidentiality.contains_help")}>
-              <CheckBox
-                checked={form.contains_confidential}
-                onChange={(checked) => edit({ contains_confidential: checked })}
-              />
-            </Field>
-            <Field label={t("workflow.external_use")} help={t("confidentiality.external_help")}>
-              <Choice value={form.external_use} options={externalUse} onChange={(v) => edit({ external_use: v })} />
-            </Field>
-          </fieldset>
+          {expanded ? (
+            <>
+              <fieldset className="form-section">
+                <legend>{t("work.section.story")}</legend>
+                <Field label={t("workflow.problem")}>
+                  <Block value={form.problem} onChange={(v) => edit({ problem: v })} />
+                </Field>
+                <Field label={t("workflow.actions")} help={t("workflow.actions_help")}>
+                  <Block value={form.direct_actions} onChange={(v) => edit({ direct_actions: v })} />
+                </Field>
+                <Field label={t("workflow.contribution")} help={t("workflow.contribution_help")}>
+                  <Block
+                    value={form.individual_contribution}
+                    onChange={(v) => edit({ individual_contribution: v })}
+                  />
+                </Field>
+              </fieldset>
+
+              <fieldset className="form-section">
+                <legend>{t("work.section.outcome")}</legend>
+                <Field label={t("workflow.outcome")} help={t("workflow.outcome_help")}>
+                  <Choice
+                    value={form.outcome_state}
+                    options={outcomes}
+                    onChange={(v) => edit({ outcome_state: v, metrics: v === "quantitative" ? form.metrics : "" })}
+                  />
+                </Field>
+                {measured ? (
+                  <Field label={t("workflow.outcome_detail")}>
+                    <Block value={form.team_result} onChange={(v) => edit({ team_result: v })} />
+                  </Field>
+                ) : null}
+                {form.outcome_state === "quantitative" ? (
+                  <Field label={t("workflow.metrics")} help={t("workflow.metrics_help")}>
+                    <Block value={form.metrics} onChange={(v) => edit({ metrics: v })} />
+                  </Field>
+                ) : null}
+              </fieldset>
+
+              <fieldset className="form-section">
+                <legend>{t("work.section.trust")}</legend>
+                <Field label={t("workflow.evidence")} help={t("workflow.evidence_help")}>
+                  <Block value={form.evidence} onChange={(v) => edit({ evidence: v })} />
+                </Field>
+                <Field label={t("workflow.contains_confidential")} help={t("confidentiality.contains_help")}>
+                  <CheckBox
+                    checked={form.contains_confidential}
+                    onChange={(checked) => edit({ contains_confidential: checked })}
+                  />
+                </Field>
+                <Field label={t("workflow.external_use")} help={t("confidentiality.external_help")}>
+                  <Choice value={form.external_use} options={externalUse} onChange={(v) => edit({ external_use: v })} />
+                </Field>
+              </fieldset>
+            </>
+          ) : null}
 
           <Divider />
           <div className="inline">

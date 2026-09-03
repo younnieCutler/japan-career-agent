@@ -109,7 +109,12 @@ export default function HomeScreen() {
     : draft.length
       ? { eyebrow: "home.resume_title", action: "action.continue", target: workflowHref(draft[0]), session: draft[0] }
       : home.readiness?.bootstrap_suggested
-        ? { eyebrow: "home.first_step", action: "career.add_context", target: "/career", title: t("home.empty_title") }
+        ? {
+          eyebrow: "home.first_step",
+          action: "workflow.type.career_inventory",
+          target: "/career?capture=1",
+          title: t("home.empty_title"),
+        }
         : { eyebrow: "home.next_step", action: "career.add_experience", target: "/career", title: t("home.add_experience_title") };
 
   const nextTitle = next.title || (next.session.context || next.session.display_context || [])

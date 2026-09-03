@@ -156,7 +156,8 @@ class SplitPaneTests(unittest.TestCase):
         # Replacing rather than pushing: Back must not walk every row the user glanced at.
         self.assertIn("window.history.replaceState({}, \"\", url.toString())", app)
         self.assertIn("setSelection(row.ref)", self.career)
-        self.assertIn('new URLSearchParams(search).get("sel")', self.career)
+        self.assertIn("new URLSearchParams(search)", self.career)
+        self.assertIn('params.get("sel")', self.career)
 
 
 class CompanyExperienceRollupTests(unittest.TestCase):
@@ -172,12 +173,13 @@ class CompanyExperienceRollupTests(unittest.TestCase):
         # Experiences the Vault holds against the context with no project must not be dropped.
         self.assertIn("context.other_experiences", rollup)
 
-    def test_adding_an_experience_never_invents_a_project(self) -> None:
-        """The write path demands a confirmed project (sessions.py). The UI resolves one; it does
-        not manufacture one, because that would put a canonical record in the ledger that the user
-        never asked for."""
+    def test_adding_an_experience_can_start_unassigned_without_inventing_a_project(self) -> None:
+        """Capture may start before the user models a project, but the UI must never manufacture
+        one. The existing unassigned-work path holds the draft until its location is connected."""
         starter = self.career.split("function AddExperience", 1)[1].split("\nfunction ", 1)[0]
-        self.assertIn("career.confirm_project_first", starter)
+        self.assertIn('/api/workflows/start', starter)
+        self.assertIn('workflow: "career_inventory"', starter)
+        self.assertIn("project ? { case_ref: project.ref } : {}", starter)
         self.assertNotIn("/api/career/projects", starter)
         self.assertIn('lifecycle === "approved"', starter)
 

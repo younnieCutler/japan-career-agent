@@ -25,6 +25,63 @@ const PAGE_SIZE = 25;
 const splitLines = (value) => String(value || "")
   .split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 
+const normalize = (value) => String(value || "").trim().toLocaleLowerCase();
+
+const POSTING_LABELS = {
+  company: new Set([
+    "company", "company name",
+    "\u4f1a\u793e", "\u4f1a\u793e\u540d", "\u4f01\u696d", "\u4f01\u696d\u540d",
+    "\ud68c\uc0ac", "\ud68c\uc0ac\uba85",
+  ].map(normalize)),
+  position: new Set([
+    "position", "job title", "role",
+    "\u30dd\u30b8\u30b7\u30e7\u30f3", "\u8077\u7a2e", "\u52df\u96c6\u8077\u7a2e",
+    "\ud3ec\uc9c0\uc158", "\uc9c1\ubb34", "\ucc44\uc6a9\uc9c1\ubb34",
+  ].map(normalize)),
+};
+
+/* Only explicit labelled lines are read from pasted posting text. Free prose is never interpreted
+   as a company name or a position title; missing fields stay for the user to enter. */
+function explicitPostingField(text, labels) {
+  for (const line of splitLines(text)) {
+    const ascii = line.indexOf(":");
+    const fullwidth = line.indexOf("\uff1a");
+    const separator = ascii < 0 ? fullwidth : fullwidth < 0 ? ascii : Math.min(ascii, fullwidth);
+    if (separator < 0) continue;
+    const key = normalize(line.slice(0, separator));
+    const value = line.slice(separator + 1).trim();
+    if (value && labels.has(key)) return value;
+  }
+  return "";
+}
+
+function postingFields(text) {
+  return {
+    company: explicitPostingField(text, POSTING_LABELS.company),
+    position: explicitPostingField(text, POSTING_LABELS.position),
+  };
+}
+
+/* Recommendations only reorder confirmed, externally usable evidence. A lexical overlap selects at
+   most three candidates; no overlap means no recommendation rather than a guessed match. */
+function recommendEvidence(jd, options) {
+  const terms = [...new Set(
+    normalize(jd).split(/[^\p{L}\p{N}+#.\-]+/u).filter((term) => term.length >= 2),
+  )];
+  if (!terms.length) return [];
+  return options
+    .filter((option) => option.sharing === "available")
+    .map((option) => {
+      const haystack = normalize(`${option.label || ""} ${option.context || ""}`);
+      const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0), 0);
+      return { value: option.refs.join(","), score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || left.value.localeCompare(right.value))
+    .slice(0, 3)
+    .map((item) => item.value);
+}
+
 /* A document body is fetched only when asked for. `matches_record: false` means the file on disk
    has been edited outside the app, which the user needs to know before quoting it anywhere. */
 function DocumentBody({ artifactRef }) {
@@ -186,70 +243,99 @@ function EvidencePicker({ options, chosen, onToggle, stale = [], onReplace }) {
 export function AddPosition({ payload, existing = null, onDone }) {
   const { t } = useI18n();
   const active = (payload.companies || []).filter((item) => item.status === "active");
-  const [company, setCompany] = React.useState(existing?.parent_ref || active[0]?.ref || "");
+  const existingCompany = existing
+    ? (payload.companies || []).find((item) => item.ref === existing.parent_ref)
+    : null;
+  const [companyName, setCompanyName] = React.useState(existingCompany?.label || "");
   const [label, setLabel] = React.useState(existing?.label || "");
   const [jd, setJd] = React.useState(existing?.jd?.text || "");
   const [chosen, setChosen] = React.useState(() => new Set(existing?.selected_evidence_refs || []));
+  const [companyTouched, setCompanyTouched] = React.useState(Boolean(existing));
+  const [labelTouched, setLabelTouched] = React.useState(Boolean(existing));
+  const [selectionTouched, setSelectionTouched] = React.useState(Boolean(existing));
   const [failure, setFailure] = React.useState(null);
 
-  const toggle = (value) => setChosen((current) => {
-    const next = new Set(current);
-    if (next.has(value)) next.delete(value); else next.add(value);
-    return next;
-  });
-  const replace = (previous, replacement) => setChosen((current) => {
-    const next = new Set(current);
-    next.delete(previous);
-    next.add(replacement);
-    return next;
-  });
+  const toggle = (value) => {
+    setSelectionTouched(true);
+    setChosen((current) => {
+      const next = new Set(current);
+      if (next.has(value)) next.delete(value); else next.add(value);
+      return next;
+    });
+  };
+  const replace = (previous, replacement) => {
+    setSelectionTouched(true);
+    setChosen((current) => {
+      const next = new Set(current);
+      next.delete(previous);
+      next.add(replacement);
+      return next;
+    });
+  };
 
-  if (!active.length) {
-    return (
-      <Callout.Root tone="warning">
-        <Callout.Content>
-          <Callout.Description>{t("applications.add_company_first")}</Callout.Description>
-        </Callout.Content>
-      </Callout.Root>
-    );
-  }
+  const changeJd = (value) => {
+    setJd(value);
+    if (existing) return;
+    const explicit = postingFields(value);
+    if (!companyTouched && explicit.company) setCompanyName(explicit.company);
+    if (!labelTouched && explicit.position) setLabel(explicit.position);
+    if (!selectionTouched) setChosen(new Set(recommendEvidence(value, payload.evidence_options || [])));
+  };
 
   const submit = async (event) => {
     event.preventDefault();
-    if (!label.trim()) return;
+    const position = label.trim();
+    const companyLabel = companyName.trim();
+    if (!position || (!existing && !companyLabel)) return;
     try {
+      let companyRef = existing?.parent_ref;
+      if (!existing) {
+        const sameCompany = active.find((item) => normalize(item.label) === normalize(companyLabel));
+        if (sameCompany) {
+          companyRef = sameCompany.ref;
+        } else {
+          const created = await write("/api/applications/companies", { label: companyLabel });
+          companyRef = created.case_id || created.ref;
+        }
+      }
       const request = {
-        ...(existing ? { case_ref: existing.ref, revision: existing.updated_at } : { company_ref: company }),
-        label: label.trim(),
+        ...(existing ? { case_ref: existing.ref, revision: existing.updated_at } : { company_ref: companyRef }),
+        label: position,
         jd: jd.trim() ? { text: jd.trim() } : {},
         evidence_refs: [...chosen].flatMap((item) => item.split(",")).filter(Boolean),
       };
       if (!existing) request.document_kinds = [];
       await write("/api/applications/positions", request);
-      if (!existing) { setLabel(""); setJd(""); setChosen(new Set()); }
+      if (!existing) {
+        setCompanyName("");
+        setLabel("");
+        setJd("");
+        setChosen(new Set());
+        setCompanyTouched(false);
+        setLabelTouched(false);
+        setSelectionTouched(false);
+      }
       onDone();
     } catch (error) { setFailure(error); }
   };
 
   return (
     <form className="stack" onSubmit={submit}>
-      <Field label={t("applications.target_company")}>
+      <Field label={t("applications.jd")} help={t("applications.jd_help")}>
+        <Block value={jd} onChange={changeJd} />
+      </Field>
+      <Field label={t("applications.company_name")}>
         {existing ? (
-          <Text textStyle="t3Regular">
-            {(payload.companies || []).find((item) => item.ref === existing.parent_ref)?.label || t("common.unknown")}
-          </Text>
+          <Text textStyle="t3Regular">{existingCompany?.label || t("common.unknown")}</Text>
         ) : (
-          <Choice
-            value={company}
-            onChange={setCompany}
-            options={active.map((item) => [item.ref, item.label])}
-            label={t("applications.target_company")}
+          <Line
+            value={companyName}
+            onChange={(value) => { setCompanyTouched(true); setCompanyName(value); }}
           />
         )}
       </Field>
-      <Field label={t("applications.position")}><Line value={label} onChange={setLabel} /></Field>
-      <Field label={t("applications.jd")} help={t("applications.jd_help")}>
-        <Block value={jd} onChange={setJd} />
+      <Field label={t("applications.position")}>
+        <Line value={label} onChange={(value) => { setLabelTouched(true); setLabel(value); }} />
       </Field>
       <EvidencePicker
         options={payload.evidence_options || []}
@@ -700,3 +786,5 @@ export function DocumentsScreen() {
     </div>
   );
 }
+
+export { postingFields, recommendEvidence };

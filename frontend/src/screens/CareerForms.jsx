@@ -73,6 +73,7 @@ export function AddContext({ contexts, existing = null, onDone }) {
     label: existing?.label || "", role: existing?.role || "", summary: existing?.summary || "",
     from: existing?.period?.from || "", to: existing?.period?.to || "", current: existing?.period?.current === true,
   }));
+  const [detailsOpen, setDetailsOpen] = React.useState(Boolean(existing));
   const [review, setReview] = React.useState(null);
   const [failure, setFailure] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
@@ -139,13 +140,24 @@ export function AddContext({ contexts, existing = null, onDone }) {
       <Field label={t("career.context_name")}>
         <Line value={form.label} onChange={(label) => edit({ label })} />
       </Field>
-      <Field label={t("career.role_optional")}>
-        <Line value={form.role} onChange={(role) => edit({ role })} />
-      </Field>
-      <Field label={t("career.summary_optional")}>
-        <Block value={form.summary} onChange={(summary) => edit({ summary })} />
-      </Field>
-      <PeriodFields form={form} onChange={edit} />
+      {!detailsOpen ? (
+        <div>
+          <ActionButton type="button" variant="neutralWeak" size="small" onClick={() => setDetailsOpen(true)}>
+            {t("action.show_more")}
+          </ActionButton>
+        </div>
+      ) : null}
+      {detailsOpen ? (
+        <>
+          <Field label={t("career.role_optional")}>
+            <Line value={form.role} onChange={(role) => edit({ role })} />
+          </Field>
+          <Field label={t("career.summary_optional")}>
+            <Block value={form.summary} onChange={(summary) => edit({ summary })} />
+          </Field>
+          <PeriodFields form={form} onChange={edit} />
+        </>
+      ) : null}
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium" disabled={busy}>
@@ -170,6 +182,7 @@ export function AddProject({ context, existing = null, onDone }) {
     label: existing?.label || "", role: existing?.role || "", scope: existing?.scope || "",
     from: existing?.period?.from || "", to: existing?.period?.to || "", current: existing?.period?.current === true,
   }));
+  const [detailsOpen, setDetailsOpen] = React.useState(Boolean(existing));
   const [review, setReview] = React.useState(null);
   const [failure, setFailure] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
@@ -206,13 +219,24 @@ export function AddProject({ context, existing = null, onDone }) {
       <Field label={t("career.project_name")}>
         <Line value={form.label} onChange={(label) => edit({ label })} />
       </Field>
-      <Field label={t("workflow.role")}>
-        <Line value={form.role} onChange={(role) => edit({ role })} />
-      </Field>
-      <Field label={t("career.project_scope")}>
-        <Block value={form.scope} onChange={(scope) => edit({ scope })} />
-      </Field>
-      <PeriodFields form={form} onChange={edit} />
+      {!detailsOpen ? (
+        <div>
+          <ActionButton type="button" variant="neutralWeak" size="small" onClick={() => setDetailsOpen(true)}>
+            {t("action.show_more")}
+          </ActionButton>
+        </div>
+      ) : null}
+      {detailsOpen ? (
+        <>
+          <Field label={t("workflow.role")}>
+            <Line value={form.role} onChange={(role) => edit({ role })} />
+          </Field>
+          <Field label={t("career.project_scope")}>
+            <Block value={form.scope} onChange={(scope) => edit({ scope })} />
+          </Field>
+          <PeriodFields form={form} onChange={edit} />
+        </>
+      ) : null}
       {failure ? <ErrorState error={failure} /> : null}
       <div>
         <ActionButton type="submit" variant="brandSolid" size="medium" disabled={busy}>

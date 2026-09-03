@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { write } = vi.hoisted(() => ({ write: vi.fn() }));
@@ -22,20 +22,35 @@ if (!globalThis.ResizeObserver) globalThis.ResizeObserver = class { observe() {}
 if (!globalThis.CSS) globalThis.CSS = {};
 if (!globalThis.CSS.supports) globalThis.CSS.supports = () => false;
 
-afterEach(() => write.mockReset());
+afterEach(() => { cleanup(); write.mockReset(); });
 
-describe("experience revision review", () => {
+const payload = (draft = {}) => ({
+  revision: 0,
+  draft: { summary: "", outcome_state: "unknown", confidentiality: {}, ...draft },
+  session: { session_ref: "session-1", status: "draft", subject: {} },
+});
+
+describe("experience capture", () => {
+  it("starts with one summary question and reveals optional detail on demand", () => {
+    render(<CaptureForm payload={payload()} onReload={() => {}} />);
+
+    expect(screen.getByText("workflow.summary")).toBeTruthy();
+    expect(screen.queryByText("workflow.role")).toBeNull();
+    expect(screen.queryByText("workflow.problem")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "action.continue" }));
+
+    expect(screen.getByText("workflow.role")).toBeTruthy();
+    expect(screen.getByText("workflow.problem")).toBeTruthy();
+  });
+
   it("passes the server review-before snapshot to approval", async () => {
     write.mockResolvedValueOnce({
       revision: 1,
       review_before: { summary: "Original evidence" },
       proposal: { ref: "proposal-revision", event: { work_event: {}, claim_summary: "Replacement" } },
     });
-    render(<CaptureForm payload={{
-      revision: 0,
-      draft: { summary: "Replacement", outcome_state: "unknown", confidentiality: {} },
-      session: { session_ref: "session-1", status: "draft", subject: {} },
-    }} onReload={() => {}} />);
+    render(<CaptureForm payload={payload({ summary: "Replacement" })} onReload={() => {}} />);
 
     fireEvent.click(screen.getByRole("button", { name: "action.review_before_confirm" }));
 

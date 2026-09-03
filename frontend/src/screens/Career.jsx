@@ -10,10 +10,11 @@ import { useI18n } from "../i18n.jsx";
 import { ConflictChip, StatusChip, toneOf } from "../evidence.jsx";
 import { EmptyState, ErrorState, LoadingState, useAsync } from "../components/States.jsx";
 import { navigate, setSelection, useLocation } from "../App.jsx";
-import { Choice } from "../components/Fields.jsx";
+import { Block, Choice, Field } from "../components/Fields.jsx";
 import {
   AddContext, AddProject, ConfirmRecord, LifecycleControl, UnassignedProjects, UnassignedWork,
 } from "./CareerForms.jsx";
+import CareerBatch from "./CareerBatch.jsx";
 
 const PAGE_SIZE = 25;
 const isCanonical = (ref) => String(ref || "").startsWith("canonical:");
@@ -116,9 +117,52 @@ function ExperienceLines({ items, labels }) {
   );
 }
 
-/* The write path anchors a capture session to a confirmed project, so this resolves one before
-   starting. It never creates a project on the user's behalf: a canonical record they did not ask
-   for is not something to conjure for a button's convenience. */
+/* Existing material is useful before the user has recreated our hierarchy. Keep the pasted text
+   as an unassigned workflow draft; nothing is inferred or written to the canonical ledger. */
+function ExistingHistoryCapture({ onError }) {
+  const { t } = useI18n();
+  const [body, setBody] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    const text = body.trim();
+    if (!text) return;
+    setBusy(true);
+    try {
+      const started = await write("/api/workflows/start", { workflow: "career_inventory" });
+      const sessionRef = started.session.session_ref || started.session.session_id;
+      const saved = await write("/api/workflows/draft", {
+        session_ref: sessionRef,
+        revision: started.revision ?? started.session.revision ?? 0,
+        draft: { evidence: [text] },
+      });
+      navigate(`/work/${saved.session?.session_ref || sessionRef}`);
+    } catch (error) { onError(error); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <section className="record__section next-action">
+      <h3 className="record__section-title">{t("workflow.type.career_inventory")}</h3>
+      <Text textStyle="t4Regular">{t("home.empty_title")}</Text>
+      <form className="stack" onSubmit={submit}>
+        <Field label={t("applications.document_body")}>
+          <Block value={body} onChange={setBody} rows={8} />
+        </Field>
+        <div>
+          <ActionButton type="submit" variant="brandSolid" size="medium" disabled={busy || !body.trim()}>
+            {t("action.continue")}
+          </ActionButton>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+/* Starting capture must not require the user to model a project first. When a confirmed project is
+   available we keep using it; otherwise the existing unassigned-work path holds the draft until the
+   user connects the right location before approval. No project is invented on the user's behalf. */
 function AddExperience({ context, onError }) {
   const { t } = useI18n();
   const usable = (context.projects || []).filter(
@@ -126,26 +170,18 @@ function AddExperience({ context, onError }) {
   const [choice, setChoice] = React.useState(usable[0]?.ref || "");
   const [choosing, setChoosing] = React.useState(false);
 
-  const launch = async (ref) => {
-    const project = usable.find((p) => p.ref === ref);
-    if (!project) return;
-    if ((project.work || []).length && !window.confirm(t("career.new_experience_confirm"))) return;
+  const launch = async (ref = null) => {
+    const project = ref ? usable.find((p) => p.ref === ref) : null;
+    if (project && (project.work || []).length && !window.confirm(t("career.new_experience_confirm"))) return;
     try {
-      const started = await write("/api/workflows/start", { workflow: "career_inventory", case_ref: project.ref });
+      const started = await write("/api/workflows/start", {
+        workflow: "career_inventory",
+        ...(project ? { case_ref: project.ref } : {}),
+      });
       navigate(`/work/${started.session.session_ref || started.session.session_id}`);
     } catch (error) { onError(error); }
   };
 
-  if (!usable.length) {
-    return (
-      <Callout.Root tone="warning">
-        <Callout.Content>
-          <Callout.Title>{t("career.no_projects_next")}</Callout.Title>
-          <Callout.Description>{t("career.confirm_project_first")}</Callout.Description>
-        </Callout.Content>
-      </Callout.Root>
-    );
-  }
   if (usable.length > 1 && choosing) {
     return (
       <div className="stack">
@@ -166,7 +202,7 @@ function AddExperience({ context, onError }) {
       <ActionButton
         variant="brandSolid"
         size="medium"
-        onClick={() => (usable.length > 1 ? setChoosing(true) : launch(usable[0].ref))}
+        onClick={() => (usable.length > 1 ? setChoosing(true) : launch(usable[0]?.ref || null))}
       >
         {t("career.add_experience")}
       </ActionButton>
@@ -351,7 +387,9 @@ export default function CareerScreen() {
   const state = useAsync(() => read("/api/career"), [reloads]);
   const reload = () => setReloads((count) => count + 1);
   const { search } = useLocation();
-  const selected = new URLSearchParams(search).get("sel");
+  const params = new URLSearchParams(search);
+  const selected = params.get("sel");
+  const capture = params.get("capture") === "1";
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState("all");
   const [shown, setShown] = React.useState(PAGE_SIZE);
@@ -405,6 +443,9 @@ export default function CareerScreen() {
 
       <UnassignedProjects payload={state.data} onDone={reload} />
       <UnassignedWork payload={state.data} />
+      <CareerBatch payload={state.data} onDone={reload} />
+
+      {capture || !rows.length ? <ExistingHistoryCapture onError={setFailure} /> : null}
 
       <details className="record__section">
         <summary>{t("career.add_context")}</summary>
