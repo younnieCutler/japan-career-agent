@@ -47,4 +47,15 @@ describe("career batch review", () => {
       case_ref: "project-b", proposal_ref: "proposal-b", revision: "r2",
     });
   });
+
+  it("does not offer a relationship-conflicted project for batch approval", () => {
+    render(<CareerBatch payload={{ contexts: [{
+      ref: "context-a", label: "Acme", lifecycle: "approved", revision: "c1", projects: [{
+        ref: "project-a", label: "Conflicted", lifecycle: "draft", revision: "p1", relationship_conflict: true,
+      }],
+    }] }} onDone={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "action.review_before_confirm" })).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+  });
 });
