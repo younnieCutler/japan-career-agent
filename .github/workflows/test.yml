@@ -28,7 +28,7 @@ jobs:
         continue-on-error: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "${{ matrix.python-version }}"
       - name: install runtime deps
         run: python -m pip install --quiet --require-hashes -r requirements.lock
       - name: install verification deps
@@ -65,6 +65,11 @@ jobs:
       - name: build the committed bundle
         working-directory: frontend
         run: npm run build
+      - name: upload temporary frontend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporary-frontend-build
+          path: skills/career-agent/gui/static/app
       - name: the committed bundle must equal the built bundle
         shell: bash
         run: |
