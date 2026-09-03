@@ -65,11 +65,6 @@ jobs:
       - name: build the committed bundle
         working-directory: frontend
         run: npm run build
-      - name: upload temporary frontend build
-        uses: actions/upload-artifact@v4
-        with:
-          name: temporary-frontend-build
-          path: skills/career-agent/gui/static/app
       - name: the committed bundle must equal the built bundle
         shell: bash
         run: |
