@@ -111,7 +111,7 @@ describe("job seeker action budget", () => {
     expect(screen.getByDisplayValue("Platform Engineer")).toBeTruthy();
     expect(screen.queryByText("applications.add_company_first")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "action.save" }));
+    fireEvent.click(screen.getByRole("button", { name: "applications.add_position" }));
 
     await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
     expect(write).toHaveBeenNthCalledWith(1, "/api/applications/companies", { label: "Acme" });
