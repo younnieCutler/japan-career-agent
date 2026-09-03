@@ -326,36 +326,8 @@
         },
         {
           "alg": "SHA-256",
-          "content": "82b165b07f416bdccf5c84546a484cc8f15137ca38325403864bfdf2b5b72f6a"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "87a5531de9f71aceb8af041d72fc4cab4943648d91875ed56d2e629bef6d4c03"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "894514d47e012e794f1350f076c427d2347ebf82f9b958d554d12819849a369d"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "cf47cfdabc2194a669dcf7a8dbba62e37a04c5041d2125fae0233b720da6f05c"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "d80bf832ac7b1920ee29a426cdca335f96a2b5caa839811803e999b41ba9030d"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "fc921b96fa95a097add244da36a1d9e4f3039160d1d30f1b35837bf108c21136"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
+          "content": "82b165b07f416bdcc2dbb9fc6cb434e8908d4c119aeaa772cb1caab5440a0",
+      "licenses": [{"license": {"id": "MIT"}}],
       "name": "rpds-py",
       "purl": "pkg:pypi/rpds-py@0.26.0",
       "scope": "required",
@@ -365,26 +337,11 @@
     {
       "bom-ref": "pkg:pypi/ruff@0.15.10",
       "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "28cb32d53203242d403d819fd6983152489b12e4a3ae44993543d6fe62ab42ed"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "51cb8cc943e891ba99989dd92d61e29b1d231e14811db9be6440ecf25d5c1609"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "d1f86e67ebfdef88e00faefa1552b5e510e1d35f3be7d423dc7e84e63788c94e"
-        }
+        {"alg": "SHA-256", "content": "28cb32d53203242d403d819fd6983152489b12e4a3ae44993543d6fe62ab42ed"},
+        {"alg": "SHA-256", "content": "51cb8cc943e891ba99989dd92d61e29b1d231e14811db9be6440ecf25d5c1609"},
+        {"alg": "SHA-256", "content": "d1f86e67ebfdef88e00faefa1552b5e510e1d35f3be7d423dc7e84e63788c94e"}
       ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
+      "licenses": [{"license": {"id": "MIT"}}],
       "name": "ruff",
       "purl": "pkg:pypi/ruff@0.15.10",
       "scope": "optional",
@@ -394,22 +351,10 @@
     {
       "bom-ref": "pkg:pypi/trove-classifiers@2026.6.1.19",
       "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "ab4c4ec93cc4a4e7815fa759906e05e6bb3f2fbd92ea0f897288c6a43efd15b3"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "c5132b4b61a829d11cfbd2d72e97f20a45ed6edb95e45c5efdeb5e00836b2745"
-        }
+        {"alg": "SHA-256", "content": "ab4c4ec93cc4a4e7815fa759906e05e6bb3f2fbd92ea0f897288c6a43efd15b3"},
+        {"alg": "SHA-256", "content": "c5132b4b61a829d11cfbd2d72e97f20a45ed6edb95e45c5efdeb5e00836b2745"}
       ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
+      "licenses": [{"license": {"id": "MIT"}}],
       "name": "trove-classifiers",
       "purl": "pkg:pypi/trove-classifiers@2026.6.1.19",
       "scope": "optional",
@@ -419,22 +364,10 @@
     {
       "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
       "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
-        },
-        {
-          "alg": "SHA-256",
-          "content": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"
-        }
+        {"alg": "SHA-256", "content": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"},
+        {"alg": "SHA-256", "content": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"}
       ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
+      "licenses": [{"license": {"id": "MIT"}}],
       "name": "typing-extensions",
       "purl": "pkg:pypi/typing-extensions@4.16.0",
       "scope": "required",
@@ -446,7 +379,7 @@
     "component": {
       "name": "japan-career-agent",
       "type": "application",
-      "version": "2.22.0"
+      "version": "2.23.0"
     },
     "properties": [
       {
