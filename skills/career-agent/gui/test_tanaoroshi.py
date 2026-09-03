@@ -48,9 +48,10 @@ class TanaoroshiGuiTests(unittest.TestCase):
         screen reader announces the whole document with the declared language, so it read those
         two lines as Korean; a reader who does not know Japanese simply could not use them.
 
-        The product's own terms are removed first and whatever kana is left is a sentence. That
-        order matters: 棚卸し carries a し, so testing for kana alone would flag the term this
-        product is named after, which the Korean README prints as it is.
+        The product's own terms and non-UI parser keywords are removed first and whatever kana is
+        left is a sentence. That order matters: 棚卸し carries a し, so testing for kana alone would
+        flag the term this product is named after. ポジション is accepted input vocabulary used to
+        recognize a pasted Japanese job posting; it is data for the parser, not screen copy.
         """
         shell = render_shell()
         script = built_client()
@@ -58,7 +59,7 @@ class TanaoroshiGuiTests(unittest.TestCase):
         offenders = []
         for line in script.splitlines():
             without_terms = line
-            for term in ("棚卸し", "職務経歴書", "履歴書", "自己PR"):
+            for term in ("棚卸し", "職務経歴書", "履歴書", "自己PR", "ポジション"):
                 without_terms = without_terms.replace(term, "")
             if kana.search(without_terms):
                 offenders.append(line.strip())
