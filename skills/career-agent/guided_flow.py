@@ -21,7 +21,7 @@ from guided import (
     resolve_choice,
 )
 from lifecycle import restore_state
-from localization import normalize_language, text
+from localization import action_label, normalize_language, text
 from models import CareerError, default_state, TRACKS
 from onboarding import complete_onboarding, setup
 from persistence import read_jsonl
@@ -145,6 +145,32 @@ def _guided_selection(
     return result
 
 
+def _interactive_value(prompt: str) -> str | None:
+    """Read one human-only value; blank input and EOF both mean cancel."""
+    try:
+        value = input(prompt).strip()
+    except EOFError:
+        return None
+    return value or None
+
+
+def _interactive_confirmation(language: str, action: str) -> bool:
+    """Ask for the write confirmation in the same TTY run instead of requiring a second command."""
+    answer = _interactive_value(f"{action_label(language, action)}? [y/N]: ")
+    return str(answer or "").casefold() in {
+        "y", "yes", "confirm", "confirmed", "approve", "네", "예", "확인", "はい", "承認",
+    }
+
+
+def _interactive_track(language: str) -> str | None:
+    value = _interactive_value(f"{action_label(language, 'complete_setup')} (chuto/shinsotsu): ")
+    aliases = {
+        "chuto": "chuto", "중도": "chuto", "경력": "chuto", "中途": "chuto",
+        "shinsotsu": "shinsotsu", "신졸": "shinsotsu", "新卒": "shinsotsu",
+    }
+    return aliases.get(str(value or "").strip())
+
+
 def run_guided(
     home: CareerVault,
     *,
@@ -169,17 +195,19 @@ def run_guided(
 ) -> dict[str, Any]:
     """Run one deterministic guided interaction over existing runtime facades.
 
-    ``choices`` is the CI/test seam.  Interactive prompting is used only for a real TTY and is
-    deliberately kept at this frontend boundary; every operation still dispatches to the same
-    setup/approve/read functions used by the canonical commands.
+    ``choices`` is the CI/test seam. Interactive prompting is used only for a real TTY. A person
+    can supply the task, setup fields, approval evidence, and write confirmation in that same run;
+    machine callers remain non-interactive and keep the existing explicit flag contract. Every
+    operation still dispatches to the same setup/approve/read functions used by canonical commands.
     """
     snapshot = _guided_snapshot(home, workspace, as_of)
     result = _guided_result(snapshot)
     queue = list(choices or [])
+    prompt_language = normalize_language(language or snapshot["summary"].get("language"))
     if interactive and not queue:
         print(render_guided_human(result))
         try:
-            queue.append(input(text(normalize_language(snapshot["summary"].get("language")), "guided.prompt")).strip() or "exit")
+            queue.append(input(text(prompt_language, "guided.prompt")).strip() or "exit")
         except EOFError:
             queue.append("exit")
     if not queue:
@@ -198,6 +226,37 @@ def run_guided(
     if resolved == "exit":
         return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
 
+    selected_track = track
+    selected_year = graduation_year
+    selected_message = str(message or "").strip() or None
+    selected_evidence = list(evidence or [])
+
+    # A real terminal should finish the input the chosen action needs instead of printing a CLI
+    # recipe and making the user invoke `guided` again. Scripted and plugin calls never enter this
+    # branch, so their explicit --message/--track/--evidence contracts do not change.
+    if interactive and resolved == "complete_setup":
+        profile = home.load_profile() if home.profile.is_file() else {}
+        selected_track = selected_track or profile.get("track") or _interactive_track(prompt_language)
+        if selected_track is None:
+            return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
+        if selected_track == "shinsotsu":
+            selected_year = selected_year or profile.get("graduation_year")
+            if not isinstance(selected_year, int):
+                raw_year = _interactive_value("YYYY: ")
+                if raw_year is None:
+                    return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
+                if raw_year.isdigit() and len(raw_year) == 4:
+                    selected_year = int(raw_year)
+    elif interactive and resolved == "start_task" and selected_message is None:
+        selected_message = _interactive_value(f"{action_label(prompt_language, 'start_task')}: ")
+        if selected_message is None:
+            return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
+    elif interactive and resolved == "approve_proposal" and not selected_evidence:
+        source = _interactive_value(f"{text(prompt_language, 'review.evidence_title')}: ")
+        if source is None:
+            return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
+        selected_evidence = [source]
+
     write_action = resolved in {"complete_setup", "start_task", "approve_proposal", "restore_state"}
     effective_confirm = confirm
     if write_action and not effective_confirm and len(queue) > 1:
@@ -205,6 +264,10 @@ def run_guided(
         if confirmation in {"confirm", "confirmed", "yes", "y", "approve"}:
             effective_confirm = True
         elif confirmation in {"cancel", "cancelled", "no", "n", "exit"}:
+            return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
+    if write_action and not effective_confirm and interactive:
+        effective_confirm = _interactive_confirmation(prompt_language, resolved)
+        if not effective_confirm:
             return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
     if write_action and not effective_confirm:
         command = {
@@ -224,7 +287,7 @@ def run_guided(
     try:
         if resolved == "complete_setup":
             profile = home.load_profile() if home.profile.is_file() else {}
-            selected_track = track or profile.get("track")
+            selected_track = selected_track or profile.get("track")
             if selected_track not in TRACKS:
                 return _guided_selection(
                     result,
@@ -234,7 +297,7 @@ def run_guided(
                     error="guided setup needs --track shinsotsu or --track chuto",
                     next_command="setup --track <shinsotsu|chuto>",
                 )
-            selected_year = graduation_year or profile.get("graduation_year")
+            selected_year = selected_year or profile.get("graduation_year")
             if selected_track == "shinsotsu" and not isinstance(selected_year, int):
                 return _guided_selection(
                     result,
@@ -248,7 +311,7 @@ def run_guided(
                 home.path,
                 track=selected_track,
                 target_role=target_role,
-                graduation_year=graduation_year,
+                graduation_year=selected_year,
                 language=language,
             )
         elif resolved == "approve_proposal":
@@ -266,7 +329,7 @@ def run_guided(
             action_result = approve(
                 home,
                 str(selected_id),
-                evidence=evidence,
+                evidence=selected_evidence or None,
                 deadline=deadline,
                 company=company,
                 compensation=compensation,
@@ -275,7 +338,7 @@ def run_guided(
                 next_action=next_action,
             )
         elif resolved == "start_task":
-            if not str(message or "").strip():
+            if not selected_message:
                 return _guided_selection(
                     result,
                     requested=requested,
@@ -287,8 +350,8 @@ def run_guided(
             action_result = run_chat(
                 home,
                 Path(__file__).resolve().parent.parent,
-                str(message).strip(),
-                track,
+                selected_message,
+                selected_track,
                 as_of,
             )
             complete_onboarding(home, action_result)
@@ -331,7 +394,13 @@ def run_guided(
     except CareerError as exc:
         failed = _guided_snapshot(home, workspace, as_of)
         failed_result = _guided_result(failed)
-        failed_result.update(error_payload(exc, language=language_for(message or "") if message else normalize_language(home.load_profile().get("language"))))
+        failed_result.update(
+            error_payload(
+                exc,
+                language=language_for(selected_message or "")
+                if selected_message else normalize_language(home.load_profile().get("language")),
+            )
+        )
         failed_result["guided"] = {
             "state": guided_state(failed["summary"], selection_status="blocked"),
             "summary": failed["summary"],
