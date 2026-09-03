@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.23.0] - 2026-09-03
+
+- Let an initialized but empty Vault start from existing career material instead of making the user create Context/Project structure first. `guided` now exposes the existing career-inventory workflow first when canonical `readiness.bootstrap_suggested` is true, stores pasted resume, career-history, or notes text only as an unplaced transient draft, and keeps review/approval blocked until that draft is connected to a confirmed project. No fact, context, project, or canonical event is inferred from the pasted text.
+
 ## [2.22.0] - 2026-09-03
 
 - Let a person using interactive `guided` finish the selected action in the same terminal run. Missing task text, setup track/year, approval evidence, and write confirmation are prompted in place instead of returning a CLI recipe that requires a second invocation. Non-interactive JSON, plugin, and scripted callers keep the existing explicit argument/confirmation contract, and every write still goes through the same canonical approval and persistence gates.
