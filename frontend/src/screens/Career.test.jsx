@@ -78,8 +78,8 @@ describe("job seeker action budget", () => {
     write.mockResolvedValueOnce({ session: { session_ref: "session-experience" } });
     render(<CareerScreen />);
 
-    await screen.findByText("Acme");
-    fireEvent.click(screen.getByRole("button", { name: "career.add_experience" }));
+    const addExperience = await screen.findByRole("button", { name: "career.add_experience" });
+    fireEvent.click(addExperience);
 
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
     expect(write).toHaveBeenCalledWith("/api/workflows/start", { workflow: "career_inventory" });
