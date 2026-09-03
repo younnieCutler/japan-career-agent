@@ -13,6 +13,9 @@ from pypdf import PdfReader
 
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
+MAX_DOCX_XML_BYTES = 2 * 1024 * 1024
+MAX_IMPORT_TEXT_CHARS = 1_000_000
+MAX_PDF_PAGES = 200
 SUPPORTED_SUFFIXES = frozenset({".txt", ".docx", ".pdf"})
 _WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
@@ -39,9 +42,15 @@ def _txt_text(raw: bytes) -> str:
 def _docx_text(raw: bytes) -> str:
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-            document = archive.read("word/document.xml")
+            with archive.open("word/document.xml") as source:
+                document = source.read(MAX_DOCX_XML_BYTES + 1)
+    except (KeyError, RuntimeError, zipfile.BadZipFile) as exc:
+        raise ValueError("invalid DOCX document") from exc
+    if len(document) > MAX_DOCX_XML_BYTES:
+        raise ValueError("DOCX document is too large")
+    try:
         root = ET.fromstring(document)
-    except (KeyError, ET.ParseError, zipfile.BadZipFile) as exc:
+    except ET.ParseError as exc:
         raise ValueError("invalid DOCX document") from exc
     lines: list[str] = []
     for paragraph in root.iter(f"{_WORD_NS}p"):
@@ -54,13 +63,27 @@ def _docx_text(raw: bytes) -> str:
 def _pdf_text(raw: bytes) -> str:
     try:
         reader = PdfReader(io.BytesIO(raw))
-        return "\n".join((page.extract_text() or "").strip() for page in reader.pages).strip()
+        lines: list[str] = []
+        extracted_chars = 0
+        for index, page in enumerate(reader.pages):
+            if index >= MAX_PDF_PAGES:
+                raise ValueError("PDF has too many pages")
+            value = (page.extract_text() or "").strip()
+            if not value:
+                continue
+            extracted_chars += len(value) + (1 if lines else 0)
+            if extracted_chars > MAX_IMPORT_TEXT_CHARS:
+                raise ValueError("document text is too large")
+            lines.append(value)
+        return "\n".join(lines)
+    except ValueError:
+        raise
     except Exception as exc:
         raise ValueError("invalid PDF document") from exc
 
 
 def extract_career_text(filename: str, content_base64: str) -> str:
-    """Return plain text from TXT, DOCX, or text-based PDF bytes."""
+    """Return bounded plain text from TXT, DOCX, or text-based PDF bytes."""
     suffix = Path(str(filename)).suffix.casefold()
     if suffix not in SUPPORTED_SUFFIXES:
         raise ValueError("unsupported document type")
@@ -72,4 +95,6 @@ def extract_career_text(filename: str, content_base64: str) -> str:
     }[suffix](raw).strip()
     if not text:
         raise ValueError("document contains no extractable text")
+    if len(text) > MAX_IMPORT_TEXT_CHARS:
+        raise ValueError("document text is too large")
     return text
