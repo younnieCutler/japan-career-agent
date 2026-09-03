@@ -65,4 +65,21 @@ describe("home attention list", () => {
     await waitFor(() => expect(screen.getByText("career.context_conflict_title")).toBeTruthy());
     expect(screen.queryByText("home.attention_title")).toBeNull();
   });
+
+  it("gets an empty Vault to existing-career capture with one decision", async () => {
+    load({
+      conflicts: { count: 0 },
+      pending_approval: { count: 0 },
+      unknown: { dimensions: [] },
+      readiness: { bootstrap_suggested: true },
+    });
+    render(<HomeScreen />);
+
+    const primary = await screen.findByRole("button", { name: "workflow.type.career_inventory" });
+    fireEvent.click(primary);
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/career?capture=1");
+    expect(screen.queryByRole("button", { name: "career.add_context" })).toBeNull();
+  });
 });
