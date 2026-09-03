@@ -215,6 +215,31 @@
       "version": "1.6.0"
     },
     {
+      "bom-ref": "pkg:pypi/pypdf@6.16.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "595647f6191de6f402cfde1d0c455d6cbccbd509aac32b34783009c032de5d6e"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "c8b09a59399062fb45a1b8156c18a787a10a3dae03ac9674397a226712c94604"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "pypdf",
+      "purl": "pkg:pypi/pypdf@6.16.2",
+      "scope": "required",
+      "type": "library",
+      "version": "6.16.2"
+    },
+    {
       "bom-ref": "pkg:pypi/pyproject-hooks@1.2.0",
       "hashes": [
         {
@@ -446,16 +471,16 @@
     "component": {
       "name": "japan-career-agent",
       "type": "application",
-      "version": "2.24.0"
+      "version": "2.25.0"
     },
     "properties": [
       {
         "name": "lock.sha256",
-        "value": "8f60ef47086233bbbc6603dc5fe8008a025d2b0f95c2f65eff95fbcdbfda62e1"
+        "value": "43f935bb2d495a3ea9e59c48fe5fe0e5d2e3ff30c609d509f24cea01a9e052f0"
       }
     ]
   },
-  "serialNumber": "urn:uuid:8f60ef47-0862-33bb-bc66-03dc5fe8008a",
+  "serialNumber": "urn:uuid:43f935bb-2d49-5a3e-a9e5-9c48fe5fe0e5",
   "specVersion": "1.5",
   "version": 1
 }

@@ -693,7 +693,7 @@ def _domain_detail_lines(payload: Mapping[str, Any], language: str) -> list[str]
         plan_id = payload.get("plan_id")
         status = payload.get("status")
         if plan_id and status:
-            lines.append(text(language, "section.execution_plan", id=plan_id, status=status))
+            lines.append(text(language, "section.execution_plan", id=plan_id, status=domain_label(language, "execution_plan_status", status)))
         if payload.get("goal"):
             lines.append(text(language, "section.plan_goal", goal=payload["goal"]))
         current = payload.get("current_step") if isinstance(payload.get("current_step"), Mapping) else None
@@ -728,7 +728,7 @@ def _domain_detail_lines(payload: Mapping[str, Any], language: str) -> list[str]
                     "- " + text(
                         language, "section.skill_invocation",
                         id=invocation.get("invocation_id"), skill=invocation.get("skill"),
-                        status=invocation.get("status"),
+                        status=domain_label(language, "skill_invocation_status", invocation.get("status")),
                     )
                 )
     elif mode == "readiness":
@@ -818,7 +818,7 @@ def _domain_detail_lines(payload: Mapping[str, Any], language: str) -> list[str]
             text(
                 language, "section.skill_invocation",
                 id=payload.get("invocation_id"), skill=payload.get("skill"),
-                status=payload.get("status"),
+                status=domain_label(language, "skill_invocation_status", payload.get("status")),
             )
         )
     return lines

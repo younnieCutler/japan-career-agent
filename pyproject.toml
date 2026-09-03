@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "japan-career-agent"
-version = "2.24.0"
+version = "2.25.0"
 description = "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions."
 readme = "README.md"
 license = "MIT"
@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
   "PyYAML>=6,<7",
   "jsonschema>=4.23,<5",
+  "pypdf>=6.16,<7",
 ]
 
 [project.urls]
