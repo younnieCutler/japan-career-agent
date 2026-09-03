@@ -29,6 +29,7 @@ jobs:
           python .github/fix_apply_anchor.py
           python .github/apply_file_import.py
           python .github/fix_localization_test.py
+          python .github/fix_release_heading.py
       - name: sync release copies and SBOM
         run: python scripts/sync_version.py
       - name: install locked Python dependencies
