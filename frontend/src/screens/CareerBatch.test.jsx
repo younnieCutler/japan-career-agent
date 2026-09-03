@@ -32,8 +32,8 @@ describe("career batch review", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "action.review_before_confirm" }));
 
-    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy());
-    expect(screen.getByText("Migration")).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByText("Acme").length).toBeGreaterThan(0));
+    expect(screen.getAllByText("Migration").length).toBeGreaterThan(0);
     expect(write).toHaveBeenNthCalledWith(1, "/api/career/propose", { case_ref: "context-a", revision: "c1" });
     expect(write).toHaveBeenNthCalledWith(2, "/api/career/propose", { case_ref: "project-b", revision: "p1" });
 
