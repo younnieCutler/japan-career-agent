@@ -111,6 +111,33 @@ class CareerImportTextTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(json.loads(body)["text"], "경력 요약")
 
+    def test_post_route_requires_csrf_even_with_a_valid_session(self):
+        with running_server() as server:
+            status, headers, _ = request(
+                server,
+                "POST",
+                "/session",
+                headers={"Content-Type": "application/json", "Origin": server.origin},
+                body=json.dumps({"token": server.bootstrap_token}),
+            )
+            self.assertEqual(status, 200)
+            cookie = headers["Set-Cookie"].split(";", 1)[0]
+            status, _, _ = request(
+                server,
+                "POST",
+                "/api/career/import-text",
+                headers={
+                    "Content-Type": "application/json",
+                    "Cookie": cookie,
+                    "Origin": server.origin,
+                },
+                body=json.dumps({
+                    "filename": "resume.txt",
+                    "content_base64": encoded(b"career history"),
+                }),
+            )
+            self.assertEqual(status, 403)
+
     def test_rejects_unsupported_empty_and_invalid_payloads(self):
         with self.assertRaises(ValueError):
             extract_career_text("resume.pages", encoded(b"content"))
