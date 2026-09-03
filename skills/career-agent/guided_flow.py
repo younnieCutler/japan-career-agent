@@ -21,7 +21,7 @@ from guided import (
     resolve_choice,
 )
 from lifecycle import restore_state
-from localization import action_label, normalize_language, text
+from localization import action_label, domain_label, normalize_language, text
 from models import CareerError, default_state, TRACKS
 from onboarding import complete_onboarding, setup
 from persistence import read_jsonl
@@ -29,9 +29,10 @@ from personal_timeline import project
 from projection import pipeline_file, workspace_path
 from proposals import list_proposals, run_chat
 from routing import language_for
+from sessions import create_session, save_draft
 from ux import error_payload
 from vault import CareerVault
-from views import status
+from views import readiness, status
 
 
 def _guided_workspace_fallback(
@@ -50,6 +51,17 @@ def _guided_workspace_fallback(
             "code": error.code if error and error.code else "WORKSPACE_NOT_FOUND",
             "message": str(error) if error else "workspace could not be resolved",
         } if error else None,
+    }
+
+
+def _capture_history_action(language: str) -> dict[str, Any]:
+    """The empty-vault shortcut uses the existing career-inventory workflow and no new schema."""
+    return {
+        "id": "capture_history",
+        "label": domain_label(language, "workflow", "career_inventory"),
+        "command": "workflow start --workflow career_inventory",
+        "operation_kind": "propose",
+        "requires_confirmation": True,
     }
 
 
@@ -95,9 +107,16 @@ def _guided_snapshot(
         personal_profile=personal_profile,
         status_error=status_error,
     )
+    bootstrap_suggested = bool(
+        initialized and readiness(home, as_of=as_of).get("bootstrap_suggested")
+    )
+    summary["bootstrap_suggested"] = bootstrap_suggested
+    actions = derive_actions(summary)
+    if bootstrap_suggested and summary.get("setup_complete") and not pending:
+        actions.insert(0, _capture_history_action(normalize_language(summary.get("language"))))
     return {
         "summary": summary,
-        "available_actions": derive_actions(summary),
+        "available_actions": actions,
         "state": guided_state(summary),
         "personal_profile": personal_profile,
     }
@@ -154,9 +173,35 @@ def _interactive_value(prompt: str) -> str | None:
     return value or None
 
 
+def _interactive_history(language: str) -> str | None:
+    """Collect pasted existing career text without pretending to parse facts from it."""
+    prompts = {
+        "ko": "기존 이력서·직무경력서·메모를 붙여넣으세요. 마지막에 . 만 입력해 끝냅니다.",
+        "ja": "履歴書・職務経歴書・メモを貼り付けてください。最後に . だけを入力して終了します。",
+        "en": "Paste resume, career-history, or notes text. Enter . on its own line to finish.",
+    }
+    print(prompts[normalize_language(language)])
+    lines: list[str] = []
+    while True:
+        try:
+            line = input()
+        except EOFError:
+            break
+        if line.strip() == ".":
+            break
+        lines.append(line.rstrip())
+    value = "\n".join(lines).strip()
+    return value or None
+
+
 def _interactive_confirmation(language: str, action: str) -> bool:
     """Ask for the write confirmation in the same TTY run instead of requiring a second command."""
-    answer = _interactive_value(f"{action_label(language, action)}? [y/N]: ")
+    label = (
+        domain_label(language, "workflow", "career_inventory")
+        if action == "capture_history"
+        else action_label(language, action)
+    )
+    answer = _interactive_value(f"{label}? [y/N]: ")
     return str(answer or "").casefold() in {
         "y", "yes", "confirm", "confirmed", "approve", "네", "예", "확인", "はい", "承認",
     }
@@ -247,6 +292,10 @@ def run_guided(
                     return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
                 if raw_year.isdigit() and len(raw_year) == 4:
                     selected_year = int(raw_year)
+    elif interactive and resolved == "capture_history" and selected_message is None:
+        selected_message = _interactive_history(prompt_language)
+        if selected_message is None:
+            return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
     elif interactive and resolved == "start_task" and selected_message is None:
         selected_message = _interactive_value(f"{action_label(prompt_language, 'start_task')}: ")
         if selected_message is None:
@@ -257,7 +306,9 @@ def run_guided(
             return _guided_selection(result, requested=requested, action=resolved, status_value="cancelled")
         selected_evidence = [source]
 
-    write_action = resolved in {"complete_setup", "start_task", "approve_proposal", "restore_state"}
+    write_action = resolved in {
+        "complete_setup", "capture_history", "start_task", "approve_proposal", "restore_state",
+    }
     effective_confirm = confirm
     if write_action and not effective_confirm and len(queue) > 1:
         confirmation = str(queue[1]).strip().casefold()
@@ -272,6 +323,7 @@ def run_guided(
     if write_action and not effective_confirm:
         command = {
             "complete_setup": "setup",
+            "capture_history": "guided --choice capture_history --message <career-text>",
             "start_task": "run --mode chat --message <message>",
             "approve_proposal": "approve <proposal_id>",
             "restore_state": "restore-state <version>",
@@ -314,6 +366,30 @@ def run_guided(
                 graduation_year=selected_year,
                 language=language,
             )
+        elif resolved == "capture_history":
+            if not selected_message:
+                return _guided_selection(
+                    result,
+                    requested=requested,
+                    action=resolved,
+                    status_value="blocked",
+                    error="career history capture needs user-provided text; nothing is inferred",
+                    next_command="guided --choice capture_history --message <career-text> --confirm",
+                )
+            session = create_session(
+                home,
+                workflow="career_inventory",
+                entrypoint="cli",
+                subject={},
+            )
+            action_result = save_draft(
+                home,
+                session["session_id"],
+                {"evidence": [selected_message]},
+                expected_revision=0,
+                entrypoint="cli",
+            )
+            action_result["project_required_before_review"] = True
         elif resolved == "approve_proposal":
             pending = list_proposals(home, include_all=False).get("proposals", [])
             selected_id = proposal_id or (pending[0].get("id") if len(pending) == 1 else None)

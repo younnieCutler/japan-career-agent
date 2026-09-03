@@ -153,6 +153,58 @@ class GuidedFrontendTests(unittest.TestCase):
             self.assertEqual(result["selection"]["status"], "cancelled")
             self.assertEqual(json.loads(run(vault, "status", cwd=work).stdout)["pending_proposals"], 0)
 
+    def test_empty_vault_leads_with_existing_history_capture(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vault = root / "vault"
+            work = root / "workspace"
+            work.mkdir()
+            self.assertEqual(run(vault, "setup", "--track", "chuto", cwd=work).returncode, 0)
+
+            menu = json.loads(run(vault, "guided", cwd=work).stdout)
+            self.assertTrue(menu["guided"]["summary"]["bootstrap_suggested"])
+            self.assertEqual(menu["guided"]["available_actions"][0]["id"], "capture_history")
+            self.assertIn(
+                "start_task",
+                [action["id"] for action in menu["guided"]["available_actions"]],
+            )
+
+    def test_existing_history_capture_stays_unplaced_and_non_canonical(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vault = root / "vault"
+            work = root / "workspace"
+            work.mkdir()
+            self.assertEqual(run(vault, "setup", "--track", "chuto", cwd=work).returncode, 0)
+            events_path = vault / "02-state" / "events.jsonl"
+            before = events_path.read_bytes() if events_path.exists() else b""
+
+            captured = run(
+                vault,
+                "guided",
+                "--choice",
+                "capture_history",
+                "--message",
+                "Legacy resume text\nBuilt internal tooling and supported releases.",
+                "--confirm",
+                cwd=work,
+            )
+            self.assertEqual(captured.returncode, 0, captured.stderr)
+            result = json.loads(captured.stdout)
+            self.assertEqual(result["selection"]["status"], "completed")
+            self.assertEqual(result["selection"]["action"], "capture_history")
+            self.assertEqual(result["action_result"]["session"]["workflow"], "career_inventory")
+            self.assertIsNone(result["action_result"]["session"]["case_ref"])
+            self.assertEqual(
+                result["action_result"]["draft"]["evidence"],
+                ["Legacy resume text\nBuilt internal tooling and supported releases."],
+            )
+            self.assertTrue(result["action_result"]["project_required_before_review"])
+            self.assertFalse(result["state_changed"])
+            self.assertTrue(result["guided"]["summary"]["bootstrap_suggested"])
+            after = events_path.read_bytes() if events_path.exists() else b""
+            self.assertEqual(before, after)
+
     def test_pending_approval_requires_confirmation_and_uses_canonical_gate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
