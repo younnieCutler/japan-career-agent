@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.24.0] - 2026-09-03
+
+- Make the local GUI start from what a job seeker already has instead of from internal hierarchy. An empty Vault can paste existing career material into an unassigned draft, experience capture can begin before a Project exists, and the application screen accepts a JD first. Company and position values are filled only from explicit labelled lines; free prose is never guessed into identity fields.
+- Reduce repeated input without weakening evidence controls. JD text can preselect up to three confirmed, externally usable experiences only when their visible text overlaps; experience, Context, and Project forms progressively reveal optional detail; and multiple ordinary Context/Project drafts can be reviewed from their server proposals and approved from one user action. Relationship-conflicted Projects are excluded, approval stops on the first failure, and no new canonical write path, schema, or backend batch transaction is introduced.
+
 ## [2.23.0] - 2026-09-03
 
 - Let an initialized but empty Vault start from existing career material instead of making the user create Context/Project structure first. `guided` now exposes the existing career-inventory workflow first when canonical `readiness.bootstrap_suggested` is true, stores pasted resume, career-history, or notes text only as an unplaced transient draft, and keeps review/approval blocked until that draft is connected to a confirmed project. No fact, context, project, or canonical event is inferred from the pasted text.
