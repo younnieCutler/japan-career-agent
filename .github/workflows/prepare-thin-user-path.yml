@@ -1,0 +1,64 @@
+name: prepare-thin-user-path
+
+on:
+  push:
+    branches: [ux/thin-user-path]
+    paths: [.github/workflows/prepare-thin-user-path.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: apply thin product changes
+        run: |
+          python scripts/apply_thin_user_path.py
+          python scripts/sync_version.py
+      - name: install locked verification dependencies
+        run: |
+          python -m pip install --quiet --require-hashes -r requirements.lock
+          python -m pip install --quiet --require-hashes -r requirements-dev.lock
+      - name: targeted runtime and vocabulary regressions
+        run: python skills/career-agent/test_domain_vocabulary.py
+      - name: frontend behavior and bundle
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: release metadata before freeze
+        run: |
+          python scripts/check_release_consistency.py
+          git diff --check
+      - name: freeze only product changes
+        run: |
+          git rm scripts/apply_thin_user_path.py .github/workflows/prepare-thin-user-path.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Thin job seeker path"
+          git diff --exit-code
+      - name: full clean-tree verification
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          python scripts/run_all_checks.py
+          python scripts/check_release_consistency.py
+          git diff --exit-code
+      - name: release install smoke
+        run: |
+          sha="$(git rev-parse HEAD)"
+          python scripts/build_release.py --output-dir release-smoke --expected-commit "$sha"
+          python scripts/test_release_install.py --bundle release-smoke
+      - name: push verified product tree
+        run: git push origin HEAD:ux/thin-user-path
