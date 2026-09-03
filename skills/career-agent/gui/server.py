@@ -12,6 +12,7 @@ from typing import Any
 import gui.artifacts as artifacts
 import gui.cases as cases
 import gui.judgments as judgment_api
+from gui.import_text import extract_career_text
 from gui.security import SESSION_COOKIE, SecurityState
 import gui.tanaoroshi as tanaoroshi
 from self_analysis import profile_payload, workflow_profile
@@ -319,6 +320,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/career/approve",
             "/api/career/organize",
             "/api/career/assign-project-context",
+            "/api/career/import-text",
             "/api/cases",
             "/api/cases/archive",
             "/api/cases/restore",
@@ -442,7 +444,8 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.NOT_FOUND, "not found")
             return
         try:
-            payload = self._json_body()
+            body_limit = 7 * 1024 * 1024 if path == "/api/career/import-text" else 131072
+            payload = self._json_body(limit=body_limit)
             if path in {"/api/tanaoroshi", "/api/workflows/start"}:
                 if path == "/api/tanaoroshi":
                     result = tanaoroshi.start(self.server.home, case_ref=payload.get("case_ref"))
@@ -496,6 +499,11 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                     expected_revision=payload.get("revision"),
                     entrypoint="gui",
                 )
+            elif path == "/api/career/import-text":
+                result = {
+                    "filename": str(payload["filename"]),
+                    "text": extract_career_text(payload["filename"], payload["content_base64"]),
+                }
             elif path == "/api/workflows/import-profile":
                 profile = workflow_profile(self.server.workspace)
                 result = save_draft(

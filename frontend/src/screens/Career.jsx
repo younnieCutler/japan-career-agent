@@ -119,10 +119,33 @@ function ExperienceLines({ items, labels }) {
 
 /* Existing material is useful before the user has recreated our hierarchy. Keep the pasted text
    as an unassigned workflow draft; nothing is inferred or written to the canonical ledger. */
+const fileAsBase64 = (file) => new Promise(function(onResolve, onReject) {
+  const reader = new globalThis.FileReader();
+  reader.onload = () => {
+    const value = String(reader.result || "");
+    onResolve(value.includes(",") ? value.split(",", 2)[1] : value);
+  };
+  reader.onerror = () => onReject(reader.error || new Error("file read failed"));
+  reader.readAsDataURL(file);
+});
+
 function ExistingHistoryCapture({ onError }) {
   const { t } = useI18n();
   const [body, setBody] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+
+  const importFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const imported = await write("/api/career/import-text", {
+        filename: file.name, content_base64: await fileAsBase64(file),
+      });
+      setBody(String(imported.text || ""));
+    } catch (error) { onError(error); }
+    finally { setBusy(false); event.target.value = ""; }
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -147,6 +170,15 @@ function ExistingHistoryCapture({ onError }) {
       <h3 className="record__section-title">{t("workflow.type.career_inventory")}</h3>
       <Text textStyle="t4Regular">{t("home.empty_title")}</Text>
       <form className="stack" onSubmit={submit}>
+        <Field label={t("career.import_file")} help={t("career.import_file_help")}>
+          <input
+            type="file"
+            accept=".txt,.docx,.pdf,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            aria-label={t("career.import_file")}
+            onChange={importFile}
+            disabled={busy}
+          />
+        </Field>
         <Field label={t("applications.document_body")}>
           <Block value={body} onChange={setBody} rows={8} />
         </Field>

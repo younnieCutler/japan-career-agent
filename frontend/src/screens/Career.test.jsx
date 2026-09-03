@@ -85,4 +85,25 @@ describe("job seeker action budget", () => {
     expect(write).toHaveBeenCalledWith("/api/workflows/start", { workflow: "career_inventory" });
     expect(navigate).toHaveBeenCalledWith("/work/session-experience");
   });
+
+  it("loads a local career file into the existing draft field without approving", async () => {
+    location.search = "?capture=1";
+    read.mockResolvedValue(emptyCareer);
+    write.mockResolvedValueOnce({ text: "Imported career history" });
+    const OriginalFileReader = globalThis.FileReader;
+    globalThis.FileReader = class {
+      readAsDataURL() { this.result = "data:text/plain;base64,SGVsbG8="; this.onload(); }
+    };
+    try {
+      render(<CareerScreen />);
+      const input = await screen.findByLabelText("career.import_file");
+      fireEvent.change(input, { target: { files: [new File(["Hello"], "resume.txt", { type: "text/plain" })] } });
+      await waitFor(() => expect(write).toHaveBeenCalledWith("/api/career/import-text", { filename: "resume.txt", content_base64: "SGVsbG8=" }));
+      expect(screen.getByLabelText("applications.document_body").value).toBe("Imported career history");
+      expect(navigate).not.toHaveBeenCalled();
+    } finally {
+      globalThis.FileReader = OriginalFileReader;
+    }
+  });
+
 });

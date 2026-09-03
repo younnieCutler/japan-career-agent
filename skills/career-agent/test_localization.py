@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
 sys.path.insert(0, str(SCRIPT.parent))
 from localization import SUPPORTED_LANGUAGES, UX_TEXT  # noqa: E402
+from ux import render_human  # noqa: E402
 
 
 def run(vault: Path, command: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -163,6 +164,28 @@ class LocalizationTests(unittest.TestCase):
             self.assertEqual(events_before, events.read_bytes() if events.exists() else b"")
             self.assertEqual(state_before, state.read_bytes())
 
+
+
+class HumanStatusLocalizationRegressionTests(unittest.TestCase):
+    def test_plan_status_is_localized(self):
+        payload = {"mode": "plan-status", "plan_id": "plan-1", "status": "running", "ux": {"language": "ko", "state": "ready"}}
+        ko = render_human(payload)
+        self.assertIn("실행 중", ko)
+        self.assertNotIn("running", ko)
+        payload["ux"]["language"] = "ja"
+        ja = render_human(payload)
+        self.assertIn("実行中", ja)
+        self.assertNotIn("running", ja)
+
+    def test_skill_status_is_localized(self):
+        payload = {"invocation_id": "skillinv-1", "skill": "career-agent", "execution": "deterministic", "status": "unsupported", "ux": {"language": "ko", "state": "blocked"}}
+        ko = render_human(payload)
+        self.assertIn("지원되지 않음", ko)
+        self.assertNotIn("unsupported", ko)
+        payload["ux"]["language"] = "ja"
+        ja = render_human(payload)
+        self.assertIn("未対応", ja)
+        self.assertNotIn("unsupported", ja)
 
 if __name__ == "__main__":
     unittest.main()

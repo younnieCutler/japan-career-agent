@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.25.0] - 2026-09-03
+
+- Add local TXT/DOCX/PDF import to the existing evidence-gated career capture flow.
+- Localize execution-plan and Skill-invocation statuses in Korean and Japanese human output.
+
 ## [2.24.0] - 2026-09-03
 
 - Make the local GUI start from what a job seeker already has instead of from internal hierarchy. An empty Vault can paste existing career material into an unassigned draft, experience capture can begin before a Project exists, and the application screen accepts a JD first. Company and position values are filled only from explicit labelled lines; free prose is never guessed into identity fields.
