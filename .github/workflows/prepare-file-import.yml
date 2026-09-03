@@ -49,6 +49,9 @@ jobs:
           python scripts/check_dependency_lock.py
           python scripts/check_release_consistency.py
           python scripts/sync_version.py --check
+      - name: remove temporary preparation scripts before product verification
+        run: |
+          rm -f .github/prepare_file_import.py .github/apply_file_import.py .github/fix_apply_anchor.py .github/fix_localization_test.py .github/fix_release_heading.py
       - name: repository verification matrix
         run: python scripts/run_all_checks.py
       - name: persist verified product changes
