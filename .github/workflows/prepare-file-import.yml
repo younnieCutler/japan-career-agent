@@ -50,18 +50,16 @@ jobs:
           python scripts/check_dependency_lock.py
           python scripts/check_release_consistency.py
           python scripts/sync_version.py --check
-      - name: remove temporary preparation scripts before product verification
-        run: |
-          rm -f .github/prepare_file_import.py .github/apply_file_import.py .github/fix_apply_anchor.py .github/fix_localization_test.py .github/fix_release_heading.py .github/fix_check_count.py
-      - name: repository verification matrix
-        run: python scripts/run_all_checks.py
-      - name: persist verified product changes
+      - name: freeze final product tree
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add pyproject.toml requirements.txt requirements.lock sbom.cdx.json CHANGELOG.md README.md README_ko.md README_ja.md docs/upgrading.md docs/upgrading_ko.md docs/upgrading_ja.md docs/MAINTAINER_RUNBOOK.md
-          git add .claude-plugin/plugin.json .codex-plugin/plugin.json packaging/npm/package.json
-          git add skills/career-agent/gui/import_text.py skills/career-agent/gui/test_import_text.py skills/career-agent/gui/server.py skills/career-agent/localization.py skills/career-agent/ux.py skills/career-agent/test_localization.py scripts/run_all_checks.py
-          git add frontend/src/screens/Career.jsx frontend/src/screens/Career.test.jsx skills/career-agent/gui/static/app/app.js skills/career-agent/gui/static/app/app.css
-          git diff --cached --quiet || git commit -m 'Prepare file import and localized statuses'
-          git push origin HEAD:ux/career-file-import-localization
+          rm -f .github/prepare_file_import.py .github/apply_file_import.py .github/fix_apply_anchor.py .github/fix_localization_test.py .github/fix_release_heading.py .github/fix_check_count.py
+          rm -f .github/workflows/prepare-file-import.yml
+          git add -A
+          git diff --cached --quiet || git commit -m 'Add local career file import and localized statuses'
+          test -z "$(git status --porcelain)"
+      - name: repository verification matrix
+        run: python scripts/run_all_checks.py
+      - name: push verified product tree
+        run: git push origin HEAD:ux/career-file-import-localization
