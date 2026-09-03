@@ -8,7 +8,9 @@ const { read, write, navigate, location } = vi.hoisted(() => ({
 
 vi.mock("../api.js", () => ({ read, write }));
 vi.mock("../App.jsx", () => ({ navigate, setSelection: vi.fn(), useLocation: () => location }));
-vi.mock("../i18n.jsx", () => ({ useI18n: () => ({ t: (key) => key, periodText: () => "" }) }));
+vi.mock("../i18n.jsx", () => ({
+  useI18n: () => ({ t: (key) => key, periodText: () => "", statusText: (value) => String(value) }),
+}));
 
 import CareerScreen, { ExperienceRevisionControl } from "./Career.jsx";
 
