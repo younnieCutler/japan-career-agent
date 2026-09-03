@@ -30,6 +30,7 @@ jobs:
           python .github/apply_file_import.py
           python .github/fix_localization_test.py
           python .github/fix_release_heading.py
+          python .github/fix_check_count.py
       - name: sync release copies and SBOM
         run: python scripts/sync_version.py
       - name: install locked Python dependencies
@@ -51,14 +52,14 @@ jobs:
           python scripts/sync_version.py --check
       - name: remove temporary preparation scripts before product verification
         run: |
-          rm -f .github/prepare_file_import.py .github/apply_file_import.py .github/fix_apply_anchor.py .github/fix_localization_test.py .github/fix_release_heading.py
+          rm -f .github/prepare_file_import.py .github/apply_file_import.py .github/fix_apply_anchor.py .github/fix_localization_test.py .github/fix_release_heading.py .github/fix_check_count.py
       - name: repository verification matrix
         run: python scripts/run_all_checks.py
       - name: persist verified product changes
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add pyproject.toml requirements.txt requirements.lock sbom.cdx.json CHANGELOG.md README.md README_ko.md README_ja.md docs/upgrading.md docs/upgrading_ko.md docs/upgrading_ja.md
+          git add pyproject.toml requirements.txt requirements.lock sbom.cdx.json CHANGELOG.md README.md README_ko.md README_ja.md docs/upgrading.md docs/upgrading_ko.md docs/upgrading_ja.md docs/MAINTAINER_RUNBOOK.md
           git add .claude-plugin/plugin.json .codex-plugin/plugin.json packaging/npm/package.json
           git add skills/career-agent/gui/import_text.py skills/career-agent/gui/test_import_text.py skills/career-agent/gui/server.py skills/career-agent/localization.py skills/career-agent/ux.py skills/career-agent/test_localization.py scripts/run_all_checks.py
           git add frontend/src/screens/Career.jsx frontend/src/screens/Career.test.jsx skills/career-agent/gui/static/app/app.js skills/career-agent/gui/static/app/app.css
