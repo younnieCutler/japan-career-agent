@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
@@ -16,6 +17,8 @@ SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
 sys.path.insert(0, str(SCRIPT.parent))
 import command_line  # noqa: E402
 from guided import build_summary, derive_actions, render_human, resolve_choice  # noqa: E402
+from guided_flow import run_guided  # noqa: E402
+from vault import CareerVault  # noqa: E402
 
 
 def run(vault: Path, *args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -113,6 +116,42 @@ class GuidedFrontendTests(unittest.TestCase):
             self.assertEqual(json.loads(cancelled.stdout)["selection"]["status"], "cancelled")
             after = events_path.read_bytes() if events_path.exists() else b""
             self.assertEqual(before, after)
+
+    def test_interactive_start_task_collects_message_and_confirmation_in_one_run(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vault = root / "vault"
+            work = root / "workspace"
+            work.mkdir()
+            self.assertEqual(run(vault, "setup", "--track", "chuto", cwd=work).returncode, 0)
+            with (
+                unittest.mock.patch("builtins.input", side_effect=["start_task", "prepare interview", "yes"]),
+                unittest.mock.patch.object(sys, "stdout", new=io.StringIO()),
+            ):
+                result = run_guided(
+                    CareerVault(vault), workspace=work, as_of="2026-09-03", interactive=True,
+                )
+            self.assertEqual(result["selection"]["status"], "completed")
+            self.assertEqual(result["selection"]["action"], "start_task")
+            self.assertEqual(result["action_result"]["proposal"]["status"], "pending")
+            self.assertEqual(result["guided"]["summary"]["pending_proposals"], 1)
+
+    def test_interactive_blank_task_cancels_without_creating_a_proposal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vault = root / "vault"
+            work = root / "workspace"
+            work.mkdir()
+            self.assertEqual(run(vault, "setup", "--track", "chuto", cwd=work).returncode, 0)
+            with (
+                unittest.mock.patch("builtins.input", side_effect=["start_task", ""]),
+                unittest.mock.patch.object(sys, "stdout", new=io.StringIO()),
+            ):
+                result = run_guided(
+                    CareerVault(vault), workspace=work, as_of="2026-09-03", interactive=True,
+                )
+            self.assertEqual(result["selection"]["status"], "cancelled")
+            self.assertEqual(json.loads(run(vault, "status", cwd=work).stdout)["pending_proposals"], 0)
 
     def test_pending_approval_requires_confirmation_and_uses_canonical_gate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
