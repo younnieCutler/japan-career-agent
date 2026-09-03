@@ -320,6 +320,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             "/api/career/approve",
             "/api/career/organize",
             "/api/career/assign-project-context",
+            "/api/career/import-text",
             "/api/cases",
             "/api/cases/archive",
             "/api/cases/restore",
