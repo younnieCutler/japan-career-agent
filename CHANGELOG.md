@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.22.0] - 2026-09-03
+
+- Let a person using interactive `guided` finish the selected action in the same terminal run. Missing task text, setup track/year, approval evidence, and write confirmation are prompted in place instead of returning a CLI recipe that requires a second invocation. Non-interactive JSON, plugin, and scripted callers keep the existing explicit argument/confirmation contract, and every write still goes through the same canonical approval and persistence gates.
+
 ## [2.21.0] - 2026-09-02
 
 - Add a deterministic, host-independent L0-L3 review policy and authenticated judgment API. Application judgments are always classified L3 by the server, phase writes stay append-only, the Host can record Agent assessment through the CLI without Python calling an LLM, and the browser withholds unresolved evidence references rather than presenting syntax as evidence.
@@ -468,7 +472,7 @@
 - Add the context an experience happened in. A context is a company, a university, a part-time
   shop, a club or a personal effort, and `kind` is the one required field beyond a label because it
   is the part a later reader cannot recover: an employer and a school are both plausible readings
-  of a bare name, and reading a university as an employer puts coursework in a 職務経歴書 as a job.
+  of a bare name, and reading a university as an employer puts coursework into a 職務経歴書 as a job.
   It is another type on the same ledger, so durability, the approval gate and append-only history
   come with it, and a context's current state is a projection over its events.
 - Record evidence about something that did not happen at a job. A seminar, a thesis, a club, a
