@@ -23,7 +23,22 @@ jobs:
         with:
           node-version: '22'
       - name: apply product changes
-        run: python scripts/prepare_npm_global_install.py
+        shell: bash
+        run: |
+          python scripts/prepare_npm_global_install.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('packaging/npm/README.md')
+          text = path.read_text(encoding='utf-8')
+          anchor = 'That is the normal installation path. The user does not need to install Python, uv, or pipx.\n'
+          replacement = (
+              anchor + '\nThe underlying product supports Python 3.11 or newer, while the npm path installs and owns its '\
+              'managed interpreter internally. No system Python is required.\n'
+          )
+          if anchor not in text:
+              raise SystemExit('npm README Python-version anchor changed')
+          path.write_text(text.replace(anchor, replacement, 1), encoding='utf-8', newline='\n')
+          PY
       - name: sync release copies
         run: python scripts/sync_version.py
       - name: install verification dependencies
