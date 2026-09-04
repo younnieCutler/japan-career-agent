@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.27.0] - 2026-09-04
+
+- Make `npm install -g japan-career-agent` the self-contained default install. npm now fetches a pinned uv 0.12.7 archive from the official immutable release, verifies its SHA-256 digest, and uses a package-private managed Python to install the exact matching PyPI runtime; users do not need to preinstall Python, uv, or pipx, and existing Python environments are not modified.
+- Make the installed npm command use only that private runtime, keep `npx` and direct uv/pipx paths as optional alternatives, and verify the real global-install contract in repository and post-publish smoke tests.
+
 ## [2.26.0] - 2026-09-04
 
 - Make the zero-argument command the thin default: prepare only an empty local record when needed and open the existing GUI. Explicit `ui` stays write-free and the full CLI remains available.

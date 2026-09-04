@@ -58,17 +58,17 @@ Not a hosted SaaS.
 
 ## Quick start
 
-Open the local GUI without installing the agent globally:
+Install once, then run the command:
 
 ```bash
-npx japan-career-agent
+npm install -g japan-career-agent
+japan-career-agent
 ```
 
-Already use uv instead of Node? `uvx japan-career-agent` opens the same GUI.
-
-On the first zero-argument launch, the tool prepares only the empty local career record the GUI
-needs. It does not infer, approve, or upload a career fact. Import or paste the history you already
-have, then confirm only what you want to keep.
+That is the complete end-user installation path. The npm package prepares its own private runtime;
+you do not need to install or configure Python, uv, or pipx. The first zero-argument launch prepares
+only the empty local career record the GUI needs. It does not infer, approve, or upload a career
+fact. Import or paste the history you already have, then confirm only what you want to keep.
 
 The explicit `setup`, `guided`, `ui`, and other CLI commands remain available for terminal or
 automation workflows. In a plugin host, use a normal request:
@@ -82,40 +82,36 @@ Review this 職務経歴書 without inventing evidence.
 
 ## Install
 
-### Run it once
+### Install once
 
-Both commands install and run the same Python program, then leave nothing on your PATH. Pick
-whichever runner you already have.
+The normal installation is intentionally two lines:
 
 ```bash
-npx japan-career-agent          # via npm
-uvx japan-career-agent          # via uv, or: pipx run japan-career-agent
+npm install -g japan-career-agent
+japan-career-agent
 ```
 
-`npx` is an entrypoint, not the runtime. It ships an installer and no product code: it locates `uv`
-or `pipx`, installs the matching PyPI release, and hands over. **The canonical runtime is Python**,
-and every entry point runs that same program against the same Career Vault.
+During `npm install`, the package downloads one pinned uv binary from uv's official immutable
+release, verifies its SHA-256 checksum, and uses it only inside the npm package to prepare a managed
+Python and the exact matching PyPI release. It does not write to system Python, global pip, or your
+Python environments. npm's own global command shim is the only PATH entry this installation needs.
 
-Python 3.11 or newer is required. `uv` downloads a matching interpreter by itself; `pipx` uses one
-that is already installed. With neither runner present, `npx` prints how to install one and changes
-nothing.
+**The canonical product runtime is still Python**. npm owns only installation and the command
+entrypoint; CLI, GUI, plugins, approval, and the Career Vault all reach the same Python package.
 
-### Keep it installed
+### One-off and direct alternatives
 
-To keep the tool available instead of downloading it each time:
+For a one-off npm run, or if you already manage Python tools yourself:
 
 ```bash
+npx japan-career-agent
+uvx japan-career-agent
 uv tool install japan-career-agent
-# or
 pipx install japan-career-agent
 ```
 
-Then the command is on your PATH, and the short name works too:
-
-```bash
-japan-career-agent
-career-agent status
-```
+`npx` uses the same self-contained npm package in its temporary cache. `uvx`, `uv tool`, and `pipx`
+are advanced direct-Python alternatives; they are not prerequisites for the global npm install.
 
 ### Enhanced integrations
 
@@ -137,7 +133,6 @@ recovery, readiness, JD evidence selection, the deterministic document gate and 
 work with no host installed; the plugin changes how you reach them, never what they say.
 [The capability matrix](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/CAPABILITY_MATRIX.md)
 lists which is which.
-
 ## What it can help with
 
 | Need | What you can do | Skill |

@@ -1,34 +1,43 @@
 # japan-career-agent (npm)
 
-Installer for [japan-career-agent](https://github.com/younnieCutler/japan-career-agent). This
-package contains no runtime: the agent is a Python program, and this command installs and runs the
-matching release from PyPI.
+Self-contained npm installer for [japan-career-agent](https://github.com/younnieCutler/japan-career-agent).
+
+```bash
+npm install -g japan-career-agent
+japan-career-agent
+```
+
+That is the normal installation path. The user does not need to install Python, uv, or pipx.
+
+The underlying product supports Python 3.11 or newer, while the npm path installs and owns its managed interpreter internally. No system Python is required.
+
+## What happens during install
+
+The npm package has no npm runtime dependencies. Its `postinstall` step:
+
+1. selects a pinned uv 0.12.7 archive for the current x64/arm64 macOS, Linux, or Windows platform;
+2. downloads it only from uv's official GitHub release and verifies the hard-coded SHA-256 digest;
+3. stores uv under this npm package's private `.runtime/` directory;
+4. uses that private uv with managed-Python-only settings to install the exact matching
+   `japan-career-agent` PyPI release into the same private runtime.
+
+It does not run a downloaded shell installer, use global pip, or modify an existing Python
+environment. npm's own global command shim is the only PATH entry created by the normal install.
+
+If npm lifecycle scripts were intentionally disabled, the first `japan-career-agent` invocation
+repairs the same private runtime before handing over.
+
+## One-off and direct alternatives
 
 ```bash
 npx japan-career-agent
-```
-
-Equivalent, without npm:
-
-```bash
 uvx japan-career-agent
+uv tool install japan-career-agent
+pipx install japan-career-agent
 ```
 
-## What it needs
-
-[uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/), to run the tool in its own
-environment rather than in a Python you depend on. If neither is present, the command explains how
-to install one and changes nothing.
-
-Python 3.11 or newer is required: `uv` downloads a matching interpreter by itself, `pipx` uses one
-that is already installed.
-
-## What it does not do
-
-- No `postinstall` hook. `npm install` runs nothing from this package.
-- No download, unpacking or checksum logic of its own; the only artefact fetched is the PyPI wheel,
-  verified by the installer that fetches it.
-- No version drift: the PyPI version installed always equals this package's version.
+`npx` uses the same self-contained npm package in its temporary cache. The uv/pipx commands are
+advanced direct-Python alternatives, not prerequisites.
 
 Career data stays on the machine. Nothing is uploaded.
 
