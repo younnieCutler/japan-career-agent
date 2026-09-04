@@ -40,20 +40,20 @@ HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.MULTILINE)
 HEADING_LEVEL = re.compile(r"^(#{2,6})\s+\S", re.MULTILINE)
 IN_PAGE_LINK = re.compile(r'href="#([^"]+)"')
 
-# The install order a reader meets first, in every language: run it once, keep it installed, add a
-# host if you already use one. Headings are translated, so the shape is checked by level sequence
-# and the commands by their own text -- a section added to one file alone is what this catches.
+# The landing-page path is deliberately thin: run the product first, then keep it installed or add
+# a host only if that is useful. Advanced setup/guided/ui commands remain documented below, but the
+# README may not force a setup subcommand back into the first-run path.
 INSTALL_ORDER = (
-    "npx japan-career-agent setup",
-    "uvx japan-career-agent setup",
+    "npx japan-career-agent",
+    "uvx japan-career-agent",
     "uv tool install japan-career-agent",
     "pipx install japan-career-agent",
     "claude plugin install japan-career-agent@japan-career-agent",
     "codex plugin add japan-career-agent@japan-career-agent",
 )
-# `init` was the documented first command through 2.1.x. It still exists, but a first run that
-# starts there leaves the user to discover `setup` on their own.
-FIRST_RUN_IS_SETUP = re.compile(r"(?:npx|uvx|pipx run) japan-career-agent init")
+# `init` was the documented first command through 2.1.x. It still exists, but is not the product's
+# first-run path.
+FIRST_RUN_IS_INIT = re.compile(r"(?:npx|uvx|pipx run) japan-career-agent init")
 
 
 def _anchor(heading: str) -> str:
@@ -73,8 +73,8 @@ def main() -> int:
         text = path.read_text(encoding="utf-8")
         structures[path.name] = HEADING_LEVEL.findall(text)
 
-        if FIRST_RUN_IS_SETUP.search(text):
-            errors.append(f"{path.name}: the first command shown is `init`; the first run is `setup`")
+        if FIRST_RUN_IS_INIT.search(text):
+            errors.append(f"{path.name}: the first command shown is `init`; the first run is zero-argument")
         position = -1
         for command in INSTALL_ORDER:
             found = text.find(command)
