@@ -8,12 +8,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = ROOT / "skills" / "career-agent"
 sys.path.insert(0, str(RUNTIME))
 
+import command_line  # noqa: E402
 from gui._test_client import client_source  # noqa: E402
 from guided import render_human as render_guided_human  # noqa: E402
 from localization import (  # noqa: E402
@@ -145,16 +147,18 @@ class DomainVocabularyTests(unittest.TestCase):
 
     def test_korean_and_japanese_human_copy_does_not_leak_internal_vocabulary(self) -> None:
         forbidden = (
-            "Unknown", "Conflict", "shinsotsu", "chuto", "needs_confirmation",
+            "unknown", "conflict", "shinsotsu", "chuto", "needs_confirmation",
             "profile.", "career-profile.toml", "--proposal-id", "proposal_id",
             "event_id", "artifact_id", "case_id", "ledger_written", "state_written",
-            "projection_written",
+            "projection_written", "career vault", "canonical", "evidence",
+            "proposal", "session",
         )
         for table in (GUI_TEXT, GUI_PRODUCT_TEXT, UX_TEXT):
             for language in ("ko", "ja"):
                 for key, value in table[language].items():
                     with self.subTest(language=language, key=key):
-                        self.assertFalse(any(token in value for token in forbidden), value)
+                        lowered = value.casefold()
+                        self.assertFalse(any(token in lowered for token in forbidden), value)
 
     def test_human_domain_details_hide_ids_and_raw_keys(self) -> None:
         cases = (
@@ -256,6 +260,46 @@ class DomainVocabularyTests(unittest.TestCase):
             self.assertEqual(json.loads(machine.stdout)["guided"]["summary"]["track"], "chuto")
             self.assertIn("경력채용", human.stdout)
             self.assertNotIn("chuto", human.stdout)
+
+
+class ThinEntrypointTests(unittest.TestCase):
+    def test_no_argument_launch_defaults_to_gui(self) -> None:
+        captured = {}
+
+        def fake_run(args, context):
+            captured["args"] = args
+            return {"ok": True}
+
+        with patch.object(command_line, "run_command", side_effect=fake_run), patch.object(
+            command_line, "_emit", return_value=0
+        ):
+            self.assertEqual(command_line.main([]), 0)
+        self.assertEqual(captured["args"].command, "ui")
+        self.assertTrue(captured["args"]._quickstart)
+
+    def test_quickstart_prepares_only_an_empty_local_record(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            vault = Path(directory) / "quickstart"
+            args = command_line.build_parser().parse_args(["ui", "--no-browser"])
+            args._quickstart = True
+            with patch("dispatch.DEFAULT_VAULT_PATH", vault), patch(
+                "gui.server.serve", return_value={"mode": "ui", "ok": True}
+            ):
+                command_line.run_command(args, {})
+            home = command_line.CareerVault(vault)
+            self.assertTrue(home.initialized())
+            self.assertFalse(home.events.exists())
+            self.assertFalse(home.proposals.exists())
+
+    def test_explicit_ui_keeps_its_write_free_start_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            vault = Path(directory) / "explicit-ui"
+            args = command_line.build_parser().parse_args(["ui", "--no-browser"])
+            with patch("dispatch.DEFAULT_VAULT_PATH", vault), patch(
+                "gui.server.serve", return_value={"mode": "ui", "ok": True}
+            ):
+                command_line.run_command(args, {})
+            self.assertFalse(vault.exists())
 
 
 if __name__ == "__main__":

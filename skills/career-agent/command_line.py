@@ -686,7 +686,11 @@ def main(argv: Iterable[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
     parser = build_parser()
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    quickstart = not raw_argv
+    args = parser.parse_args(raw_argv or ["ui"])
+    if quickstart:
+        args._quickstart = True
     context: dict[str, Any] = {}
     try:
         context["result"] = run_command(args, context)

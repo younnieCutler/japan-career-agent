@@ -261,6 +261,8 @@ def run_command(args: argparse.Namespace, context: dict[str, Any]) -> dict[str, 
         from gui.server import serve as serve_gui
 
         ui_vault = CareerVault(Path(args.vault).expanduser()) if args.vault else CareerVault(DEFAULT_VAULT_PATH)
+        if getattr(args, "_quickstart", False) and not ui_vault.initialized():
+            initialize_vault(ui_vault.path)
         try:
             return serve_gui(
                 port=args.port,

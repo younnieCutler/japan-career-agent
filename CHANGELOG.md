@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.26.0] - 2026-09-04
+
+- Make the zero-argument command the thin default: prepare only an empty local record when needed and open the existing GUI. Explicit `ui` stays write-free and the full CLI remains available.
+- Remove raw internal vocabulary from Korean/Japanese GUI copy and lock a three-company application scenario where reusable confirmed evidence keeps every application to JD paste plus submit.
+
 ## [2.25.0] - 2026-09-03
 
 - Add local TXT/DOCX/PDF import to the existing evidence-gated career capture flow.
