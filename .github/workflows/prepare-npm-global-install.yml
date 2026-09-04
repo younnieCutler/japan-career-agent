@@ -25,19 +25,29 @@ jobs:
       - name: apply product changes
         shell: bash
         run: |
+          set -euo pipefail
           python scripts/prepare_npm_global_install.py
           python - <<'PY'
           from pathlib import Path
-          path = Path('packaging/npm/README.md')
-          text = path.read_text(encoding='utf-8')
+
+          readme = Path('packaging/npm/README.md')
+          text = readme.read_text(encoding='utf-8')
           anchor = 'That is the normal installation path. The user does not need to install Python, uv, or pipx.\n'
           replacement = (
-              anchor + '\nThe underlying product supports Python 3.11 or newer, while the npm path installs and owns its '\
+              anchor + '\nThe underlying product supports Python 3.11 or newer, while the npm path installs and owns its '
               'managed interpreter internally. No system Python is required.\n'
           )
           if anchor not in text:
               raise SystemExit('npm README Python-version anchor changed')
-          path.write_text(text.replace(anchor, replacement, 1), encoding='utf-8', newline='\n')
+          readme.write_text(text.replace(anchor, replacement, 1), encoding='utf-8', newline='\n')
+
+          runtime = Path('packaging/npm/lib/runtime.js')
+          source = runtime.read_text(encoding='utf-8')
+          old = 'run(uv, ["tool", "install", "--force", "--python", "3.13", SPEC], {'
+          new = 'run(uv, ["tool", "install", "--force", "--managed-python", "--no-config", "--python", "3.13", SPEC], {'
+          if old not in source:
+              raise SystemExit('uv install invocation anchor changed')
+          runtime.write_text(source.replace(old, new, 1), encoding='utf-8', newline='\n')
           PY
       - name: sync release copies
         run: python scripts/sync_version.py
@@ -46,23 +56,76 @@ jobs:
           python -m pip install --quiet --require-hashes -r requirements.lock
           python -m pip install --quiet --require-hashes -r requirements-dev.lock
       - name: targeted npm and README contracts
-        run: |
-          node --check packaging/npm/lib/runtime.js
-          node --check packaging/npm/bin/cli.js
-          node --check packaging/npm/bin/install-runtime.js
-          python scripts/test_npm_bootstrapper.py
-          python scripts/check_readme_consistency.py
-          python scripts/check_release_consistency.py
-      - name: freeze product-only tree
         shell: bash
         run: |
           set -euo pipefail
-          git rm -f scripts/prepare_npm_global_install.py .github/workflows/prepare-npm-global-install.yml
+          node --check packaging/npm/lib/runtime.js
+          node --check packaging/npm/bin/cli.js
+          node --check packaging/npm/bin/install-runtime.js
+          grep -F -- '"--managed-python", "--no-config"' packaging/npm/lib/runtime.js
+          python scripts/test_npm_bootstrapper.py
+          python scripts/check_readme_consistency.py
+          python scripts/check_release_consistency.py
+      - name: create clean product branch from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PRODUCT_STAGE="$(mktemp -d)"
+          python - <<'PY'
+          import os
+          import shutil
+          import subprocess
+          from pathlib import Path
+
+          stage = Path(os.environ['PRODUCT_STAGE'])
+          changed = subprocess.check_output(
+              ['git', 'diff', '--name-only', 'origin/main'], text=True
+          ).splitlines()
+          excluded = {
+              '.github/workflows/prepare-npm-global-install.yml',
+              '.github/workflows/release.yml',
+              'scripts/prepare_npm_global_install.py',
+          }
+          kept = []
+          for name in changed:
+              if name in excluded or name.startswith('.github/workflows/'):
+                  continue
+              source = Path(name)
+              if not source.is_file():
+                  continue
+              target = stage / name
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(source, target)
+              kept.append(name)
+          (stage / '.product-files').write_text('\n'.join(kept) + '\n', encoding='utf-8')
+          print(f'staged {len(kept)} product files')
+          PY
+
+          git reset --hard origin/main
+          git clean -fdx
+          python - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+
+          stage = Path(os.environ['PRODUCT_STAGE'])
+          files = (stage / '.product-files').read_text(encoding='utf-8').splitlines()
+          for name in files:
+              source = stage / name
+              target = Path(name)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(source, target)
+          PY
+          git switch -C ux/npm-global-install-final
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git commit -m 'Self-contained npm global install'
           test -z "$(git status --porcelain)"
+          if git diff --name-only origin/main...HEAD | grep -q '^.github/workflows/'; then
+            echo 'refusing to push a final branch that changes workflows'
+            exit 1
+          fi
       - name: full clean-tree verification
         run: python scripts/run_all_checks.py
       - name: release install smoke
@@ -71,5 +134,5 @@ jobs:
           set -euo pipefail
           python scripts/build_release.py --output-dir release-smoke --expected-commit "$(git rev-parse HEAD)"
           python scripts/test_release_install.py --bundle release-smoke
-      - name: push verified product tree
-        run: git push origin HEAD:ux/npm-global-install
+      - name: push verified clean product branch
+        run: git push --force-with-lease origin HEAD:ux/npm-global-install-final
