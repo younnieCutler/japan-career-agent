@@ -41,6 +41,7 @@ jobs:
       - name: release metadata before freeze
         run: |
           python scripts/check_release_consistency.py
+          python scripts/check_readme_consistency.py
           git diff --check
       - name: freeze only product changes
         run: |
