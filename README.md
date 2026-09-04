@@ -58,20 +58,20 @@ Not a hosted SaaS.
 
 ## Quick start
 
-Nothing is installed. `npx` and `uvx` download, run, and discard.
+Open the local GUI without installing the agent globally:
 
 ```bash
-npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
-npx japan-career-agent guided    # record, then confirm, in one guided flow
+npx japan-career-agent
 ```
 
-`setup` creates your Career Vault. `guided` walks you through recording something, shows what it
-understood, and stores nothing until you say yes — it also reports what is confirmed and what is
-still `Unknown`, so no separate `status` call is needed here.
+Already use uv instead of Node? `uvx japan-career-agent` opens the same GUI.
 
-Swap `npx` for `uvx`, or drop the prefix once you have installed the tool. Same program either way.
+On the first zero-argument launch, the tool prepares only the empty local career record the GUI
+needs. It does not infer, approve, or upload a career fact. Import or paste the history you already
+have, then confirm only what you want to keep.
 
-In a plugin host, the same thing is a normal request:
+The explicit `setup`, `guided`, `ui`, and other CLI commands remain available for terminal or
+automation workflows. In a plugin host, use a normal request:
 
 ```text
 I want to start preparing for a job change in Japan.
@@ -79,9 +79,6 @@ Compare this JD with my experience and keep unconfirmed points as Unknown.
 Help me prepare for next week's interview.
 Review this 職務経歴書 without inventing evidence.
 ```
-
-You do not need to learn `proposal_id`, `CAREER_VAULT`, or `data/pipeline.yml` first. Those belong
-to the [local CLI workflow](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/cli-reference.md).
 
 ## Install
 
@@ -91,13 +88,9 @@ Both commands install and run the same Python program, then leave nothing on you
 whichever runner you already have.
 
 ```bash
-npx japan-career-agent setup    # via npm
-uvx japan-career-agent setup    # via uv, or: pipx run japan-career-agent setup
+npx japan-career-agent          # via npm
+uvx japan-career-agent          # via uv, or: pipx run japan-career-agent
 ```
-
-Run `setup` bare and it tells you which flags are still missing. The command it prints assumes
-`japan-career-agent` is on your PATH, which `npx` and `uvx` do not leave behind — put the same
-prefix back in front of it yourself.
 
 `npx` is an entrypoint, not the runtime. It ships an installer and no product code: it locates `uv`
 or `pipx`, installs the matching PyPI release, and hands over. **The canonical runtime is Python**,
@@ -120,7 +113,7 @@ pipx install japan-career-agent
 Then the command is on your PATH, and the short name works too:
 
 ```bash
-japan-career-agent setup
+japan-career-agent
 career-agent status
 ```
 

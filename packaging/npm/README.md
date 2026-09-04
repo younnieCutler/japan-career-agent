@@ -5,13 +5,13 @@ package contains no runtime: the agent is a Python program, and this command ins
 matching release from PyPI.
 
 ```bash
-npx japan-career-agent init
+npx japan-career-agent
 ```
 
 Equivalent, without npm:
 
 ```bash
-uvx japan-career-agent init
+uvx japan-career-agent
 ```
 
 ## What it needs

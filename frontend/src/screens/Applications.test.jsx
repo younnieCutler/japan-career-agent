@@ -124,6 +124,47 @@ describe("job seeker action budget", () => {
     });
     expect(onDone).toHaveBeenCalledOnce();
   });
+
+  it("keeps the second and third applications to one JD paste and one submit each", async () => {
+    const onDone = vi.fn();
+    write
+      .mockResolvedValueOnce({ case_id: "company-1" }).mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ case_id: "company-2" }).mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ case_id: "company-3" }).mockResolvedValueOnce({});
+    render(<AddPosition
+      payload={{
+        companies: [],
+        evidence_options: [
+          { refs: ["e-python"], label: "Python API migration", context: "Recent work", sharing: "available" },
+          { refs: ["e-aws"], label: "AWS operations", context: "Recent work", sharing: "available" },
+          { refs: ["e-k8s"], label: "Kubernetes rollout", context: "Recent work", sharing: "available" },
+        ],
+      }}
+      onDone={onDone}
+    />);
+
+    const add = async (jd, expectedCalls) => {
+      fireEvent.change(screen.getByLabelText("applications.jd"), { target: { value: jd } });
+      fireEvent.click(screen.getByRole("button", { name: "applications.add_position" }));
+      await waitFor(() => expect(write).toHaveBeenCalledTimes(expectedCalls));
+      await waitFor(() => expect(screen.getByLabelText("applications.jd").value).toBe(""));
+    };
+
+    await add("Company: Acme\nPosition: Platform Engineer\nPython API", 2);
+    await add("Company: Beta\nPosition: SRE\nAWS operations", 4);
+    await add("Company: Gamma\nPosition: Platform SRE\nKubernetes rollout", 6);
+
+    expect(write).toHaveBeenNthCalledWith(2, "/api/applications/positions", expect.objectContaining({
+      company_ref: "company-1", label: "Platform Engineer", evidence_refs: ["e-python"],
+    }));
+    expect(write).toHaveBeenNthCalledWith(4, "/api/applications/positions", expect.objectContaining({
+      company_ref: "company-2", label: "SRE", evidence_refs: ["e-aws"],
+    }));
+    expect(write).toHaveBeenNthCalledWith(6, "/api/applications/positions", expect.objectContaining({
+      company_ref: "company-3", label: "Platform SRE", evidence_refs: ["e-k8s"],
+    }));
+    expect(onDone).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe("document edit", () => {

@@ -55,21 +55,20 @@ Vault があるだけです。ホスティング型SaaSではありません。
 
 ## Quick Start
 
-導入は不要です。`npx` と `uvx` は取得して実行し、破棄します。
+ローカル GUI をグローバルインストールなしで開きます。
 
 ```bash
-npx japan-career-agent setup --track chuto --target-role "Platform Engineer"
-npx japan-career-agent guided    # 記録して確認するまでを一つの流れで
+npx japan-career-agent
 ```
 
-`setup` は Career Vault を作ります。`guided` はやってきた仕事を自分の言葉で伝えさせ、理解した内容
-を提示し、あなたが「はい」と言うまで何も保存しません。何が確定し、何がまだ `Unknown` かも表示
-するので、ここで別に `status` を呼ぶ必要はありません。
+Node ではなく uv を使っている場合は、`uvx japan-career-agent` で同じ GUI が開きます。
 
-`npx` は `uvx` に置き換えられます。導入済みなら接頭辞ごと外してください。どちらでも同じ
-プログラムです。
+引数なしで初めて起動すると、GUI に必要な空のローカル経歴記録だけを準備します。経歴の事実を
+推測・確定・アップロードすることはありません。手元の履歴書・職務経歴書を読み込むか貼り付け、
+残したい内容だけを自分で確定できます。
 
-plugin host では、普段の言葉で依頼するだけです。
+ターミナルや自動化が必要な場合は、既存の `setup`、`guided`、`ui` とその他の CLI コマンドを
+そのまま使えます。plugin host では普段の言葉で依頼するだけです。
 
 ```text
 日本での転職準備を始めたいです。
@@ -77,10 +76,6 @@ plugin host では、普段の言葉で依頼するだけです。
 来週の面接を準備したいです。
 この職務経歴書を、ない根拠を足さずにレビューしてください。
 ```
-
-最初から `proposal_id`、`CAREER_VAULT`、`data/pipeline.yml` を理解する必要はありません。
-[ローカル CLI workflow](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/cli-reference_ja.md)
-で必要になったときだけ使う概念です。
 
 ## インストール
 
@@ -90,13 +85,9 @@ plugin host では、普段の言葉で依頼するだけです。
 ある runner を選んでください。
 
 ```bash
-npx japan-career-agent setup    # npm 経由
-uvx japan-career-agent setup    # uv 経由、または: pipx run japan-career-agent setup
+npx japan-career-agent          # npm 経由
+uvx japan-career-agent          # uv 経由、または: pipx run japan-career-agent
 ```
-
-`setup` をそのまま実行すると、どのフラグが足りないかを返します。ただし表示される次のコマンドは
-`japan-career-agent` が PATH にある前提で書かれており、`npx` や `uvx` 経由の実行はそれを残しま
-せん。表示されたコマンドの前に、同じ接頭辞を自分で付け直してください。
 
 `npx` は runtime ではなく入口です。取得するのはインストーラだけで製品コードは含まれません。`uv`
 か `pipx` を見つけて同じバージョンの PyPI リリースを導入し、実行を委ねます。**canonical runtime は
@@ -118,7 +109,7 @@ pipx install japan-career-agent
 導入後はコマンドが PATH に入り、短い名前でも動きます。
 
 ```bash
-japan-career-agent setup
+japan-career-agent
 career-agent status
 ```
 
