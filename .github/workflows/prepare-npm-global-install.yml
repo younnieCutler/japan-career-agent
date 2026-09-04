@@ -78,9 +78,13 @@ jobs:
           from pathlib import Path
 
           stage = Path(os.environ['PRODUCT_STAGE'])
-          changed = subprocess.check_output(
+          tracked = subprocess.check_output(
               ['git', 'diff', '--name-only', 'origin/main'], text=True
           ).splitlines()
+          untracked = subprocess.check_output(
+              ['git', 'ls-files', '--others', '--exclude-standard'], text=True
+          ).splitlines()
+          changed = sorted(set(tracked + untracked))
           excluded = {
               '.github/workflows/prepare-npm-global-install.yml',
               '.github/workflows/release.yml',
