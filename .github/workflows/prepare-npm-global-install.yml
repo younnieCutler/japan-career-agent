@@ -1,0 +1,60 @@
+name: prepare-npm-global-install
+
+on:
+  push:
+    branches:
+      - ux/npm-global-install
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: apply product changes
+        run: python scripts/prepare_npm_global_install.py
+      - name: sync release copies
+        run: python scripts/sync_version.py
+      - name: install verification dependencies
+        run: |
+          python -m pip install --quiet --require-hashes -r requirements.lock
+          python -m pip install --quiet --require-hashes -r requirements-dev.lock
+      - name: targeted npm and README contracts
+        run: |
+          node --check packaging/npm/lib/runtime.js
+          node --check packaging/npm/bin/cli.js
+          node --check packaging/npm/bin/install-runtime.js
+          python scripts/test_npm_bootstrapper.py
+          python scripts/check_readme_consistency.py
+          python scripts/check_release_consistency.py
+      - name: freeze product-only tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f scripts/prepare_npm_global_install.py .github/workflows/prepare-npm-global-install.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'Self-contained npm global install'
+          test -z "$(git status --porcelain)"
+      - name: full clean-tree verification
+        run: python scripts/run_all_checks.py
+      - name: release install smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_release.py --output-dir release-smoke --expected-commit "$(git rev-parse HEAD)"
+          python scripts/test_release_install.py --bundle release-smoke
+      - name: push verified product tree
+        run: git push origin HEAD:ux/npm-global-install
