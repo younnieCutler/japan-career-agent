@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.28.0] - 2026-09-05
+
+- Extract the complete CLI argument contract from `command_line.py` into `cli_parser.py` while preserving `command_line.build_parser`, `runtime.build_parser`, command semantics, output projection, and process exit behavior.
+- Register `cli_parser` as a first-class CLI boundary in the executable architecture guard and move canonical `build_parser` ownership there, so application and GUI modules cannot depend on the extracted parser layer.
+
 ## [2.27.0] - 2026-09-04
 
 - Make `npm install -g japan-career-agent` the self-contained default install. npm now fetches a pinned uv 0.12.7 archive from the official immutable release, verifies its SHA-256 digest, and uses a package-private managed Python to install the exact matching PyPI runtime; users do not need to preinstall Python, uv, or pipx, and existing Python environments are not modified.
@@ -754,7 +759,7 @@
 ## [1.21.0] - 2026-08-08
 
 - Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
-  26. v1 stays readable and digest-pinned so its recorded results remain reproducible.
+  26. v1 stays readable and digest-pinned so their recorded results remain reproducible.
 - Rebalance the benchmark's languages. v1 was 66% Japanese, so a Korean or English regression was
   largely invisible; v2 is 76/43/41 across Japanese, Korean, and English, enforced by a test.
 - Double the axes that carry the safety contract rather than inflating uniformly — negation,
