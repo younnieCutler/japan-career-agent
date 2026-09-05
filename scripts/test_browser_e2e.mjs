@@ -316,8 +316,8 @@ async function main() {
     gui?.readline.close();
     await stopChild(chrome?.child);
     await stopChild(gui?.child);
-    if (chrome?.userDataDir) rmSync(chrome.userDataDir, { recursive: true, force: true, maxRetries: 3 });
-    rmSync(workDir, { recursive: true, force: true, maxRetries: 3 });
+    if (chrome?.userDataDir) rmSync(chrome.userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 
