@@ -40,9 +40,26 @@ jobs:
           python scripts/build_release.py --output-dir release-smoke --expected-commit "${{ github.sha }}"
           python scripts/test_release_install.py --bundle release-smoke
 
-  # The GUI bundle is committed so the wheel ships it and users never need Node. That only holds
-  # if the committed bundle is what the committed source builds, which nothing enforces on the
-  # author's machine. This job is the enforcement, and it is the only place Node is required.
+  # The process-level GUI E2E proves the server survives real process boundaries, but it stops at
+  # HTTP. This job crosses the remaining boundary: committed bundle -> real Chrome -> local server.
+  browser-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: install runtime deps
+        run: python -m pip install --quiet --require-hashes -r requirements.lock
+      - name: committed GUI bundle in a real browser
+        run: node scripts/test_browser_e2e.mjs
+
+  # The GUI bundle is committed so the wheel ships it and users never need Node. This job verifies
+  # that the committed bundle is exactly what the committed source builds; browser-e2e above uses
+  # Node only as a dependency-free Chrome DevTools Protocol driver for that committed bundle.
   frontend-bundle:
     runs-on: ubuntu-latest
     steps:
