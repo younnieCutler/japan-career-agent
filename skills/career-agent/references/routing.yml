@@ -108,7 +108,7 @@ message_context:
   - id: salary_negotiation
     skill: tenshoku-strategy
     reference: references/nenshu-koushou.md
-    terms: ["年収交渉", "給与交渉", "給与のレンジをどう交渉", "給与レンジを交渉", "報酬交渉", "待遇交渉", "salary negotiation", "salary talks", "negotiate salary", "compensation negotiation", "compensation talks", "negotiate compensation", "연봉 협상", "급여 협상", "보상 협상", "처우 협상"]
+    terms: ["年収交渉", "給与交渉", "給与のレンジ", "給与レンジ", "報酬交渉", "待遇交渉", "salary negotiation", "salary talks", "negotiate salary", "compensation negotiation", "compensation talks", "negotiate compensation", "연봉 협상", "급여 협상", "보상 협상", "처우 협상"]
   - id: interview_manner
     skill: tenshoku-strategy
     reference: references/mensetsu-manner.md
