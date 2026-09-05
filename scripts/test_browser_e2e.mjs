@@ -204,7 +204,10 @@ async function launchChrome() {
       `--user-data-dir=${userDataDir}`,
       "about:blank",
     ],
-    { stdio: ["ignore", "ignore", "pipe"] },
+    {
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "ignore", "pipe"],
+    },
   );
   let stderr = "";
   child.stderr.setEncoding("utf8");
@@ -218,10 +221,29 @@ async function launchChrome() {
   return { child, userDataDir, webSocketDebuggerUrl: page.webSocketDebuggerUrl, stderr: () => stderr };
 }
 
-async function stopChild(child) {
+async function stopChild(child, { processGroup = false } = {}) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
-  child.kill("SIGKILL");
+  try {
+    if (processGroup && process.platform !== "win32") process.kill(-child.pid, "SIGKILL");
+    else child.kill("SIGKILL");
+  } catch (error) {
+    if (error?.code !== "ESRCH") throw error;
+  }
   await Promise.race([once(child, "exit"), sleep(3_000)]);
+}
+
+async function removeTemp(path) {
+  if (!path) return;
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    try {
+      rmSync(path, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (!["EBUSY", "ENOTEMPTY", "EPERM"].includes(error?.code)) throw error;
+      if (attempt < 10) await sleep(attempt * 100);
+    }
+  }
+  console.warn(`browser E2E cleanup: could not remove temporary path ${path}`);
 }
 
 async function main() {
@@ -314,10 +336,10 @@ async function main() {
   } finally {
     cdp?.close();
     gui?.readline.close();
-    await stopChild(chrome?.child);
+    await stopChild(chrome?.child, { processGroup: true });
     await stopChild(gui?.child);
-    if (chrome?.userDataDir) rmSync(chrome.userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-    rmSync(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    await removeTemp(chrome?.userDataDir);
+    await removeTemp(workDir);
   }
 }
 
