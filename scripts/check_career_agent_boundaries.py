@@ -45,6 +45,7 @@ DOMAIN_MODULES = (
     "judgments",
     "review_policy",
     "dispatch",
+    "cli_parser",
     "command_line",
     "runtime",
     # GUI modules are included in the graph so a new cross-layer import cannot hide in a
@@ -69,10 +70,10 @@ TRANSITIONAL_RUNTIME_IMPORTERS = set()
 # than for size is deliberate: a line-count budget is satisfied by reformatting, while this fails
 # the moment a command's behaviour starts living in the facade again.
 FACADE_MODULE = "runtime"
-# The parser and the dispatcher sit above every owner. An owner reaching back up to either one
+# The parser and the dispatcher sit above every owner. An owner reaching back up to any CLI module
 # would mean a command could only be understood by reading the CLI, which is what the split was
 # for. `runtime` is exempt because re-exporting them is its entire job.
-CLI_MODULES = {"command_line", "dispatch"}
+CLI_MODULES = {"cli_parser", "command_line", "dispatch"}
 APPLICATION_MODULES = {
     "diagnostics", "onboarding", "ingest", "experiences",
     "documents", "views", "approvals", "guided_flow",
@@ -231,7 +232,7 @@ OWNED_SYMBOLS = {
     "SESSION_SCHEMA_VERSION": "sessions",
     "run_command": "dispatch",
     "run_private_command": "dispatch",
-    "build_parser": "command_line",
+    "build_parser": "cli_parser",
     "main": "command_line",
 }
 

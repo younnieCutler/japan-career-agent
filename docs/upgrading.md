@@ -6,7 +6,7 @@ The repository version can be ahead of the stable marketplace channel while a re
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
 follows `main`.
 
-Source metadata is `2.27.0` while the stable marketplace ref is `v2.1.1`, because the release
+Source metadata is `2.28.0` while the stable marketplace ref is `v2.1.1`, because the release
 workflow has not published a tag for this source yet. Installing from the marketplace therefore
 gives you `2.1.1` today, and the gap closes when the next tag is published.
 

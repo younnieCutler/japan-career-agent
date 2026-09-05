@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.28.0] - 2026-09-05
+
+- Extract the complete CLI argument contract from `command_line.py` into `cli_parser.py` while preserving `command_line.build_parser`, `runtime.build_parser`, command semantics, output projection, and process exit behavior.
+- Register `cli_parser` as a first-class CLI boundary in the executable architecture guard and move canonical `build_parser` ownership there, so application and GUI modules cannot depend on the extracted parser layer.
+
 ## [2.27.0] - 2026-09-04
 
 - Make `npm install -g japan-career-agent` the self-contained default install. npm now fetches a pinned uv 0.12.7 archive from the official immutable release, verifies its SHA-256 digest, and uses a package-private managed Python to install the exact matching PyPI runtime; users do not need to preinstall Python, uv, or pipx, and existing Python environments are not modified.

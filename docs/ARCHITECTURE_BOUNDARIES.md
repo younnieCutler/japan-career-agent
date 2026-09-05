@@ -12,7 +12,8 @@ schema migration.
 ```
 Entry            npx · uvx · pipx · installed CLI · Claude plugin · Codex plugin
                                     │
-Command line     command_line.py    │  the parser, and the one place a result becomes bytes
+Command line     cli_parser.py      │  command/argument contract only
+                 command_line.py    │  output projection and process exit behavior
                  dispatch.py        │  command → owner, and nothing else
                                     ▼
 Application      onboarding · diagnostics · views · experiences · documents
@@ -28,10 +29,10 @@ Local data       Career Vault · event ledger · judgment ledger · private stor
 ```
 
 The local GUI is a peer entrypoint, not a CLI frontend. `career-agent ui` has one directional
-bridge in `dispatch.py` to `gui.server`; GUI modules do not import `command_line`, `dispatch`,
-`runtime`, or domain modules directly. `gui.templates` is the application-owned adapter that
-reuses the domain renderer's escaped slots. This keeps the browser surface from becoming a second
-canonical writer or a hidden CLI dependency.
+bridge in `dispatch.py` to `gui.server`; GUI modules do not import `cli_parser`, `command_line`,
+`dispatch`, `runtime`, or domain modules directly. `gui.templates` is the application-owned adapter
+that reuses the domain renderer's escaped slots. This keeps the browser surface from becoming a
+second canonical writer or a hidden CLI dependency.
 
 `sessions.py` is the shared APPLICATION owner for resumable workflow state. `gui.tanaoroshi.py`
 translates semantic form actions into that owner; it does not own the files. A draft or checkpoint
@@ -80,8 +81,8 @@ rather than by counting lines — a size budget is satisfied by reformatting, th
 known to fail and not merely known to pass.
 
 **3. No owner imports the CLI layer.** An application module that reached back up into
-`command_line` or `dispatch` would mean a command could only be understood by reading the parser,
-which is the thing the split was for.
+`cli_parser`, `command_line`, or `dispatch` would mean a command could only be understood by reading
+the parser or execution boundary, which is the thing the split was for.
 
 **4. `models` and `validation` are pure.** No `os`, `pathlib`, `tempfile`, `tomllib`, `yaml`,
 `pipeline_store` or `self_analysis_profile`, and no module-level I/O. They are the contract every
@@ -137,13 +138,17 @@ Four bindings outside this package depend on it:
 | `career_agent.{pipeline_file, PIPELINE_STAGE, upsert_pipeline_entry, select_context}` | `scripts/test_policy.py` |
 | `career_agent.os` | `skills/career-agent/test_state_durability.py`, which patches `os.replace` and `os.fsync` to inject write failures |
 
+`command_line.build_parser` remains a compatibility re-export of the canonical
+`cli_parser.build_parser`; `runtime.build_parser` therefore keeps resolving without giving
+`command_line.py` parser ownership again.
+
 `career_agent.py` aliases the runtime into `sys.modules`, so `import career_agent` returns the same
 module object.
 
 ## Adding a command
 
 1. Write the function in the owner module for its area, or add an owner module if none fits.
-2. Add the subparser to `command_line.build_parser`.
+2. Add the subparser to `cli_parser.build_parser`.
 3. Add one branch to `dispatch._run_vault_command`, or to `run_command` if it must work before a
    Vault exists.
 4. Add the symbol to `OWNED_SYMBOLS` and, if the module is new, to `DOMAIN_MODULES` and

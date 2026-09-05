@@ -29,10 +29,15 @@ class CareerAgentBoundaryTests(unittest.TestCase):
         self.assertEqual(boundaries.OWNED_SYMBOLS["language_for"], "routing")
         self.assertEqual(boundaries.OWNED_SYMBOLS["approve"], "lifecycle")
         self.assertEqual(boundaries.OWNED_SYMBOLS["upsert_pipeline_entry"], "projection")
-        self.assertEqual(boundaries.OWNED_SYMBOLS["build_parser"], "command_line")
+        self.assertEqual(boundaries.OWNED_SYMBOLS["build_parser"], "cli_parser")
         self.assertEqual(boundaries.OWNED_SYMBOLS["doctor"], "diagnostics")
         self.assertEqual(boundaries.OWNED_SYMBOLS["readiness"], "views")
         self.assertTrue(boundaries._is_thin_facade(boundaries._module_tree("approvals"), "approve"))
+
+    def test_cli_parser_is_a_declared_cli_boundary(self) -> None:
+        self.assertIn("cli_parser", boundaries.DOMAIN_MODULES)
+        self.assertIn("cli_parser", boundaries.CLI_MODULES)
+        self.assertNotIn("cli_parser", boundaries.APPLICATION_MODULES)
 
     def test_gui_modules_are_declared_and_keep_the_entrypoint_direction(self) -> None:
         gui_modules = getattr(boundaries, "GUI_MODULES", set())
