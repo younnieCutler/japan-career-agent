@@ -13,7 +13,7 @@ import json
 import sys
 from typing import Any, Iterable, Mapping
 
-from cli_parser import _default_output_format, build_parser
+from cli_parser import _default_output_format, build_parser  # noqa: F401 -- compatibility surface
 from dispatch import run_command
 from guided import render_human as render_guided_human
 from localization import normalize_language
