@@ -123,7 +123,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "4653bffbd6584f7de83a67e0d620ef16900b390ddc7939d56684d6c81e33f1af"
+          "content": "4653bffbd6584f7de96d8ffa0eb5c158b3beafce084968e2ea8bb08c6794dcd0"
         }
       ],
       "licenses": [
@@ -471,7 +471,7 @@
     "component": {
       "name": "japan-career-agent",
       "type": "application",
-      "version": "2.27.0"
+      "version": "2.28.0"
     },
     "properties": [
       {
