@@ -54,11 +54,21 @@ class GuiProcessE2ETests(unittest.TestCase):
         initialize_vault(self.vault)
         self.processes: list[subprocess.Popen[str]] = []
 
+    @staticmethod
+    def _stop_process(process: subprocess.Popen[str]) -> None:
+        if process.poll() is None:
+            process.kill()
+        try:
+            process.wait(timeout=3)
+        finally:
+            if process.stdout is not None:
+                process.stdout.close()
+            if process.stderr is not None:
+                process.stderr.close()
+
     def tearDown(self) -> None:
         for process in self.processes:
-            if process.poll() is None:
-                process.kill()
-                process.wait(timeout=3)
+            self._stop_process(process)
         self.tempdir.cleanup()
 
     def launch(self) -> tuple[subprocess.Popen[str], str, int, str]:
@@ -92,10 +102,11 @@ class GuiProcessE2ETests(unittest.TestCase):
         try:
             line = lines.get(timeout=5).strip()
         except queue.Empty:
-            process.kill()
+            self._stop_process(process)
             raise AssertionError("GUI process did not announce a loopback URL")
         if not line:
             stderr = process.stderr.read() if process.stderr is not None else ""
+            self._stop_process(process)
             if "GUI_START_FAILED" in stderr:
                 if os.environ.get("CI", "").casefold() == "true":
                     raise AssertionError("loopback bind unavailable in CI")
@@ -142,8 +153,7 @@ class GuiProcessE2ETests(unittest.TestCase):
         )
         self.assertEqual(status, 200, raw)
 
-        first.kill()
-        first.wait(timeout=3)
+        self._stop_process(first)
         second, host, port, token = self.launch()
         status, headers, raw = request(host, port, "POST", "/session", body={"token": token})
         self.assertEqual(status, 200, raw)
