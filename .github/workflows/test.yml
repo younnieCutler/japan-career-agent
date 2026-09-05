@@ -57,9 +57,9 @@ jobs:
       - name: committed GUI bundle in a real browser
         run: node scripts/test_browser_e2e.mjs
 
-  # The GUI bundle is committed so the wheel ships it and users never need Node. That only holds
-  # if the committed bundle is what the committed source builds, which nothing enforces on the
-  # author's machine. This job is the enforcement, and it is the only place Node is required.
+  # The GUI bundle is committed so the wheel ships it and users never need Node. This job verifies
+  # that the committed bundle is exactly what the committed source builds; browser-e2e above uses
+  # Node only as a dependency-free Chrome DevTools Protocol driver for that committed bundle.
   frontend-bundle:
     runs-on: ubuntu-latest
     steps:
