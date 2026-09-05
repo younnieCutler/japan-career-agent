@@ -54,17 +54,17 @@
 
 ## Quick Start
 
-로컬 GUI를 전역 설치 없이 바로 엽니다.
+한 번 설치한 뒤 실행하면 됩니다.
 
 ```bash
-npx japan-career-agent
+npm install -g japan-career-agent
+japan-career-agent
 ```
 
-Node 대신 uv를 쓰고 있다면 `uvx japan-career-agent`를 실행하면 같은 GUI가 열립니다.
-
-인자 없이 처음 실행할 때는 GUI에 필요한 빈 로컬 경력 기록만 준비합니다. 경력 사실을 추정하거나
-확정하거나 업로드하지 않습니다. 기존 이력서·職務経歴書를 가져오거나 붙여넣고, 남길 내용만 직접
-확정하면 됩니다.
+사용자가 준비할 것은 여기까지입니다. npm 패키지가 자기 전용 runtime을 내부에서 준비하므로 Python,
+uv, pipx를 따로 설치하거나 설정할 필요가 없습니다. 인자 없이 처음 실행할 때는 GUI에 필요한 빈 로컬
+경력 기록만 준비하며, 경력 사실을 추정·확정·업로드하지 않습니다. 기존 이력서·職務経歴書를 가져오거나
+붙여넣고 남길 내용만 직접 확정하면 됩니다.
 
 터미널이나 자동화가 필요하면 기존 `setup`, `guided`, `ui`와 나머지 CLI 명령을 그대로 쓸 수 있습니다.
 plugin host에서는 평소 말하듯 요청하면 됩니다.
@@ -78,39 +78,36 @@ plugin host에서는 평소 말하듯 요청하면 됩니다.
 
 ## 설치
 
-### 한 번만 실행하기
+### 한 번 설치하기
 
-두 명령은 같은 Python 프로그램을 설치해 실행하고, PATH에는 아무것도 남기지 않습니다. 이미 갖고
-있는 runner를 쓰세요.
+일반 사용자의 설치 경로는 의도적으로 두 줄입니다.
 
 ```bash
-npx japan-career-agent          # npm 경유
-uvx japan-career-agent          # uv 경유, 또는: pipx run japan-career-agent
+npm install -g japan-career-agent
+japan-career-agent
 ```
 
-`npx`는 runtime이 아니라 진입점입니다. 받는 것은 설치기뿐이고 제품 코드는 들어 있지 않습니다.
-`uv`나 `pipx`를 찾아 해당 버전의 PyPI 릴리스를 설치한 뒤 실행을 넘깁니다. **canonical runtime은
-Python**이며, 어느 진입점으로 들어와도 같은 프로그램이 같은 Career Vault를 다룹니다.
+`npm install` 중 패키지는 uv의 공식 immutable release에서 고정된 uv 바이너리 하나만 내려받고
+SHA-256을 검증합니다. 그 uv는 npm 패키지 내부에서만 managed Python과 동일 버전의 PyPI
+`japan-career-agent`를 준비합니다. 시스템 Python, global pip, 기존 Python 환경은 변경하지 않습니다.
+PATH에 추가되는 것은 npm이 만드는 `japan-career-agent` 명령뿐입니다.
 
-Python 3.11 이상이 필요합니다. `uv`는 맞는 interpreter를 직접 내려받고, `pipx`는 이미 설치된
-Python을 씁니다. 둘 다 없으면 `npx`는 설치 방법을 안내하고 아무것도 바꾸지 않습니다.
+**canonical 제품 runtime은 계속 Python**입니다. npm은 설치와 진입점만 담당하며 CLI, GUI, plugin,
+승인 경계와 Career Vault는 모두 같은 Python 패키지에 도달합니다.
 
-### 설치해서 계속 쓰기
+### 일회성 실행과 직접 설치 대안
 
-매번 내려받는 대신 손에 남겨두고 쓰려면 설치하세요.
+한 번만 실행하거나 Python 도구를 직접 관리하고 싶다면 다음 경로도 유지됩니다.
 
 ```bash
+npx japan-career-agent
+uvx japan-career-agent
 uv tool install japan-career-agent
-# 또는
 pipx install japan-career-agent
 ```
 
-설치하면 명령이 PATH에 올라가고, 짧은 이름도 동작합니다.
-
-```bash
-japan-career-agent
-career-agent status
-```
+`npx`는 임시 npm cache 안에서 같은 self-contained 패키지를 사용합니다. `uvx`, `uv tool`, `pipx`는
+고급 사용자를 위한 direct-Python 대안일 뿐, global npm 설치의 사전 요구사항이 아닙니다.
 
 ### 추가로 쓸 수 있는 통합
 
@@ -132,7 +129,6 @@ JD별 근거 선택, 결정적 문서 게이트, HTML 생성은 모두 host 없�
 도달하는 방식이지 답의 내용이 아닙니다. 어느 쪽이 어느 쪽인지는
 [capability matrix](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/CAPABILITY_MATRIX.md)에
 정리돼 있습니다.
-
 ## 할 수 있는 일
 
 | 필요한 것 | 사용자 관점의 작업 | Skill |

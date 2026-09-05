@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
-"""Hold the npm bootstrapper to the two promises that make it safe to publish.
-
-The npm package is an installer, so the interesting failures are not functional. They are: it grew
-a hook that runs code at `npm install` time, or its version drifted away from the release, so
-`npx japan-career-agent@X` quietly installs something other than X. Both are invisible in a passing
-smoke test and both are caught here.
-
-Node is already a repository test dependency (`skills/jiko-bunseki/tests/test_checklist_runtime.js`),
-so the script is executed rather than only read.
-"""
+"""Hold the npm package to the self-contained global-install contract."""
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -26,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NPM_DIR = ROOT / "packaging" / "npm"
 PACKAGE_JSON = NPM_DIR / "package.json"
 CLI = NPM_DIR / "bin" / "cli.js"
+RUNTIME = NPM_DIR / "lib" / "runtime.js"
 INSTALL_TIME_HOOKS = ("preinstall", "install", "postinstall", "preuninstall", "postuninstall", "prepare")
 
 
@@ -37,30 +30,27 @@ def _release_version() -> str:
     return json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
 
 
-def _isolated_env(path_dir: str, home: str) -> dict[str, str]:
-    """A PATH holding only what the test planted, while Node still has what it needs to start.
-
-    `SystemRoot` is not optional on Windows — a process started without it fails before reaching
-    any of the behaviour under test, which would look like the bootstrapper failing correctly.
-    """
-    environment = {"PATH": path_dir, "HOME": home}
-    for inherited in ("SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "COMSPEC", "PATHEXT"):
-        value = os.environ.get(inherited)
-        if value is not None:
-            environment[inherited] = value
-    return environment
-
-
 class NpmBootstrapperContractTests(unittest.TestCase):
-    def test_declares_no_install_time_hook(self) -> None:
+    def test_only_install_hook_prepares_the_private_runtime(self) -> None:
         scripts = _package().get("scripts", {})
-        present = sorted(name for name in INSTALL_TIME_HOOKS if name in scripts)
-        self.assertEqual(present, [], f"npm package must not run code at install time: {present}")
+        present = {name: scripts[name] for name in INSTALL_TIME_HOOKS if name in scripts}
+        self.assertEqual(present, {"postinstall": "node bin/install-runtime.js"})
 
-    def test_ships_only_the_installer(self) -> None:
+    def test_ships_only_bootstrap_code_not_generated_runtime(self) -> None:
         package = _package()
-        self.assertEqual(sorted(package["files"]), ["README.md", "bin/cli.js"])
+        self.assertEqual(
+            sorted(package["files"]),
+            [
+                "README.md",
+                "THIRD_PARTY_NOTICES.md",
+                "bin/cli.js",
+                "bin/install-runtime.js",
+                "lib/runtime.js",
+            ],
+        )
         self.assertEqual(package["bin"], {"japan-career-agent": "bin/cli.js"})
+        self.assertNotIn(".runtime", package["files"])
+        self.assertEqual(package.get("dependencies", {}), {})
 
     def test_version_matches_the_release(self) -> None:
         self.assertEqual(_package()["version"], _release_version())
@@ -70,149 +60,116 @@ class NpmBootstrapperContractTests(unittest.TestCase):
         self.assertEqual(package["name"], "japan-career-agent")
         self.assertEqual(package["license"], "MIT")
 
-    @unittest.skipIf(shutil.which("node") is None, "node is not available")
-    def test_fails_with_instructions_when_no_runner_exists(self) -> None:
-        """With an empty PATH there is no uv and no pipx, which is a first run on a fresh machine.
+    def test_private_runtime_is_pinned_and_checksum_guarded(self) -> None:
+        source = RUNTIME.read_text(encoding="utf-8")
+        self.assertIn('const UV_VERSION = "0.12.7";', source)
+        self.assertNotIn("/latest/", source)
+        self.assertNotIn("pipx", source)
+        self.assertNotIn("pip install", source)
+        self.assertGreaterEqual(len(set(re.findall(r'[0-9a-f]{64}', source))), 8)
+        self.assertIn("checksum mismatch", source)
+        self.assertIn("UV_MANAGED_PYTHON", source)
+        self.assertIn("UV_TOOL_DIR", source)
+        self.assertIn("UV_PYTHON_INSTALL_DIR", source)
 
-        The requirement is that it says what to install and states that nothing was changed — an
-        unexplained non-zero exit here is the difference between a user installing uv and a user
-        concluding the tool is broken.
-        """
-        with tempfile.TemporaryDirectory(prefix="japan-career-npm-") as temporary:
-            result = subprocess.run(
-                [shutil.which("node"), str(CLI), "doctor"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                cwd=temporary,
-                env=_isolated_env(temporary, temporary),
-                check=False,
-            )
-        self.assertEqual(result.returncode, 1)
-        message = result.stderr
-        self.assertIn("uv", message)
-        self.assertIn("pipx", message)
-        self.assertIn("Nothing was installed", message)
-
-    @unittest.skipIf(shutil.which("node") is None, "node is not available")
-    @unittest.skipIf(
-        sys.platform == "win32",
-        # Since the CVE-2024-27980 fix, Node refuses to spawn a .cmd or .bat without `shell: true`,
-        # and a stub runner on Windows can only be one of those. The behaviour under test is
-        # platform-independent JavaScript, and the real runners there are uv.exe and pipx.exe,
-        # which spawn normally — so what is lost is the stub, not the guarantee.
-        "a stub runner on Windows would have to be a .cmd, which Node will not spawn without a shell",
-    )
-    def test_forwards_arguments_and_exit_code_to_the_runner(self) -> None:
-        """A stub `uv` on PATH stands in for the real one so the hand-off itself is observable.
-
-        This is the part that cannot be read off the source with confidence: that the arguments the
-        user typed arrive after the package spec, and that the runner's exit code is what npx
-        reports rather than a zero from the wrapper.
-        """
-        with tempfile.TemporaryDirectory(prefix="japan-career-npm-stub-") as temporary:
-            stub_dir = Path(temporary)
-            recorded = stub_dir / "argv.txt"
-            stub = stub_dir / "uv"
-            stub.write_text(
-                "#!/bin/sh\n"
-                'if [ "$1" = "--version" ]; then echo "uv 0.0.0-stub"; exit 0; fi\n'
-                f'printf "%s\\n" "$@" > "{recorded}"\n'
-                "exit 42\n",
-                encoding="utf-8",
-            )
-            stub.chmod(0o755)
-            result = subprocess.run(
-                [shutil.which("node"), str(CLI), "doctor", "--format", "json"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                cwd=temporary,
-                env=_isolated_env(str(stub_dir), temporary),
-                check=False,
-            )
-            self.assertEqual(result.returncode, 42, result.stderr)
-            forwarded = recorded.read_text(encoding="utf-8")
-        self.assertIn(f"japan-career-agent=={_release_version()}", forwarded)
-        self.assertIn("doctor", forwarded)
-        self.assertIn("--format", forwarded)
+    def test_launcher_uses_only_the_private_runtime(self) -> None:
+        source = CLI.read_text(encoding="utf-8")
+        self.assertIn("ensureRuntime", source)
+        self.assertNotIn("pipx", source)
+        self.assertNotIn("isAvailable", source)
+        self.assertNotIn("RUNNERS", source)
 
     @unittest.skipIf(shutil.which("npm") is None, "npm is not available")
     @unittest.skipIf(
         sys.platform == "win32",
-        "the shim is a .cmd on Windows and the stub runner cannot be one",
+        "the local no-network fixture uses a POSIX shell stub; Windows is covered by the repository CI contracts",
     )
-    def test_npm_installs_a_working_command(self) -> None:
-        """Install the package the way a user does, then run the shim npm created.
+    def test_global_npm_install_needs_no_preinstalled_python_runner(self) -> None:
+        """Install exactly as a user does, with a fake private uv replacing network access.
 
-        Reading `bin` out of package.json says what the manifest claims. It does not say that npm
-        produced a runnable command — a dropped shebang leaves the manifest correct and `npx`
-        broken — nor that the real shim forwards arguments and the exit code, which is all a user
-        ever touches.
-
-        The install goes through `npm pack` rather than the source directory, so what is installed
-        is the tarball a registry would serve. (`files` cannot hide the entry point: npm
-        force-includes whatever `bin` points at. The declarative test above guards the other
-        direction, that nothing extra ships.) The package has no dependencies, so nothing comes
-        from the network.
+        The fake uv only implements `uv tool install`; if the npm launcher still probes PATH for uv,
+        pipx, or Python this test cannot pass. The generated Python launcher exits 42 so argument and
+        exit-code forwarding are observable through npm's global shim.
         """
-        with tempfile.TemporaryDirectory(prefix="japan-career-npm-install-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="japan-career-npm-global-") as temporary:
             root = Path(temporary)
-            npm_environment = dict(os.environ)
-            # npm writes diagnostic logs to its cache even for an offline local tarball. Keeping
-            # that cache inside this fixture makes the smoke test independent of a writable home.
-            npm_environment["npm_config_cache"] = str(root / "npm-cache")
-            stub_dir = root / "stub"
-            stub_dir.mkdir()
-            stub = stub_dir / "uv"
+            prefix = root / "prefix"
+            cache = root / "npm-cache"
+            stub = root / "uv"
+            recorded = root / "argv.txt"
             stub.write_text(
                 "#!/bin/sh\n"
-                'if [ "$1" = "--version" ]; then echo "uv 0.0.0-stub"; exit 0; fi\n'
-                'printf "%s\\n" "$@"\n'
-                "exit 42\n",
+                'if [ "$1" = "--version" ]; then echo "uv 0.12.7"; exit 0; fi\n'
+                'if [ "$1" = "tool" ] && [ "$2" = "install" ]; then\n'
+                '  mkdir -p "$UV_TOOL_BIN_DIR"\n'
+                '  cat > "$UV_TOOL_BIN_DIR/japan-career-agent" <<\'SH\'\n'
+                "#!/bin/sh\n"
+                'printf "%s\\n" "$@" > "$JCA_RECORDED"\n'
+                "exit 42\n"
+                "SH\n"
+                '  chmod +x "$UV_TOOL_BIN_DIR/japan-career-agent"\n'
+                "  exit 0\n"
+                "fi\n"
+                "exit 9\n",
                 encoding="utf-8",
             )
             stub.chmod(0o755)
-            project = root / "project"
-            project.mkdir()
-            npm = shutil.which("npm")
+
+            npm_env = dict(os.environ)
+            npm_env["npm_config_cache"] = str(cache)
+            npm_env["JAPAN_CAREER_UV_BIN"] = str(stub)
+            npm_env["JCA_RECORDED"] = str(recorded)
+
             subprocess.run(
-                [npm, "pack", "--silent", "--pack-destination", str(root), str(NPM_DIR)],
+                [shutil.which("npm"), "pack", "--silent", "--pack-destination", str(root), str(NPM_DIR)],
                 cwd=root,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                env=npm_environment,
+                env=npm_env,
                 check=True,
             )
             tarballs = sorted(root.glob("*.tgz"))
-            self.assertEqual(len(tarballs), 1, f"expected one tarball, got {[t.name for t in tarballs]}")
+            self.assertEqual(len(tarballs), 1)
             subprocess.run(
-                [npm, "install", "--silent", "--no-audit", "--no-fund", str(tarballs[0])],
-                cwd=project,
+                [
+                    shutil.which("npm"),
+                    "install",
+                    "-g",
+                    "--silent",
+                    "--no-audit",
+                    "--no-fund",
+                    "--prefix",
+                    str(prefix),
+                    str(tarballs[0]),
+                ],
+                cwd=root,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                env=npm_environment,
+                env=npm_env,
                 check=True,
             )
-            shim = project / "node_modules" / ".bin" / "japan-career-agent"
-            self.assertTrue(shim.exists(), "npm did not create the command")
-            # The shim's shebang is `#!/usr/bin/env node`, so node's own directory has to stay
-            # reachable. The stub is listed first, which is what makes it win over any real uv
-            # that happens to live beside node.
-            node_dir = str(Path(shutil.which("node")).parent)
+
+            shim = prefix / "bin" / "japan-career-agent"
+            self.assertTrue(shim.exists(), "npm did not create the global command")
+            markers = list(prefix.rglob("install.json"))
+            self.assertEqual(len(markers), 1, "postinstall did not prepare exactly one private runtime")
+
             result = subprocess.run(
-                [str(shim), "doctor"],
+                [str(shim), "doctor", "--format", "json"],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                cwd=project,
-                env=_isolated_env(os.pathsep.join([str(stub_dir), node_dir]), temporary),
+                cwd=root,
+                env=npm_env,
                 check=False,
             )
-        self.assertEqual(result.returncode, 42, result.stderr)
-        self.assertIn(f"japan-career-agent=={_release_version()}", result.stdout)
+            self.assertEqual(result.returncode, 42, result.stderr)
+            forwarded = recorded.read_text(encoding="utf-8")
+            self.assertIn("doctor", forwarded)
+            self.assertIn("--format", forwarded)
+            self.assertIn("json", forwarded)
 
 
 if __name__ == "__main__":

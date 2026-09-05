@@ -43,7 +43,11 @@ IN_PAGE_LINK = re.compile(r'href="#([^"]+)"')
 # The landing-page path is deliberately thin: run the product first, then keep it installed or add
 # a host only if that is useful. Advanced setup/guided/ui commands remain documented below, but the
 # README may not force a setup subcommand back into the first-run path.
+GLOBAL_NPM_PAIR = re.compile(
+    r"npm install -g japan-career-agent\s*\njapan-career-agent"
+)
 INSTALL_ORDER = (
+    "npm install -g japan-career-agent",
     "npx japan-career-agent",
     "uvx japan-career-agent",
     "uv tool install japan-career-agent",
@@ -75,6 +79,11 @@ def main() -> int:
 
         if FIRST_RUN_IS_INIT.search(text):
             errors.append(f"{path.name}: the first command shown is `init`; the first run is zero-argument")
+        if not GLOBAL_NPM_PAIR.search(text):
+            errors.append(
+                f"{path.name}: quick start must show `npm install -g japan-career-agent` "
+                "followed by `japan-career-agent`"
+            )
         position = -1
         for command in INSTALL_ORDER:
             found = text.find(command)
