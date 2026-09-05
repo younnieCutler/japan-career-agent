@@ -759,7 +759,7 @@
 ## [1.21.0] - 2026-08-08
 
 - Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
-  26. v1 stays readable and digest-pinned so their recorded results remain reproducible.
+  26. v1 stays readable and digest-pinned so its recorded results remain reproducible.
 - Rebalance the benchmark's languages. v1 was 66% Japanese, so a Korean or English regression was
   largely invisible; v2 is 76/43/41 across Japanese, Korean, and English, enforced by a test.
 - Double the axes that carry the safety contract rather than inflating uniformly — negation,
