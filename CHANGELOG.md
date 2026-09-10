@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.29.0] - 2026-09-11
+
+- Add a deterministic monthly career review projection over active confirmed evidence. Months are grouped only by the user-stated `work_date`, never by capture time, and expose per-dimension present/total coverage plus whole-month gaps and partial coverage without an overall score.
+- Return month-by-month review data from `experiences`, keep context-filtered reads isolated, register the projection in the architecture graph, and add focused regression coverage for dates, gaps, no-score semantics, and context scoping.
+
 ## [2.28.0] - 2026-09-05
 
 - Extract the complete CLI argument contract from `command_line.py` into `cli_parser.py` while preserving `command_line.build_parser`, `runtime.build_parser`, command semantics, output projection, and process exit behavior.
@@ -759,7 +764,7 @@
 ## [1.21.0] - 2026-08-08
 
 - Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
-  26. v1 stays readable and digest-pinned so its recorded results remain reproducible.
+  26. v1 stays readable and digest-pinned so their recorded results remain reproducible.
 - Rebalance the benchmark's languages. v1 was 66% Japanese, so a Korean or English regression was
   largely invisible; v2 is 76/43/41 across Japanese, Korean, and English, enforced by a test.
 - Double the axes that carry the safety contract rather than inflating uniformly — negation,
@@ -887,7 +892,7 @@
 - Distinguished guided confirmation reasons for setup, proposal creation, approval, and state
   recovery so each blocked write explains the correct next step.
 - Guided actions dispatch through the existing setup, status, context, proposal, and approval
-  facades; Unknown, Conflict, pending proposals, cancellation, and invalid choices remain explicit.
+  facades; Unknown, Conflict, pending proposals, cancellation, invalid choices remain explicit.
 
 ## [1.14.0] - 2026-08-06
 
@@ -1411,7 +1416,7 @@
   learning, and architecture details into lazy `_shared/agent_context/` references.
 - Added bounded PyYAML dependency metadata, Ruff CI linting, manifest metadata parity checks, a
   safe status-bar truncation path, README contract checks, and contribution/release templates.
-- Fixed the duplicate `2b` architecture heading and bumped the plugin manifests to `1.5.0`.
+- Fixed the duplicate 2b architecture heading and bumped the plugin manifests to 1.5.0.
 
 ## [1.4.0]
 
