@@ -25,7 +25,11 @@ DIMENSIONS = (
 
 def _present(payload: dict[str, Any], dimension: str) -> bool:
     if dimension == "responsibility":
-        return bool(payload.get("role") or payload.get("scope") or payload.get("individual_contribution"))
+        return bool(
+            payload.get("role")
+            or payload.get("scope")
+            or payload.get("individual_contribution")
+        )
     if dimension == "problem_framing":
         return bool(payload.get("problem"))
     if dimension == "direct_action":
@@ -45,18 +49,24 @@ def _present(payload: dict[str, Any], dimension: str) -> bool:
     raise KeyError(dimension)
 
 
-def monthly_career_projection(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def monthly_career_projection(
+    events: list[dict[str, Any]], *, context_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Group current confirmed evidence by work month with deterministic coverage counts.
 
     Evidence without work_date is intentionally excluded from a month rather than assigned to its
     capture month. The caller can still show it through the ordinary experience projection.
 
     Coverage is counts, not an LLM-generated score. `present` answers only whether the confirmed
-    evidence carries that dimension; it does not judge quality or seniority.
+    evidence carries that dimension; it does not judge quality or seniority. `gaps` names
+    dimensions absent from an entire month, while `partial` names dimensions present on only some
+    of that month's evidence.
     """
     months: dict[str, dict[str, Any]] = {}
     for event in confirmed_evidence_events(events):
         payload = evidence_payload(event)
+        if context_id is not None and payload.get("context_id") != context_id:
+            continue
         work_date = payload.get("work_date")
         if not isinstance(work_date, str) or len(work_date) < 7:
             continue
@@ -86,7 +96,12 @@ def monthly_career_projection(events: list[dict[str, Any]]) -> list[dict[str, An
         current["gaps"] = [
             name
             for name in DIMENSIONS
-            if current["coverage"][name]["present"] < current["coverage"][name]["total"]
+            if current["coverage"][name]["present"] == 0
+        ]
+        current["partial"] = [
+            name
+            for name in DIMENSIONS
+            if 0 < current["coverage"][name]["present"] < current["coverage"][name]["total"]
         ]
         result.append(current)
     return result
