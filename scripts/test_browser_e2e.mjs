@@ -17,6 +17,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PYTHON = process.env.PYTHON || "python";
 const TIMEOUT_MS = 15_000;
+const CHROME_START_TIMEOUT_MS = 30_000;
+const CHROME_START_ATTEMPTS = 2;
 const sleep = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 
 function findChrome() {
@@ -118,7 +120,7 @@ async function reserveLoopbackPort() {
 }
 
 async function waitForDevToolsTargets(port, child, stderr) {
-  const deadline = Date.now() + TIMEOUT_MS;
+  const deadline = Date.now() + CHROME_START_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(`Chrome exited before DevTools was ready (${child.exitCode ?? child.signalCode})\n${stderr()}`);
@@ -134,7 +136,7 @@ async function waitForDevToolsTargets(port, child, stderr) {
     }
     await sleep(50);
   }
-  throw new Error(`Chrome did not expose DevTools on 127.0.0.1:${port}\n${stderr()}`);
+  throw new Error(`Chrome did not expose DevTools on 127.0.0.1:${port} within ${CHROME_START_TIMEOUT_MS}ms\n${stderr()}`);
 }
 
 class CdpClient {
@@ -217,7 +219,7 @@ class CdpClient {
   }
 }
 
-async function launchChrome() {
+async function launchChromeAttempt() {
   const userDataDir = mkdtempSync(join(tmpdir(), "jca-browser-e2e-chrome-"));
   const port = await reserveLoopbackPort();
   const child = spawn(
@@ -242,10 +244,36 @@ async function launchChrome() {
   let stderr = "";
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk) => { stderr += chunk; });
-  const targets = await waitForDevToolsTargets(port, child, () => stderr);
-  const page = targets.find((target) => target.type === "page" && target.webSocketDebuggerUrl);
-  assert.ok(page, `Chrome exposed no debuggable page target: ${JSON.stringify(targets)}`);
-  return { child, userDataDir, webSocketDebuggerUrl: page.webSocketDebuggerUrl, stderr: () => stderr };
+
+  try {
+    const targets = await waitForDevToolsTargets(port, child, () => stderr);
+    const page = targets.find((target) => target.type === "page" && target.webSocketDebuggerUrl);
+    assert.ok(page, `Chrome exposed no debuggable page target: ${JSON.stringify(targets)}`);
+    return { child, userDataDir, webSocketDebuggerUrl: page.webSocketDebuggerUrl, stderr: () => stderr };
+  } catch (error) {
+    await stopChild(child, { processGroup: true });
+    await removeTemp(userDataDir);
+    throw error;
+  }
+}
+
+async function launchChrome() {
+  let lastError = null;
+  for (let attempt = 1; attempt <= CHROME_START_ATTEMPTS; attempt += 1) {
+    try {
+      return await launchChromeAttempt();
+    } catch (error) {
+      lastError = error;
+      if (attempt < CHROME_START_ATTEMPTS) {
+        console.warn(
+          `browser E2E: Chrome startup attempt ${attempt}/${CHROME_START_ATTEMPTS} failed; retrying with a fresh profile`,
+        );
+      }
+    }
+  }
+  throw new Error(
+    `Chrome failed to expose DevTools after ${CHROME_START_ATTEMPTS} isolated startup attempts\n${lastError?.message || "unknown Chrome startup failure"}`,
+  );
 }
 
 async function stopChild(child, { processGroup = false } = {}) {
