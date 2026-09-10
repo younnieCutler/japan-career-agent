@@ -96,6 +96,7 @@ CHECKS = (
     ("career-agent work events", (PYTHON, "skills/career-agent/test_work_event.py")),
     ("career-agent projects", (PYTHON, "skills/career-agent/test_project.py")),
     ("career-agent experiences", (PYTHON, "skills/career-agent/test_experience.py")),
+    ("career-agent monthly review", (PYTHON, "skills/career-agent/test_monthly.py")),
     ("career-agent document projection", (PYTHON, "skills/career-agent/test_document.py")),
     ("career-agent document rendering", (PYTHON, "skills/career-agent/test_render.py")),
     ("v2 lifecycle end to end", (PYTHON, "scripts/test_e2e_career_os.py")),

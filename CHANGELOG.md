@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.29.0] - 2026-09-11
+
+- Add a deterministic monthly career review projection over active confirmed evidence. Months are grouped only by the user-stated `work_date`, never by capture time, and expose per-dimension present/total coverage plus whole-month gaps and partial coverage without an overall score.
+- Return month-by-month review data from `experiences`, keep context-filtered reads isolated, register the projection in the architecture graph, and add focused regression coverage for dates, gaps, no-score semantics, and context scoping.
+
 ## [2.28.0] - 2026-09-05
 
 - Extract the complete CLI argument contract from `command_line.py` into `cli_parser.py` while preserving `command_line.build_parser`, `runtime.build_parser`, command semantics, output projection, and process exit behavior.
