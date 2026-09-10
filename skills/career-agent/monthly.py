@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from models import CareerError
 from projection import confirmed_evidence_events, evidence_payload
+from validation import month_or_day
 
 
 DIMENSIONS = (
@@ -49,13 +51,25 @@ def _present(payload: dict[str, Any], dimension: str) -> bool:
     raise KeyError(dimension)
 
 
+def _work_month(value: Any) -> str | None:
+    """Return a valid YYYY-MM bucket, excluding malformed historical values from this view."""
+    try:
+        work_date = month_or_day(value, "work_date")
+    except CareerError:
+        # The ledger read path is intentionally tolerant of historical/manual rows. One malformed
+        # date must not make the entire experiences view unreadable, but it must not become a fake
+        # calendar bucket either. Diagnostics remain responsible for reporting bad stored data.
+        return None
+    return work_date[:7] if work_date is not None else None
+
+
 def monthly_career_projection(
     events: list[dict[str, Any]], *, context_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Group current confirmed evidence by work month with deterministic coverage counts.
 
-    Evidence without work_date is intentionally excluded from a month rather than assigned to its
-    capture month. The caller can still show it through the ordinary experience projection.
+    Evidence without a valid work_date is intentionally excluded from a month rather than assigned
+    to its capture month. The caller can still show it through the ordinary experience projection.
 
     Coverage is counts, not an LLM-generated score. `present` answers only whether the confirmed
     evidence carries that dimension; it does not judge quality or seniority. `gaps` names
@@ -67,10 +81,9 @@ def monthly_career_projection(
         payload = evidence_payload(event)
         if context_id is not None and payload.get("context_id") != context_id:
             continue
-        work_date = payload.get("work_date")
-        if not isinstance(work_date, str) or len(work_date) < 7:
+        month = _work_month(payload.get("work_date"))
+        if month is None:
             continue
-        month = work_date[:7]
         current = months.setdefault(
             month,
             {
