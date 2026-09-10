@@ -1,0 +1,139 @@
+"""Contracts for the deterministic monthly career review projection."""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
+
+import experiences  # noqa: E402
+import monthly  # noqa: E402
+from models import EXPERIENCE_CONTEXT_EVENT_TYPE, WORK_EVENT_TYPE  # noqa: E402
+
+
+def base_event(event_id: str, type_: str = WORK_EVENT_TYPE, **extra) -> dict:
+    row = {
+        "id": event_id,
+        "track": None,
+        "stage": None,
+        "flow_phase": None,
+        "type": type_,
+        "occurred_at": "2026-09-11T00:00:00Z",
+        "title": "note",
+        "summary": "note",
+        "evidence": ["user"],
+        "source": "user",
+        "next_action": None,
+        "deadline": None,
+        "status": "confirmed",
+    }
+    row.update(extra)
+    return row
+
+
+def evidence(event_id: str, **payload) -> dict:
+    return base_event(event_id, work_event=payload)
+
+
+def context(event_id: str, context_id: str, label: str) -> dict:
+    return base_event(
+        event_id,
+        EXPERIENCE_CONTEXT_EVENT_TYPE,
+        experience_context={"id": context_id, "kind": "company", "label": label},
+    )
+
+
+class MonthlyCareerProjectionTests(unittest.TestCase):
+    def test_work_date_owns_the_month_and_capture_time_never_fills_a_blank(self) -> None:
+        rows = monthly.monthly_career_projection([
+            evidence("evt-july", work_date="2026-07", role="owner"),
+            evidence("evt-august-day", work_date="2026-08-17", problem="manual handoff"),
+            # occurred_at is September, but no work_date means the work month is genuinely unknown.
+            evidence("evt-undated", role="reviewer"),
+        ])
+
+        self.assertEqual([row["month"] for row in rows], ["2026-08", "2026-07"])
+        self.assertEqual(rows[0]["claim_refs"], ["evt-august-day"])
+        self.assertEqual(rows[1]["claim_refs"], ["evt-july"])
+        self.assertNotIn("evt-undated", [ref for row in rows for ref in row["claim_refs"]])
+
+    def test_coverage_is_evidence_presence_not_a_generated_score(self) -> None:
+        rows = monthly.monthly_career_projection([
+            evidence(
+                "evt-rich",
+                work_date="2026-08",
+                role="owner",
+                problem="manual handoff",
+                direct_actions=["automated validation"],
+                stakeholder_coordination=["aligned with operations"],
+                outcome_state="quantitative",
+                team_result="fewer manual checks",
+                metrics=["3 checks removed"],
+                improvements=["document the fallback"],
+            ),
+            evidence("evt-sparse", work_date="2026-08"),
+        ])
+
+        self.assertEqual(len(rows), 1)
+        august = rows[0]
+        self.assertEqual(august["evidence_count"], 2)
+        self.assertEqual(august["coverage"]["responsibility"], {"present": 1, "total": 2})
+        self.assertEqual(august["coverage"]["stakeholder_coordination"], {"present": 1, "total": 2})
+        self.assertEqual(august["coverage"]["quantification"], {"present": 1, "total": 2})
+        self.assertEqual(august["gaps"], [])
+        self.assertEqual(set(august["partial"]), set(monthly.DIMENSIONS))
+        self.assertNotIn("score", august)
+
+    def test_a_dimension_missing_for_the_whole_month_is_a_gap(self) -> None:
+        row = monthly.monthly_career_projection([
+            evidence("evt-one", work_date="2026-08", role="owner"),
+            evidence("evt-two", work_date="2026-08", scope="release process"),
+        ])[0]
+
+        self.assertNotIn("responsibility", row["gaps"])
+        self.assertIn("stakeholder_coordination", row["gaps"])
+        self.assertIn("outcome", row["gaps"])
+
+    def test_context_filter_never_mixes_two_employers_months(self) -> None:
+        events = [
+            evidence("evt-a", context_id="ctx-a", work_date="2026-08", role="owner"),
+            evidence("evt-b", context_id="ctx-b", work_date="2026-09", role="owner"),
+        ]
+
+        rows = monthly.monthly_career_projection(events, context_id="ctx-a")
+
+        self.assertEqual([row["month"] for row in rows], ["2026-08"])
+        self.assertEqual(rows[0]["claim_refs"], ["evt-a"])
+
+    def test_experiences_read_model_exposes_the_same_context_scoped_months(self) -> None:
+        events = [
+            context("evt-ctx-a", "ctx-a", "Acme"),
+            context("evt-ctx-b", "ctx-b", "Beta"),
+            evidence(
+                "evt-a", context_id="ctx-a", experience_ref="release", work_date="2026-08",
+                individual_contribution="owned release validation",
+            ),
+            evidence(
+                "evt-b", context_id="ctx-b", experience_ref="migration", work_date="2026-09",
+                individual_contribution="owned migration validation",
+            ),
+        ]
+        home = SimpleNamespace(events=Path("unused"))
+
+        with patch.object(experiences, "read_jsonl", return_value=events):
+            all_rows = experiences.list_experiences(home)
+            acme = experiences.list_experiences(home, context_id="ctx-a")
+
+        self.assertEqual([row["month"] for row in all_rows["months"]], ["2026-09", "2026-08"])
+        self.assertEqual([row["month"] for row in acme["months"]], ["2026-08"])
+        self.assertTrue(acme["no_total_by_design"])
+
+
+if __name__ == "__main__":
+    unittest.main()
