@@ -277,14 +277,17 @@ async function launchChrome() {
 }
 
 async function stopChild(child, { processGroup = false } = {}) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  if (!child) return;
+  const alreadyExited = child.exitCode !== null || child.signalCode !== null;
+  const killGroup = processGroup && process.platform !== "win32" && Number.isInteger(child.pid);
   try {
-    if (processGroup && process.platform !== "win32") process.kill(-child.pid, "SIGKILL");
-    else child.kill("SIGKILL");
+    // A detached Chrome parent can exit before its descendants. Kill the POSIX group even after parent exit.
+    if (killGroup) process.kill(-child.pid, "SIGKILL");
+    else if (!alreadyExited) child.kill("SIGKILL");
   } catch (error) {
     if (error?.code !== "ESRCH") throw error;
   }
-  await Promise.race([once(child, "exit"), sleep(3_000)]);
+  if (!alreadyExited) await Promise.race([once(child, "exit"), sleep(3_000)]);
 }
 
 async function removeTemp(path) {
