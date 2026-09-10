@@ -14,7 +14,11 @@ sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
 
 import experiences  # noqa: E402
 import monthly  # noqa: E402
-from models import EXPERIENCE_CONTEXT_EVENT_TYPE, WORK_EVENT_TYPE  # noqa: E402
+from models import (  # noqa: E402
+    EXPERIENCE_CONTEXT_EVENT_TYPE,
+    EXPERIENCE_SUPERSESSION_EVENT_TYPE,
+    WORK_EVENT_TYPE,
+)
 
 
 def base_event(event_id: str, type_: str = WORK_EVENT_TYPE, **extra) -> dict:
@@ -62,6 +66,17 @@ class MonthlyCareerProjectionTests(unittest.TestCase):
         self.assertEqual(rows[0]["claim_refs"], ["evt-august-day"])
         self.assertEqual(rows[1]["claim_refs"], ["evt-july"])
         self.assertNotIn("evt-undated", [ref for row in rows for ref in row["claim_refs"]])
+
+    def test_invalid_historical_work_dates_never_become_month_buckets(self) -> None:
+        rows = monthly.monthly_career_projection([
+            evidence("evt-valid", work_date="2026-02-28", role="owner"),
+            evidence("evt-bad-month", work_date="2026-99", role="owner"),
+            evidence("evt-bad-day", work_date="2026-02-30", role="owner"),
+            evidence("evt-bad-shape", work_date="2026-02-extra", role="owner"),
+        ])
+
+        self.assertEqual([row["month"] for row in rows], ["2026-02"])
+        self.assertEqual(rows[0]["claim_refs"], ["evt-valid"])
 
     def test_coverage_is_evidence_presence_not_a_generated_score(self) -> None:
         rows = monthly.monthly_career_projection([
@@ -111,6 +126,25 @@ class MonthlyCareerProjectionTests(unittest.TestCase):
         self.assertEqual([row["month"] for row in rows], ["2026-08"])
         self.assertEqual(rows[0]["claim_refs"], ["evt-a"])
 
+    def test_superseded_evidence_is_not_projected_into_a_month(self) -> None:
+        predecessor = evidence("evt-old", work_date="2026-08", role="old owner")
+        replacement = evidence("evt-new", work_date="2026-09", role="new owner")
+        supersession = base_event(
+            "evt-supersession",
+            EXPERIENCE_SUPERSESSION_EVENT_TYPE,
+            title="Corrected work evidence",
+            summary="The September evidence replaces the August claim.",
+            supersession={
+                "predecessor_event_id": predecessor["id"],
+                "replacement_event_id": replacement["id"],
+            },
+        )
+
+        rows = monthly.monthly_career_projection([predecessor, replacement, supersession])
+
+        self.assertEqual([row["month"] for row in rows], ["2026-09"])
+        self.assertEqual(rows[0]["claim_refs"], ["evt-new"])
+
     def test_experiences_read_model_exposes_the_same_context_scoped_months(self) -> None:
         events = [
             context("evt-ctx-a", "ctx-a", "Acme"),
@@ -124,7 +158,7 @@ class MonthlyCareerProjectionTests(unittest.TestCase):
                 individual_contribution="owned migration validation",
             ),
         ]
-        home = SimpleNamespace(events=Path("unused"))
+        home = SimpleNamespace(path=Path("vault"), events=Path("unused"))
 
         with patch.object(experiences, "read_jsonl", return_value=events):
             all_rows = experiences.list_experiences(home)
