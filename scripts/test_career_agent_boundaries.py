@@ -14,6 +14,59 @@ sys.path.insert(0, str(ROOT))
 import check_career_agent_boundaries as boundaries  # noqa: E402
 
 
+CANONICAL_LEDGER_WRITER = "lifecycle"
+CANONICAL_LEDGER_FUNCTIONS = {
+    "append_jsonl",
+    "write_jsonl",
+    "write_json",
+    "write_toml",
+    "atomic_write_text",
+    "atomic_write_bytes",
+}
+CANONICAL_LEDGER_PATH_METHODS = {
+    "write_text",
+    "write_bytes",
+    "unlink",
+    "rename",
+    "replace",
+    "open",
+}
+
+
+def _is_canonical_event_path(node: ast.AST) -> bool:
+    """Return whether an expression directly names a CareerVault canonical event ledger."""
+    return isinstance(node, ast.Attribute) and node.attr == "events"
+
+
+def _canonical_event_write_modules(trees: dict[str, ast.Module]) -> set[str]:
+    """Find modules that directly mutate ``CareerVault.events``.
+
+    Host/LLM output may create or review a proposal, but it must not gain a second path into
+    canonical evidence. The approved lifecycle is therefore the only production module allowed to
+    write the event ledger. This intentionally catches both repository persistence helpers and
+    direct Path mutations.
+    """
+    writers: set[str] = set()
+    for module, tree in trees.items():
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if (
+                isinstance(node.func, ast.Name)
+                and node.func.id in CANONICAL_LEDGER_FUNCTIONS
+                and node.args
+                and _is_canonical_event_path(node.args[0])
+            ):
+                writers.add(module)
+            elif (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in CANONICAL_LEDGER_PATH_METHODS
+                and _is_canonical_event_path(node.func.value)
+            ):
+                writers.add(module)
+    return writers
+
+
 class CareerAgentBoundaryTests(unittest.TestCase):
     def test_current_stage_has_no_boundary_errors(self) -> None:
         self.assertEqual(boundaries.validate(), [])
@@ -66,6 +119,29 @@ class CareerAgentBoundaryTests(unittest.TestCase):
         self.assertEqual(
             getattr(boundaries, "GUI_LAUNCH_IMPORTS", set()),
             {("dispatch", "gui.server")},
+        )
+
+    def test_canonical_evidence_has_one_writer(self) -> None:
+        """Model/Host output cannot bypass proposal review and append canonical evidence."""
+        trees = {
+            module: boundaries._module_tree(module)
+            for module in boundaries.DOMAIN_MODULES
+        }
+        self.assertEqual(_canonical_event_write_modules(trees), {CANONICAL_LEDGER_WRITER})
+
+    def test_canonical_writer_guard_rejects_a_second_writer(self) -> None:
+        """Guard the guard: a proposal module that appends to events must be detected."""
+        trees = {
+            CANONICAL_LEDGER_WRITER: ast.parse(
+                "def approve(home, event):\n    append_jsonl(home.events, event)\n"
+            ),
+            "proposals": ast.parse(
+                "def unsafe(host, event):\n    append_jsonl(host.events, event)\n"
+            ),
+        }
+        self.assertEqual(
+            _canonical_event_write_modules(trees),
+            {CANONICAL_LEDGER_WRITER, "proposals"},
         )
 
     def test_the_facade_defines_nothing(self) -> None:
