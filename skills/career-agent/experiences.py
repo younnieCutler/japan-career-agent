@@ -22,6 +22,7 @@ from models import (
     UNTRUSTED_DATA_MARKER,
     WORK_EVENT_TYPE,
 )
+from monthly import monthly_career_projection
 from persistence import read_jsonl
 from personal_timeline import select_personal_context
 from private_store import documents as private_documents, PrivateHome, resolve_private_home
@@ -362,6 +363,7 @@ def list_experiences(home: CareerVault, *, context_id: str | None = None) -> dic
             for claim in grouped["claims"]
             if context_id is None or claim.get("context_id") == context_id
         ],
+        "months": monthly_career_projection(events),
         "superseded_evidence": evidence_supersessions(events),
         # Evidence that belongs to no recorded experience is still evidence. Hiding it would make
         # the record look tidier than it is.
