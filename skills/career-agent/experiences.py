@@ -363,7 +363,7 @@ def list_experiences(home: CareerVault, *, context_id: str | None = None) -> dic
             for claim in grouped["claims"]
             if context_id is None or claim.get("context_id") == context_id
         ],
-        "months": monthly_career_projection(events),
+        "months": monthly_career_projection(events, context_id=context_id),
         "superseded_evidence": evidence_supersessions(events),
         # Evidence that belongs to no recorded experience is still evidence. Hiding it would make
         # the record look tidier than it is.
