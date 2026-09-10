@@ -6,9 +6,9 @@ import { once } from "node:events";
 import {
   existsSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -96,17 +96,45 @@ async function launchGui(vault) {
   return { child, readline, url, stderr: () => stderr };
 }
 
-async function waitForDevToolsPort(userDataDir) {
-  const marker = join(userDataDir, "DevToolsActivePort");
+async function reserveLoopbackPort() {
+  const server = createServer();
+  await new Promise((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", rejectListen);
+      resolveListen();
+    });
+  });
+  const address = server.address();
+  assert.ok(address && typeof address === "object" && Number.isInteger(address.port), "failed to reserve a loopback port");
+  const port = address.port;
+  await new Promise((resolveClose, rejectClose) => {
+    server.close((error) => {
+      if (error) rejectClose(error);
+      else resolveClose();
+    });
+  });
+  return port;
+}
+
+async function waitForDevToolsTargets(port, child, stderr) {
   const deadline = Date.now() + TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if (existsSync(marker)) {
-      const [port] = readFileSync(marker, "utf8").trim().split(/\r?\n/);
-      if (port && Number.isInteger(Number(port))) return Number(port);
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`Chrome exited before DevTools was ready (${child.exitCode ?? child.signalCode})\n${stderr()}`);
+    }
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+      if (response.status === 200) {
+        const targets = await response.json();
+        if (Array.isArray(targets)) return targets;
+      }
+    } catch {
+      // Chrome has not started listening yet.
     }
     await sleep(50);
   }
-  throw new Error("Chrome did not expose a DevTools port");
+  throw new Error(`Chrome did not expose DevTools on 127.0.0.1:${port}\n${stderr()}`);
 }
 
 class CdpClient {
@@ -191,6 +219,7 @@ class CdpClient {
 
 async function launchChrome() {
   const userDataDir = mkdtempSync(join(tmpdir(), "jca-browser-e2e-chrome-"));
+  const port = await reserveLoopbackPort();
   const child = spawn(
     findChrome(),
     [
@@ -200,7 +229,8 @@ async function launchChrome() {
       "--no-first-run",
       "--no-default-browser-check",
       "--no-sandbox",
-      "--remote-debugging-port=0",
+      "--remote-debugging-address=127.0.0.1",
+      `--remote-debugging-port=${port}`,
       `--user-data-dir=${userDataDir}`,
       "about:blank",
     ],
@@ -212,10 +242,7 @@ async function launchChrome() {
   let stderr = "";
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk) => { stderr += chunk; });
-  const port = await waitForDevToolsPort(userDataDir);
-  const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-  assert.equal(response.status, 200, `DevTools target listing failed: ${response.status}`);
-  const targets = await response.json();
+  const targets = await waitForDevToolsTargets(port, child, () => stderr);
   const page = targets.find((target) => target.type === "page" && target.webSocketDebuggerUrl);
   assert.ok(page, `Chrome exposed no debuggable page target: ${JSON.stringify(targets)}`);
   return { child, userDataDir, webSocketDebuggerUrl: page.webSocketDebuggerUrl, stderr: () => stderr };
