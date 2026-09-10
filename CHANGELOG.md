@@ -764,7 +764,7 @@
 ## [1.21.0] - 2026-08-08
 
 - Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
-  26. v1 stays readable and digest-pinned so their recorded results remain reproducible.
+  26. v1 stays readable and digest-pinned so its recorded results remain reproducible.
 - Rebalance the benchmark's languages. v1 was 66% Japanese, so a Korean or English regression was
   largely invisible; v2 is 76/43/41 across Japanese, Korean, and English, enforced by a test.
 - Double the axes that carry the safety contract rather than inflating uniformly — negation,
@@ -892,7 +892,7 @@
 - Distinguished guided confirmation reasons for setup, proposal creation, approval, and state
   recovery so each blocked write explains the correct next step.
 - Guided actions dispatch through the existing setup, status, context, proposal, and approval
-  facades; Unknown, Conflict, pending proposals, cancellation, invalid choices remain explicit.
+  facades; Unknown, Conflict, pending proposals, cancellation, and invalid choices remain explicit.
 
 ## [1.14.0] - 2026-08-06
 
@@ -1416,7 +1416,7 @@
   learning, and architecture details into lazy `_shared/agent_context/` references.
 - Added bounded PyYAML dependency metadata, Ruff CI linting, manifest metadata parity checks, a
   safe status-bar truncation path, README contract checks, and contribution/release templates.
-- Fixed the duplicate 2b architecture heading and bumped the plugin manifests to 1.5.0.
+- Fixed the duplicate `2b` architecture heading and bumped the plugin manifests to `1.5.0`.
 
 ## [1.4.0]
 
