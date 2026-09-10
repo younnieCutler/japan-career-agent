@@ -330,12 +330,12 @@ async function main() {
         const main = document.querySelector("#main-content");
         if (location.pathname !== "/career" || !document.querySelector(".workspace")) return null;
         if (!main || main.innerText.trim().length < 2) return null;
-        return { path: location.pathname, text: main.innerText.trim() };
+        if (!main.querySelector(".page-header") || !main.querySelector(".split")) return null;
+        return { path: location.pathname };
       })()`,
-      "Career route after real pointer click",
+      "Career route and route-specific screen after real pointer click",
     );
     assert.equal(career.path, "/career");
-    assert.notEqual(career.text, boot.text, "Career navigation did not replace the Home screen");
 
     await cdp.send("Page.reload", { ignoreCache: true });
     const reloaded = await cdp.waitFor(
@@ -343,6 +343,7 @@ async function main() {
         const main = document.querySelector("#main-content");
         if (document.readyState !== "complete" || location.pathname !== "/career") return null;
         if (!document.querySelector(".workspace") || !main || main.innerText.trim().length < 2) return null;
+        if (!main.querySelector(".page-header") || !main.querySelector(".split")) return null;
         if (location.hash) return null;
         return main.innerText.trim();
       })()`,
@@ -354,7 +355,7 @@ async function main() {
     console.log("browser E2E: PASS");
     console.log("  - single-use bootstrap token opened a real browser session and disappeared from the URL");
     console.log("  - React workspace rendered against the real local GUI server");
-    console.log("  - pointer click navigated Home -> Career through the committed browser bundle");
+    console.log("  - pointer click navigated Home -> Career and rendered the Career screen through the committed bundle");
     console.log("  - full reload preserved the /career deep link and authenticated browser session");
   } catch (error) {
     if (gui?.stderr()) console.error(`GUI stderr:\n${gui.stderr()}`);
