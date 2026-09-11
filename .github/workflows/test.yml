@@ -25,8 +25,69 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git apply --recount --check .github/gui-monthly.patch
-          git apply --recount .github/gui-monthly.patch
+          git apply --recount --reject .github/gui-monthly.patch || true
+          python - <<'PY'
+          from pathlib import Path
+
+          rejects = {path.as_posix() for path in Path('.').rglob('*.rej')}
+          allowed = {'frontend/src/review.jsx.rej', 'frontend/src/screens/Career.jsx.rej'}
+          unexpected = rejects - allowed
+          if unexpected:
+              raise SystemExit(f'unexpected patch rejects: {sorted(unexpected)}')
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              if new in text:
+                  return
+              if old not in text:
+                  raise SystemExit(f'patch anchor missing in {path}: {old[:80]!r}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+
+          replace_once(
+              'frontend/src/review.jsx',
+              '  "direct_actions", "individual_contribution", "team_result", "outcome_state", "metrics",\n'
+              '  "improvements", "learning", "work_date", "confidentiality", "contains_confidential",',
+              '  "responsibility", "judgment", "decision_basis", "risk_management", "direct_actions",\n'
+              '  "stakeholder_coordination", "organizational_context", "individual_contribution", "team_result",\n'
+              '  "outcome_state", "metrics", "improvements", "learning", "work_date", "confidentiality", "contains_confidential",',
+          )
+          replace_once(
+              'frontend/src/screens/Career.jsx',
+              'import CareerBatch from "./CareerBatch.jsx";',
+              'import CareerBatch from "./CareerBatch.jsx";\nimport MonthlyCareerReview from "./MonthlyCareerReview.jsx";',
+          )
+          replace_once(
+              'frontend/src/screens/Career.jsx',
+              '      ]} />\n      <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>',
+              '      ]} />\n'
+              '      {!experience.contains_confidential ? <Facts rows={[\n'
+              '        [t("workflow.responsibility"), experience.detail?.responsibility],\n'
+              '        [t("workflow.judgment"), experience.detail?.judgment],\n'
+              '        [t("workflow.decision_basis"), experience.detail?.decision_basis],\n'
+              '        [t("workflow.risk_management"), experience.detail?.risk_management],\n'
+              '        [t("workflow.stakeholder_coordination"), (experience.detail?.stakeholder_coordination || []).join(t("common.list_separator"))],\n'
+              '        [t("workflow.organizational_context"), experience.detail?.organizational_context],\n'
+              '        [t("workflow.improvements"), (experience.detail?.improvements || []).join(t("common.list_separator"))],\n'
+              '        [t("workflow.learning"), (experience.detail?.learning || []).join(t("common.list_separator"))],\n'
+              '      ]} /> : null}\n'
+              '      <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>',
+          )
+          replace_once(
+              'frontend/src/screens/Career.jsx',
+              '    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, row.parent?.label, row.grandparent?.label]',
+              '    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, JSON.stringify(row.node.detail || {}), row.parent?.label, row.grandparent?.label]',
+          )
+          replace_once(
+              'frontend/src/screens/Career.jsx',
+              '      {failure ? <ErrorState error={failure} onRetry={() => setFailure(null)} /> : null}\n\n      <UnassignedProjects payload={state.data} onDone={reload} />',
+              '      {failure ? <ErrorState error={failure} onRetry={() => setFailure(null)} /> : null}\n\n'
+              '      <MonthlyCareerReview months={state.data.monthly_reviews || []} onError={setFailure} />\n\n'
+              '      <UnassignedProjects payload={state.data} onDone={reload} />',
+          )
+          for reject in rejects:
+              Path(reject).unlink()
+          PY
           rm .github/gui-monthly.patch
           git fetch origin main:refs/remotes/origin/main
           git show origin/main:.github/workflows/test.yml > .github/workflows/test.yml
