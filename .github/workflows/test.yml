@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git apply --check .github/gui-monthly.patch
-          git apply .github/gui-monthly.patch
+          git apply --recount --check .github/gui-monthly.patch
+          git apply --recount .github/gui-monthly.patch
           rm .github/gui-monthly.patch
           git fetch origin main:refs/remotes/origin/main
           git show origin/main:.github/workflows/test.yml > .github/workflows/test.yml
@@ -49,9 +49,6 @@ jobs:
   test:
     if: github.ref != 'refs/heads/feat/gui-monthly-career-review'
     strategy:
-      # One runner per Python version the packaging metadata advertises, plus Windows on the oldest
-      # of them because that is where the path and console-encoding differences live. 3.12 used to
-      # be claimed in the classifiers and the README badge without any runner behind it.
       matrix:
         include:
           - os: ubuntu-latest
