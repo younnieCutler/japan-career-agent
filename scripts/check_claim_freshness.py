@@ -13,6 +13,7 @@ REQUIRED = {
     "id", "claim", "source_url", "publisher", "published_at", "observed_at",
     "claim_type", "confidence", "expires_on", "allowed_usage",
 }
+OPTIONAL_DATE_FIELDS = {"source_updated_at"}
 CLAIM_TYPES = {"official", "marketing_claim", "survey", "third_party"}
 UNKNOWN_PUBLISHED_AT = {"unknown", "unavailable", "not_published"}
 
@@ -34,7 +35,9 @@ def load_claims(path: Path = CLAIMS) -> list[dict]:
             raise ValueError(f"claims[{index}] missing fields: {', '.join(missing)}")
         if claim["claim_type"] not in CLAIM_TYPES:
             raise ValueError(f"claims[{index}].claim_type is invalid")
-        for field in ("published_at", "observed_at", "expires_on"):
+        for field in ("published_at", "observed_at", "expires_on", *OPTIONAL_DATE_FIELDS):
+            if field not in claim:
+                continue
             if field == "published_at" and str(claim[field]).lower() in UNKNOWN_PUBLISHED_AT:
                 continue
             try:

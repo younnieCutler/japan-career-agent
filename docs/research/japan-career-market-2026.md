@@ -7,8 +7,10 @@ Earlier conversation citations are leads, not independently verified evidence.
 
 ## Verified source dossier
 
-Observed on 2026-09-11. Page update dates are used as `published_at`; they are not survey fieldwork
-dates. A 2026-12-11 expiry is a repository review interval, not a publisher validity guarantee.
+Observed on 2026-09-11. The sources expose page update dates but do not establish original
+publication dates, so `published_at` remains `unknown` and `source_updated_at` preserves the
+labelled update date. Neither is a survey fieldwork date. A 2026-12-11 expiry is a repository
+review interval, not a publisher validity guarantee.
 Confidence refers to fidelity of source description, not universal applicability.
 
 | Topic / inherited assertion | Rechecked primary source | Evidence and limitation | Candidate decision |

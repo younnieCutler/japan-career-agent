@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / '_shared' / 'career_knowledge.yml'
 FIELDS = {'id', 'status', 'topics', 'scope', 'supporting_claim_ids', 'counterevidence',
           'allowed_behavior', 'forbidden_behavior', 'reviewed_at', 'expires_on',
-          'required_scenarios', 'promotion'}
+          'required_scenarios', 'lifecycle_revision', 'promotion'}
 
 
 def date(value: object) -> dt.date:
@@ -67,6 +67,9 @@ def load_registry(path: Path, claims_path: Path) -> tuple[list[dict], dict]:
         seen.add(key)
         if item['status'] not in ('candidate', 'active', 'retired'):
             raise ValueError(f'{key}: invalid status')
+        if not isinstance(item['lifecycle_revision'], int) or isinstance(
+                item['lifecycle_revision'], bool) or item['lifecycle_revision'] < 1:
+            raise ValueError(f'{key}: lifecycle_revision must be a positive integer')
         for field in ('topics', 'scope', 'supporting_claim_ids', 'allowed_behavior',
                       'forbidden_behavior', 'required_scenarios', 'counterevidence'):
             strings(item[field], f'{key}.{field}', empty=field == 'counterevidence')
@@ -77,6 +80,8 @@ def load_registry(path: Path, claims_path: Path) -> tuple[list[dict], dict]:
                 raise ValueError(f'{key}: unknown claim {claim_id}')
         if item['promotion'] is not None and not isinstance(item['promotion'], dict):
             raise ValueError(f'{key}: promotion must be an object or null')
+        if item['status'] == 'retired' and item['promotion'] is not None:
+            raise ValueError(f'{key}: retired knowledge must clear promotion')
     return data['knowledge'], claims
 
 
@@ -123,10 +128,12 @@ def blockers(item: dict, claims: dict, today: dt.date) -> list[str]:
     return reasons
 
 
-def query(topics: list[str], *, path: Path = REGISTRY, claims_path: Path = CLAIMS,
+def query(topics: list[str], *, scope: str, path: Path = REGISTRY, claims_path: Path = CLAIMS,
           as_of: dt.date | None = None, research: bool = False) -> dict:
     if not topics:
         raise ValueError('at least one explicit topic is required')
+    if not isinstance(scope, str) or not scope.strip():
+        raise ValueError('one explicit nonempty scope is required')
     items, claims = load_registry(path, claims_path)
     today = as_of or dt.date.today()
     known = {topic for item in items for topic in item['topics']}
@@ -137,6 +144,9 @@ def query(topics: list[str], *, path: Path = REGISTRY, claims_path: Path = CLAIM
     for item in sorted(items, key=lambda x: x['id']):
         if not set(topics).intersection(item['topics']):
             continue
+        if scope not in item['scope']:
+            excluded.append({'id': item['id'], 'reasons': ['scope_mismatch']})
+            continue
         reasons = blockers(item, claims, today)
         if item['status'] != 'active':
             reasons.insert(0, f'status:{item["status"]}')
@@ -146,28 +156,29 @@ def query(topics: list[str], *, path: Path = REGISTRY, claims_path: Path = CLAIM
         selected.append({'knowledge': item, 'claims': [claims[k] for k in item['supporting_claim_ids']],
                          'eligible': not reasons, 'blockers': reasons,
                          'evidence_sha256': fingerprint(item, claims)})
-    return {'mode': 'research_only' if research else 'operational', 'as_of': today.isoformat(),
-            'items': selected, 'excluded': excluded}
+    return {'mode': 'research_only' if research else 'operational', 'scope': scope,
+            'as_of': today.isoformat(), 'items': selected, 'excluded': excluded}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('topics', nargs='*')
+    parser.add_argument('--scope', help='single Skill allowed to receive matching knowledge')
     parser.add_argument('--research', action='store_true', help='explicit non-operational preview')
     parser.add_argument('--check', action='store_true', help='validate all active promotion records')
     parser.add_argument('--as-of', type=dt.date.fromisoformat)
     args = parser.parse_args()
     try:
         if args.check:
-            if args.topics or args.research:
-                raise ValueError('--check cannot be combined with topics or --research')
+            if args.topics or args.research or args.scope:
+                raise ValueError('--check cannot be combined with topics, --scope, or --research')
             items, claims = load_registry(REGISTRY, CLAIMS)
             errors = {i['id']: blockers(i, claims, args.as_of or dt.date.today())
                       for i in items if i['status'] == 'active'}
             errors = {k: v for k, v in errors.items() if v}
             print(json.dumps({'active_errors': errors}, ensure_ascii=False))
             return 1 if errors else 0
-        result = query(args.topics, as_of=args.as_of, research=args.research)
+        result = query(args.topics, scope=args.scope, as_of=args.as_of, research=args.research)
         print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
         return 0
     except (ValueError, OSError, yaml.YAMLError) as exc:

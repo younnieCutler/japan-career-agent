@@ -30,7 +30,9 @@ class KnowledgeTests(unittest.TestCase):
 
     def run_query(self, topics=None, **kw):
         self.save()
-        return query(topics or [self.topic], path=self.path, claims_path=self.claims_path,
+        scope = kw.pop('scope', self.item['scope'][0])
+        return query(topics or [self.topic], scope=scope, path=self.path,
+                     claims_path=self.claims_path,
                      as_of=kw.pop('as_of', TODAY), **kw)
 
     def promote(self):
@@ -89,17 +91,56 @@ class KnowledgeTests(unittest.TestCase):
     def test_retired_excluded_even_with_valid_receipt(self):
         self.promote()
         self.item['status'] = 'retired'
+        with self.assertRaisesRegex(ValueError, 'must clear promotion'):
+            self.run_query()
+
+    def test_reactivation_requires_new_lifecycle_evaluation(self):
+        self.promote()
+        old_promotion = copy.deepcopy(self.item['promotion'])
+        self.item['status'] = 'retired'
+        self.item['promotion'] = None
+        self.run_query(research=True)
+        self.item['status'] = 'active'
+        self.item['lifecycle_revision'] += 1
+        self.item['promotion'] = old_promotion
         self.assertEqual(self.run_query()['items'], [])
+        self.promote()
+        self.assertEqual(len(self.run_query()['items']), 1)
+
+    def test_scope_prevents_cross_skill_leakage_for_same_topic(self):
+        self.promote()
+        other = copy.deepcopy(self.item)
+        other['id'] = 'same_topic_other_skill'
+        other['scope'] = ['other-skill']
+        other['promotion'] = None
+        self.items.append(other)
+        self.item = other
+        self.promote()
+        result = self.run_query(scope='other-skill')
+        self.assertEqual([row['knowledge']['id'] for row in result['items']],
+                         ['same_topic_other_skill'])
+        self.assertEqual(result['excluded'],
+                         [{'id': 'progressive_readability', 'reasons': ['scope_mismatch']}])
+
+    def test_scope_is_required_and_mismatch_is_excluded(self):
+        self.promote()
+        self.save()
+        with self.assertRaisesRegex(ValueError, 'scope'):
+            query([self.topic], scope='', path=self.path, claims_path=self.claims_path)
+        result = self.run_query(scope='other-skill')
+        self.assertEqual(result['items'], [])
+        self.assertEqual(result['excluded'][0]['reasons'], ['scope_mismatch'])
 
     def test_unknown_topic_and_no_topic_fail(self):
         with self.assertRaises(ValueError):
             self.run_query(['not-a-topic'])
         with self.assertRaises(ValueError):
-            query([], path=self.path, claims_path=self.claims_path)
+            query([], scope=self.item['scope'][0], path=self.path,
+                  claims_path=self.claims_path)
 
     def test_duplicate_ids_missing_claim_and_bad_shape(self):
         original = copy.deepcopy(self.items)
-        for mutation in ('duplicate', 'claim', 'shape', 'date', 'extra'):
+        for mutation in ('duplicate', 'claim', 'shape', 'date', 'revision', 'extra'):
             self.items = copy.deepcopy(original)
             if mutation == 'duplicate':
                 self.items.append(copy.deepcopy(self.items[0]))
@@ -109,6 +150,8 @@ class KnowledgeTests(unittest.TestCase):
                 self.items[0]['topics'] = 'string-not-list'
             elif mutation == 'date':
                 self.items[0]['expires_on'] = 'bad'
+            elif mutation == 'revision':
+                self.items[0]['lifecycle_revision'] = True
             else:
                 self.items[0]['score'] = 0.5
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):
@@ -119,6 +162,15 @@ class KnowledgeTests(unittest.TestCase):
         self.claims_path.write_text(yaml.safe_dump({'claims': [next(iter(self.claims.values()))] * 2}))
         with self.assertRaises(ValueError):
             load_registry(self.path, self.claims_path)
+
+    def test_source_updated_at_is_validated_and_bound_to_promotion(self):
+        self.promote()
+        claim = self.claims[self.item['supporting_claim_ids'][0]]
+        claim['source_updated_at'] = 'not-a-date'
+        with self.assertRaisesRegex(ValueError, 'source_updated_at'):
+            self.run_query()
+        claim['source_updated_at'] = '2025-12-12'
+        self.assertEqual(self.run_query()['items'], [])
 
     def test_selection_is_deterministic_and_deduplicated(self):
         self.promote()

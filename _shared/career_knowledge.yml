@@ -20,6 +20,7 @@ knowledge:
   required_scenarios:
   - brief-document
   - detailed-document
+  lifecycle_revision: 1
   promotion: null
 - id: shibo_doki_consistency
   status: candidate
@@ -42,6 +43,7 @@ knowledge:
   required_scenarios:
   - ai-draft
   - shibo-doki
+  lifecycle_revision: 1
   promotion: null
 - id: weakness_mitigation
   status: candidate
@@ -62,4 +64,5 @@ knowledge:
   required_scenarios:
   - weakness
   - weakness-hard-conflict
+  lifecycle_revision: 1
   promotion: null

@@ -38,7 +38,8 @@ claims:
 
 # Each claim, when present, must contain:
 # id, claim, source_url, publisher, published_at, observed_at, claim_type,
-# confidence, expires_on, allowed_usage.
+# confidence, expires_on, allowed_usage. source_updated_at is optional and records a page's
+# explicitly labelled update date without representing it as original publication.
 # published_at may be `unknown` for an undated official page; observed_at is still required.
 # claim_type: official | marketing_claim | survey | third_party
 # allowed_usage is descriptive only; it may not contain a candidate outcome estimate.
@@ -48,7 +49,8 @@ claims:
       time for both resume types was 5 to under 10 minutes.
     source_url: https://doda.jp/guide/saiyo/007.html
     publisher: doda / PERSOL CAREER
-    published_at: '2025-12-11'
+    published_at: unknown
+    source_updated_at: '2025-12-11'
     observed_at: '2026-09-11'
     claim_type: survey
     confidence: high
@@ -62,7 +64,8 @@ claims:
       (single selection).
     source_url: https://doda.jp/guide/saiyo/008.html
     publisher: doda / PERSOL CAREER
-    published_at: '2026-03-09'
+    published_at: unknown
+    source_updated_at: '2026-03-09'
     observed_at: '2026-09-11'
     claim_type: survey
     confidence: high
@@ -75,7 +78,8 @@ claims:
       accompanying it with efforts to address its downside.
     source_url: https://tenshoku.mynavi.jp/knowhow/mensetsu/guide/05/
     publisher: Mynavi Corporation
-    published_at: '2025-11-21'
+    published_at: unknown
+    source_updated_at: '2025-11-21'
     observed_at: '2026-09-11'
     claim_type: official
     confidence: high
