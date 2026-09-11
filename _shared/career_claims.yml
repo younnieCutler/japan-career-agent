@@ -86,3 +86,118 @@ claims:
     expires_on: '2026-12-11'
     allowed_usage: Publisher guidance only, not evidence that all employers accept any
       weakness or that role-specific conflicts disappear.
+
+  - id: mynavi_early_turnover_2024
+    claim: In Mynavi's 2024 mid-career hiring survey, hiring respondents' average boundary
+      for early turnover was 9.5 months or less; a majority reported a negative impression,
+      while roughly six in ten of those respondents said an objectively convincing background
+      could remove that negative impression.
+    source_url: https://career-research.mynavi.jp/reserch/20240930_85660/
+    publisher: Mynavi Corporation / Career Research Lab
+    published_at: '2024-09-30'
+    observed_at: '2026-09-11'
+    claim_type: survey
+    confidence: high
+    expires_on: '2027-03-11'
+    allowed_usage: Context for questions about short tenure only; never use 9.5 months or
+      three years as an automatic rejection threshold or candidate outcome rule.
+
+  - id: hataractive_career_gap_2024
+    claim: In a survey of 334 current mid-career hiring respondents, 37.4% said a career
+      gap did not affect hiring judgment; respondents who considered gaps relevant varied
+      on when they would ask about them, and gap background/activity affected interpretation.
+    source_url: https://hataractive.jp/partner/report/16660/
+    publisher: Leverages / Hataractive
+    published_at: unknown
+    source_updated_at: '2026-03-10'
+    observed_at: '2026-09-11'
+    claim_type: survey
+    confidence: high
+    expires_on: '2027-03-11'
+    allowed_usage: Preserve the existence, length, activity, and explanation of a gap as
+      separate facts; do not infer a universal penalty or erase a gap because study occurred.
+
+  - id: doda_salary_basis_guidance_2026
+    claim: doda guidance says offered pay is commonly considered using current compensation,
+      confirmed experience and skills, and the employer's internal salary table, and recommends
+      explaining the basis for a desired salary rather than relying on an unsupported figure.
+    source_url: https://doda.jp/guide/mensetsu/interview/007.html
+    publisher: doda / PERSOL CAREER
+    published_at: unknown
+    observed_at: '2026-09-11'
+    claim_type: official
+    confidence: high
+    expires_on: '2027-03-11'
+    allowed_usage: Salary-conversation context only; never turn current compensation into
+      a universal +10% rule, market value, or negotiation-success estimate.
+
+  - id: doda_self_pr_structure_2026
+    claim: doda recommends structuring self-PR as situation, issue or intent, action, and
+      result, with the intent behind the action made explicit to communicate repeatability.
+    source_url: https://doda.jp/guide/rireki/jikopr/index.html
+    publisher: doda / PERSOL CAREER
+    published_at: unknown
+    observed_at: '2026-09-11'
+    claim_type: official
+    confidence: high
+    expires_on: '2027-03-11'
+    allowed_usage: Support evidence-elicitation and document structure; do not present
+      3C4P as a Japanese hiring standard or invent a metric when none was measured.
+
+  - id: doda_turnover_reasons_2026
+    claim: In doda's latest turnover-reason survey, low pay or limited expected raises was
+      the top reported reason for the fifth consecutive year, and working-hours dissatisfaction
+      and evaluation concerns were also prominent.
+    source_url: https://doda.jp/guide/reason/
+    publisher: doda / PERSOL CAREER
+    published_at: unknown
+    source_updated_at: '2026-02-16'
+    observed_at: '2026-09-11'
+    claim_type: survey
+    confidence: high
+    expires_on: '2027-03-11'
+    allowed_usage: Show that compensation and working conditions are legitimate career
+      values; do not treat survey prevalence as a recommended interview script.
+
+  - id: mynavi_self_intro_2026
+    claim: Mynavi guidance recommends a roughly one-minute self-introduction that briefly
+      communicates name, work history, relevant strengths, and experience that may transfer
+      to the target company.
+    source_url: https://tenshoku.mynavi.jp/knowhow/mensetsu/qa01/
+    publisher: Mynavi Corporation
+    published_at: unknown
+    source_updated_at: '2026-04-21'
+    observed_at: '2026-09-11'
+    claim_type: official
+    confidence: high
+    expires_on: '2027-03-11'
+    allowed_usage: Self-introduction structure only; do not require hobby bait or claim
+      that a one-minute format is a universal hard cutoff.
+
+  - id: recruit_ai_job_hunting_2026
+    claim: Recruit's 2026 graduate white paper reports that 63.3% of surveyed 2026 graduates
+      used generative AI in job hunting, including self-analysis, self-PR drafting, editing,
+      company research, and interview preparation.
+    source_url: https://shushokumirai.recruit.co.jp/white_paper_article/20260220001/
+    publisher: Recruit / Shushoku Mirai Research Institute
+    published_at: '2026-02-20'
+    observed_at: '2026-09-11'
+    claim_type: survey
+    confidence: high
+    expires_on: '2027-03-11'
+    allowed_usage: New-graduate usage context only; AI use itself is not proof of deception,
+      and the claim does not validate AI-authorship detectors or unsupported candidate facts.
+
+  - id: mhlw_resume_roles_2022
+    claim: MHLW's My Job Card guidance describes 履歴書 as a concise profile-oriented document
+      and 職務経歴書 as a document for reviewing work experience, practical capability, and
+      alignment with employer needs; both may contain motivation or appeal content.
+    source_url: https://www.job-card.mhlw.go.jp/column/employed/cv-resume
+    publisher: Ministry of Health, Labour and Welfare / My Job Card
+    published_at: '2022-10-26'
+    observed_at: '2026-09-11'
+    claim_type: official
+    confidence: high
+    expires_on: '2027-09-11'
+    allowed_usage: Explain document roles and overlapping fields; do not reduce the distinction
+      to facts-versus-story or treat an editorial example as a statutory format requirement.
