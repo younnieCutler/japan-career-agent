@@ -28,7 +28,7 @@ ALLOWED_OWNERS = {
     "former_and_new_employer",
     "authority",
 }
-ALLOWED_OPS = {"eq", "in", "in_group", "is_known"}
+ALLOWED_OPS = {"eq", "in", "in_group", "not_in_groups", "is_known"}
 ALLOWED_DEADLINE_KINDS = {"days_after", "months_after"}
 ALLOWED_SOURCE_TYPES = {"official_guidance", "official_local_guidance", "statute"}
 
@@ -161,6 +161,10 @@ def _validate_condition(condition: Any, task_id: str, groups: dict[str, Any]) ->
         raise TransitionAdminError(f"task {task_id} uses unsupported op {condition['op']!r}")
     if condition["op"] == "in_group" and condition["value"] not in groups:
         raise TransitionAdminError(f"task {task_id} uses unknown group {condition['value']!r}")
+    if condition["op"] == "not_in_groups":
+        values = condition["value"]
+        if not isinstance(values, list) or not values or not all(value in groups for value in values):
+            raise TransitionAdminError(f"task {task_id} not_in_groups must name known groups")
     if condition["op"] == "in" and not isinstance(condition["value"], list):
         raise TransitionAdminError(f"task {task_id} in predicate value must be a list")
     if condition["op"] == "is_known" and not isinstance(condition["value"], bool):
@@ -199,6 +203,8 @@ def _predicate(
         return actual in expected
     if op == "in_group":
         return actual in groups[expected]
+    if op == "not_in_groups":
+        return all(actual not in groups[group_name] for group_name in expected)
     raise AssertionError(op)
 
 
