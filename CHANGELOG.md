@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.33.0] - 2026-09-11
+
+- Complete the Japanese career knowledge program by revalidating the remaining market guidance, promoting eleven scoped knowledge items only after recorded semantic scenario review, and keeping market claims separate from personal candidate evidence.
+- Integrate evidence-safe 3C4P elicitation, short-tenure and gap handling, motivation consistency, progressive document readability, career-relevant self-introduction, weakness mitigation, salary-anchor checks, AI-draft defensibility, and resume-role boundaries into the relevant shipped Skills without fixed hiring weights or invented metrics.
+- Retain the evaluation artifact plus deterministic scope, freshness, lifecycle, and promotion gates so changes to a claim, behavior, scope, lifecycle revision, or required scenario invalidate the corresponding promotion receipt.
+
 ## [2.32.0] - 2026-09-11
 
 - Add a source-reviewed career knowledge foundation with three dated claims and candidate-only operational proposals, separated from personal evidence and runtime Skill context.
