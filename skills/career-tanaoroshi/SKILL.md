@@ -164,6 +164,16 @@ never ask all of these at once, and never more than three questions in a turn.
 5. 결과는 어떻게 되었습니까?
 6. 그 결과를 뒷받침할 숫자나 자료가 있습니까?
 
+When an experience is difficult to unpack or the user explicitly wants a framework, load only
+`references/evidence-elicitation.md`. Its 3C4P mapping is an optional question-generation lens inside
+this existing workflow, not a Japanese hiring standard and not a replacement schema. Map useful
+answers back to canonical evidence fields.
+
+For results, branch explicitly on measurement: if a number was measured, preserve the original
+confirmed number and source; if it was not measured, describe only an observable change, scope,
+frequency, process, responsibility, or artifact and leave the number `Unknown`. Never create an
+estimate, range, rounded KPI, or plausible percentage to complete the framework.
+
 Capture through the ordinary path, then fill the structured fields:
 
 ```bash
@@ -273,6 +283,7 @@ installation directory.
 
 ## Related references
 
+- `references/evidence-elicitation.md`: optional evidence-safe 3C4P question lens
 - `../career-agent/SKILL.md`: the capture → propose → approve → confirm runtime
 - `../career-maintenance/SKILL.md`: keeping the record current after this pass
 - `../jiko-bunseki/SKILL.md`: interpretation — strengths, values, patterns
