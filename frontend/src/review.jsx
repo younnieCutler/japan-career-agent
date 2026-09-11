@@ -35,8 +35,9 @@ export const HIDDEN_REVIEW_FIELDS = new Set([
 
 export const FIELD_LABELS = new Set([
   "label", "kind", "title", "role", "scope", "summary", "period", "problem",
-  "direct_actions", "individual_contribution", "team_result", "outcome_state", "metrics",
-  "improvements", "learning", "work_date", "confidentiality", "contains_confidential",
+  "responsibility", "judgment", "decision_basis", "risk_management", "direct_actions",
+  "stakeholder_coordination", "organizational_context", "individual_contribution", "team_result",
+  "outcome_state", "metrics", "improvements", "learning", "work_date", "confidentiality", "contains_confidential",
   "external_use", "candidate_name", "language_preference", "track", "interest_hypotheses",
   "behavior_tendencies", "evidence_episodes", "career_self_efficacy", "perceived_barriers",
   "perceived_supports", "environment_preferences", "value_candidates", "avoid_candidates",

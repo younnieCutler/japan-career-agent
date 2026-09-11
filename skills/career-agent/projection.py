@@ -304,6 +304,8 @@ def experiences_from_events(events: list[dict[str, Any]]) -> dict[str, Any]:
                 "team_result",
                 "outcome_state",
                 "metrics",
+                "improvements",
+                "learning",
             )
             if payload.get(field) not in (None, "", [])
         }

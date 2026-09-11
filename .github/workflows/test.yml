@@ -4,129 +4,14 @@ on:
   push:
     branches:
       - main
-      - feat/gui-monthly-career-review
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
-  apply-gui-monthly-patch:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/gui-monthly-career-review'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: feat/gui-monthly-career-review
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "22"
-      - name: apply source patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git apply --recount --reject .github/gui-monthly.patch || true
-          python - <<'PY'
-          from pathlib import Path
-
-          rejects = {path.as_posix() for path in Path('.').rglob('*.rej')}
-          allowed = {'frontend/src/review.jsx.rej', 'frontend/src/screens/Career.jsx.rej'}
-          unexpected = rejects - allowed
-          if unexpected:
-              raise SystemExit(f'unexpected patch rejects: {sorted(unexpected)}')
-
-          def replace_once(path, old, new):
-              file = Path(path)
-              text = file.read_text(encoding='utf-8')
-              if new in text:
-                  return
-              if old not in text:
-                  raise SystemExit(f'patch anchor missing in {path}: {old[:80]!r}')
-              file.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
-
-          replace_once(
-              'frontend/src/review.jsx',
-              '  "direct_actions", "individual_contribution", "team_result", "outcome_state", "metrics",\n'
-              '  "improvements", "learning", "work_date", "confidentiality", "contains_confidential",',
-              '  "responsibility", "judgment", "decision_basis", "risk_management", "direct_actions",\n'
-              '  "stakeholder_coordination", "organizational_context", "individual_contribution", "team_result",\n'
-              '  "outcome_state", "metrics", "improvements", "learning", "work_date", "confidentiality", "contains_confidential",',
-          )
-          replace_once(
-              'frontend/src/screens/Career.jsx',
-              'import CareerBatch from "./CareerBatch.jsx";',
-              'import CareerBatch from "./CareerBatch.jsx";\nimport MonthlyCareerReview from "./MonthlyCareerReview.jsx";',
-          )
-          replace_once(
-              'frontend/src/screens/Career.jsx',
-              '      ]} />\n      <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>',
-              '      ]} />\n'
-              '      {!experience.contains_confidential ? <Facts rows={[\n'
-              '        [t("workflow.responsibility"), experience.detail?.responsibility],\n'
-              '        [t("workflow.judgment"), experience.detail?.judgment],\n'
-              '        [t("workflow.decision_basis"), experience.detail?.decision_basis],\n'
-              '        [t("workflow.risk_management"), experience.detail?.risk_management],\n'
-              '        [t("workflow.stakeholder_coordination"), (experience.detail?.stakeholder_coordination || []).join(t("common.list_separator"))],\n'
-              '        [t("workflow.organizational_context"), experience.detail?.organizational_context],\n'
-              '        [t("workflow.improvements"), (experience.detail?.improvements || []).join(t("common.list_separator"))],\n'
-              '        [t("workflow.learning"), (experience.detail?.learning || []).join(t("common.list_separator"))],\n'
-              '      ]} /> : null}\n'
-              '      <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>',
-          )
-          replace_once(
-              'frontend/src/screens/Career.jsx',
-              '    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, row.parent?.label, row.grandparent?.label]',
-              '    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, JSON.stringify(row.node.detail || {}), row.parent?.label, row.grandparent?.label]',
-          )
-          replace_once(
-              'frontend/src/screens/Career.jsx',
-              '      {failure ? <ErrorState error={failure} onRetry={() => setFailure(null)} /> : null}\n\n      <UnassignedProjects payload={state.data} onDone={reload} />',
-              '      {failure ? <ErrorState error={failure} onRetry={() => setFailure(null)} /> : null}\n\n'
-              '      <MonthlyCareerReview months={state.data.monthly_reviews || []} onError={setFailure} />\n\n'
-              '      <UnassignedProjects payload={state.data} onDone={reload} />',
-          )
-          replace_once(
-              'frontend/src/screens/Career.test.jsx',
-              '    expect(screen.getByText("career.dimension.judgment")).toBeTruthy();',
-              '    expect(screen.getAllByText("career.dimension.judgment").length).toBeGreaterThan(0);',
-          )
-          replace_once(
-              'skills/career-agent/projection.py',
-              '                "team_result",\n                "outcome_state",\n                "metrics",',
-              '                "team_result",\n                "outcome_state",\n                "metrics",\n                "improvements",\n                "learning",',
-          )
-          replace_once(
-              'skills/career-agent/gui/test_projects.py',
-              '        self.assertEqual(detail["stakeholder_coordination"], ["운영팀과 배포 기준을 합의했다"])',
-              '        self.assertEqual(detail["stakeholder_coordination"], ["운영팀과 배포 기준을 합의했다"])\n'
-              '        self.assertEqual(detail["improvements"], ["fallback 절차를 문서화한다"])\n'
-              '        self.assertEqual(detail["learning"], ["판단 근거를 기록해야 인수인계가 빨라진다"])',
-          )
-          for reject in rejects:
-              Path(reject).unlink()
-          PY
-          rm .github/gui-monthly.patch
-          git fetch origin main:refs/remotes/origin/main
-          git show origin/main:.github/workflows/test.yml > .github/workflows/test.yml
-      - name: verify and build frontend
-        working-directory: frontend
-        run: |
-          npm ci
-          npm test
-          npm run build
-      - name: commit complete GUI slice
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Implement monthly Career Review GUI"
-          git push origin HEAD:feat/gui-monthly-career-review
-
   test:
-    if: github.ref != 'refs/heads/feat/gui-monthly-career-review'
     strategy:
+      # One runner per Python version the packaging metadata advertises, plus Windows on the oldest
+      # of them because that is where the path and console-encoding differences live. 3.12 used to
+      # be claimed in the classifiers and the README badge without any runner behind it.
       matrix:
         include:
           - os: ubuntu-latest
@@ -157,8 +42,9 @@ jobs:
           python scripts/build_release.py --output-dir release-smoke --expected-commit "${{ github.sha }}"
           python scripts/test_release_install.py --bundle release-smoke
 
+  # The process-level GUI E2E proves the server survives real process boundaries, but it stops at
+  # HTTP. This job crosses the remaining boundary: committed bundle -> real Chrome -> local server.
   browser-e2e:
-    if: github.ref != 'refs/heads/feat/gui-monthly-career-review'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -173,17 +59,25 @@ jobs:
       - name: committed GUI bundle in a real browser
         run: node scripts/test_browser_e2e.mjs
 
+  # The GUI bundle is committed so the wheel ships it and users never need Node. This job verifies
+  # that the committed bundle is exactly what the committed source builds; browser-e2e above uses
+  # Node only as a dependency-free Chrome DevTools Protocol driver for that committed bundle.
   frontend-bundle:
-    if: github.ref != 'refs/heads/feat/gui-monthly-career-review'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
+          # Same major as the release workflow's npm channel. A byte comparison is only as stable
+          # as the toolchain producing it; pin the minor here if a runner's Node bump ever moves
+          # the output without a source change.
           node-version: "22"
       - name: install frontend deps from the lockfile
         working-directory: frontend
         run: npm ci
+      # Behavioural checks on the components that wrap SEED's composed primitives. Every other
+      # client contract is asserted by reading `frontend/src` as text, which cannot tell whether a
+      # listbox actually opens — that gap shipped a product where no dropdown worked.
       - name: client component contracts
         working-directory: frontend
         run: npm test
@@ -198,6 +92,7 @@ jobs:
             echo "::error::The committed GUI bundle is stale. Run 'npm ci && npm run build' in frontend/ and commit the result."
             exit 1
           fi
+          # A build that emits a file nobody committed would ship a wheel missing it.
           untracked="$(git ls-files --others --exclude-standard -- skills/career-agent/gui/static/app)"
           if [[ -n "$untracked" ]]; then
             echo "::error::The build emitted files that are not committed:"

@@ -42,6 +42,10 @@ describe("experience capture", () => {
 
     expect(screen.getByText("workflow.role")).toBeTruthy();
     expect(screen.getByText("workflow.problem")).toBeTruthy();
+    expect(screen.getByText("workflow.responsibility")).toBeTruthy();
+    expect(screen.getByText("workflow.judgment")).toBeTruthy();
+    expect(screen.getByText("workflow.decision_basis")).toBeTruthy();
+    expect(screen.getByText("workflow.stakeholder_coordination")).toBeTruthy();
   });
 
   it("passes the server review-before snapshot to approval", async () => {

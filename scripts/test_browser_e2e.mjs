@@ -362,6 +362,7 @@ async function main() {
         if (location.pathname !== "/career" || !document.querySelector(".workspace")) return null;
         if (!main || main.innerText.trim().length < 2) return null;
         if (!main.querySelector(".page-header") || !main.querySelector(".split")) return null;
+        if (!main.querySelector("[data-monthly-career-review]")) return null;
         return { path: location.pathname };
       })()`,
       "Career route and route-specific screen after real pointer click",
@@ -375,6 +376,7 @@ async function main() {
         if (document.readyState !== "complete" || location.pathname !== "/career") return null;
         if (!document.querySelector(".workspace") || !main || main.innerText.trim().length < 2) return null;
         if (!main.querySelector(".page-header") || !main.querySelector(".split")) return null;
+        if (!main.querySelector("[data-monthly-career-review]")) return null;
         if (location.hash) return null;
         return main.innerText.trim();
       })()`,
@@ -387,6 +389,7 @@ async function main() {
     console.log("  - single-use bootstrap token opened a real browser session and disappeared from the URL");
     console.log("  - React workspace rendered against the real local GUI server");
     console.log("  - pointer click navigated Home -> Career and rendered the Career screen through the committed bundle");
+    console.log("  - Career rendered the deterministic monthly review surface from the committed bundle");
     console.log("  - full reload preserved the /career deep link and authenticated browser session");
   } catch (error) {
     if (gui?.stderr()) console.error(`GUI stderr:\n${gui.stderr()}`);

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from localization import gui_catalog, normalize_language
 from gui.judgment_copy import judgment_messages
+from gui.monthly_copy import monthly_messages
 from render import fill_slots
 
 
@@ -69,6 +70,7 @@ def gui_messages(language: object) -> dict[str, str]:
     """Return one complete locale catalog for the data-free browser client."""
     catalog = gui_catalog(language)
     catalog.update(judgment_messages(language))
+    catalog.update(monthly_messages(language))
     return catalog
 
 

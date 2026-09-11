@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.31.0] - 2026-09-11
+
+- Add a GUI Monthly Career Review over the deterministic month projection, with per-dimension present/total evidence, explicit gaps/partial coverage, and approved experience detail without a combined score or second store.
+- Let the existing autosaved Work editor capture responsibility, judgment, decision basis, risk management, stakeholder coordination, organizational context, improvements, and learning, then show those fields in the same review/approval gate and Career read model.
+- Keep confidential detail hidden, keep malformed historical work dates out of monthly buckets, and exercise the monthly surface in component, backend, and real-browser regression coverage.
+
 ## [2.30.0] - 2026-09-11
 
 - Add explicit optional `responsibility`, `judgment`, `decision_basis`, `risk_management`, and `organizational_context` fields to the canonical work/experience evidence contract while reusing `stakeholder_coordination`; role and scope remain context and are not promoted into ownership.

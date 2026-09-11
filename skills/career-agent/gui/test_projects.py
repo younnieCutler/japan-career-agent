@@ -270,11 +270,20 @@ class ProjectCaseTests(unittest.TestCase):
             {
                 "summary": "결제 배치 지연을 줄였다",
                 "evidence": ["runbook"],
+                "work_date": "2026-09",
                 "role": "owner",
+                "responsibility": "배포 준비 여부 판단을 책임졌다",
+                "judgment": "자동 검증을 배포 전에 실행하기로 결정했다",
+                "decision_basis": "수동 점검에서 누락이 반복됐다",
+                "risk_management": "문제가 생기면 수동 절차로 되돌릴 수 있게 유지했다",
                 "direct_actions": ["알람을 재설계했다"],
+                "stakeholder_coordination": ["운영팀과 배포 기준을 합의했다"],
+                "organizational_context": "분기 안정성 목표에 연결된 작업이었다",
                 "individual_contribution": "알람 기준과 운영 절차를 직접 설계했다",
                 "outcome_state": "qualitative",
                 "team_result": "결제 배치 대응이 안정됐다",
+                "improvements": ["fallback 절차를 문서화한다"],
+                "learning": ["판단 근거를 기록해야 인수인계가 빨라진다"],
                 "confidentiality": {
                     "contains_confidential": False,
                     "external_use": "allowed",
@@ -306,6 +315,18 @@ class ProjectCaseTests(unittest.TestCase):
         self.assertEqual(
             sessions.load_session(self.home, session_id)["case_ref"], project["case_id"]
         )
+        career = import_module("gui.views_read").career_overview_payload(self.home)
+        self.assertEqual([row["month"] for row in career["monthly_reviews"]], ["2026-09"])
+        september = career["monthly_reviews"][0]
+        self.assertEqual(september["coverage"]["judgment"], {"present": 1, "total": 1})
+        self.assertNotIn("claim_refs", september)
+        self.assertEqual(len(september["experiences"]), 1)
+        detail = september["experiences"][0]["detail"]
+        self.assertEqual(detail["responsibility"], "배포 준비 여부 판단을 책임졌다")
+        self.assertEqual(detail["judgment"], "자동 검증을 배포 전에 실행하기로 결정했다")
+        self.assertEqual(detail["stakeholder_coordination"], ["운영팀과 배포 기준을 합의했다"])
+        self.assertEqual(detail["improvements"], ["fallback 절차를 문서화한다"])
+        self.assertEqual(detail["learning"], ["판단 근거를 기록해야 인수인계가 빨라진다"])
 
     def test_revising_experience_appends_a_replacement_and_supersession(self) -> None:
         context, project = self._project("Payment Platform Migration")

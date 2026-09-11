@@ -27,7 +27,9 @@ const splitLines = (value) => String(value || "")
 
 const SAVE_DEBOUNCE_MS = 650;
 const DETAIL_FIELDS = [
-  "work_date", "role", "scope", "problem", "direct_actions", "individual_contribution", "team_result", "metrics",
+  "work_date", "role", "scope", "responsibility", "problem", "judgment", "decision_basis",
+  "risk_management", "direct_actions", "stakeholder_coordination", "organizational_context",
+  "individual_contribution", "team_result", "metrics", "improvements", "learning",
 ];
 
 const draftHasDetails = (draft = {}) => DETAIL_FIELDS.some((key) => {
@@ -53,8 +55,10 @@ function Breadcrumb({ session }) {
 }
 
 const EMPTY = {
-  summary: "", work_date: "", role: "", scope: "", problem: "", direct_actions: "",
-  individual_contribution: "", outcome_state: "unknown", team_result: "", metrics: "",
+  summary: "", work_date: "", role: "", scope: "", responsibility: "", problem: "", judgment: "",
+  decision_basis: "", risk_management: "", direct_actions: "", stakeholder_coordination: "",
+  organizational_context: "", individual_contribution: "", outcome_state: "unknown", team_result: "", metrics: "",
+  improvements: "", learning: "",
   evidence: "", contains_confidential: false, external_use: "unknown",
 };
 
@@ -64,12 +68,20 @@ const fromDraft = (draft = {}) => ({
   work_date: draft.work_date || "",
   role: draft.role || "",
   scope: draft.scope || "",
+  responsibility: draft.responsibility || "",
   problem: draft.problem || "",
+  judgment: draft.judgment || "",
+  decision_basis: draft.decision_basis || "",
+  risk_management: draft.risk_management || "",
   direct_actions: (draft.direct_actions || []).join("\n"),
+  stakeholder_coordination: (draft.stakeholder_coordination || []).join("\n"),
+  organizational_context: draft.organizational_context || "",
   individual_contribution: draft.individual_contribution || "",
   outcome_state: draft.outcome_state || "unknown",
   team_result: draft.team_result || "",
   metrics: (draft.metrics || []).join("\n"),
+  improvements: (draft.improvements || []).join("\n"),
+  learning: (draft.learning || []).join("\n"),
   evidence: (draft.evidence || []).join("\n"),
   contains_confidential: Boolean(draft.confidentiality?.contains_confidential),
   external_use: draft.confidentiality?.external_use || "unknown",
@@ -92,15 +104,26 @@ function serialize(form) {
     work_date: form.work_date,
     role: form.role.trim(),
     scope: form.scope.trim(),
+    responsibility: form.responsibility.trim(),
     problem: form.problem.trim(),
+    judgment: form.judgment.trim(),
+    decision_basis: form.decision_basis.trim(),
+    risk_management: form.risk_management.trim(),
+    organizational_context: form.organizational_context.trim(),
     individual_contribution: form.individual_contribution.trim(),
     team_result: measured ? form.team_result.trim() : "",
   };
   for (const [key, item] of Object.entries(text)) if (item) value[key] = item;
   const direct = splitLines(form.direct_actions);
   if (direct.length) value.direct_actions = direct;
+  const coordination = splitLines(form.stakeholder_coordination);
+  if (coordination.length) value.stakeholder_coordination = coordination;
   const metrics = splitLines(form.metrics);
   if (form.outcome_state === "quantitative" && metrics.length) value.metrics = metrics;
+  const improvements = splitLines(form.improvements);
+  if (improvements.length) value.improvements = improvements;
+  const learning = splitLines(form.learning);
+  if (learning.length) value.learning = learning;
   return value;
 }
 
@@ -358,6 +381,38 @@ export function CaptureForm({ payload, onReload }) {
                     value={form.individual_contribution}
                     onChange={(v) => edit({ individual_contribution: v })}
                   />
+                </Field>
+              </fieldset>
+
+              <fieldset className="form-section">
+                <legend>{t("work.section.judgment")}</legend>
+                <Field label={t("workflow.responsibility")} help={t("workflow.responsibility_help")}>
+                  <Block value={form.responsibility} onChange={(v) => edit({ responsibility: v })} />
+                </Field>
+                <Field label={t("workflow.judgment")} help={t("workflow.judgment_help")}>
+                  <Block value={form.judgment} onChange={(v) => edit({ judgment: v })} />
+                </Field>
+                <Field label={t("workflow.decision_basis")} help={t("workflow.decision_basis_help")}>
+                  <Block value={form.decision_basis} onChange={(v) => edit({ decision_basis: v })} />
+                </Field>
+                <Field label={t("workflow.risk_management")} help={t("workflow.risk_management_help")}>
+                  <Block value={form.risk_management} onChange={(v) => edit({ risk_management: v })} />
+                </Field>
+              </fieldset>
+
+              <fieldset className="form-section">
+                <legend>{t("work.section.reflection")}</legend>
+                <Field label={t("workflow.stakeholder_coordination")} help={t("workflow.stakeholder_coordination_help")}>
+                  <Block value={form.stakeholder_coordination} onChange={(v) => edit({ stakeholder_coordination: v })} />
+                </Field>
+                <Field label={t("workflow.organizational_context")} help={t("workflow.organizational_context_help")}>
+                  <Block value={form.organizational_context} onChange={(v) => edit({ organizational_context: v })} />
+                </Field>
+                <Field label={t("workflow.improvements")}>
+                  <Block value={form.improvements} onChange={(v) => edit({ improvements: v })} />
+                </Field>
+                <Field label={t("workflow.learning")}>
+                  <Block value={form.learning} onChange={(v) => edit({ learning: v })} />
                 </Field>
               </fieldset>
 
