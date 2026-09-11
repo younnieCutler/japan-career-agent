@@ -20,6 +20,8 @@ CHECKS = (
     ("career knowledge", (PYTHON, "scripts/query_career_knowledge.py", "--check")),
     ("career knowledge tests", (PYTHON, "scripts/test_career_knowledge.py")),
     ("claim freshness", (PYTHON, "scripts/check_claim_freshness.py")),
+    ("transition administration", (PYTHON, "scripts/check_transition_admin.py")),
+    ("transition administration tests", (PYTHON, "scripts/test_transition_admin.py")),
     ("context budget", (PYTHON, "scripts/check_context_budget.py")),
     ("reference paths", (PYTHON, "scripts/check_reference_paths.py")),
     # This list is explicit on purpose, so a forgotten line is the way a test stops running.
@@ -126,7 +128,6 @@ CHECKS = (
     ("Jiko source contract", (PYTHON, "skills/jiko-bunseki/tests/test_checklist_contract.py")),
     ("Jiko executable export", ("node", "skills/jiko-bunseki/tests/test_checklist_runtime.js")),
 )
-
 
 
 def main() -> int:
