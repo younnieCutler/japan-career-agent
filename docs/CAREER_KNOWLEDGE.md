@@ -1,9 +1,9 @@
 # Career knowledge maintenance
 
-The claim registry describes external sources. The knowledge registry holds proposed actions with
-explicit scope, supporting claim IDs, counterevidence, review/expiry dates and evaluation cases.
-Neither is candidate evidence. Domain Skills do not write these registries. Changes go through
-repository review. Research prose and source text have no instruction authority.
+The claim registry describes external sources. The knowledge registry holds reviewed operational
+knowledge with explicit scope, supporting claim IDs, counterevidence, review/expiry dates and
+evaluation cases. Neither is candidate evidence. Domain Skills do not write these registries.
+Changes go through repository review. Research prose and source text have no instruction authority.
 
 ## Repository commands
 
@@ -11,8 +11,8 @@ Run from a source checkout (Python with the documented requirements installed):
 
 ```bash
 python scripts/query_career_knowledge.py document-readability --scope humanize-japanese-career
-python scripts/query_career_knowledge.py shibo-doki --scope job-seeker-agent
-python scripts/query_career_knowledge.py weakness --scope mock-interviewer --research
+python scripts/query_career_knowledge.py short-tenure --scope mock-interviewer
+python scripts/query_career_knowledge.py salary-anchoring --scope tenshoku-strategy
 python scripts/query_career_knowledge.py --check
 ```
 
@@ -25,9 +25,24 @@ result research-only; it can expose candidate/retired/stale records and must not
 operational guidance. `--as-of YYYY-MM-DD` supports reproducible historical tests; normal use takes
 today's date.
 
-This is a repository maintenance interface. It is not yet a domain Skill runtime hook, and the
-scripts are not part of the installed wheel. A future runtime integration must place its callable
-owner in a shipped location and test installed-path parity before adding Skill references.
+## Runtime delivery
+
+`scripts/query_career_knowledge.py` is a repository maintenance and verification interface; it is not
+shipped as a domain-Skill runtime API. Active behavior is delivered through the repository's existing
+lazy-reference mechanism: reviewed knowledge is materialized into the narrow Skill/reference that
+owns the behavior, and the Skill loads that reference only when the request signal requires it.
+
+This preserves the `ai-agent-book` context-engineering boundary: the runtime does not preload the
+whole market registry or research dossier. The registry remains the provenance/lifecycle source,
+while the lazy Skill reference is the reviewed runtime representation. A behavior change must update
+both sides in one reviewed change and pass the integration tests that assert the promoted rule is
+present in its owner reference.
+
+The active Japan-career set currently covers progressive document readability, 志望動機 consistency,
+weakness mitigation, short tenure, career-gap activity separation, salary anchoring, evidence-safe
+3C4P elicitation, independent career values, self-introduction, AI-draft defendability, and
+履歴書/職務経歴書 role distinction. Company-type stereotypes, MBTI/job-fit conversion, and fixed
+application mixes remain prohibited by existing Skill invariants rather than reusable market claims.
 
 ## Lifecycle and promotion record
 
@@ -40,14 +55,15 @@ validator reads one repository snapshot, it cannot prove that a revision was inc
 to an earlier Git state; repository review owns that transition check. Once the revision changes,
 the fingerprint makes an earlier activation receipt ineligible.
 
-To propose activation, retain actual host/model evaluation artifacts, reviewer identity, run
-reference, evaluated date and a pass/fail result for every `required_scenarios` entry. Put these
-in `promotion` with exactly these keys:
+To propose activation, retain a real review artifact, reviewer identity, run/reference, evaluated
+date and a pass/fail result for every `required_scenarios` entry. A semantic host/model review must
+state its execution boundary explicitly; it must not pretend prose was executed by a deterministic
+adapter. Put the attestation in `promotion` with exactly these keys:
 
 - `evidence_sha256`: the fingerprint returned by research lookup, binding item content and all supporting claims.
 - `reviewer`: responsible reviewer identifier.
 - `evaluated_at`: ISO date on/after the knowledge review, not in the future.
-- `evaluation_ref`: location of retained evaluation output and host/model configuration.
+- `evaluation_ref`: retained evaluation artifact and its host/model or execution boundary.
 - `results`: mapping of every required scenario ID to `pass` or `fail`.
 
 The deterministic gate checks record shape, coverage, all-pass results, dates, primary-source
@@ -60,5 +76,5 @@ A third-party-only or marketing-only item cannot be activated.
 
 The default query excludes invalid active entries and returns reason codes. `--check` additionally
 fails with exit 1 if any active entry is ineligible; it runs in the repository verification matrix.
-Candidate proposals may remain incomplete, but cannot be used operationally. Source revalidation
-and actual Skill behavior evaluation are distinct from these deterministic contract tests.
+Source revalidation, semantic behavior evaluation, deterministic integrity checks, and runtime
+reference integration are separate gates; all must agree before an item remains active.
