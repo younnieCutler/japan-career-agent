@@ -193,6 +193,12 @@ class MonthlyCareerProjectionTests(unittest.TestCase):
             context("evt-ctx-b", "ctx-b", "Beta"),
             evidence(
                 "evt-a", context_id="ctx-a", experience_ref="release", work_date="2026-08",
+                responsibility="owned release readiness",
+                judgment="automate validation before release",
+                decision_basis="manual checks had repeated omissions",
+                risk_management="kept a manual fallback for rollback",
+                stakeholder_coordination=["aligned with operations"],
+                organizational_context="supported the reliability objective",
                 individual_contribution="owned release validation",
             ),
             evidence(
@@ -208,6 +214,16 @@ class MonthlyCareerProjectionTests(unittest.TestCase):
 
         self.assertEqual([row["month"] for row in all_rows["months"]], ["2026-09", "2026-08"])
         self.assertEqual([row["month"] for row in acme["months"]], ["2026-08"])
+        self.assertEqual(len(acme["claims"]), 1)
+        detail = acme["claims"][0]["detail"]
+        self.assertIsNotNone(detail)
+        assert detail is not None
+        self.assertEqual(detail["responsibility"], "owned release readiness")
+        self.assertEqual(detail["judgment"], "automate validation before release")
+        self.assertEqual(detail["decision_basis"], "manual checks had repeated omissions")
+        self.assertEqual(detail["risk_management"], "kept a manual fallback for rollback")
+        self.assertEqual(detail["stakeholder_coordination"], ["aligned with operations"])
+        self.assertEqual(detail["organizational_context"], "supported the reliability objective")
         self.assertTrue(acme["no_total_by_design"])
 
 
