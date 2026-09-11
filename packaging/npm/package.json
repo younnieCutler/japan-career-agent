@@ -1,6 +1,6 @@
 {
   "name": "japan-career-agent",
-  "version": "2.33.0",
+  "version": "2.34.0",
   "description": "Self-contained npm installer for the local-first Japan Career Agent Python runtime.",
   "keywords": [
     "japan",
