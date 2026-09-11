@@ -41,8 +41,33 @@ describe("experience edit affordance", () => {
 
 describe("job seeker action budget", () => {
   const emptyCareer = {
-    contexts: [], relationship_conflicts: [], unassigned_projects: [], unassigned_work: [],
+    contexts: [], relationship_conflicts: [], unassigned_projects: [], unassigned_work: [], monthly_reviews: [],
   };
+
+  it("renders deterministic monthly review data and starts a new evidence draft without inventing context", async () => {
+    read.mockResolvedValue({
+      ...emptyCareer,
+      monthly_reviews: [{
+        month: "2026-09", evidence_count: 1,
+        coverage: { responsibility: { present: 1, total: 1 }, judgment: { present: 0, total: 1 } },
+        gaps: ["judgment"], partial: [],
+        experiences: [{
+          ref: "evt-september", label: "Release decision", work_date: "2026-09",
+          contains_confidential: false, detail: { responsibility: "owned release readiness" },
+        }],
+      }],
+    });
+    write.mockResolvedValueOnce({ session: { session_ref: "session-month" } });
+    render(<CareerScreen />);
+
+    expect(await screen.findByText("career.monthly.title")).toBeTruthy();
+    expect(screen.getByText("Release decision")).toBeTruthy();
+    expect(screen.getAllByText("career.dimension.judgment").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "career.monthly.add" }));
+
+    await waitFor(() => expect(write).toHaveBeenCalledWith("/api/workflows/start", { workflow: "career_inventory" }));
+    expect(navigate).toHaveBeenCalledWith("/work/session-month");
+  });
 
   it("turns one pasted career history into a draft with one submit decision", async () => {
     location.search = "?capture=1";

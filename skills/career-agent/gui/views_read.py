@@ -296,6 +296,47 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
         for row in canonical_projects
         if isinstance(row, Mapping) and row.get("id")
     }
+    monthly_rows = experience_result.get("months", [])
+    monthly_rows = monthly_rows if isinstance(monthly_rows, list) else []
+    monthly_reviews: list[dict[str, Any]] = []
+    for month_row in monthly_rows:
+        if not isinstance(month_row, Mapping) or not isinstance(month_row.get("month"), str):
+            continue
+        month = str(month_row["month"])
+        # The deterministic projection already decided exactly which active confirmed claims
+        # belong to this month. Use those ids only for the internal join, then omit them from the
+        # public GUI payload; prefix-matching work_date would re-admit malformed legacy values such
+        # as `2026-09-extra` whenever a valid September claim also existed.
+        month_claim_refs = {
+            str(ref) for ref in month_row.get("claim_refs", [])
+            if isinstance(ref, str) and ref
+        }
+        month_experiences: list[dict[str, Any]] = []
+        for claim in canonical_experiences:
+            if not isinstance(claim, Mapping):
+                continue
+            if str(claim.get("claim_id") or "") not in month_claim_refs:
+                continue
+            context = canonical_contexts.get(claim.get("context_id"), {})
+            context = context if isinstance(context, Mapping) else {}
+            project = projects_by_id.get(str(claim.get("project_id") or ""), {})
+            project = project if isinstance(project, Mapping) else {}
+            month_experiences.append({
+                **_experience_public(claim),
+                "context_label": context.get("external_label") or context.get("label"),
+                "project_label": project.get("external_label") or project.get("title"),
+            })
+        month_experiences.sort(
+            key=lambda row: (str(row.get("work_date") or ""), str(row.get("ref") or ""))
+        )
+        monthly_reviews.append({
+            "month": month,
+            "evidence_count": int(month_row.get("evidence_count") or 0),
+            "coverage": dict(month_row.get("coverage") or {}),
+            "gaps": list(month_row.get("gaps") or []),
+            "partial": list(month_row.get("partial") or []),
+            "experiences": month_experiences,
+        })
     project_case_by_id = {
         str(row["metadata"].get("project_id")): row
         for row in project_cases
@@ -542,6 +583,7 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
         "unassigned_projects": unassigned_projects,
         "unassigned_work": unassigned_work,
         "relationship_conflicts": relationship_conflicts,
+        "monthly_reviews": monthly_reviews,
         "read_only_projection": True,
     }
 

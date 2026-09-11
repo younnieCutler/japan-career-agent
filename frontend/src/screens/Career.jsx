@@ -15,6 +15,7 @@ import {
   AddContext, AddProject, ConfirmRecord, LifecycleControl, UnassignedProjects, UnassignedWork,
 } from "./CareerForms.jsx";
 import CareerBatch from "./CareerBatch.jsx";
+import MonthlyCareerReview from "./MonthlyCareerReview.jsx";
 
 const PAGE_SIZE = 25;
 const isCanonical = (ref) => String(ref || "").startsWith("canonical:");
@@ -397,6 +398,16 @@ function ExperienceRecord({ row, labels, onError }) {
           ? t("evidence.present_count", { count: experience.evidence_count })
           : t("evidence.missing_usable")],
       ]} />
+      {!experience.contains_confidential ? <Facts rows={[
+        [t("workflow.responsibility"), experience.detail?.responsibility],
+        [t("workflow.judgment"), experience.detail?.judgment],
+        [t("workflow.decision_basis"), experience.detail?.decision_basis],
+        [t("workflow.risk_management"), experience.detail?.risk_management],
+        [t("workflow.stakeholder_coordination"), (experience.detail?.stakeholder_coordination || []).join(t("common.list_separator"))],
+        [t("workflow.organizational_context"), experience.detail?.organizational_context],
+        [t("workflow.improvements"), (experience.detail?.improvements || []).join(t("common.list_separator"))],
+        [t("workflow.learning"), (experience.detail?.learning || []).join(t("common.list_separator"))],
+      ]} /> : null}
       <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>
       {experience.contains_confidential ? (
         <Callout.Root tone="warning">
@@ -438,7 +449,7 @@ export default function CareerScreen() {
   const rows = indexRows(state.data, labels);
   const metaOf = (row) => (row.kind === "experience" ? (row.node.work_date || "") : periodText(row.node.period));
   const matches = rows.filter((row) => {
-    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, row.parent?.label, row.grandparent?.label]
+    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, JSON.stringify(row.node.detail || {}), row.parent?.label, row.grandparent?.label]
       .filter(Boolean).join(" ").toLocaleLowerCase();
     return (!query || haystack.includes(query.toLocaleLowerCase()))
       && (status === "all" || rowState(row) === status);
@@ -472,6 +483,8 @@ export default function CareerScreen() {
       ) : null}
 
       {failure ? <ErrorState error={failure} onRetry={() => setFailure(null)} /> : null}
+
+      <MonthlyCareerReview months={state.data.monthly_reviews || []} onError={setFailure} />
 
       <UnassignedProjects payload={state.data} onDone={reload} />
       <UnassignedWork payload={state.data} />
