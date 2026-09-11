@@ -4,20 +4,13 @@ review_by: "2027-09-12"
 
 residence_status_groups:
   contract_institution:
-    - 高度専門職１号イ
-    - 高度専門職１号ロ
-    - 高度専門職２号イ
-    - 高度専門職２号ロ
     - 研究
     - 技術・人文知識・国際業務
     - 介護
-    - 興行
     - 技能
     - 特定技能
   activity_institution:
     - 教授
-    - 高度専門職１号ハ
-    - 高度専門職２号ハ
     - 経営・管理
     - 法律・会計業務
     - 医療
@@ -26,6 +19,19 @@ residence_status_groups:
     - 技能実習
     - 留学
     - 研修
+  status_specific_review:
+    - 高度専門職１号イ
+    - 高度専門職１号ロ
+    - 高度専門職１号ハ
+    - 高度専門職２号イ
+    - 高度専門職２号ロ
+    - 高度専門職２号ハ
+    - 興行
+  unrestricted_work_status:
+    - 永住者
+    - 日本人の配偶者等
+    - 永住者の配偶者等
+    - 定住者
 
 sources:
   nta_withholding_slip:
@@ -80,6 +86,12 @@ sources:
     authority: 出入国在留管理庁
     source_type: official_guidance
     url: https://www.moj.go.jp/isa/content/930004441.pdf
+    observed_at: "2026-09-12"
+    review_by: "2027-09-12"
+  isa_highly_skilled_job_change:
+    authority: 出入国在留管理庁
+    source_type: official_guidance
+    url: https://www.moj.go.jp/isa/content/930001663.pdf
     observed_at: "2026-09-12"
     review_by: "2027-09-12"
   isa_work_qualification:
@@ -277,6 +289,42 @@ tasks:
     source_ids: [isa_affiliation_notification]
     guidance: 活動機関グループでは新しい活動機関への移籍日を基準に扱う。
 
+  - id: immigration_status_specific_transition_verification
+    label_ja: 在留資格固有の転職手続確認
+    category: immigration
+    phase: before_transition
+    owner: user
+    user_action: verify_with_immigration
+    requiredness: required
+    required_inputs: [residence_status]
+    applies_if:
+      all:
+        - field: residence_status
+          op: in_group
+          value: status_specific_review
+    source_ids: [isa_affiliation_notification, isa_contract_institution, isa_highly_skilled_job_change]
+    guidance: 高度専門職は指定機関変更に伴う在留資格変更が必要となる場合があり、興行は契約機関届出の対象が契約に基づく活動に限定される。V1では一般ルールを自動適用せず、在留資格固有の現行手続を確認する。
+
+  - id: immigration_unmapped_status_verification
+    label_ja: 在留資格別の転職手続確認
+    category: immigration
+    phase: before_transition
+    owner: user
+    user_action: verify_with_immigration
+    requiredness: required
+    required_inputs: [residence_status]
+    applies_if:
+      all:
+        - field: residence_status
+          op: not_in_groups
+          value:
+            - contract_institution
+            - activity_institution
+            - status_specific_review
+            - unrestricted_work_status
+    source_ids: [isa_affiliation_notification, isa_status_change]
+    guidance: V1の自動判定対象外の在留資格。就労可否・所属機関届出・在留資格変更の要否を個別に確認し、対象外と推測しない。
+
   - id: work_qualification_certificate
     label_ja: 就労資格証明書
     category: immigration
@@ -286,13 +334,10 @@ tasks:
     requiredness: recommended
     required_inputs: [residence_status]
     applies_if:
-      any:
+      all:
         - field: residence_status
           op: in_group
           value: contract_institution
-        - field: residence_status
-          op: in_group
-          value: activity_institution
     source_ids: [isa_work_qualification]
     guidance: 転職時の一律必須書類ではない。新勤務先・活動内容で現在の就労資格が認められるか公式に確認したい場合の選択肢として扱う。
 
@@ -303,9 +348,16 @@ tasks:
     owner: user
     user_action: verify_with_immigration
     requiredness: required
-    required_inputs: [new_activity_scope]
+    required_inputs: [residence_status, new_activity_scope]
     applies_if:
       all:
+        - any:
+            - field: residence_status
+              op: in_group
+              value: contract_institution
+            - field: residence_status
+              op: in_group
+              value: activity_institution
         - field: new_activity_scope
           op: eq
           value: changed
