@@ -2,9 +2,10 @@
 name: tenshoku-strategy
 description: >
   Evidence-grounded execution support for Japanese job changes: interview manner and follow-up,
-  offer and labor-condition review, salary conversations, resignation, onboarding, and application
-  tracking. It records facts and workflow observations; it does not predict hiring outcomes.
-  Use for 退職理由, 面接マナー, 年収交渉, オファー面談, 円満退職, 入社, and 選考 tracking.
+  offer and labor-condition review, salary conversations, resignation, transition administration,
+  onboarding, and application tracking. It records facts and workflow observations; it does not
+  predict hiring outcomes. Use for 退職理由, 面接マナー, 年収交渉, オファー面談, 円満退職, 入社,
+  退職時の必要書類, 外国人転職手続き, and 選考 tracking.
 license: MIT
 ---
 
@@ -23,7 +24,7 @@ returned by `career-agent context --vault "$CAREER_VAULT"`; ask whether loaded C
 
 `data/pipeline.yml` is the current CWD-relative workspace projection. Use `scripts/pipeline.py` for
 normal user-approved pipeline changes. Never check an action item, alter `rules.yml`, submit an
-application, or send a communication on the user's behalf.
+application, send a communication, or file a government form on the user's behalf.
 
 ## Interaction contract
 
@@ -33,6 +34,9 @@ application, or send a communication on the user's behalf.
 - Preserve an unknown salary, deadline, legal condition, or feedback reason; never fill it from memory.
 - Treat external market statements as dated claims from `_shared/career_claims.yml`. Run
   `python scripts/check_claim_freshness.py` before relying on a time-sensitive claim.
+- Treat transition-administration procedure as a separate official-source registry in
+  `_shared/transition_admin.yml`. Run `python scripts/check_transition_admin.py` before relying on it
+  in repository work; a missing input remains `Unknown`.
 - Explain trade-offs and next verification questions. The user makes the decision.
 
 ## Fixed execution flow
@@ -46,6 +50,7 @@ Use the same stage order, while fast-forwarding only after prerequisites are che
 3-2. オファー面談, 内定対応, 回答期限, 入社日
 3-3. 労働条件通知書 / written-offer review
 4. 円満退職 and 引き継ぎ
+4-1. 退職時の必要書類 / 外国人転職手続き / transition administration
 4-2. 入社手続き and first 90 days
 5. market claims, only when sourced and current
 6. 選考 tracking and workflow observations
@@ -54,7 +59,8 @@ Use the same stage order, while fast-forwarding only after prerequisites are che
 
 Load a saved profile only after telling the user which file was loaded and asking whether it is current.
 Collect current employment status, target timing, route, company/role, and the user's chosen module.
-If the request jumps to salary or an offer, collect only the missing prerequisites first.
+If the request jumps to salary, an offer, or transition administration, collect only the missing
+prerequisites first.
 
 ## STEP 1: 退職理由 and 転職軸
 
@@ -118,12 +124,39 @@ location/remote, start date, probation, authorization, and any mismatch with wha
 interest or an attractive condition. For a decline, provide a factual, user-reviewed phone/mail draft.
 For legal questions, cite the supplied official source and recommend qualified advice where needed.
 
-## STEP 4 and 4-2: resignation and onboarding
+## STEP 4: resignation and handover
 
-Use the user's actual notice period, contract, employer rules, and start-date constraints. Turn the
-plan into a dated checklist, handover facts, and questions. Onboarding support may cover documents,
-resident tax, social insurance, reference checks, probation, and a 30/60/90-day plan, but missing
-company instructions remain `Unknown`. Do not send or submit forms.
+Use `references/enman-taishoku.md` for resignation communication, work-rule/contract checks, handover,
+assets, and escalation. Do not duplicate transition-document or immigration rules there.
+
+## STEP 4-1: transition administration
+
+When the user asks what to receive or do between employers, load only
+`references/transition-administration.md` plus the deterministic projection it names.
+
+Collect the minimum facts required by that contract, including the actual employment-end date, next
+employment start date, separate contract-conclusion date when applicable, unemployment-benefit intent,
+resident-tax mode, post-exit health-insurance route, exact residence status, and whether the new activity
+scope is the same, changed, or unknown.
+
+Never answer this request as one undifferentiated “退職時にもらう書類” list. Separate:
+
+- documents/identifiers the user receives or confirms;
+- user-owned notifications or verification;
+- former/new-employer or municipality handoff the user only confirms;
+- conditional/not-applicable items;
+- missing facts that keep a rule `Unknown`.
+
+Do not infer a residence status from nationality. Do not infer a new contract-conclusion date from the
+first working day. Do not call `給与所得者異動届出書` a universal employee-filed document, `離職票` a
+universal must-have, or `健康保険資格喪失証明` universally required after every resignation. Do not turn
+`就労資格証明書` into a substitute for checking whether a changed activity needs 在留資格変更.
+
+## STEP 4-2: onboarding and first 90 days
+
+Use `references/nyusha-teichaku.md` for the new employer's document inventory, reference checks,
+probation observations, and 30/60/90 planning. Administrative transition rules belong to STEP 4-1 and
+must not be re-created from generic memory here.
 
 ## STEP 5: market positioning
 
@@ -133,8 +166,8 @@ question. A `HEURISTIC` can help formulate a question but cannot decide eligibil
 
 ## STEP 6: tracking and workflow calibration
 
-`data/pipeline.yml` is authoritative. Record stage, dates, route, feedback, preparation actions, user
-overrides, and unknowns. The default `python scripts/calibrate.py` reports only:
+`data/pipeline.yml` is authoritative. Record stage, dates, route, feedback, missing information,
+preparation actions, user overrides, and unknowns. The default `python scripts/calibrate.py` reports only:
 
 - which routes supplied usable feedback;
 - repeated observed feedback causes after the evidence threshold;
