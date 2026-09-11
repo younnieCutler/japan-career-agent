@@ -17,6 +17,8 @@ CHECKS = (
     # before spending the rest of the matrix.
     ("private data", (PYTHON, "scripts/check_private_data.py")),
     ("private data tests", (PYTHON, "scripts/test_check_private_data.py")),
+    ("career knowledge", (PYTHON, "scripts/query_career_knowledge.py", "--check")),
+    ("career knowledge tests", (PYTHON, "scripts/test_career_knowledge.py")),
     ("claim freshness", (PYTHON, "scripts/check_claim_freshness.py")),
     ("context budget", (PYTHON, "scripts/check_context_budget.py")),
     ("reference paths", (PYTHON, "scripts/check_reference_paths.py")),

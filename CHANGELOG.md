@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.32.0] - 2026-09-11
+
+- Add a source-reviewed career knowledge foundation with three dated claims and candidate-only operational proposals, separated from personal evidence and runtime Skill context.
+- Add explicit-topic repository lookup with expiry, source linkage, evaluation-attestation fingerprint and promotion checks; candidate, retired and invalid active items stay out of operational results.
+- Register deterministic lifecycle tests and preserve remaining research and host behavior evaluation as explicit follow-up work.
+
 ## [2.31.0] - 2026-09-11
 
 - Add a GUI Monthly Career Review over the deterministic month projection, with per-dimension present/total evidence, explicit gaps/partial coverage, and approved experience detail without a combined score or second store.

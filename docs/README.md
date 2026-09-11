@@ -41,6 +41,9 @@ the later sections are reference and history.
 
 ## Maintainer
 
+- [Career knowledge maintenance](CAREER_KNOWLEDGE.md): source review, topic lookup and candidate promotion.
+- [Japanese career research dossier](research/japan-career-market-2026.md): verified sources and remaining research.
+
 | Document | What it answers |
 |---|---|
 | [`MAINTAINER_RUNBOOK.md`](MAINTAINER_RUNBOOK.md) | Verify, release, publish to the registries, move the marketplace ref, recover from a failure |
