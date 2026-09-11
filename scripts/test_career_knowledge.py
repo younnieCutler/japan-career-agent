@@ -12,6 +12,107 @@ from query_career_knowledge import CLAIMS, REGISTRY, ROOT, blockers, fingerprint
 
 TODAY = dt.date(2026, 9, 11)
 
+# Every active registry item must have an explicit runtime representation for every declared
+# Skill scope. The value is scope -> tuples of (owner path, required invariant fragments).
+# This is intentionally exhaustive: adding/removing an active knowledge item or scope without
+# updating its shipped lazy-reference representation must fail CI.
+RUNTIME_BINDINGS = {
+    'progressive_readability': {
+        'humanize-japanese-career': (
+            ('skills/humanize-japanese-career/SKILL.md',
+             ('support rapid comprehension', 'survives detailed review',
+              'Do not optimize around a universal `30-second` reading claim')),
+        ),
+    },
+    'shibo_doki_consistency': {
+        'job-seeker-agent': (
+            ('skills/job-seeker-agent/references/shibo-doki.md',
+             ('Why leave -> Why this role -> Why this company -> Contribution',
+              'Do not assign fixed weights')),
+        ),
+    },
+    'weakness_mitigation': {
+        'mock-interviewer': (
+            ('skills/mock-interviewer/references/japan-market-probes.md',
+             ('weakness -> observed downside -> mitigation behavior -> evidence of improvement',
+              'Mitigation does not erase it')),
+        ),
+    },
+    'short_tenure_context': {
+        'mock-interviewer': (
+            ('skills/mock-interviewer/references/japan-market-probes.md',
+             ('there is no universal three-year minimum',
+              'Do not convert the 9.5-month survey average into a cutoff')),
+        ),
+        'tenshoku-strategy': (
+            ('skills/tenshoku-strategy/references/transition-risk.md',
+             ('Do not require three years', 'or apply a fixed multiplier')),
+        ),
+    },
+    'gap_activity_separation': {
+        'mock-interviewer': (
+            ('skills/mock-interviewer/references/japan-market-probes.md',
+             ('does not erase the gap', 'Do not assign a fixed penalty')),
+        ),
+        'tenshoku-strategy': (
+            ('skills/tenshoku-strategy/references/transition-risk.md',
+             ('it does not turn the period into employment or erase the gap',
+              'Do not assign a universal penalty')),
+        ),
+    },
+    'salary_anchor_not_rule': {
+        'tenshoku-strategy': (
+            ('skills/tenshoku-strategy/references/nenshu-koushou.md',
+             ('Current compensation is one process input',
+              'Never use `current salary + 10%`')),
+        ),
+    },
+    'evidence_safe_story_lens': {
+        'career-tanaoroshi': (
+            ('skills/career-tanaoroshi/references/evidence-elicitation.md',
+             ('not treated as a Japanese hiring standard',
+              'never create an estimate, range, rounded KPI')),
+        ),
+    },
+    'career_values_legitimate': {
+        'tenshoku-strategy': (
+            ('skills/tenshoku-strategy/references/transition-risk.md',
+             ('independent career values',
+              'Do not rank salary or benefits as lower-quality motives')),
+        ),
+    },
+    'career_relevant_self_intro': {
+        'job-seeker-agent': (
+            ('skills/job-seeker-agent/references/mensetsu-rounds.md',
+             ('career-relevant hook grounded in confirmed evidence',
+              'Do not insert a hobby, novelty fact, or personal anecdote solely as bait')),
+        ),
+        'mock-interviewer': (
+            ('skills/mock-interviewer/references/japan-market-probes.md',
+             ('concise career-relevant hook from confirmed experience',
+              'A novelty hobby is not required as bait')),
+        ),
+    },
+    'ai_draft_defensibility': {
+        'job-seeker-agent': (
+            ('skills/job-seeker-agent/references/shibo-doki.md',
+             ('AI-written text is draft material, not evidence',
+              'Do not infer deception from AI use')),
+        ),
+        'mock-interviewer': (
+            ('skills/mock-interviewer/references/japan-market-probes.md',
+             ('AI use is not proof of deception', 'Test defendability instead')),
+        ),
+    },
+    'resume_role_distinction': {
+        'job-seeker-agent': (
+            ('skills/job-seeker-agent/references/shokumukeireki-saigensei.md',
+             ('Treat the documents as overlapping but different surfaces',
+              'Do not imply a single statutory template')),
+        ),
+    },
+}
+
 
 class KnowledgeTests(unittest.TestCase):
     def setUp(self):
@@ -190,33 +291,35 @@ class KnowledgeTests(unittest.TestCase):
         errors = {item['id']: blockers(item, claims, TODAY) for item in active}
         self.assertEqual({key: value for key, value in errors.items() if value}, {})
 
-    def test_skill_references_encode_promoted_behavior(self):
-        def text(path: str) -> str:
-            return (ROOT / path).read_text(encoding='utf-8')
+    def test_every_active_knowledge_item_is_bound_to_every_runtime_scope(self):
+        items, _ = load_registry(REGISTRY, CLAIMS)
+        active = {item['id']: item for item in items if item['status'] == 'active'}
 
-        humanize = text('skills/humanize-japanese-career/SKILL.md')
-        self.assertNotIn('scanned in about thirty seconds', humanize)
-        self.assertIn('survives detailed review', humanize)
+        # The mapping is the explicit registry -> shipped-runtime contract. Neither side may grow
+        # or shrink independently without this test forcing a reviewed integration update.
+        self.assertEqual(set(active), set(RUNTIME_BINDINGS))
 
-        elicitation = text('skills/career-tanaoroshi/references/evidence-elicitation.md')
-        self.assertIn('not treated as a Japanese hiring standard', elicitation)
-        self.assertIn('never create an estimate, range, rounded KPI', elicitation)
+        cache = {}
+        for knowledge_id, item in active.items():
+            bindings = RUNTIME_BINDINGS[knowledge_id]
+            self.assertEqual(set(item['scope']), set(bindings), knowledge_id)
+            for scope, owners in bindings.items():
+                self.assertTrue(owners, f'{knowledge_id}:{scope} has no runtime owner')
+                for path, required_fragments in owners:
+                    target = ROOT / path
+                    self.assertTrue(target.is_file(), f'{knowledge_id}:{scope} missing {path}')
+                    text = cache.setdefault(path, target.read_text(encoding='utf-8'))
+                    for fragment in required_fragments:
+                        self.assertIn(fragment, text,
+                                      f'{knowledge_id}:{scope} missing runtime invariant in {path}')
 
-        probes = text('skills/mock-interviewer/references/japan-market-probes.md')
-        self.assertIn('no universal three-year minimum', probes)
-        self.assertIn('does not erase the gap', probes)
-        self.assertIn('observed downside -> mitigation behavior', probes)
-
-        salary = text('skills/tenshoku-strategy/references/nenshu-koushou.md')
-        self.assertIn('Never use `current salary + 10%`', salary)
-
-        motivation = text('skills/job-seeker-agent/references/shibo-doki.md')
-        self.assertIn('Why leave -> Why this role -> Why this company -> Contribution', motivation)
-        self.assertIn('Do not assign fixed weights', motivation)
-
-        self_analysis = text('skills/jiko-bunseki/SKILL.md')
+    def test_skill_references_keep_non_registry_invariants(self):
+        self_analysis = (ROOT / 'skills/jiko-bunseki/SKILL.md').read_text(encoding='utf-8')
         self.assertIn('MBTI may be used only as reflection vocabulary', self_analysis)
         self.assertIn('not candidate skill evidence', self_analysis)
+
+        strategy = (ROOT / 'skills/tenshoku-strategy/SKILL.md').read_text(encoding='utf-8')
+        self.assertIn('never impose a fixed application mix such as `3:2:5`', strategy)
 
 
 if __name__ == '__main__':
