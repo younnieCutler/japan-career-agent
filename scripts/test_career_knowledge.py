@@ -21,7 +21,7 @@ RUNTIME_BINDINGS = {
         'humanize-japanese-career': (
             ('skills/humanize-japanese-career/SKILL.md',
              ('support rapid comprehension', 'survives detailed review',
-              'Do not optimize around a universal `30-second` reading claim')),
+              'optimize around a universal `30-second` reading claim')),
         ),
     },
     'shibo_doki_consistency': {
