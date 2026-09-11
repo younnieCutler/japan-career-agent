@@ -10,7 +10,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "career.monthly.title": "월간 경력 리뷰",
         "career.monthly.intro": "확정된 경험에서 책임·판단·조정·결과의 흔적을 월별로 봅니다. 합산 점수는 만들지 않습니다.",
         "career.monthly.empty": "월별로 볼 수 있는 날짜가 있는 확정 경험이 아직 없습니다.",
-        "career.monthly.evidence_count": "확정 경험 {count}건",
+        "career.monthly.evidence_count": "확정 근거 {count}건",
         "career.monthly.coverage": "근거 범위",
         "career.monthly.gaps": "이번 달에 아직 없는 근거",
         "career.monthly.partial": "일부 경험에만 있는 근거",
@@ -50,7 +50,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
     },
     "ja": {
         "career.monthly.title": "月次キャリアレビュー", "career.monthly.intro": "確定済みの経験から、責任・判断・調整・結果の痕跡を月ごとに確認します。合計スコアは作りません。",
-        "career.monthly.empty": "月別に表示できる日付付きの確定経験はまだありません。", "career.monthly.evidence_count": "確定経験{count}件",
+        "career.monthly.empty": "月別に表示できる日付付きの確定経験はまだありません。", "career.monthly.evidence_count": "確定根拠{count}件",
         "career.monthly.coverage": "根拠の範囲", "career.monthly.gaps": "今月まだない根拠", "career.monthly.partial": "一部の経験だけにある根拠",
         "career.monthly.complete": "今月の記録には、確認対象の各項目が少なくとも一度は残っています。", "career.monthly.experiences": "今月の確定経験",
         "career.monthly.add": "経験を追加", "career.monthly.edit": "この経験を補う", "career.monthly.coverage_count": "{present}/{total}件",
@@ -70,7 +70,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
     },
     "en": {
         "career.monthly.title": "Monthly Career Review", "career.monthly.intro": "Review the traces of ownership, judgment, coordination, and outcomes in approved evidence by month. No combined score is produced.",
-        "career.monthly.empty": "No approved experience with a usable work date is available for a monthly view yet.", "career.monthly.evidence_count": "{count} approved experiences",
+        "career.monthly.empty": "No approved experience with a usable work date is available for a monthly view yet.", "career.monthly.evidence_count": "{count} approved evidence records",
         "career.monthly.coverage": "Evidence coverage", "career.monthly.gaps": "Evidence not recorded this month", "career.monthly.partial": "Evidence present in only some experiences",
         "career.monthly.complete": "Every reviewed dimension appears at least once in this month's approved record.", "career.monthly.experiences": "Approved experiences this month",
         "career.monthly.add": "Add experience", "career.monthly.edit": "Add detail to this experience", "career.monthly.coverage_count": "{present}/{total} records",
@@ -103,4 +103,3 @@ def monthly_messages(language: object) -> dict[str, str]:
     for field in _FIELD_KEYS:
         messages[f"field.{field}"] = messages[f"workflow.{field}"]
     return messages
-
