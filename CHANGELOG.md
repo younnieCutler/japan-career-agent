@@ -667,7 +667,7 @@
   proposal until it is approved, so reading only the ledger showed an empty week to someone who
   had been capturing all week — and the unfinished notes are what a review is for. Draft rows in
   the review carry their `proposal_id` so it can act on the row it is looking at. Drafts count
-  towards "notes are piling up on this project" and stay out of the checks that describe finished
+  towards "notes are piling up on one project" and stay out of the checks that describe finished
   records.
 - Merge a project's `period` a level deeper, for the same reason `confidentiality` merges: a start
   is learned when the project begins and an end when it closes, and replacing the object on the
@@ -769,13 +769,13 @@
 ## [1.21.0] - 2026-08-08
 
 - Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
-  26. v1 stays readable and digest-pinned so their recorded results remain reproducible.
+  26. v1 stays readable and digest-pinned so its recorded results remain reproducible.
 - Rebalance the benchmark's languages. v1 was 66% Japanese, so a Korean or English regression was
   largely invisible; v2 is 76/43/41 across Japanese, Korean, and English, enforced by a test.
 - Double the axes that carry the safety contract rather than inflating uniformly — negation,
   unmatched, generic interview and research, ambiguity, and both track boundaries.
-- Scope the experiment log to one benchmark version: a v1 best counts 56 cases and a v2 best counts
-  134, so comparing a candidate across versions is meaningless rather than merely noisy.
+- Scope the experiment log to one benchmark version: a v1 best counts 56 cases and a v2 best
+  counts 134, so comparing a candidate across versions is meaningless rather than merely noisy.
 
 ## [1.20.0] - 2026-08-08
 
@@ -877,7 +877,7 @@
   length from confirmed dates, for instance — is still neither required nor forbidden, and the
   requirement state does not depend on how firmly the JD is worded.
 
-## [1.16.0] - 2026-08-05
+## [1.16.0] - 2026-08-06
 
 - Added the P2 UX regression rubric with eight independent safety/navigation rules, ten
   known-good synthetic fixtures, eight known-bad negative controls, and five regression injections.
@@ -889,7 +889,7 @@
 - Documented that the deterministic evaluator is CI-safe while a network-dependent live LLM judge
   remains advisory until model variance, provider failure, runtime, and cost are calibrated.
 
-## [1.15.0] - 2026-08-05
+## [1.15.0] - 2026-08-06
 
 - Added the thin `career_agent.py guided` frontend with canonical-state summaries, stable action
   IDs, deterministic `--choice` testing, and explicit confirmation before setup, proposal, approval,
@@ -899,20 +899,20 @@
 - Guided actions dispatch through the existing setup, status, context, proposal, and approval
   facades; Unknown, Conflict, pending proposals, cancellation, and invalid choices remain explicit.
 
-## [1.14.0] - 2026-08-05
+## [1.14.0] - 2026-08-06
 
 - Added the PR2 progressive-disclosure explanations at setup, workspace, private-store,
   proposal/approval, evidence-state, and recovery boundaries.
 - Added exactly three reproducible synthetic workflows: First 10 Minutes, Real Application, and
   Recovery, with semantic invariant checks and no guided frontend.
 
-## [1.13.0] - 2026-08-05
+## [1.13.0] - 2026-08-06
 
 - Career Agent P0 UX contract work begins on the dedicated `feat/career-agent-ux` branch.
 - Major CLI operations will expose additive state, reason, allowed-transition, and unchanged-state
   metadata while preserving the existing JSON fields and approval/evidence boundaries.
 
-## [1.12.1] - 2026-08-05
+## [1.12.1] - 2026-08-06
 
 - `job-seeker-agent`'s requirement table said two different things about `Conflict`, and both were
   reachable. The table header allowed `Matched / Missing / Unknown`; the sentence directly under it
@@ -1214,6 +1214,118 @@
   checksums, and SBOM before publishing release assets.
 
 ## [1.6.20] - 2026-08-04
+
+- Added hash-pinned runtime and verification dependency locks with a lock-drift check.
+- Added deterministic CycloneDX 1.5 SBOM generation and verification, and switched CI/release
+  dependency installation to the locked files.
+
+## [1.6.19] - 2026-08-04
+
+- Added 17 critical behavior-replay scenarios for mock-interviewer, matching-simulator, and Career
+  Agent, covering Unknown preservation, provenance, interest independence, readiness, user exit,
+  approval, concurrency, and projection boundaries.
+- Named instruction-only interview evaluation a deterministic contract replay and classified all 17
+  replays separately from runtime E2E; no skill or live model execution is implied.
+
+## [1.6.18] - 2026-08-04
+
+- Added a machine-readable behavior-evaluation schema and a deterministic runner with a closed
+  adapter registry, explicit contract-audit classifications, input/output hashes, and runtime
+  identity metadata.
+
+## [1.6.17] - 2026-08-04
+
+- Completed the Career Agent architecture boundary: `runtime.py` is now orchestration/CLI plus
+  compatibility exports, while extracted owner modules contain the domain algorithms.
+- Reduced the boundary guard to a final `PASS` state and documented the ownership map.
+
+## [1.6.16] - 2026-08-04
+
+- Moved company slug normalization, workspace resolution, pipeline writes, event-to-state
+  projection, and legacy pipeline migration into `projection.py`.
+- Kept evidence and provenance in the canonical Vault ledger; `data/pipeline.yml` remains a short
+  workspace projection backed by the shared atomic store.
+
+## [1.6.15] - 2026-08-04
+
+- Moved proposal creation, context proposals, metadata-only listing, and event construction into
+  `proposals.py`.
+- Moved Vault locking, approval, retry-safe state commits, failed-attempt recording, and restore
+  semantics into `lifecycle.py` without changing the CLI or append-only contract.
+
+## [1.6.14] - 2026-08-04
+
+- Moved multilingual track, stage, skill-context, and flow-phase routing into `routing.py`.
+- Removed routing from the staged runtime-facade importer allowlist while preserving public imports.
+
+## [1.6.13] - 2026-08-04
+
+- Moved canonical JSON/TOML/JSONL writers and Vault metadata/state ownership out of `runtime.py`.
+- Preserved the public runtime compatibility surface while making the persistence and Vault modules
+  independent of the runtime facade.
+
+## [1.6.12] — 2026-08-04
+
+- Extracted Career Agent vocabulary, typed DTO contracts, and pure event/context validation from
+  `runtime.py` without changing the on-disk or CLI contract.
+- Added the staged architecture boundary guard and focused tests; remaining runtime facade imports
+  are reported explicitly until the later extraction PRs remove them.
+
+## [1.6.11] — 2026-08-04
+
+- Tightened mock-interviewer readiness precedence: material `Unknown`, unverified quantitative
+  claims, and unresolved contradictions require targeted follow-up; bounded qualitative outcomes
+  may be Ready without numeric measurement.
+- Updated adaptive deep-dive frontmatter and added an executable contract guard to keep readiness
+  rules and adaptive terminology aligned with the eval scenarios.
+
+## [1.6.10] — 2026-08-04
+
+- Made mock-interviewer deep-dive selection adaptive with a session-local coverage ledger,
+  explicit document/user/context provenance, bounded readiness assessment, and user-confirmed
+  Defensible Core summaries.
+- Added regression scenarios for breadth preservation, unverified document claims, user-controlled
+  exit, and approval-safe interview summaries.
+
+## [1.6.9] — 2026-08-04
+
+- Hardened E2E artifact redaction across Windows raw/resolved path forms and POSIX/Windows
+  absolute-path detection, with regression coverage for cross-platform fixtures.
+
+## [1.6.8] — 2026-08-04
+
+- Added reproducible E2E artifact packaging with clean-tree/expected-commit gates, repository and
+  runtime identity metadata, full text redaction scanning, explicit runtime-versus-contract skill
+  classifications, fixture-correction status, and ZIP integrity verification.
+- Added focused regression coverage and documented the safe packaging workflow for Career Agent
+  E2E audits.
+
+## [1.6.7] — 2026-08-04
+
+- Hardened Career Agent E2E persistence: pipeline history now keeps only short projection metadata
+  and event IDs while canonical evidence remains intact in `events.jsonl`.
+- Separated proposal approval instructions from confirmed next actions and linked immutable draft
+  proposal snapshots to confirmed events through a resolution record.
+- Added strict UTF-8 ingestion, normalized company slugs with legacy alias preservation, explicit
+  synthetic provenance/source references (synthetic postings use `synthetic://` without a fake URL),
+  LF-only canonical writers, and redacted `commands.jsonl` E2E capture with fresh-vault lifecycle
+  coverage. Capture now preserves invalid UTF-8 output with validity flags.
+
+## [1.6.6] — 2026-08-04
+
+- Split the CLI into a thin `career_agent.py` entry point with explicit runtime boundaries for
+  models, routing, persistence, Vault/indexing, proposals, projection, and lifecycle APIs.
+- Added golden CLI projections covering setup, status, chat proposal, proposals, approve, context,
+  and doctor while excluding UUID/timestamp fields.
+
+## [1.6.5] — 2026-08-04
+
+- Added a main-merge release workflow that runs the full repository verification before creating
+  an immutable annotated tag and GitHub Release.
+- Added `scripts/check_release_tag.py` and focused tests to keep the tag SHA, both manifests,
+  CHANGELOG, and all three README release markers aligned.
+
+## [1.6.4] — 2026-08-04
 
 - Made incomplete Career Agent setup explicit and actionable when track (or the shinsotsu
   graduation year) is missing, with a structured next command and exit 2.
