@@ -1,0 +1,707 @@
+diff --git a/skills/career-agent/gui/views_read.py b/skills/career-agent/gui/views_read.py
+index 6c42ece..0000000 100644
+--- a/skills/career-agent/gui/views_read.py
++++ b/skills/career-agent/gui/views_read.py
+@@ -309,6 +309,42 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
+         if isinstance(row, Mapping) and row.get("id")
+     }
++    monthly_rows = experience_result.get("months", [])
++    monthly_rows = monthly_rows if isinstance(monthly_rows, list) else []
++    monthly_reviews: list[dict[str, Any]] = []
++    for month_row in monthly_rows:
++        if not isinstance(month_row, Mapping) or not isinstance(month_row.get("month"), str):
++            continue
++        month = str(month_row["month"])
++        month_experiences: list[dict[str, Any]] = []
++        for claim in canonical_experiences:
++            if not isinstance(claim, Mapping):
++                continue
++            work_date = claim.get("work_date")
++            # `months` already applied the canonical tolerant-date policy. Joining only to a
++            # month that survived that projection prevents malformed legacy dates from leaking
++            # back into the GUI through this presentation adapter.
++            if not isinstance(work_date, str) or work_date[:7] != month:
++                continue
++            context = canonical_contexts.get(claim.get("context_id"), {})
++            context = context if isinstance(context, Mapping) else {}
++            project = projects_by_id.get(str(claim.get("project_id") or ""), {})
++            project = project if isinstance(project, Mapping) else {}
++            month_experiences.append({
++                **_experience_public(claim),
++                "context_label": context.get("external_label") or context.get("label"),
++                "project_label": project.get("external_label") or project.get("title"),
++            })
++        month_experiences.sort(
++            key=lambda row: (str(row.get("work_date") or ""), str(row.get("ref") or ""))
++        )
++        monthly_reviews.append({
++            "month": month,
++            "evidence_count": int(month_row.get("evidence_count") or 0),
++            "coverage": dict(month_row.get("coverage") or {}),
++            "gaps": list(month_row.get("gaps") or []),
++            "partial": list(month_row.get("partial") or []),
++            "experiences": month_experiences,
++        })
+     project_case_by_id = {
+         str(row["metadata"].get("project_id")): row
+         for row in project_cases
+@@ -536,6 +572,7 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
+         "unassigned_projects": unassigned_projects,
+         "unassigned_work": unassigned_work,
+         "relationship_conflicts": relationship_conflicts,
++        "monthly_reviews": monthly_reviews,
+         "read_only_projection": True,
+     }
+ 
+diff --git a/skills/career-agent/gui/templates.py b/skills/career-agent/gui/templates.py
+index 1b43b79..0000000 100644
+--- a/skills/career-agent/gui/templates.py
++++ b/skills/career-agent/gui/templates.py
+@@ -7,6 +7,7 @@ from pathlib import Path
+ 
+ from localization import gui_catalog, normalize_language
+ from gui.judgment_copy import judgment_messages
++from gui.monthly_copy import monthly_messages
+ from render import fill_slots
+@@ -59,6 +60,7 @@ def gui_messages(language: object) -> dict[str, str]:
+     """Return one complete locale catalog for the data-free browser client."""
+     catalog = gui_catalog(language)
+     catalog.update(judgment_messages(language))
++    catalog.update(monthly_messages(language))
+     return catalog
+ 
+diff --git a/skills/career-agent/gui/monthly_copy.py b/skills/career-agent/gui/monthly_copy.py
+new file mode 100644
+--- /dev/null
++++ b/skills/career-agent/gui/monthly_copy.py
+@@ -0,0 +1,135 @@
++"""Localized copy for the monthly Career Review and explicit career-evidence fields."""
++
++from __future__ import annotations
++
++from localization import normalize_language
++
++
++_MESSAGES: dict[str, dict[str, str]] = {
++    "ko": {
++        "career.monthly.title": "월간 경력 리뷰",
++        "career.monthly.intro": "확정된 경험에서 책임·판단·조정·결과의 흔적을 월별로 봅니다. 합산 점수는 만들지 않습니다.",
++        "career.monthly.empty": "월별로 볼 수 있는 날짜가 있는 확정 경험이 아직 없습니다.",
++        "career.monthly.evidence_count": "확정 경험 {count}건",
++        "career.monthly.coverage": "근거 범위",
++        "career.monthly.gaps": "이번 달에 아직 없는 근거",
++        "career.monthly.partial": "일부 경험에만 있는 근거",
++        "career.monthly.complete": "이번 달 기록에는 모든 검토 차원이 한 번 이상 남아 있습니다.",
++        "career.monthly.experiences": "이번 달 확정 경험",
++        "career.monthly.add": "이번 달 경험 추가",
++        "career.monthly.edit": "이 경험 보완",
++        "career.monthly.coverage_count": "{present}/{total}건",
++        "career.monthly.no_detail": "이 경험에는 아직 월간 리뷰용 상세 근거가 없습니다.",
++        "career.dimension.responsibility": "책임",
++        "career.dimension.problem_framing": "문제 정의",
++        "career.dimension.judgment": "판단",
++        "career.dimension.decision_basis": "판단 근거",
++        "career.dimension.risk_management": "리스크 대응",
++        "career.dimension.direct_action": "직접 행동",
++        "career.dimension.stakeholder_coordination": "이해관계자 조정",
++        "career.dimension.organizational_context": "조직 맥락",
++        "career.dimension.outcome": "결과",
++        "career.dimension.quantification": "수치 근거",
++        "career.dimension.reflection": "회고",
++        "work.section.judgment": "책임과 판단",
++        "work.section.reflection": "조정과 회고",
++        "workflow.responsibility": "내가 책임진 것",
++        "workflow.responsibility_help": "직책이나 업무 범위가 아니라 실제로 내가 책임졌다고 말할 수 있는 내용을 적습니다.",
++        "workflow.judgment": "내가 내린 판단",
++        "workflow.judgment_help": "선택, 결정, trade-off 중 실제로 내가 한 판단만 적습니다.",
++        "workflow.decision_basis": "판단 근거",
++        "workflow.decision_basis_help": "그 판단에 사용한 관찰, 제약, 데이터 또는 이유를 적습니다.",
++        "workflow.risk_management": "리스크 대응",
++        "workflow.risk_management_help": "실제로 고려한 실패 가능성이나 downside와 대응을 적습니다.",
++        "workflow.stakeholder_coordination": "이해관계자 조정",
++        "workflow.stakeholder_coordination_help": "누구와 무엇을 조정했고 무엇이 합의됐는지 한 줄에 하나씩 적습니다.",
++        "workflow.organizational_context": "조직 맥락",
++        "workflow.organizational_context_help": "이 일이 연결된 팀·고객·회사 목표나 필요를 명시적으로 알고 있을 때만 적습니다.",
++        "workflow.improvements": "다음에 개선할 점",
++        "workflow.learning": "이번 경험에서 배운 점",
++    },
++    "ja": {
++        "career.monthly.title": "月次キャリアレビュー", "career.monthly.intro": "確定済みの経験から、責任・判断・調整・結果の痕跡を月ごとに確認します。合計スコアは作りません。",
++        "career.monthly.empty": "月別に表示できる日付付きの確定経験はまだありません。", "career.monthly.evidence_count": "確定経験{count}件",
++        "career.monthly.coverage": "根拠の範囲", "career.monthly.gaps": "今月まだない根拠", "career.monthly.partial": "一部の経験だけにある根拠",
++        "career.monthly.complete": "今月の記録には、確認対象の各項目が少なくとも一度は残っています。", "career.monthly.experiences": "今月の確定経験",
++        "career.monthly.add": "今月の経験を追加", "career.monthly.edit": "この経験を補う", "career.monthly.coverage_count": "{present}/{total}件",
++        "career.monthly.no_detail": "この経験には月次レビュー用の詳細な根拠がまだありません。",
++        "career.dimension.responsibility": "責任", "career.dimension.problem_framing": "課題設定", "career.dimension.judgment": "判断",
++        "career.dimension.decision_basis": "判断根拠", "career.dimension.risk_management": "リスク対応", "career.dimension.direct_action": "直接行動",
++        "career.dimension.stakeholder_coordination": "関係者調整", "career.dimension.organizational_context": "組織上の文脈",
++        "career.dimension.outcome": "結果", "career.dimension.quantification": "数値根拠", "career.dimension.reflection": "振り返り",
++        "work.section.judgment": "責任と判断", "work.section.reflection": "調整と振り返り",
++        "workflow.responsibility": "自分が担った責任", "workflow.responsibility_help": "役職や業務範囲ではなく、実際に自分が責任を持った内容を入力します。",
++        "workflow.judgment": "自分が行った判断", "workflow.judgment_help": "選択・決定・トレードオフのうち、実際に自分が行った判断だけを入力します。",
++        "workflow.decision_basis": "判断根拠", "workflow.decision_basis_help": "その判断に使った観察、制約、データ、理由を入力します。",
++        "workflow.risk_management": "リスク対応", "workflow.risk_management_help": "実際に考慮した失敗可能性や不利益と、その対応を入力します。",
++        "workflow.stakeholder_coordination": "関係者調整", "workflow.stakeholder_coordination_help": "誰と何を調整し、何が合意されたかを一行ずつ入力します。",
++        "workflow.organizational_context": "組織上の文脈", "workflow.organizational_context_help": "この仕事が結び付いていたチーム・顧客・会社の目標や必要性を明示的に把握している場合だけ入力します。",
++        "workflow.improvements": "次に改善すること", "workflow.learning": "この経験から学んだこと",
++    },
++    "en": {
++        "career.monthly.title": "Monthly Career Review", "career.monthly.intro": "Review the traces of ownership, judgment, coordination, and outcomes in approved evidence by month. No combined score is produced.",
++        "career.monthly.empty": "No approved experience with a usable work date is available for a monthly view yet.", "career.monthly.evidence_count": "{count} approved experiences",
++        "career.monthly.coverage": "Evidence coverage", "career.monthly.gaps": "Evidence not recorded this month", "career.monthly.partial": "Evidence present in only some experiences",
++        "career.monthly.complete": "Every reviewed dimension appears at least once in this month's approved record.", "career.monthly.experiences": "Approved experiences this month",
++        "career.monthly.add": "Add experience for this month", "career.monthly.edit": "Add detail to this experience", "career.monthly.coverage_count": "{present}/{total} records",
++        "career.monthly.no_detail": "This experience has no detailed monthly-review evidence yet.",
++        "career.dimension.responsibility": "Responsibility", "career.dimension.problem_framing": "Problem framing", "career.dimension.judgment": "Judgment",
++        "career.dimension.decision_basis": "Decision basis", "career.dimension.risk_management": "Risk management", "career.dimension.direct_action": "Direct action",
++        "career.dimension.stakeholder_coordination": "Stakeholder coordination", "career.dimension.organizational_context": "Organizational context",
++        "career.dimension.outcome": "Outcome", "career.dimension.quantification": "Quantification", "career.dimension.reflection": "Reflection",
++        "work.section.judgment": "Responsibility and judgment", "work.section.reflection": "Coordination and reflection",
++        "workflow.responsibility": "What you were responsible for", "workflow.responsibility_help": "Record what you were actually accountable for, not what a title or assigned scope implies.",
++        "workflow.judgment": "Judgment you made", "workflow.judgment_help": "Record only a choice, decision, or trade-off you actually made.",
++        "workflow.decision_basis": "Decision basis", "workflow.decision_basis_help": "Record the observation, constraint, data, or reason you used for that judgment.",
++        "workflow.risk_management": "Risk management", "workflow.risk_management_help": "Record a downside or failure mode you actually considered and how you handled it.",
++        "workflow.stakeholder_coordination": "Stakeholder coordination", "workflow.stakeholder_coordination_help": "One line per coordination: who, about what, and what was agreed.",
++        "workflow.organizational_context": "Organizational context", "workflow.organizational_context_help": "Record the team, customer, or company objective only when you explicitly know the connection.",
++        "workflow.improvements": "What to improve next", "workflow.learning": "What you learned",
++    },
++}
++
++
++_FIELD_KEYS = (
++    "responsibility", "judgment", "decision_basis", "risk_management",
++    "stakeholder_coordination", "organizational_context", "improvements", "learning",
++)
++
++
++def monthly_messages(language: object) -> dict[str, str]:
++    locale = normalize_language(language)
++    messages = dict(_MESSAGES[locale])
++    for field in _FIELD_KEYS:
++        messages[f"field.{field}"] = messages[f"workflow.{field}"]
++    return messages
++
+diff --git a/frontend/src/review.jsx b/frontend/src/review.jsx
+index 7cad3ae..0000000 100644
+--- a/frontend/src/review.jsx
++++ b/frontend/src/review.jsx
+@@ -29,8 +29,10 @@ export const HIDDEN_REVIEW_FIELDS = new Set([
+ 
+ export const FIELD_LABELS = new Set([
+     "label", "kind", "title", "role", "scope", "summary", "period", "problem",
+-  "direct_actions", "individual_contribution", "team_result", "outcome_state", "metrics",
+-  "improvements", "learning", "work_date", "confidentiality", "contains_confidential",
++  "responsibility", "judgment", "decision_basis", "risk_management", "direct_actions",
++  "stakeholder_coordination", "organizational_context", "individual_contribution", "team_result",
++  "outcome_state", "metrics", "improvements", "learning", "work_date", "confidentiality", "contains_confidential",
+   "external_use", "candidate_name", "language_preference", "track", "interest_hypotheses",
+   "behavior_tendencies", "evidence_episodes", "career_self_efficacy", "perceived_barriers",
+   "perceived_supports", "environment_preferences", "value_candidates", "avoid_candidates",
+diff --git a/frontend/src/screens/Work.jsx b/frontend/src/screens/Work.jsx
+index 7a644a2..0000000 100644
+--- a/frontend/src/screens/Work.jsx
++++ b/frontend/src/screens/Work.jsx
+@@ -24,7 +24,9 @@ const SAVE_DEBOUNCE_MS = 650;
+ const DETAIL_FIELDS = [
+-  "work_date", "role", "scope", "problem", "direct_actions", "individual_contribution", "team_result", "metrics",
++  "work_date", "role", "scope", "responsibility", "problem", "judgment", "decision_basis",
++  "risk_management", "direct_actions", "stakeholder_coordination", "organizational_context",
++  "individual_contribution", "team_result", "metrics", "improvements", "learning",
+ ];
+@@ -47,8 +49,11 @@ const EMPTY = {
+-  summary: "", work_date: "", role: "", scope: "", problem: "", direct_actions: "",
+-  individual_contribution: "", outcome_state: "unknown", team_result: "", metrics: "",
++  summary: "", work_date: "", role: "", scope: "", responsibility: "", problem: "", judgment: "",
++  decision_basis: "", risk_management: "", direct_actions: "", stakeholder_coordination: "",
++  organizational_context: "", individual_contribution: "", outcome_state: "unknown", team_result: "", metrics: "",
++  improvements: "", learning: "",
+   evidence: "", contains_confidential: false, external_use: "unknown",
+ };
+@@ -59,12 +64,20 @@ const fromDraft = (draft = {}) => ({
+   role: draft.role || "",
+   scope: draft.scope || "",
++  responsibility: draft.responsibility || "",
+   problem: draft.problem || "",
++  judgment: draft.judgment || "",
++  decision_basis: draft.decision_basis || "",
++  risk_management: draft.risk_management || "",
+   direct_actions: (draft.direct_actions || []).join("\n"),
++  stakeholder_coordination: (draft.stakeholder_coordination || []).join("\n"),
++  organizational_context: draft.organizational_context || "",
+   individual_contribution: draft.individual_contribution || "",
+   outcome_state: draft.outcome_state || "unknown",
+   team_result: draft.team_result || "",
+   metrics: (draft.metrics || []).join("\n"),
++  improvements: (draft.improvements || []).join("\n"),
++  learning: (draft.learning || []).join("\n"),
+   evidence: (draft.evidence || []).join("\n"),
+@@ -91,12 +104,18 @@ function serialize(form) {
+     work_date: form.work_date,
+     role: form.role.trim(),
+     scope: form.scope.trim(),
++    responsibility: form.responsibility.trim(),
+     problem: form.problem.trim(),
++    judgment: form.judgment.trim(),
++    decision_basis: form.decision_basis.trim(),
++    risk_management: form.risk_management.trim(),
++    organizational_context: form.organizational_context.trim(),
+     individual_contribution: form.individual_contribution.trim(),
+     team_result: measured ? form.team_result.trim() : "",
+   };
+   for (const [key, item] of Object.entries(text)) if (item) value[key] = item;
+   const direct = splitLines(form.direct_actions);
+   if (direct.length) value.direct_actions = direct;
++  const coordination = splitLines(form.stakeholder_coordination);
++  if (coordination.length) value.stakeholder_coordination = coordination;
+   const metrics = splitLines(form.metrics);
+   if (form.outcome_state === "quantitative" && metrics.length) value.metrics = metrics;
++  const improvements = splitLines(form.improvements);
++  if (improvements.length) value.improvements = improvements;
++  const learning = splitLines(form.learning);
++  if (learning.length) value.learning = learning;
+   return value;
+ }
+@@ -290,6 +309,33 @@ export function CaptureForm({ payload, onReload }) {
+               <fieldset className="form-section">
+                 <legend>{t("work.section.story")}</legend>
+                 <Field label={t("workflow.problem")}>
+                   <Block value={form.problem} onChange={(v) => edit({ problem: v })} />
+                 </Field>
+@@ -303,6 +349,38 @@ export function CaptureForm({ payload, onReload }) {
+                   />
+                 </Field>
+               </fieldset>
++
++              <fieldset className="form-section">
++                <legend>{t("work.section.judgment")}</legend>
++                <Field label={t("workflow.responsibility")} help={t("workflow.responsibility_help")}>
++                  <Block value={form.responsibility} onChange={(v) => edit({ responsibility: v })} />
++                </Field>
++                <Field label={t("workflow.judgment")} help={t("workflow.judgment_help")}>
++                  <Block value={form.judgment} onChange={(v) => edit({ judgment: v })} />
++                </Field>
++                <Field label={t("workflow.decision_basis")} help={t("workflow.decision_basis_help")}>
++                  <Block value={form.decision_basis} onChange={(v) => edit({ decision_basis: v })} />
++                </Field>
++                <Field label={t("workflow.risk_management")} help={t("workflow.risk_management_help")}>
++                  <Block value={form.risk_management} onChange={(v) => edit({ risk_management: v })} />
++                </Field>
++              </fieldset>
++
++              <fieldset className="form-section">
++                <legend>{t("work.section.reflection")}</legend>
++                <Field label={t("workflow.stakeholder_coordination")} help={t("workflow.stakeholder_coordination_help")}>
++                  <Block value={form.stakeholder_coordination} onChange={(v) => edit({ stakeholder_coordination: v })} />
++                </Field>
++                <Field label={t("workflow.organizational_context")} help={t("workflow.organizational_context_help")}>
++                  <Block value={form.organizational_context} onChange={(v) => edit({ organizational_context: v })} />
++                </Field>
++                <Field label={t("workflow.improvements")}>
++                  <Block value={form.improvements} onChange={(v) => edit({ improvements: v })} />
++                </Field>
++                <Field label={t("workflow.learning")}>
++                  <Block value={form.learning} onChange={(v) => edit({ learning: v })} />
++                </Field>
++              </fieldset>
+ 
+               <fieldset className="form-section">
+                 <legend>{t("work.section.outcome")}</legend>
+diff --git a/frontend/src/screens/MonthlyCareerReview.jsx b/frontend/src/screens/MonthlyCareerReview.jsx
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/screens/MonthlyCareerReview.jsx
+@@ -0,0 +1,172 @@
++import React from "react";
++import { ActionButton, Callout, Text } from "@seed-design/react";
++import { write } from "../api.js";
++import { navigate } from "../App.jsx";
++import { useI18n } from "../i18n.jsx";
++import { Choice } from "../components/Fields.jsx";
++
++const DIMENSIONS = [
++  "responsibility", "problem_framing", "judgment", "decision_basis", "risk_management",
++  "direct_action", "stakeholder_coordination", "organizational_context", "outcome",
++  "quantification", "reflection",
++];
++
++const listText = (value, separator) => Array.isArray(value) ? value.join(separator) : value;
++
++function DetailFacts({ detail }) {
++  const { t } = useI18n();
++  const separator = t("common.list_separator");
++  const rows = [
++    [t("workflow.responsibility"), detail.responsibility],
++    [t("workflow.problem"), detail.problem],
++    [t("workflow.judgment"), detail.judgment],
++    [t("workflow.decision_basis"), detail.decision_basis],
++    [t("workflow.risk_management"), detail.risk_management],
++    [t("workflow.actions"), listText(detail.direct_actions, separator)],
++    [t("workflow.stakeholder_coordination"), listText(detail.stakeholder_coordination, separator)],
++    [t("workflow.organizational_context"), detail.organizational_context],
++    [t("workflow.contribution"), detail.individual_contribution],
++    [t("workflow.outcome_detail"), detail.team_result],
++    [t("workflow.metrics"), listText(detail.metrics, separator)],
++    [t("workflow.improvements"), listText(detail.improvements, separator)],
++    [t("workflow.learning"), listText(detail.learning, separator)],
++  ].filter(([, value]) => value !== null && value !== undefined && value !== "");
++  if (!rows.length) return <Text textStyle="t3Regular">{t("career.monthly.no_detail")}</Text>;
++  return (
++    <dl className="facts">
++      {rows.map(([label, value]) => (
++        <React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>
++      ))}
++    </dl>
++  );
++}
++
++function DimensionNames({ names }) {
++  const { t } = useI18n();
++  if (!names?.length) return null;
++  return <span>{names.map((name) => t(`career.dimension.${name}`)).join(t("common.list_separator"))}</span>;
++}
++
++export default function MonthlyCareerReview({ months = [], onError }) {
++  const { t } = useI18n();
++  const [selected, setSelected] = React.useState(months[0]?.month || "");
++  React.useEffect(() => {
++    if (!months.some((month) => month.month === selected)) setSelected(months[0]?.month || "");
++  }, [months, selected]);
++
++  const startExperience = async () => {
++    try {
++      const started = await write("/api/workflows/start", { workflow: "career_inventory" });
++      navigate(`/work/${started.session.session_ref || started.session.session_id}`);
++    } catch (error) { onError(error); }
++  };
++
++  const reviseExperience = async (experience) => {
++    try {
++      const started = await write("/api/career/experiences/revise", {
++        event_id: experience.ref, revision: experience.ref,
++      });
++      navigate(`/work/${started.session.session_ref}`);
++    } catch (error) { onError(error); }
++  };
++
++  if (!months.length) {
++    return (
++      <section className="record monthly-review" data-monthly-career-review="empty">
++        <div className="record__head"><Text textStyle="t6Bold">{t("career.monthly.title")}</Text></div>
++        <Text textStyle="t3Regular">{t("career.monthly.intro")}</Text>
++        <Text textStyle="t3Regular">{t("career.monthly.empty")}</Text>
++        <div><ActionButton variant="neutralWeak" size="small" onClick={startExperience}>{t("career.monthly.add")}</ActionButton></div>
++      </section>
++    );
++  }
++
++  const current = months.find((month) => month.month === selected) || months[0];
++  const coverage = current.coverage || {};
++  const gaps = current.gaps || [];
++  const partial = current.partial || [];
++  return (
++    <section className="record monthly-review" data-monthly-career-review={current.month}>
++      <div className="record__head">
++        <Text textStyle="t6Bold">{t("career.monthly.title")}</Text>
++        <span className="figure">{t("career.monthly.evidence_count", { count: current.evidence_count || 0 })}</span>
++      </div>
++      <Text textStyle="t3Regular">{t("career.monthly.intro")}</Text>
++      <div className="toolbar">
++        <Choice value={current.month} onChange={setSelected} options={months.map((month) => [month.month, month.month])} label={t("career.monthly.title")} />
++        <ActionButton variant="neutralWeak" size="small" onClick={startExperience}>{t("career.monthly.add")}</ActionButton>
++      </div>
++
++      <section className="record__section">
++        <h3 className="record__section-title">{t("career.monthly.coverage")}</h3>
++        <ul className="lines">
++          {DIMENSIONS.map((name) => {
++            const row = coverage[name] || { present: 0, total: current.evidence_count || 0 };
++            return (
++              <li className="line" key={name}>
++                <span className="line__label">{t(`career.dimension.${name}`)}</span>
++                <span className="figure">{t("career.monthly.coverage_count", row)}</span>
++              </li>
++            );
++          })}
++        </ul>
++        {gaps.length ? (
++          <Callout.Root tone="warning"><Callout.Content><Callout.Title>{t("career.monthly.gaps")}</Callout.Title><Callout.Description><DimensionNames names={gaps} /></Callout.Description></Callout.Content></Callout.Root>
++        ) : <Text textStyle="t3Regular">{t("career.monthly.complete")}</Text>}
++        {partial.length ? <p><strong>{t("career.monthly.partial")}</strong> · <DimensionNames names={partial} /></p> : null}
++      </section>
++
++      <section className="record__section">
++        <h3 className="record__section-title">{t("career.monthly.experiences")}</h3>
++        <div className="stack">
++          {(current.experiences || []).map((experience) => (
++            <article className="record" key={experience.ref}>
++              <div className="record__head">
++                <Text textStyle="t5Bold">{experience.contains_confidential ? t("career.confidential_experience") : experience.label}</Text>
++                <span className="figure">{experience.work_date || current.month}</span>
++              </div>
++              {(experience.context_label || experience.project_label) ? (
++                <p className="context-breadcrumb">{[experience.context_label, experience.project_label].filter(Boolean).join(t("common.breadcrumb_separator"))}</p>
++              ) : null}
++              {experience.contains_confidential ? (
++                <Text textStyle="t3Regular">{t("confidentiality.hidden_review")}</Text>
++              ) : <DetailFacts detail={experience.detail || {}} />}
++              <div><ActionButton variant="ghost" size="small" onClick={() => reviseExperience(experience)}>{t("career.monthly.edit")}</ActionButton></div>
++            </article>
++          ))}
++        </div>
++      </section>
++    </section>
++  );
++}
++
+diff --git a/frontend/src/screens/Career.jsx b/frontend/src/screens/Career.jsx
+index 5f7b87a..0000000 100644
+--- a/frontend/src/screens/Career.jsx
++++ b/frontend/src/screens/Career.jsx
+@@ -15,6 +15,7 @@ import {
+   AddContext, AddProject, ConfirmRecord, LifecycleControl, UnassignedProjects, UnassignedWork,
+ } from "./CareerForms.jsx";
+ import CareerBatch from "./CareerBatch.jsx";
++import MonthlyCareerReview from "./MonthlyCareerReview.jsx";
+@@ -385,6 +386,22 @@ function ExperienceRecord({ row, labels, onError }) {
+       <Facts rows={[
+         [t("career.context_name"), row.grandparent?.label],
+         [t("career.project"), row.parent?.label],
+@@ -394,6 +411,22 @@ function ExperienceRecord({ row, labels, onError }) {
+           : t("evidence.missing_usable")],
+       ]} />
++      {!experience.contains_confidential ? <Facts rows={[
++        [t("workflow.responsibility"), experience.detail?.responsibility],
++        [t("workflow.judgment"), experience.detail?.judgment],
++        [t("workflow.decision_basis"), experience.detail?.decision_basis],
++        [t("workflow.risk_management"), experience.detail?.risk_management],
++        [t("workflow.stakeholder_coordination"), (experience.detail?.stakeholder_coordination || []).join(t("common.list_separator"))],
++        [t("workflow.organizational_context"), experience.detail?.organizational_context],
++        [t("workflow.improvements"), (experience.detail?.improvements || []).join(t("common.list_separator"))],
++        [t("workflow.learning"), (experience.detail?.learning || []).join(t("common.list_separator"))],
++      ]} /> : null}
+       <div className="inline"><ExperienceRevisionControl experience={experience} onError={onError} /></div>
+@@ -459,7 +492,8 @@ export default function CareerScreen() {
+   ];
+   const rows = indexRows(state.data, labels);
+   const metaOf = (row) => (row.kind === "experience" ? (row.node.work_date || "") : periodText(row.node.period));
+   const matches = rows.filter((row) => {
+-    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, row.parent?.label, row.grandparent?.label]
++    const haystack = [row.label, row.node.role, row.node.scope, row.node.summary, JSON.stringify(row.node.detail || {}), row.parent?.label, row.grandparent?.label]
+       .filter(Boolean).join(" ").toLocaleLowerCase();
+@@ -506,6 +540,8 @@ export default function CareerScreen() {
+ 
+       {failure ? <ErrorState error={failure} onRetry={() => setFailure(null)} /> : null}
++
++      <MonthlyCareerReview months={state.data.monthly_reviews || []} onError={setFailure} />
+ 
+       <UnassignedProjects payload={state.data} onDone={reload} />
+diff --git a/frontend/src/screens/Work.test.jsx b/frontend/src/screens/Work.test.jsx
+index e82943b..0000000 100644
+--- a/frontend/src/screens/Work.test.jsx
++++ b/frontend/src/screens/Work.test.jsx
+@@ -43,6 +43,10 @@ describe("experience capture", () => {
+ 
+     expect(screen.getByText("workflow.role")).toBeTruthy();
+     expect(screen.getByText("workflow.problem")).toBeTruthy();
++    expect(screen.getByText("workflow.responsibility")).toBeTruthy();
++    expect(screen.getByText("workflow.judgment")).toBeTruthy();
++    expect(screen.getByText("workflow.decision_basis")).toBeTruthy();
++    expect(screen.getByText("workflow.stakeholder_coordination")).toBeTruthy();
+   });
+ 
+   it("passes the server review-before snapshot to approval", async () => {
+diff --git a/frontend/src/screens/Career.test.jsx b/frontend/src/screens/Career.test.jsx
+index dbe8c49..0000000 100644
+--- a/frontend/src/screens/Career.test.jsx
++++ b/frontend/src/screens/Career.test.jsx
+@@ -42,7 +42,7 @@ describe("experience edit affordance", () => {
+ describe("job seeker action budget", () => {
+   const emptyCareer = {
+-    contexts: [], relationship_conflicts: [], unassigned_projects: [], unassigned_work: [],
++    contexts: [], relationship_conflicts: [], unassigned_projects: [], unassigned_work: [], monthly_reviews: [],
+   };
++
++  it("renders deterministic monthly review data and starts a new evidence draft without inventing context", async () => {
++    read.mockResolvedValue({
++      ...emptyCareer,
++      monthly_reviews: [{
++        month: "2026-09", evidence_count: 1,
++        coverage: { responsibility: { present: 1, total: 1 }, judgment: { present: 0, total: 1 } },
++        gaps: ["judgment"], partial: [],
++        experiences: [{
++          ref: "evt-september", label: "Release decision", work_date: "2026-09",
++          contains_confidential: false, detail: { responsibility: "owned release readiness" },
++        }],
++      }],
++    });
++    write.mockResolvedValueOnce({ session: { session_ref: "session-month" } });
++    render(<CareerScreen />);
++
++    expect(await screen.findByText("career.monthly.title")).toBeTruthy();
++    expect(screen.getByText("Release decision")).toBeTruthy();
++    expect(screen.getByText("career.dimension.judgment")).toBeTruthy();
++    fireEvent.click(screen.getByRole("button", { name: "career.monthly.add" }));
++
++    await waitFor(() => expect(write).toHaveBeenCalledWith("/api/workflows/start", { workflow: "career_inventory" }));
++    expect(navigate).toHaveBeenCalledWith("/work/session-month");
++  });
+ 
+   it("turns one pasted career history into a draft with one submit decision", async () => {
+diff --git a/skills/career-agent/gui/test_projects.py b/skills/career-agent/gui/test_projects.py
+index 34b89f0..0000000 100644
+--- a/skills/career-agent/gui/test_projects.py
++++ b/skills/career-agent/gui/test_projects.py
+@@ -242,10 +242,19 @@ class ProjectCaseTests(unittest.TestCase):
+             {
+                 "summary": "결제 배치 지연을 줄였다",
+                 "evidence": ["runbook"],
++                "work_date": "2026-09",
+                 "role": "owner",
++                "responsibility": "배포 준비 여부 판단을 책임졌다",
++                "judgment": "자동 검증을 배포 전에 실행하기로 결정했다",
++                "decision_basis": "수동 점검에서 누락이 반복됐다",
++                "risk_management": "문제가 생기면 수동 절차로 되돌릴 수 있게 유지했다",
+                 "direct_actions": ["알람을 재설계했다"],
++                "stakeholder_coordination": ["운영팀과 배포 기준을 합의했다"],
++                "organizational_context": "분기 안정성 목표에 연결된 작업이었다",
+                 "individual_contribution": "알람 기준과 운영 절차를 직접 설계했다",
+                 "outcome_state": "qualitative",
+                 "team_result": "결제 배치 대응이 안정됐다",
++                "improvements": ["fallback 절차를 문서화한다"],
++                "learning": ["판단 근거를 기록해야 인수인계가 빨라진다"],
+                 "confidentiality": {
+@@ -279,6 +288,16 @@ class ProjectCaseTests(unittest.TestCase):
+         self.assertEqual(
+             sessions.load_session(self.home, session_id)["case_ref"], project["case_id"]
+         )
++        career = import_module("gui.views_read").career_overview_payload(self.home)
++        self.assertEqual([row["month"] for row in career["monthly_reviews"]], ["2026-09"])
++        september = career["monthly_reviews"][0]
++        self.assertEqual(september["coverage"]["judgment"], {"present": 1, "total": 1})
++        self.assertNotIn("claim_refs", september)
++        self.assertEqual(len(september["experiences"]), 1)
++        detail = september["experiences"][0]["detail"]
++        self.assertEqual(detail["responsibility"], "배포 준비 여부 판단을 책임졌다")
++        self.assertEqual(detail["judgment"], "자동 검증을 배포 전에 실행하기로 결정했다")
++        self.assertEqual(detail["stakeholder_coordination"], ["운영팀과 배포 기준을 합의했다"])
+ 
+     def test_revising_experience_appends_a_replacement_and_supersession(self) -> None:
+diff --git a/scripts/test_browser_e2e.mjs b/scripts/test_browser_e2e.mjs
+index 40d6d13..0000000 100755
+--- a/scripts/test_browser_e2e.mjs
++++ b/scripts/test_browser_e2e.mjs
+@@ -357,6 +357,7 @@ async function main() {
+         if (location.pathname !== "/career" || !document.querySelector(".workspace")) return null;
+         if (!main || main.innerText.trim().length < 2) return null;
+         if (!main.querySelector(".page-header") || !main.querySelector(".split")) return null;
++        if (!main.querySelector("[data-monthly-career-review]")) return null;
+         return { path: location.pathname };
+       })()`,
+@@ -369,6 +370,7 @@ async function main() {
+         if (document.readyState !== "complete" || location.pathname !== "/career") return null;
+         if (!document.querySelector(".workspace") || !main || main.innerText.trim().length < 2) return null;
+         if (!main.querySelector(".page-header") || !main.querySelector(".split")) return null;
++        if (!main.querySelector("[data-monthly-career-review]")) return null;
+         if (location.hash) return null;
+@@ -383,6 +385,7 @@ async function main() {
+     console.log("  - React workspace rendered against the real local GUI server");
+     console.log("  - pointer click navigated Home -> Career and rendered the Career screen through the committed bundle");
++    console.log("  - Career rendered the deterministic monthly review surface from the committed bundle");
+     console.log("  - full reload preserved the /career deep link and authenticated browser session");
+diff --git a/pyproject.toml b/pyproject.toml
+index 07b01be..0000000 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
+ [project]
+ name = "japan-career-agent"
+-version = "2.30.0"
++version = "2.31.0"
+ description = "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions."
+diff --git a/.claude-plugin/plugin.json b/.claude-plugin/plugin.json
+index 0b31818..0000000 100644
+--- a/.claude-plugin/plugin.json
++++ b/.claude-plugin/plugin.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "japan-career-agent",
+-  "version": "2.30.0",
++  "version": "2.31.0",
+   "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
+diff --git a/.codex-plugin/plugin.json b/.codex-plugin/plugin.json
+index 9dcf2a1..0000000 100644
+--- a/.codex-plugin/plugin.json
++++ b/.codex-plugin/plugin.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "japan-career-agent",
+-  "version": "2.30.0",
++  "version": "2.31.0",
+   "description": "Local-first evidence-based career decision support for Japan job seekers: confirmed facts, conflicts, unknowns, verification, and user-controlled next actions.",
+diff --git a/packaging/npm/package.json b/packaging/npm/package.json
+index 850293f..0000000 100644
+--- a/packaging/npm/package.json
++++ b/packaging/npm/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "japan-career-agent",
+-  "version": "2.30.0",
++  "version": "2.31.0",
+   "description": "Self-contained npm installer for the local-first Japan Career Agent Python runtime.",
+diff --git a/sbom.cdx.json b/sbom.cdx.json
+index fb34730..0000000 100644
+--- a/sbom.cdx.json
++++ b/sbom.cdx.json
+@@ -471,7 +471,7 @@
+     "component": {
+       "name": "japan-career-agent",
+       "type": "application",
+-      "version": "2.30.0"
++      "version": "2.31.0"
+     },
+diff --git a/docs/upgrading.md b/docs/upgrading.md
+index e8e240d..0000000 100644
+--- a/docs/upgrading.md
++++ b/docs/upgrading.md
+@@ -6,7 +6,7 @@ prepared. The stable channel always points to the latest published immutable `vX
+ follows `main`.
+ 
+-Source metadata is `2.30.0` while the stable marketplace ref is `v2.1.1`, because the release
++Source metadata is `2.31.0` while the stable marketplace ref is `v2.1.1`, because the release
+ workflow has not published a tag for this source yet. Installing from the marketplace therefore
+diff --git a/docs/upgrading_ko.md b/docs/upgrading_ko.md
+index a5270bd..0000000 100644
+--- a/docs/upgrading_ko.md
++++ b/docs/upgrading_ko.md
+@@ -7,7 +7,7 @@
+ stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지 않습니다.
+ 
+-지금은 소스 메타데이터가 `2.30.0`인데 stable marketplace ref는 `v2.1.1`입니다. 이 소스에 대한
++지금은 소스 메타데이터가 `2.31.0`인데 stable marketplace ref는 `v2.1.1`입니다. 이 소스에 대한
+ 태그를 릴리스 workflow가 아직 발행하지 않았기 때문이며, 따라서 marketplace로 설치하면 오늘은
+diff --git a/docs/upgrading_ja.md b/docs/upgrading_ja.md
+index 89e2c5f..0000000 100644
+--- a/docs/upgrading_ja.md
++++ b/docs/upgrading_ja.md
+@@ -8,7 +8,7 @@
+ は追跡しません。
+ 
+-現在はソースメタデータが `2.30.0` である一方、stable marketplace ref は `v2.1.1` です。この
++現在はソースメタデータが `2.31.0` である一方、stable marketplace ref は `v2.1.1` です。この
+ ソースに対するタグをリリース workflow がまだ公開していないためで、marketplace から入れると今日は
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index cee281e..0000000 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,5 +1,11 @@
+ # Changelog
+ 
++## [2.31.0] - 2026-09-11
++
++- Add a GUI Monthly Career Review over the deterministic month projection, with per-dimension present/total evidence, explicit gaps/partial coverage, and approved experience detail without a combined score or second store.
++- Let the existing autosaved Work editor capture responsibility, judgment, decision basis, risk management, stakeholder coordination, organizational context, improvements, and learning, then show those fields in the same review/approval gate and Career read model.
++- Keep confidential detail hidden, keep malformed historical work dates out of monthly buckets, and exercise the monthly surface in component, backend, and real-browser regression coverage.
++
+ ## [2.30.0] - 2026-09-11
+ 
+ - Add explicit optional `responsibility`, `judgment`, `decision_basis`, `risk_management`, and `organizational_context` fields to the canonical work/experience evidence contract while reusing `stakeholder_coordination`; role and scope remain context and are not promoted into ownership.
