@@ -16,12 +16,15 @@ V1 covers the narrow transition slice around employment end and the next employm
 - 雇用保険被保険者離職票-1・2 when unemployment-benefit handling is relevant;
 - 健康保険資格喪失証明等 when 国民健康保険 transition makes it relevant;
 - マイナンバー / 基礎年金番号 confirmation for the new employer;
-- applicable 出入国在留管理庁 affiliation/institution notifications;
-- 就労資格証明書 as an optional confirmation path, never a universal transfer requirement;
+- applicable 出入国在留管理庁 affiliation/institution notifications for the bounded residence-status groups in the registry;
+- status-specific immigration verification when a general rule would overstate what is known;
+- 就労資格証明書 as an optional confirmation path for the supported contract-institution group, never a universal transfer requirement;
 - 在留資格変更の要否確認 when the new activity may differ from the currently permitted activity.
 
 It does **not** calculate tax, insurance premiums, unemployment benefits, pension exemptions, or
-immigration eligibility. It does not submit any form.
+immigration eligibility. It does not submit any form. V1 is deliberately not a complete matrix of all
+在留資格; a status outside the bounded groups becomes an explicit verification task rather than a
+silent assumption that no procedure applies.
 
 ## Facts to collect
 
@@ -106,19 +109,31 @@ transition. An immediate next-employer insurance start does not by itself activa
 
 ### 外国人の届出
 
-The user-owned notification depends on the actual residence status, not nationality. For
-契約機関 statuses, contract termination and a new contract are separate events. Do not silently use
-the new employment start date as the contract-conclusion date. For 活動機関 statuses, use the
+The user-owned notification depends on the actual residence status, not nationality. For the bounded
+契約機関 group, contract termination and a new contract are separate events. Do not silently use the
+new employment start date as the contract-conclusion date. For the bounded 活動機関 group, use the
 applicable leave/transfer event from the registry.
 
-`永住者`, `日本人の配偶者等`, and other statuses outside the registry groups must not inherit a
-work-status affiliation notification merely because the user is foreign. If the status is missing,
-show `Unknown` and ask for it.
+Known unrestricted-work statuses in the registry (`永住者`, `日本人の配偶者等`,
+`永住者の配偶者等`, `定住者`) do not inherit those work-status affiliation notifications merely
+because the user is foreign.
+
+Do **not** generalize the ordinary contract/activity rules to every other residence status:
+
+- `高度専門職` is routed to `在留資格固有の転職手続確認`. A change of the designated institution can
+  raise an additional status-change requirement, so V1 must not treat it as ordinary `技人国`.
+- `興行` is also routed to status-specific verification because the contract-institution notification
+  rule depends on the form of the activity/contract; the bare status name is insufficient for a safe
+  automatic verdict.
+- an unmapped status such as `特定活動` is routed to `在留資格別の転職手続確認`. It is **not** rendered
+  as `not_applicable`; V1 says that the current procedure must be checked for that status.
+- if the residence status itself is missing, show `Unknown` and ask for the exact status name.
 
 ### 就労資格証明書 vs 在留資格変更
 
 `就労資格証明書` is an optional way to obtain official confirmation of permitted paid activity; it
-is not a universal job-change requirement. If the new activity may differ from what the current
+is not a universal job-change requirement. V1 only auto-surfaces it for the bounded contract-institution
+group where that question is relevant to this slice. If the new activity may differ from what the current
 status permits, surface `在留資格変更の要否確認` separately. Never say that obtaining a
 就労資格証明書 automatically resolves a changed-activity case.
 
@@ -159,4 +174,5 @@ expect the projection to distinguish at minimum:
 - 健康保険資格喪失証明等: not applicable under the stated immediate next-employer-insurance condition;
 - 契約終了 and 新たな契約 immigration notifications: separate required user actions;
 - 就労資格証明書: recommended/optional;
-- 在留資格変更の要否確認: not applicable while `new_activity_scope: same`.
+- 在留資格変更の要否確認: not applicable while `new_activity_scope: same`;
+- status-specific and unmapped-status verification tasks: not applicable for this confirmed `技人国` case.
