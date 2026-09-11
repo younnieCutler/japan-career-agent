@@ -72,6 +72,17 @@ Why now: user-stated timing, or Unknown
 Do not replace an unknown with “growth”, “challenge”, or a culture stereotype. The draft is a proposed
 communication for the user to review.
 
+When short tenure, repeated transitions, or an employment gap matters, load only
+`references/transition-risk.md`. Keep tenure length, transition count, factual reason, and period
+evidence separate. Keep the existence/length of a gap separate from study, qualification, care,
+travel, rest, or other activity during that period. There is no universal three-year minimum,
+fixed short-tenure penalty, or universal gap penalty.
+
+Compensation, working hours, evaluation, role scope, location, work mode, learning, mission, stability,
+and other user-confirmed conditions are independent career values. Do not rank salary or benefits as
+inferior motives via a needs hierarchy. Interview wording may connect a true value to the target role
+without replacing it with a more socially desirable reason.
+
 ## STEP 2: interview manner and follow-up
 
 Separate interview content (job-seeker-agent) from manner (入室, dress, greeting, timing). Use the
@@ -83,7 +94,14 @@ route fact, not a private agency rule. Never promise a reply or invent a follow-
 
 Collect current compensation, desired condition, offer status, competing-offer facts, and the user's
 priority. Use `references/nenshu-koushou.md` only with its dated sources. A salary range is a sourced
-external claim, not a candidate benchmark or negotiation-success estimate. Draft a polite request with:
+external claim, not a candidate benchmark or negotiation-success estimate.
+
+Treat current compensation as a possible anchor used in some processes, not as market value. When it
+is known, compare it with the employer's stated range or grade when known, confirmed role scope,
+confirmed contribution evidence, competing-offer facts, and the user's priorities. Never use
+`current salary + 10%`, `+20%`, or any fixed uplift as a Japan default.
+
+Draft a polite request with:
 
 - confirmed contribution evidence;
 - the exact condition being requested;
@@ -122,6 +140,11 @@ overrides, and unknowns. The default `python scripts/calibrate.py` reports only:
 - repeated observed feedback causes after the evidence threshold;
 - preparation actions recorded before a stage;
 - user overrides and reached stages.
+
+For application portfolio decisions, use the user's own observed pipeline by route, role family,
+company-size band, or other confirmed segment. Show numerator/denominator counts and warn when the
+sample is small. Use the observation to choose what to verify in the next batch; do not infer a causal
+reason from a small sample and never impose a fixed application mix such as `3:2:5`.
 
 It does not map `Proceed`, `Review`, or `Conflict` to a hiring outcome. Old `predicted_tier` history is
 read only through `python scripts/legacy_calibrate.py --legacy-experimental` and is never mixed with
