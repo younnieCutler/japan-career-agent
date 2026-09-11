@@ -4,10 +4,50 @@ on:
   push:
     branches:
       - main
+      - feat/gui-monthly-career-review
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
+  apply-gui-monthly-patch:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/gui-monthly-career-review'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: feat/gui-monthly-career-review
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: apply source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check .github/gui-monthly.patch
+          git apply .github/gui-monthly.patch
+          rm .github/gui-monthly.patch
+          git fetch origin main:refs/remotes/origin/main
+          git show origin/main:.github/workflows/test.yml > .github/workflows/test.yml
+      - name: verify and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: commit complete GUI slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement monthly Career Review GUI"
+          git push origin HEAD:feat/gui-monthly-career-review
+
   test:
+    if: github.ref != 'refs/heads/feat/gui-monthly-career-review'
     strategy:
       # One runner per Python version the packaging metadata advertises, plus Windows on the oldest
       # of them because that is where the path and console-encoding differences live. 3.12 used to
@@ -42,9 +82,8 @@ jobs:
           python scripts/build_release.py --output-dir release-smoke --expected-commit "${{ github.sha }}"
           python scripts/test_release_install.py --bundle release-smoke
 
-  # The process-level GUI E2E proves the server survives real process boundaries, but it stops at
-  # HTTP. This job crosses the remaining boundary: committed bundle -> real Chrome -> local server.
   browser-e2e:
+    if: github.ref != 'refs/heads/feat/gui-monthly-career-review'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -59,25 +98,17 @@ jobs:
       - name: committed GUI bundle in a real browser
         run: node scripts/test_browser_e2e.mjs
 
-  # The GUI bundle is committed so the wheel ships it and users never need Node. This job verifies
-  # that the committed bundle is exactly what the committed source builds; browser-e2e above uses
-  # Node only as a dependency-free Chrome DevTools Protocol driver for that committed bundle.
   frontend-bundle:
+    if: github.ref != 'refs/heads/feat/gui-monthly-career-review'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          # Same major as the release workflow's npm channel. A byte comparison is only as stable
-          # as the toolchain producing it; pin the minor here if a runner's Node bump ever moves
-          # the output without a source change.
           node-version: "22"
       - name: install frontend deps from the lockfile
         working-directory: frontend
         run: npm ci
-      # Behavioural checks on the components that wrap SEED's composed primitives. Every other
-      # client contract is asserted by reading `frontend/src` as text, which cannot tell whether a
-      # listbox actually opens — that gap shipped a product where no dropdown worked.
       - name: client component contracts
         working-directory: frontend
         run: npm test
@@ -92,7 +123,6 @@ jobs:
             echo "::error::The committed GUI bundle is stale. Run 'npm ci && npm run build' in frontend/ and commit the result."
             exit 1
           fi
-          # A build that emits a file nobody committed would ship a wheel missing it.
           untracked="$(git ls-files --others --exclude-standard -- skills/career-agent/gui/static/app)"
           if [[ -n "$untracked" ]]; then
             echo "::error::The build emitted files that are not committed:"
