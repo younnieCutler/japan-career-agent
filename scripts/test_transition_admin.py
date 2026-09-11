@@ -65,11 +65,16 @@ class TransitionAdminTests(unittest.TestCase):
         self.assertEqual(rows["immigration_new_contract_notification"]["deadline"], "2026-09-29")
         self.assertEqual(rows["work_qualification_certificate"]["state"], "recommended")
         self.assertEqual(rows["residence_status_change_verification"]["state"], "not_applicable")
+        self.assertEqual(
+            rows["immigration_status_specific_transition_verification"]["state"],
+            "not_applicable",
+        )
+        self.assertEqual(rows["immigration_unmapped_status_verification"]["state"], "not_applicable")
 
-    def test_non_target_status_does_not_receive_work_status_notifications(self) -> None:
+    def test_unrestricted_status_does_not_receive_work_status_notifications(self) -> None:
         rows = by_id(
             project(
-                self.scenario(residence_status="永住者"),
+                self.scenario(residence_status="永住者", new_activity_scope="changed"),
                 registry=self.registry,
                 as_of=dt.date(2026, 9, 12),
             )
@@ -79,7 +84,10 @@ class TransitionAdminTests(unittest.TestCase):
             "immigration_new_contract_notification",
             "immigration_activity_leave_notification",
             "immigration_activity_transfer_notification",
+            "immigration_status_specific_transition_verification",
+            "immigration_unmapped_status_verification",
             "work_qualification_certificate",
+            "residence_status_change_verification",
         )
         for task_id in immigration_ids:
             self.assertEqual(rows[task_id]["state"], "not_applicable", task_id)
@@ -94,6 +102,7 @@ class TransitionAdminTests(unittest.TestCase):
         )
         self.assertEqual(rows["immigration_contract_end_notification"]["state"], "not_applicable")
         self.assertEqual(rows["immigration_new_contract_notification"]["state"], "not_applicable")
+        self.assertEqual(rows["immigration_unmapped_status_verification"]["state"], "not_applicable")
 
     def test_unknown_residence_status_remains_unknown(self) -> None:
         rows = by_id(
@@ -105,6 +114,7 @@ class TransitionAdminTests(unittest.TestCase):
         )
         self.assertEqual(rows["immigration_contract_end_notification"]["state"], "unknown")
         self.assertIn("residence_status", rows["immigration_contract_end_notification"]["missing_inputs"])
+        self.assertEqual(rows["immigration_unmapped_status_verification"]["state"], "unknown")
 
     def test_contract_date_is_not_inferred_from_start_date(self) -> None:
         rows = by_id(
@@ -160,6 +170,35 @@ class TransitionAdminTests(unittest.TestCase):
         self.assertEqual(rows["immigration_activity_leave_notification"]["state"], "required")
         self.assertEqual(rows["immigration_activity_transfer_notification"]["state"], "required")
         self.assertEqual(rows["immigration_contract_end_notification"]["state"], "not_applicable")
+        self.assertEqual(rows["work_qualification_certificate"]["state"], "not_applicable")
+
+    def test_highly_skilled_and_entertainer_require_status_specific_review(self) -> None:
+        for status in ("高度専門職１号イ", "興行"):
+            with self.subTest(status=status):
+                rows = by_id(
+                    project(
+                        self.scenario(residence_status=status),
+                        registry=self.registry,
+                        as_of=dt.date(2026, 9, 12),
+                    )
+                )
+                self.assertEqual(
+                    rows["immigration_status_specific_transition_verification"]["state"],
+                    "required",
+                )
+                self.assertEqual(rows["immigration_contract_end_notification"]["state"], "not_applicable")
+
+    def test_unmapped_status_is_verified_not_assumed_out_of_scope(self) -> None:
+        rows = by_id(
+            project(
+                self.scenario(residence_status="特定活動"),
+                registry=self.registry,
+                as_of=dt.date(2026, 9, 12),
+            )
+        )
+        self.assertEqual(rows["immigration_unmapped_status_verification"]["state"], "required")
+        self.assertEqual(rows["immigration_contract_end_notification"]["state"], "not_applicable")
+        self.assertEqual(rows["immigration_activity_leave_notification"]["state"], "not_applicable")
 
     def test_stale_procedural_source_downgrades_rule_to_unknown(self) -> None:
         rows = by_id(project(self.scenario(), registry=self.registry, as_of=dt.date(2028, 1, 1)))
@@ -172,6 +211,14 @@ class TransitionAdminTests(unittest.TestCase):
         broken = copy.deepcopy(self.registry)
         broken["tasks"][0]["applies_if"] = {
             "all": [{"field": "x", "op": "python_eval", "value": "True"}]
+        }
+        with self.assertRaises(TransitionAdminError):
+            validate_registry(broken)
+
+    def test_registry_rejects_unknown_not_in_groups_target(self) -> None:
+        broken = copy.deepcopy(self.registry)
+        broken["tasks"][0]["applies_if"] = {
+            "all": [{"field": "residence_status", "op": "not_in_groups", "value": ["missing"]}]
         }
         with self.assertRaises(TransitionAdminError):
             validate_registry(broken)
