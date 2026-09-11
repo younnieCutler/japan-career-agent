@@ -45,3 +45,11 @@ Nationality alone never activates a work-status notification. Missing residence 
 For 契約機関 status, a missing new-contract-conclusion date stays `Unknown` and is not replaced with the
 first working day. If the new activity scope is `changed`, the Skill separately surfaces
 在留資格変更の要否確認; 就労資格証明書 remains an optional confirmation path rather than a substitute.
+
+## Case 9: residence statuses outside the ordinary auto-rules
+
+`永住者`, `日本人の配偶者等`, `永住者の配偶者等`, and `定住者` do not inherit work-status affiliation
+notifications merely because the user is foreign. `高度専門職` and `興行` route to status-specific
+verification instead of being treated as ordinary `技人国`; an unmapped status such as `特定活動`
+routes to a residence-status-specific verification task rather than being silently declared
+`not_applicable`.
