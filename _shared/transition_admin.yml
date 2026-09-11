@@ -104,11 +104,6 @@ tasks:
     user_action: receive
     requiredness: required
     required_inputs: [employment_end_date]
-    applies_if:
-      all:
-        - field: employment_end_date
-          op: is_known
-          value: true
     trigger_field: employment_end_date
     deadline:
       kind: months_after
@@ -124,11 +119,6 @@ tasks:
     user_action: confirm_identifier
     requiredness: required
     required_inputs: [new_employment_start_date]
-    applies_if:
-      all:
-        - field: new_employment_start_date
-          op: is_known
-          value: true
     source_ids: [hello_work_insurance_number]
     guidance: 転職後も同じ被保険者番号を使用する。物理的な証書そのものより既存番号の確認を優先する。
 
@@ -140,11 +130,6 @@ tasks:
     user_action: request_if_needed
     requiredness: recommended
     required_inputs: [employment_end_date]
-    applies_if:
-      all:
-        - field: employment_end_date
-          op: is_known
-          value: true
     source_ids: [mhlw_retirement_certificate]
     guidance: 労働者が請求した場合、使用者は遅滞なく交付する。全員への自動交付を前提にしない。
 
@@ -205,11 +190,6 @@ tasks:
     user_action: confirm_identifier
     requiredness: required
     required_inputs: [new_employment_start_date]
-    applies_if:
-      all:
-        - field: new_employment_start_date
-          op: is_known
-          value: true
     source_ids: [pension_identifier]
     guidance: 厚生年金適用事業所への転職後の加入手続は新勤務先が行う。前勤務先から新たに発行してもらうexit documentではない。
 
@@ -227,9 +207,6 @@ tasks:
         - field: residence_status
           op: in_group
           value: contract_institution
-        - field: employment_end_date
-          op: is_known
-          value: true
     trigger_field: employment_end_date
     deadline:
       kind: days_after
@@ -251,9 +228,6 @@ tasks:
         - field: residence_status
           op: in_group
           value: contract_institution
-        - field: new_contract_conclusion_date
-          op: is_known
-          value: true
     trigger_field: new_contract_conclusion_date
     deadline:
       kind: days_after
@@ -275,9 +249,6 @@ tasks:
         - field: residence_status
           op: in_group
           value: activity_institution
-        - field: employment_end_date
-          op: is_known
-          value: true
     trigger_field: employment_end_date
     deadline:
       kind: days_after
@@ -299,9 +270,6 @@ tasks:
         - field: residence_status
           op: in_group
           value: activity_institution
-        - field: new_employment_start_date
-          op: is_known
-          value: true
     trigger_field: new_employment_start_date
     deadline:
       kind: days_after
