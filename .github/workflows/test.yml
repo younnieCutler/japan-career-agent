@@ -85,6 +85,23 @@ jobs:
               '      <MonthlyCareerReview months={state.data.monthly_reviews || []} onError={setFailure} />\n\n'
               '      <UnassignedProjects payload={state.data} onDone={reload} />',
           )
+          replace_once(
+              'frontend/src/screens/Career.test.jsx',
+              '    expect(screen.getByText("career.dimension.judgment")).toBeTruthy();',
+              '    expect(screen.getAllByText("career.dimension.judgment").length).toBeGreaterThan(0);',
+          )
+          replace_once(
+              'skills/career-agent/projection.py',
+              '                "team_result",\n                "outcome_state",\n                "metrics",',
+              '                "team_result",\n                "outcome_state",\n                "metrics",\n                "improvements",\n                "learning",',
+          )
+          replace_once(
+              'skills/career-agent/gui/test_projects.py',
+              '        self.assertEqual(detail["stakeholder_coordination"], ["운영팀과 배포 기준을 합의했다"])',
+              '        self.assertEqual(detail["stakeholder_coordination"], ["운영팀과 배포 기준을 합의했다"])\n'
+              '        self.assertEqual(detail["improvements"], ["fallback 절차를 문서화한다"])\n'
+              '        self.assertEqual(detail["learning"], ["판단 근거를 기록해야 인수인계가 빨라진다"])',
+          )
           for reject in rejects:
               Path(reject).unlink()
           PY
