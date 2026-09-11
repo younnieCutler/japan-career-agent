@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise promotion, freshness, selection and malformed-data boundaries."""
+"""Exercise promotion, freshness, selection and Skill-integration boundaries."""
 import copy
 import datetime as dt
 from pathlib import Path
@@ -8,7 +8,7 @@ import unittest
 
 import yaml
 
-from query_career_knowledge import REGISTRY, CLAIMS, fingerprint, load_registry, query
+from query_career_knowledge import CLAIMS, REGISTRY, ROOT, blockers, fingerprint, load_registry, query
 
 TODAY = dt.date(2026, 9, 11)
 
@@ -22,6 +22,10 @@ class KnowledgeTests(unittest.TestCase):
         self.items, self.claims = load_registry(REGISTRY, CLAIMS)
         self.items = copy.deepcopy(self.items)
         self.item = self.items[0]
+        # Lifecycle unit tests always begin from a synthetic candidate regardless of the
+        # repository registry's current promotion state.
+        self.item['status'] = 'candidate'
+        self.item['promotion'] = None
         self.topic = self.item['topics'][0]
 
     def save(self):
@@ -178,6 +182,41 @@ class KnowledgeTests(unittest.TestCase):
         self.items.reverse()
         self.assertEqual(first, self.run_query([self.topic]))
         self.assertEqual(len(first['items']), 1)
+
+    def test_repository_active_knowledge_has_valid_receipts(self):
+        items, claims = load_registry(REGISTRY, CLAIMS)
+        active = [item for item in items if item['status'] == 'active']
+        self.assertGreaterEqual(len(active), 11)
+        errors = {item['id']: blockers(item, claims, TODAY) for item in active}
+        self.assertEqual({key: value for key, value in errors.items() if value}, {})
+
+    def test_skill_references_encode_promoted_behavior(self):
+        def text(path: str) -> str:
+            return (ROOT / path).read_text(encoding='utf-8')
+
+        humanize = text('skills/humanize-japanese-career/SKILL.md')
+        self.assertNotIn('scanned in about thirty seconds', humanize)
+        self.assertIn('survives detailed review', humanize)
+
+        elicitation = text('skills/career-tanaoroshi/references/evidence-elicitation.md')
+        self.assertIn('not treated as a Japanese hiring standard', elicitation)
+        self.assertIn('never create an estimate, range, rounded KPI', elicitation)
+
+        probes = text('skills/mock-interviewer/references/japan-market-probes.md')
+        self.assertIn('no universal three-year minimum', probes)
+        self.assertIn('does not erase the gap', probes)
+        self.assertIn('observed downside -> mitigation behavior', probes)
+
+        salary = text('skills/tenshoku-strategy/references/nenshu-koushou.md')
+        self.assertIn('Never use `current salary + 10%`', salary)
+
+        motivation = text('skills/job-seeker-agent/references/shibo-doki.md')
+        self.assertIn('Why leave -> Why this role -> Why this company -> Contribution', motivation)
+        self.assertIn('Do not assign fixed weights', motivation)
+
+        self_analysis = text('skills/jiko-bunseki/SKILL.md')
+        self.assertIn('MBTI may be used only as reflection vocabulary', self_analysis)
+        self.assertIn('not candidate skill evidence', self_analysis)
 
 
 if __name__ == '__main__':
