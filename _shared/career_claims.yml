@@ -42,3 +42,43 @@ claims:
 # published_at may be `unknown` for an undated official page; observed_at is still required.
 # claim_type: official | marketing_claim | survey | third_party
 # allowed_usage is descriptive only; it may not contain a candidate outcome estimate.
+
+  - id: doda_document_review_2025
+    claim: In a survey of 2,000 mid-career hiring respondents, the modal reported review
+      time for both resume types was 5 to under 10 minutes.
+    source_url: https://doda.jp/guide/saiyo/007.html
+    publisher: doda / PERSOL CAREER
+    published_at: '2025-12-11'
+    observed_at: '2026-09-11'
+    claim_type: survey
+    confidence: high
+    expires_on: '2026-12-11'
+    allowed_usage: Survey description only; self-reported total review time does not
+      measure the first skim or predict an individual recruiter.
+
+  - id: doda_interview_motivation_2026
+    claim: In a survey of 2,000 mid-career hiring respondents, 43.1% selected application
+      motivation as important (multiple selection); 7.3% selected it as most important
+      (single selection).
+    source_url: https://doda.jp/guide/saiyo/008.html
+    publisher: doda / PERSOL CAREER
+    published_at: '2026-03-09'
+    observed_at: '2026-09-11'
+    claim_type: survey
+    confidence: high
+    expires_on: '2026-12-11'
+    allowed_usage: Describe respondent selections only; not hiring weights, causal effects,
+      or candidate outcome probabilities.
+
+  - id: mynavi_weakness_mitigation_2025
+    claim: Mynavi guidance includes stubbornness as a weakness example and explains
+      accompanying it with efforts to address its downside.
+    source_url: https://tenshoku.mynavi.jp/knowhow/mensetsu/guide/05/
+    publisher: Mynavi Corporation
+    published_at: '2025-11-21'
+    observed_at: '2026-09-11'
+    claim_type: official
+    confidence: high
+    expires_on: '2026-12-11'
+    allowed_usage: Publisher guidance only, not evidence that all employers accept any
+      weakness or that role-specific conflicts disappear.

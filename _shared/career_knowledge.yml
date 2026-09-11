@@ -1,0 +1,65 @@
+# Candidate proposals only. Runtime does not preload this registry.
+schema_version: '1.0'
+knowledge:
+- id: progressive_readability
+  status: candidate
+  topics:
+  - document-readability
+  scope:
+  - humanize-japanese-career
+  supporting_claim_ids:
+  - doda_document_review_2025
+  counterevidence:
+  - The survey measures self-reported review duration, not initial screening attention.
+  allowed_behavior:
+  - Support rapid comprehension while preserving evidence for detailed review.
+  forbidden_behavior:
+  - Do not present thirty seconds as a universal measured review duration.
+  reviewed_at: '2026-09-11'
+  expires_on: '2026-12-11'
+  required_scenarios:
+  - brief-document
+  - detailed-document
+  promotion: null
+- id: shibo_doki_consistency
+  status: candidate
+  topics:
+  - shibo-doki
+  scope:
+  - job-seeker-agent
+  supporting_claim_ids:
+  - doda_interview_motivation_2026
+  counterevidence:
+  - Reported importance varies across respondents; the consistency chain is a proposed
+    design, not a survey finding.
+  allowed_behavior:
+  - Probe consistency between leaving, target role, company-specific reasons, and
+    confirmed contribution.
+  forbidden_behavior:
+  - Do not turn survey response percentages into evaluation weights.
+  reviewed_at: '2026-09-11'
+  expires_on: '2026-12-11'
+  required_scenarios:
+  - ai-draft
+  - shibo-doki
+  promotion: null
+- id: weakness_mitigation
+  status: candidate
+  topics:
+  - weakness
+  scope:
+  - mock-interviewer
+  supporting_claim_ids:
+  - mynavi_weakness_mitigation_2025
+  counterevidence:
+  - A genuine role requirement conflict must still be preserved.
+  allowed_behavior:
+  - Ask about observed downside, mitigation behavior, and evidence of improvement.
+  forbidden_behavior:
+  - Do not blacklist a trait label or invent improvement evidence.
+  reviewed_at: '2026-09-11'
+  expires_on: '2026-12-11'
+  required_scenarios:
+  - weakness
+  - weakness-hard-conflict
+  promotion: null
