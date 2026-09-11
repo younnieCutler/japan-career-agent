@@ -28,4 +28,20 @@ Missing claims are `Unknown`, not filled with a remembered statistic.
 ## Case 6: user ownership
 
 A warning or conflict is explained with its evidence and next verification step. The skill does not
-submit, send, or decide on the user's behalf.
+submit, send, file a government form, or decide on the user's behalf.
+
+## Case 7: next-day transition with 技術・人文知識・国際業務
+
+For a 9/30 employment end, 10/1 next-employer start, separately confirmed 9/15 new-contract date,
+continued resident-tax 特別徴収, no unemployment-benefit plan, immediate next-employer insurance,
+and 技術・人文知識・国際業務 status, the response must use the deterministic transition projection.
+It separates employee receipts/identifiers, user-owned immigration notifications, employer/municipality
+handoff, optional/request-based documents, and not-applicable items. It must not tell the user to
+personally file the resident-tax 異動届出書 or call 離職票/健康保険資格喪失証明 universal must-haves.
+
+## Case 8: immigration unknowns and changed activity
+
+Nationality alone never activates a work-status notification. Missing residence status stays `Unknown`.
+For 契約機関 status, a missing new-contract-conclusion date stays `Unknown` and is not replaced with the
+first working day. If the new activity scope is `changed`, the Skill separately surfaces
+在留資格変更の要否確認; 就労資格証明書 remains an optional confirmation path rather than a substitute.
