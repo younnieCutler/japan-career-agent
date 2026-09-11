@@ -17,15 +17,37 @@ moment the first one changes. Project and team belong in `scope` when the user s
 | Field | Holds | Not |
 |---|---|---|
 | `role` | the role the user was assigned on this work | a title they did not have |
-| `scope` | what they owned, with its size when stated | an estimated headcount or budget |
+| `scope` | the boundaries and size of the work when stated | proof that the user personally owned it |
+| `responsibility` | what the user was actually accountable for or owned | an inference from `role`, `scope`, or seniority |
 
-"실질적으로 리드했지만 직책은 리더가 아니었다" is recorded as what it is: the decisions they made,
-who they coordinated, what they were accountable for. That is stronger evidence than a title claim
-and it survives a reference check.
+"실질적으로 리드했지만 직책은 리더가 아니었다" is recorded as what it is: the responsibility they
+actually owned, the decisions they made, who they coordinated, and what happened. Assigned role or
+scope alone never fills `responsibility`; the user has to state the ownership itself.
 
 ## Situation
 
 `problem` — the situation and what was wrong. One sentence is enough.
+
+## Judgment and decision basis
+
+| Field | Holds | Not |
+|---|---|---|
+| `judgment` | a concrete decision, choice, or trade-off the user made | a generic claim that they are decisive |
+| `decision_basis` | the evidence, constraint, observation, or reason used for that decision | a rationale invented after the fact |
+
+Both are optional and neither implies the other. If the user remembers the basis but not a precise
+decision sentence, keep only `decision_basis`; if they remember the decision but not why, keep only
+`judgment`. Unknown is safer than reconstruction.
+
+One evidence event should carry one primary judgment. When two decisions have different reasons,
+risks, or outcomes, record them as separate evidence events instead of parallel arrays whose
+relationships are ambiguous.
+
+## Risk management
+
+`risk_management` records a concrete risk, downside, failure mode, or trade-off the user considered
+and how they handled it when stated. It is evidence of an action or consideration, not a rating such
+as "risk-aware" and not a risk the system infers from the project.
 
 ## Action
 
@@ -36,7 +58,17 @@ and it survives a reference check.
 | `reporting` | who was informed or escalated to, on what trigger, and when |
 
 All three are lists of plain sentences. They are optional, and work with none of them recorded is
-still worth keeping.
+still worth keeping. `stakeholder_coordination` remains the single field for coordination; there is
+no duplicate `stakeholders` field.
+
+## Organizational context
+
+`organizational_context` records the explicit team, customer, company, or higher-level objective or
+need that made the work matter. It is not inferred from the employer name, project title, or an
+executive strategy document the user never connected to the work.
+
+Examples of valid evidence are "분기 안정성 목표의 배포 실패율 감소에 연결" or "고객 운영팀의
+수동 점검 공수를 줄이는 요구사항 때문에 수행" when the user actually states that connection.
 
 ## Result
 
@@ -48,9 +80,10 @@ nothing behind it. Keeping the fields apart at capture time is what makes the ho
 available later.
 
 `metrics` holds numbers the user stated, and only those. Confirming an event whose title, summary,
-or metrics contain a number that does not appear in the evidence is refused by the runtime.
+metrics, or explicit career-depth fields contain a number that does not appear in the evidence is
+refused by the runtime.
 
-## Organizational effect
+## Improvements
 
 There is no `standardized` / `documented` / `automated` / `recurrence_prevention` /
 `handoff_improvement` set of flags. All five say the same thing — this changed how the work is
@@ -93,6 +126,12 @@ stakeholder_coordination:
 
 Both terms may be used when explaining to the user why the underlying behaviour is worth
 recording. Neither becomes a field, a rating, or a claim about the person.
+
+## Proposal and approval boundary
+
+A model or host may extract or propose these fields from what the user said, but the proposal is not
+canonical evidence. The existing review/approval flow remains the boundary: only what the user
+confirms is written to the append-only event ledger, and deterministic readers then project it.
 
 ## Confidentiality
 

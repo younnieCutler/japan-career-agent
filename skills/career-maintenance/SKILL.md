@@ -2,8 +2,9 @@
 name: career-maintenance
 description: >
   Low-friction capture of work events into reusable, evidence-backed career records while the user
-  is employed. Separates individual contribution from team result, leaves missing metrics Unknown,
-  and flags confidential material before anything is reused externally.
+  is employed. Separates individual contribution from team result, records explicit responsibility
+  and judgment without inferring them from role, leaves missing metrics Unknown, and flags
+  confidential material before anything is reused externally.
   Use when: - The user wants to record what they did at work, this project, or this quarter -
   "오늘 한 일 기록해줘", "업무일지", "이번 분기 성과 정리", "이 프로젝트 경력으로 남겨줘" -
   "今日やった仕事を記録して", "職務経歴として残しておきたい", "今期の成果を整理したい" -
@@ -21,9 +22,10 @@ It records what happened. It does not evaluate a company, match a JD, draft a fi
 tell the user whether to leave.
 
 The problem it exists for: the details that make a 職務経歴書 or an interview answer credible —
-the actual role, the actual scope, what the user did as opposed to what the team achieved, the
-number and where it came from — are known for about a week and then gone. Reconstructing them
-years later, under the time pressure of a real opportunity, is where invented metrics come from.
+the actual responsibility, the judgment and basis behind a decision, what the user did as opposed
+to what the team achieved, the number and where it came from — are known for about a week and then
+gone. Reconstructing them years later, under the time pressure of a real opportunity, is where
+invented ownership, rationale, and metrics come from.
 
 ## Trust boundary
 
@@ -106,11 +108,16 @@ optional and an unfilled field stays `Unknown`. Never infer one field from anoth
 | Field | What it holds |
 |---|---|
 | `role` | the user's assigned role on this work |
-| `scope` | what they owned, and how large it was when they said so |
+| `scope` | the boundaries and size of the work when stated |
+| `responsibility` | what the user was actually accountable for or owned |
 | `problem` | the situation and what was wrong |
+| `judgment` | a concrete decision, choice, or trade-off the user made |
+| `decision_basis` | the evidence, constraint, observation, or reason used for that judgment |
+| `risk_management` | a concrete risk or downside considered and how it was handled when stated |
 | `direct_actions` | what the user personally did |
 | `stakeholder_coordination` | observable coordination: who, about what, what was agreed |
 | `reporting` | observable reporting or escalation: audience, trigger, timing |
+| `organizational_context` | the explicit team, customer, or company objective/need the work served |
 | `individual_contribution` | the user's own result |
 | `team_result` | what the team achieved |
 | `metrics` | numbers the user stated, with the evidence they came from |
@@ -118,6 +125,11 @@ optional and an unfilled field stays `Unknown`. Never infer one field from anoth
 | `learning` | knowledge, skill, or change in judgment — valid with no measurable impact |
 | `work_date` | when the work happened, `YYYY-MM` or `YYYY-MM-DD`, only if the user said so |
 | `confidentiality` | whether it contains confidential material, and whether it may be used externally |
+
+`role` and `scope` do not imply `responsibility`. A model may propose a responsibility or judgment
+from the user's own words, but it must not manufacture ownership, a reason, a risk, or an
+organizational objective the user did not state. When two judgments have different bases or risks,
+prefer two evidence events over parallel arrays whose relationships would be ambiguous.
 
 `work_date` matters because the ledger's `occurred_at` is when the note was written, not when the
 work happened. "지난 6월 결제 migration" captured today is June work — record `2026-06`. A month is
@@ -128,18 +140,18 @@ a complete answer; do not ask for a day the user did not give, and do not guess 
 Ask at most three questions per turn, chosen from what is actually missing and actually useful.
 Prefer these, in order:
 
-1. what the user personally did, when the note only describes a team;
-2. what the outcome was, if the note stops at the action;
-3. where a stated number comes from.
+1. what the user personally owned or decided, when the note only describes assigned scope or team action;
+2. why that judgment was made, when a decision is present but its basis is Unknown;
+3. what the outcome was, or where a stated number comes from.
 
-Never ask all twelve fields. A record with four filled fields and eight Unknowns is a good record.
+Never chase every field. A record with several filled fields and the rest Unknown is a good record.
 
 Write what the user confirms back onto the pending proposal:
 
 ```bash
 python skills/career-agent/career_agent.py review-work-event [proposal-id] \
   --vault "$CAREER_VAULT" \
-  --json '{"role": "...", "direct_actions": ["..."], "individual_contribution": "..."}'
+  --json '{"responsibility": "...", "judgment": "...", "decision_basis": "..."}'
 ```
 
 Keys merge, so a review can run over several turns. `--replace` sets the whole payload, which is
@@ -155,10 +167,10 @@ python skills/career-agent/career_agent.py approve [proposal-id] --vault "$CAREE
   --evidence "JIRA-123"
 ```
 
-Confirmation requires evidence, and any number appearing in the title, summary, or `metrics` must
-appear in that evidence or the runtime refuses the confirmation — including a number added during
-STEP 3. This is deliberate: a metric
-nobody can point at is the single most damaging thing to carry into a 職務経歴書.
+Confirmation requires evidence, and any number appearing in the title, summary, `metrics`, or the
+explicit career-depth fields must appear in that evidence or the runtime refuses the confirmation —
+including a number added during STEP 3. This is deliberate: an impressive ownership or impact
+number nobody can point at is not stronger evidence.
 
 Drafts stay drafts. They are proposals the user has not verified and are never quoted downstream
 as confirmed evidence.
@@ -192,9 +204,9 @@ Group by project, mark what is confirmed, and name what is still missing:
 ```
 
 Then ask **at most three** questions, taken from `ask_first` in that order: what the user
-personally did, what came of it, where a stated number came from, what changed for the team, what
-they learned. Stop there. A record with four filled fields and eight Unknowns is a good record, and
-chasing every field turns a two-minute review into the form this workflow exists to avoid.
+personally did or owned, what judgment they made and why, what came of it, where a stated number
+came from, what changed for the team, what they learned. Stop there. Chasing every field turns a
+two-minute review into the form this workflow exists to avoid.
 
 A note captured this week about work from months ago belongs in this week's review — it is the one
 most likely to still need a contribution and a result.
@@ -247,7 +259,7 @@ What is worth mentioning is always something that happened in the record:
 
 - several notes piled up on one project this week — offer a two-minute review;
 - a project is closed but has no summary;
-- confirmed notes where what the user personally did is still Unknown;
+- confirmed notes where responsibility, individual action, or outcome is still Unknown;
 - confidential material whose external use has not been reviewed.
 
 What is never worth saying: "오늘도 경력관리를 해보세요", "일주일이 지났으니 기록하세요". There is no
@@ -255,16 +267,16 @@ schedule here and no reminder. A prompt with no information in it is an interrup
 
 Nothing in this check changes anything — not `job_search`, not the career mode, not a record.
 
-## Individual contribution and team result
+## Responsibility, individual contribution, and team result
 
-These are separate fields and stay separate. A team outcome is never promoted to a personal one
-because the personal one is blank.
+These are separate fields and stay separate. Assigned role/scope does not become owned
+responsibility, and a team outcome is never promoted to a personal one because the personal one is
+blank.
 
 - The note says "팀에서 처리량을 30% 올렸다" → `team_result`. Ask what the user did.
-- The user led the work without the title → record the observable facts: what they decided, who
-  they coordinated, what they were accountable for. `Leadership: Unknown / adjacent evidence:
-  technical coordination` is an honest record; "team lead" is not.
-- Role unclear → `Unknown`. Ask; do not choose.
+- The user led the work without the title → record the observable facts in `responsibility`,
+  `judgment`, `stakeholder_coordination`, and the result they actually state. Do not invent a title.
+- Role or ownership unclear → `Unknown`. Ask; do not choose.
 
 ## Numbers
 
@@ -304,10 +316,15 @@ explicitly: `blocked`, or `unknown` when it has not been reviewed. Never `allowe
 ## Recorded
 - Role: [value or Unknown]
 - Scope: [value or Unknown]
+- Responsibility: [value or Unknown]
 - Problem: [value or Unknown]
+- Judgment: [value or Unknown]
+- Decision basis: [value or Unknown]
+- Risk management: [value or Unknown]
 - Direct actions: [list or Unknown]
 - Coordination: [list or Unknown]
 - Reporting: [list or Unknown]
+- Organizational context: [value or Unknown]
 - Individual contribution: [value or Unknown]
 - Team result: [value or Unknown]
 - Metrics: [value + evidence, or none]

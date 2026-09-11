@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.30.0] - 2026-09-11
+
+- Add explicit optional `responsibility`, `judgment`, `decision_basis`, `risk_management`, and `organizational_context` fields to the canonical work/experience evidence contract while reusing `stakeholder_coordination`; role and scope remain context and are not promoted into ownership.
+- Make monthly career-depth coverage depend on those explicit confirmed fields rather than inferred responsibility, keep the projection score-free, and extend the existing numeric-evidence gate so unsupported scale claims inside the new fields cannot be confirmed.
+
 ## [2.29.0] - 2026-09-11
 
 - Add a deterministic monthly career review projection over active confirmed evidence. Months are grouped only by the user-stated `work_date`, never by capture time, and expose per-dimension present/total coverage plus whole-month gaps and partial coverage without an overall score.
@@ -662,7 +667,7 @@
   proposal until it is approved, so reading only the ledger showed an empty week to someone who
   had been capturing all week — and the unfinished notes are what a review is for. Draft rows in
   the review carry their `proposal_id` so it can act on the row it is looking at. Drafts count
-  towards "notes are piling up on this project" and stay out of the checks that describe finished
+  towards "notes are piling up on one project" and stay out of the checks that describe finished
   records.
 - Merge a project's `period` a level deeper, for the same reason `confidentiality` merges: a start
   is learned when the project begins and an end when it closes, and replacing the object on the

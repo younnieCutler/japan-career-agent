@@ -255,7 +255,21 @@ def validate_event(event: dict[str, Any], *, for_confirmation: bool = False) -> 
 # states a month, and demanding a day would invent the part the user did not say.
 MONTH_OR_DAY = re.compile(r"^\d{4}-\d{2}(?:-\d{2})?$")
 
-WORK_EVENT_TEXT_FIELDS = ("role", "scope", "problem", "individual_contribution", "team_result")
+CAREER_DEPTH_TEXT_FIELDS = (
+    "responsibility",
+    "judgment",
+    "decision_basis",
+    "risk_management",
+    "organizational_context",
+)
+WORK_EVENT_TEXT_FIELDS = (
+    "role",
+    "scope",
+    "problem",
+    *CAREER_DEPTH_TEXT_FIELDS,
+    "individual_contribution",
+    "team_result",
+)
 WORK_EVENT_LIST_FIELDS = (
     "direct_actions",
     "stakeholder_coordination",
@@ -383,13 +397,16 @@ def claim_surface(event: dict[str, Any]) -> str:
 
     `metrics` is where an evidence payload puts its numbers, so leaving it out of the confirmation
     check would let "30% 감소" become confirmed history with no evidence behind it -- the exact
-    thing the title/summary check already prevents everywhere else. Both payload keys are read:
-    a thesis that claims a 40% speedup is a numeric claim exactly like a release that does.
+    thing the title/summary check already prevents everywhere else. Explicit career-depth fields
+    can make the same kind of claim (for example, responsibility for 12 people), so their numbers
+    are evidence-gated too. Both payload keys are read because work and non-work experiences share
+    this contract.
     """
     surface = [str(event.get("summary") or ""), str(event.get("title") or "")]
     for key in ("work_event", "experience"):
         payload = event.get(key)
         if isinstance(payload, dict):
+            surface.extend(str(payload.get(field) or "") for field in CAREER_DEPTH_TEXT_FIELDS)
             surface.extend(str(item) for item in payload.get("metrics") or [])
     return " ".join(surface)
 
@@ -405,7 +422,10 @@ def validate_work_event(work_event: Any, *, field: str = "event.work_event") -> 
     yet" and "safe to send" cannot look the same.
 
     `individual_contribution` and `team_result` are separate keys and stay that way. Nothing here
-    or downstream copies one into the other.
+    or downstream copies one into the other. `role` and `scope` describe assigned context; the
+    explicit `responsibility`, `judgment`, `decision_basis`, `risk_management`, and
+    `organizational_context` fields record only what the user actually states about ownership and
+    decision-making. None is inferred from another.
 
     One validator serves both event types because the payload is the same question in both: what
     was the role, what was the problem, what did *you* do, what did the team get, what number backs
