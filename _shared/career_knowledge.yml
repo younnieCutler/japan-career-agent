@@ -1,8 +1,8 @@
-# Candidate proposals only. Runtime does not preload this registry.
+# Active items passed retained semantic review plus deterministic promotion gates.
 schema_version: '1.0'
 knowledge:
 - id: progressive_readability
-  status: candidate
+  status: active
   topics:
   - document-readability
   scope:
@@ -21,9 +21,16 @@ knowledge:
   - brief-document
   - detailed-document
   lifecycle_revision: 1
-  promotion: null
+  promotion:
+    evidence_sha256: 68ef1c528542a931c1efdcb1d6705e8787987d97e8fc4d5c9869a9adf8e39c8d
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      brief-document: pass
+      detailed-document: pass
 - id: shibo_doki_consistency
-  status: candidate
+  status: active
   topics:
   - shibo-doki
   scope:
@@ -31,11 +38,10 @@ knowledge:
   supporting_claim_ids:
   - doda_interview_motivation_2026
   counterevidence:
-  - Reported importance varies across respondents; the consistency chain is a proposed
-    design, not a survey finding.
+  - Reported importance varies across respondents; the consistency chain is a proposed design, not a survey
+    finding.
   allowed_behavior:
-  - Probe consistency between leaving, target role, company-specific reasons, and
-    confirmed contribution.
+  - Probe consistency between leaving, target role, company-specific reasons, and confirmed contribution.
   forbidden_behavior:
   - Do not turn survey response percentages into evaluation weights.
   reviewed_at: '2026-09-11'
@@ -44,9 +50,16 @@ knowledge:
   - ai-draft
   - shibo-doki
   lifecycle_revision: 1
-  promotion: null
+  promotion:
+    evidence_sha256: df74af7ebe8d9d8a27b0627f6dc52963ddb2994b8d2498b5c0ec656a9fd9ec1b
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      ai-draft: pass
+      shibo-doki: pass
 - id: weakness_mitigation
-  status: candidate
+  status: active
   topics:
   - weakness
   scope:
@@ -65,4 +78,258 @@ knowledge:
   - weakness
   - weakness-hard-conflict
   lifecycle_revision: 1
-  promotion: null
+  promotion:
+    evidence_sha256: 58f4640e06bfbd6d99b5707544e4ca1265afbf3218c012aa5886cb252308a98d
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      weakness: pass
+      weakness-hard-conflict: pass
+- id: short_tenure_context
+  status: active
+  topics:
+  - short-tenure
+  scope:
+  - mock-interviewer
+  - tenshoku-strategy
+  supporting_claim_ids:
+  - mynavi_early_turnover_2024
+  counterevidence:
+  - The 9.5-month survey average is not a universal threshold; repeated transitions or longer tenures
+    may still be questioned depending on context.
+  allowed_behavior:
+  - Separate documented tenure length, transition pattern, factual reason, and period evidence; use short
+    tenure to generate verification questions, not a verdict.
+  forbidden_behavior:
+  - Do not require three years, apply a fixed short-tenure penalty, or infer retention failure from one
+    short tenure.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-03-11'
+  required_scenarios:
+  - single-short-tenure
+  - repeated-short-tenure
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: c0077a38579ea7c21d1b987a0e898489fc9aa41d1c8c7984af2342c701e784b2
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      single-short-tenure: pass
+      repeated-short-tenure: pass
+- id: gap_activity_separation
+  status: active
+  topics:
+  - career-gap
+  scope:
+  - mock-interviewer
+  - tenshoku-strategy
+  supporting_claim_ids:
+  - hataractive_career_gap_2024
+  counterevidence:
+  - Hiring respondents vary in whether and when a gap matters; the survey does not establish a universal
+    penalty.
+  allowed_behavior:
+  - Preserve gap existence and length separately from activity, explanation, and verified career relevance.
+  forbidden_behavior:
+  - Do not erase a gap because of study, certification, care, travel, or rest, and do not apply a universal
+    gap penalty.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-03-11'
+  required_scenarios:
+  - employment-gap
+  - gap-with-study
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: c4166d822befb290c80b0e5d0575f90f691c3afd7a4b3f4e5317fab0677cadff
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      employment-gap: pass
+      gap-with-study: pass
+- id: salary_anchor_not_rule
+  status: active
+  topics:
+  - salary-anchoring
+  scope:
+  - tenshoku-strategy
+  supporting_claim_ids:
+  - doda_salary_basis_guidance_2026
+  counterevidence:
+  - The guidance describes common compensation inputs and does not establish a universal negotiation formula
+    or market value.
+  allowed_behavior:
+  - Surface current compensation as a possible anchor and compare it with stated range or grade, role
+    scope, confirmed contribution, competing offers, and user priorities.
+  forbidden_behavior:
+  - Do not use current compensation plus 10 percent, or any fixed uplift, as a Japan default.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-03-11'
+  required_scenarios:
+  - salary-anchor
+  - salary-plus10
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: 83d11173c73249d650a660499ea574f22d518d88ae70f35ecf1e5f872e95fcc1
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      salary-anchor: pass
+      salary-plus10: pass
+- id: evidence_safe_story_lens
+  status: active
+  topics:
+  - experience-elicitation
+  - 3c4p
+  scope:
+  - career-tanaoroshi
+  supporting_claim_ids:
+  - doda_self_pr_structure_2026
+  counterevidence:
+  - The source supports a situation-intent-action-result structure; it does not validate 3C4P labels or
+    superiority over STAR.
+  allowed_behavior:
+  - Use 3C4P only as an optional internal question lens and map answers back to canonical evidence, preserving
+    individual contribution, team result, provenance, and actual measurement.
+  forbidden_behavior:
+  - Do not present 3C4P as a Japanese hiring standard, force every experience into it, or create an approximate
+    KPI when none was measured.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-03-11'
+  required_scenarios:
+  - no-metric
+  - individual-team-split
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: 427f8a717ae70db2fde0b3dbba6bd53ce2cff546f2af0abe24a330ebaa90d700
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      no-metric: pass
+      individual-team-split: pass
+- id: career_values_legitimate
+  status: active
+  topics:
+  - career-values
+  - turnover-reason
+  scope:
+  - tenshoku-strategy
+  supporting_claim_ids:
+  - doda_turnover_reasons_2026
+  counterevidence:
+  - Survey prevalence does not make any reason the right interview answer for a particular candidate.
+  allowed_behavior:
+  - Treat compensation, working conditions, evaluation, role scope, location, learning, mission, and other
+    user-confirmed conditions as independent career values.
+  forbidden_behavior:
+  - Do not rank salary or benefits as inferior motives or replace the candidate actual reason with a more
+    socially desirable one.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-03-11'
+  required_scenarios:
+  - salary-value
+  - wlb-value
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: 435a77b294ef1a7e3af4f7b3f0d6e51847728b428a4048af6c1185120c9ee44b
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      salary-value: pass
+      wlb-value: pass
+- id: career_relevant_self_intro
+  status: active
+  topics:
+  - self-introduction
+  scope:
+  - job-seeker-agent
+  - mock-interviewer
+  supporting_claim_ids:
+  - mynavi_self_intro_2026
+  counterevidence:
+  - One minute is guidance and may vary by interviewer or requested format.
+  allowed_behavior:
+  - Build a concise self-introduction around confirmed work history, relevant strengths, and a career-relevant
+    hook the candidate can defend.
+  forbidden_behavior:
+  - Do not require hobby or novelty bait to manipulate the interviewer into a preferred question.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-03-11'
+  required_scenarios:
+  - self-introduction
+  - hobby-bait
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: 369fd2a66ab7bacfbafe708d309dd8dc3ab02682977292f94611efa899614842
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      self-introduction: pass
+      hobby-bait: pass
+- id: ai_draft_defensibility
+  status: active
+  topics:
+  - ai-draft
+  scope:
+  - job-seeker-agent
+  - mock-interviewer
+  supporting_claim_ids:
+  - recruit_ai_job_hunting_2026
+  counterevidence:
+  - The cited survey covers 2026 graduates and does not establish universal employer acceptance of AI-assisted
+    application material.
+  allowed_behavior:
+  - Treat AI-assisted text as draft material and require every factual assertion to be independently confirmed
+    and defendable under follow-up.
+  forbidden_behavior:
+  - Do not infer deception from AI use, optimize for detector evasion, or assert an unsupported AI-detector
+    error rate.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-03-11'
+  required_scenarios:
+  - ai-draft-grounded
+  - ai-draft-invented
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: 15e487986970289155b2bd60433bd988a3d411491d564d925ea58220f6614650
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      ai-draft-grounded: pass
+      ai-draft-invented: pass
+- id: resume_role_distinction
+  status: active
+  topics:
+  - resume-roles
+  scope:
+  - job-seeker-agent
+  supporting_claim_ids:
+  - mhlw_resume_roles_2022
+  counterevidence:
+  - Employer-requested formats vary and the documents can contain overlapping motivation or appeal fields.
+  allowed_behavior:
+  - Treat 履歴書 as a concise candidate-profile surface and 職務経歴書 as detailed work and practical-capability
+    evidence while allowing overlapping fields when the format calls for them.
+  forbidden_behavior:
+  - Do not reduce the distinction to facts versus story or claim one fixed statutory template.
+  reviewed_at: '2026-09-11'
+  expires_on: '2027-09-11'
+  required_scenarios:
+  - resume-roles
+  - overlapping-fields
+  lifecycle_revision: 1
+  promotion:
+    evidence_sha256: 2cb1f08ef554acc1f76118710d683b51d9d98fc2190eaa3f5c18be730a34173e
+    reviewer: chatgpt:gpt-5.6-sol
+    evaluated_at: '2026-09-11'
+    evaluation_ref: docs/evals/career-knowledge-2026-09-11.md
+    results:
+      resume-roles: pass
+      overlapping-fields: pass
