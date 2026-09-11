@@ -40,7 +40,9 @@ structure_preservation: true
 
 Career safety rules outrank general writing advice. Where a general humanizer would merge bullets
 into flowing prose, add narrative warmth, or vary sentence structure by reinterpreting a fact, this
-genre does not — a 職務経歴書 is scanned in about thirty seconds, and scanability is the point.
+genre does not. A 職務経歴書 must support rapid comprehension through visible headings, bullets,
+short sentences, and clear scope while the same evidence also survives detailed review. Do not
+optimize around a universal `30-second` reading claim.
 
 ## Trust boundary
 

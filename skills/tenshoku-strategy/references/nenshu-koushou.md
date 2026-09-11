@@ -20,6 +20,23 @@ External salary surveys or platform guidance must be recorded in `_shared/career
 publisher, publication/observation date, confidence, and expiry. A marketing claim remains a marketing
 claim. Never turn it into a candidate benchmark.
 
+## Current-compensation anchoring risk
+
+Current compensation is one process input some employers use alongside experience, skills, and internal
+salary tables. It is not the candidate's market value and it does not justify a default uplift.
+
+When current compensation is known, show the possible anchor explicitly and then compare it with:
+
+- the employer's stated range or grade when known;
+- confirmed role scope and level;
+- the candidate's confirmed contribution evidence;
+- competing-offer facts, if any;
+- the user's minimum, target, and non-salary priorities.
+
+Never use `current salary + 10%`, `+20%`, or any other fixed uplift as a Japan default. If the user asks
+for a target number and the market range is unknown, keep the range `Unknown` and identify what should
+be researched or asked.
+
 ## Timing and route
 
 Use the actual process evidence. If the employer has not stated when compensation is discussed, write

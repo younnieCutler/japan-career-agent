@@ -103,6 +103,25 @@ Do not load Vault note bodies automatically. Do not turn a document-stated claim
 and do not write interview conclusions back to the resume, Vault, or pipeline without an explicit
 approval flow.
 
+## Japan-market risk probes
+
+When the practice touches short tenure, an employment gap, weakness, self-introduction, or AI-assisted
+application text, load only `references/japan-market-probes.md`. These are question-generation rules,
+not hiring forecasts.
+
+Key boundaries:
+
+- Short tenure is a reason to probe tenure length, transition pattern, factual reason, and evidence;
+  there is no universal three-year minimum or fixed penalty.
+- A career gap remains a gap even when the user studied, travelled, cared for family, rested, or
+  earned a qualification. Keep gap length, activity, explanation, and relevance separate.
+- A weakness label is not blacklisted by itself. Probe observed downside, mitigation, and evidence of
+  improvement, while preserving any genuine role-requirement conflict.
+- A self-introduction should use a career-relevant hook from confirmed evidence; novelty or hobby bait
+  is never required.
+- AI use itself is not deception. Test whether every factual assertion can survive follow-up questions;
+  do not optimize for AI-detector evasion.
+
 ## Adaptive Deep-Dive Method (3 probe families)
 
 Keep a session-local coverage ledger so a strong answer in one area does not crowd out unresolved

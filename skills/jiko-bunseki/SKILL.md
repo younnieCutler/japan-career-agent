@@ -27,6 +27,12 @@ official SPI3, Gallup, Hogan, RIASEC, SCCT, SDT, or other validated psychometric
 Numeric responses are self-reported inputs only. They are never converted into a total, a hidden
 coefficient, `Decision Status`, or company matching result.
 
+An external personality label such as MBTI may be used only as reflection vocabulary when the user
+brings it in. It is not candidate skill evidence, professional capability evidence, a job-fit score,
+or company-match evidence. Do not infer stable traits, suitability, or performance from the label;
+ask for the user's own episode or preference instead. A label can suggest wording to discuss, never
+a fact to store about competence.
+
 Use this shape when presenting a conclusion:
 
 ```text
