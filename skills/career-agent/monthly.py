@@ -17,8 +17,12 @@ from validation import month_or_day
 DIMENSIONS = (
     "responsibility",
     "problem_framing",
+    "judgment",
+    "decision_basis",
+    "risk_management",
     "direct_action",
     "stakeholder_coordination",
+    "organizational_context",
     "outcome",
     "quantification",
     "reflection",
@@ -26,18 +30,25 @@ DIMENSIONS = (
 
 
 def _present(payload: dict[str, Any], dimension: str) -> bool:
+    # Career depth is evidence presence, not inference. Assigned role/scope can help explain an
+    # event but do not prove what responsibility the user actually owned, so the responsibility
+    # dimension is satisfied only by the explicit canonical field.
     if dimension == "responsibility":
-        return bool(
-            payload.get("role")
-            or payload.get("scope")
-            or payload.get("individual_contribution")
-        )
+        return bool(payload.get("responsibility"))
     if dimension == "problem_framing":
         return bool(payload.get("problem"))
+    if dimension == "judgment":
+        return bool(payload.get("judgment"))
+    if dimension == "decision_basis":
+        return bool(payload.get("decision_basis"))
+    if dimension == "risk_management":
+        return bool(payload.get("risk_management"))
     if dimension == "direct_action":
         return bool(payload.get("direct_actions") or payload.get("individual_contribution"))
     if dimension == "stakeholder_coordination":
         return bool(payload.get("stakeholder_coordination"))
+    if dimension == "organizational_context":
+        return bool(payload.get("organizational_context"))
     if dimension == "outcome":
         return bool(
             payload.get("team_result")
