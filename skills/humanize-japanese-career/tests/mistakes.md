@@ -3,9 +3,10 @@
 ## Reaching for a general humanizer
 
 General writing advice says to merge short fragments into flowing prose and vary sentence
-structure. Applied to a 職務経歴書 it destroys the thing the document is for: it is scanned in
-about thirty seconds, and bullets, headings and short sentences are what make that possible. Hence
-a separate genre contract rather than a general skill with a note attached.
+structure. Applied to a 職務経歴書 it can destroy scanability and evidence visibility. The document
+must support rapid comprehension through bullets, headings, short sentences, and visible scope,
+while the same claims also survive detailed review. There is no universal measured `30-second`
+reading rule. Hence a separate genre contract rather than a general skill with a note attached.
 
 ## Polishing text without its claims
 
