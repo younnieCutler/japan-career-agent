@@ -14,7 +14,7 @@ if str(RUNTIME_ROOT) not in sys.path:
     sys.path.insert(0, str(RUNTIME_ROOT))
 
 from _test_client import FRONTEND_SRC, client_modules, client_source  # noqa: E402
-from gui.templates import render_shell  # noqa: E402
+from gui.templates import gui_messages, render_shell  # noqa: E402
 from gui import views_read  # noqa: E402
 from localization import SUPPORTED_LANGUAGES, gui_catalog, validate_gui_catalog  # noqa: E402
 
@@ -24,11 +24,11 @@ from localization import SUPPORTED_LANGUAGES, gui_catalog, validate_gui_catalog 
 class GuiLocalizationTests(unittest.TestCase):
     def test_catalogs_have_identical_complete_keys(self) -> None:
         self.assertEqual(validate_gui_catalog(), [])
-        keys = set(gui_catalog("ko"))
+        keys = set(gui_messages("ko"))
         self.assertGreater(len(keys), 40)
         for locale in SUPPORTED_LANGUAGES:
             with self.subTest(locale=locale):
-                catalog = gui_catalog(locale)
+                catalog = gui_messages(locale)
                 self.assertEqual(set(catalog), keys)
                 self.assertTrue(all(isinstance(value, str) and value for value in catalog.values()))
         self.assertEqual(gui_catalog("ko")["enum.project_status.active"], "진행 중")
@@ -140,7 +140,7 @@ class GuiLocalizationTests(unittest.TestCase):
             rf"[\"']((?:{prefixes})\.[A-Za-z0-9_.]+)[\"']",
             script,
         ))
-        self.assertEqual(sorted(used - set(gui_catalog("ko"))), [])
+        self.assertEqual(sorted(used - set(gui_messages("ko"))), [])
 
     def test_client_modules_only_call_identifiers_they_define(self) -> None:
         """A call to an undefined identifier is a ReferenceError no Python test can otherwise see.

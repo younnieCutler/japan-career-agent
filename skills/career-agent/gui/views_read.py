@@ -303,15 +303,19 @@ def career_overview_payload(home: Any) -> dict[str, Any]:
         if not isinstance(month_row, Mapping) or not isinstance(month_row.get("month"), str):
             continue
         month = str(month_row["month"])
+        # The deterministic projection already decided exactly which active confirmed claims
+        # belong to this month. Use those ids only for the internal join, then omit them from the
+        # public GUI payload; prefix-matching work_date would re-admit malformed legacy values such
+        # as `2026-09-extra` whenever a valid September claim also existed.
+        month_claim_refs = {
+            str(ref) for ref in month_row.get("claim_refs", [])
+            if isinstance(ref, str) and ref
+        }
         month_experiences: list[dict[str, Any]] = []
         for claim in canonical_experiences:
             if not isinstance(claim, Mapping):
                 continue
-            work_date = claim.get("work_date")
-            # `months` already applied the canonical tolerant-date policy. Joining only to a
-            # month that survived that projection prevents malformed legacy dates from leaking
-            # back into the GUI through this presentation adapter.
-            if not isinstance(work_date, str) or work_date[:7] != month:
+            if str(claim.get("claim_id") or "") not in month_claim_refs:
                 continue
             context = canonical_contexts.get(claim.get("context_id"), {})
             context = context if isinstance(context, Mapping) else {}

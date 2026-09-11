@@ -183,6 +183,42 @@ def request(server, method: str, path: str, *, headers: dict[str, str] | None = 
     return result
 
 
+class MonthlyCareerReviewProjectionTests(unittest.TestCase):
+    def test_monthly_review_joins_only_claims_accepted_by_the_projection(self) -> None:
+        views_read = import_module("gui.views_read")
+        experience_result = {
+            "contexts": {},
+            "claims": [
+                {
+                    "claim_id": "evt-valid", "label": "Valid September work",
+                    "work_date": "2026-09", "material_evidence_count": 1,
+                    "contains_confidential": False, "detail": {"judgment": "ship"},
+                },
+                {
+                    "claim_id": "evt-invalid", "label": "Malformed legacy work",
+                    "work_date": "2026-09-extra", "material_evidence_count": 1,
+                    "contains_confidential": False, "detail": {"judgment": "do not leak"},
+                },
+            ],
+            "months": [{
+                "month": "2026-09", "evidence_count": 1, "claim_refs": ["evt-valid"],
+                "coverage": {"judgment": {"present": 1, "total": 1}},
+                "gaps": [], "partial": [],
+            }],
+        }
+        with (
+            patch.object(views_read, "list_cases", return_value=[]),
+            patch.object(views_read, "list_sessions", return_value={"sessions": []}),
+            patch.object(views_read, "list_experiences", return_value=experience_result),
+            patch.object(views_read, "list_projects", return_value={"projects": []}),
+        ):
+            result = views_read.career_overview_payload(object())
+
+        september = result["monthly_reviews"][0]
+        self.assertEqual([row["ref"] for row in september["experiences"]], ["evt-valid"])
+        self.assertNotIn("claim_refs", september)
+
+
 class ProjectCaseTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
