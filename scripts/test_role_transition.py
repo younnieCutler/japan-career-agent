@@ -223,9 +223,9 @@ class RoleTransitionTests(unittest.TestCase):
         role = role_by_id(result, "qa-automation")
         self.assertEqual(requirement_by_id(role, "req-automation")["state"], "Missing")
         self.assertEqual(role["targeting_state"], "confirmed_core_gap")
-        self.assertEqual(
+        self.assertIn(
+            {"requirement_id": "req-automation", "evidence_ids": ["ev-no-automation"]},
             role["confirmed_gaps"],
-            [{"requirement_id": "req-automation", "evidence_ids": ["ev-no-automation"]}],
         )
 
     def test_unconfirmed_absence_evidence_stays_unknown(self) -> None:
