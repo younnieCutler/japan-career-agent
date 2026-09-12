@@ -44,21 +44,23 @@ python scripts/agent_observation_pack.py run \
 
 A failed command always produces a handle and an exact bounded tail excerpt. A successful command
 is packed only when its combined stdout/stderr reaches the default 8 KiB threshold, unless
-`--always-pack` is supplied.
+`--always-pack` is supplied. A command that cannot be started returns a bounded observation-pack
+error rather than a Python traceback.
 
 ## Exact recall
 
-A receipt such as `obs-0123456789abcdef` can be recalled in bounded windows:
+A receipt such as `obs-0123456789abcdef01234567` can be recalled in bounded windows:
 
 ```bash
-python scripts/agent_observation_pack.py show obs-0123456789abcdef
-python scripts/agent_observation_pack.py show obs-0123456789abcdef --stream stderr --start-line 120 --lines 40
+python scripts/agent_observation_pack.py show obs-0123456789abcdef01234567
+python scripts/agent_observation_pack.py show obs-0123456789abcdef01234567 --stream stderr --start-line 120 --lines 40
 ```
 
 The archive stores stdout and stderr as base64-encoded raw bytes and records SHA-256, byte count,
-and line count for each stream. A read verifies the content-derived handle and those recorded
-properties before displaying anything. The compact failure excerpt is copied directly from the
-archived stream; there is no LLM summarizer and no generated causal explanation.
+and line count for each stream. A read verifies the content-derived 96-bit handle prefix and those
+recorded properties before displaying anything. The compact failure excerpt is copied directly from
+the archived stream; there is no LLM summarizer and no generated causal explanation. A stored-file
+collision is also checked against the complete serialized record before reuse.
 
 Invalid handles are rejected before path construction, so a handle cannot escape the archive
 root. Writes use a temporary file followed by atomic replacement. On POSIX systems the directory
