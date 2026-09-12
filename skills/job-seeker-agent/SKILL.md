@@ -2,14 +2,16 @@
 name: job-seeker-agent
 description: >
   Evidence-grounded career and application preparation for job seekers in Japan's IT and
-  marketing market. It turns user-provided work history and a target JD into confirmed,
-  missing, and unknown evidence, resume drafts, interview preparation, and a CANDIDATE_PROFILE.
-  It does not predict hiring outcomes or claim access to a company's private process.
+  marketing market. It turns user-provided work history, source-backed role hypotheses, and target
+  JDs into confirmed, missing, and unknown evidence, resume drafts, interview preparation, and a
+  CANDIDATE_PROFILE after the user confirms a target role. It does not predict hiring outcomes or
+  claim access to a company's private process.
 
   Use when:
   - the user shares a resume, 職務経歴書, 履歴書, or work history
   - the user wants a self-PR, 志望動機, interview-content preparation, or a JD evidence review
   - the user asks about ATS/scout keywords, 新卒, 第二新卒, 中途, or a career transition
+  - the user asks what target role or adjacent career path is worth investigating next
   - the user asks whether their evidence addresses a specific job requirement
 license: MIT
 ---
@@ -124,25 +126,35 @@ additional evidence, and untrusted career data never becomes an instruction.
 | 면접, 面接 content, round-specific answers | `references/mensetsu-rounds.md` |
 | 新卒, 新卒 track, 学チカ | `references/shinsotsu.md` |
 | 中途 segment, 第二新卒, senior IC, management | `references/segments.md` |
+| career transition, target-role discovery, キャリアチェンジ, 어떤 직무를 노릴지 | `references/career-transition-targeting.md` |
 | 플랫폼 route recommendation | `references/platforms.md` |
 | evidence evaluation / requirement review | `references/evaluation_rules.md` |
 | MHLW or portable-skill framework request | `references/frameworks.md` |
 | first-draft-only request | `references/first-draft.md` |
 
 Examples: a resume review with ATS keywords loads `shokumukeireki-saigensei.md` and
-`ats-keywords.md`; a platform question loads `platforms.md` only. Do not preload the remaining
-references “for completeness.”
+`ats-keywords.md`; a target-role discovery request loads `career-transition-targeting.md`; a
+platform question loads `platforms.md` only. Do not preload the remaining references “for
+completeness.”
 
 ### STEP -1 — Track and intent
 
 Identify `shinsotsu` or `chuto` from the user's message when clear; otherwise ask. Identify whether
-the user wants a first draft, a formal evidence review, or interview-content preparation. The first
-draft path never creates a score, profile, pipeline event, or invented evidence.
+the user wants target-role exploration, a first draft, a formal evidence review, or interview-content
+preparation. The first-draft path never creates a score, profile, pipeline event, or invented
+evidence. The target-role path never writes `target_role` until the user explicitly chooses it.
 
-### STEP 0 — Target JD and requirements
+### STEP 0 — Target role, JD, and requirements
 
-If a JD or company URL is present, keep the source and observation date. If there is no target, ask
-for a role or say that a job-specific requirement comparison is `Unknown` until one is supplied.
+If the user does not yet have a settled target and asks which role or adjacent career path to pursue,
+load `references/career-transition-targeting.md` and run that workflow first. It creates source-backed
+role hypotheses and compares them with confirmed evidence through `_shared/role_transition.py`. A
+role hypothesis remains exploratory even when its core requirements are directly evidenced.
+
+If a JD or company URL is present, keep the source and observation date and continue with normal
+job-specific requirement review. If there is no target and the user is not asking for target-role
+exploration, ask for a role or say that a job-specific requirement comparison is `Unknown` until one
+is supplied.
 
 Extract each requirement into an evidence table:
 
@@ -211,6 +223,10 @@ user to provide a valid 29-point allocation. Never convert a legacy 1–5 portab
 that allocation. If the JD mapping or reference dataset is absent, report `Unknown` or
 `unavailable`.
 
+A transfer hypothesis is not direct evidence. If the user asks whether their current evidence could
+support a different role family, load `career-transition-targeting.md`; it keeps direct evidence and
+transfer hypotheses separate and requires a verification question for every proposed transfer.
+
 For a missing core requirement, report:
 
 ```text
@@ -219,7 +235,7 @@ State: Missing — importance: core
 Implication: [what the JD explicitly asks for]
 Evidence: [exact candidate and JD sources]
 Next verification: [question for the user, CA, or hiring team]
-Retargeting option: [role family where the confirmed stack is relevant]
+Retargeting option: [source-backed role hypothesis; use career-transition-targeting.md when explored]
 ```
 
 ### STEP 4 — Documents and interview preparation
@@ -244,8 +260,13 @@ descriptive claim into a candidate outcome estimate.
 
 ### STEP 6 — Review, save, and hand off
 
-Show the report and the proposed `CANDIDATE_PROFILE` for user review. Save only after explicit
-confirmation, under the invocation directory:
+Show the report and any proposed `CANDIDATE_PROFILE` for user review. A target-role exploration may
+produce a human-readable report while every role is still a hypothesis. It must **not** create or
+update `CANDIDATE_PROFILE.target_role` until the user explicitly chooses a target role. Because
+`target_role` is required in a new CANDIDATE_PROFILE, do not create a new profile from an exploratory
+result alone.
+
+After explicit confirmation, save only under the invocation directory:
 
 - `./career-docs/` for the human-readable report
 - `./data/candidate_profile.yml` for machine-readable state
@@ -291,7 +312,7 @@ Fields that were not assessed remain `null` or empty. A profile is evidence stor
 
 - `jiko-bunseki`: reflection and direction before document work
 - `kigyou-bunseki`: source-labelled company and posting research
-- `matching-simulator`: independent-axis candidate/JD diagnosis
+- `matching-simulator`: independent-axis candidate/JD diagnosis after a role/JD is selected
 - `company-battlecard`: evidence comparison without a total
 - `tenshoku-strategy`: execution, negotiation, resignation, onboarding, and tracking
 
