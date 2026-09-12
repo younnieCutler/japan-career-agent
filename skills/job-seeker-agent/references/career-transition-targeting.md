@@ -38,7 +38,7 @@ When `CAREER_VAULT` is active, start from:
 
 ```bash
 career-agent context --vault "$CAREER_VAULT"
-python skills/career-agent/career_agent.py evidence-pool --vault "$CAREER_VAULT"
+career-agent evidence-pool --vault "$CAREER_VAULT"
 ```
 
 Use only confirmed work events and confirmed personal context returned by those interfaces. Never
@@ -80,9 +80,7 @@ attribution terms first.
 ## Source rules for role requirements
 
 Every role hypothesis needs at least one source, and every requirement row cites one or more of those
-sources.
-
-Prefer this distinction:
+sources. The deterministic engine accepts exactly these role-source classes:
 
 ```text
 official_framework
@@ -94,6 +92,9 @@ job_posting
 company_public_source
     company career page or public role description
 ```
+
+Each role source carries its actual `source_ref`, `observed_at`, confidence, and matching provenance.
+A heuristic, derived guess, user opinion, or unknown source is not a role-requirement source.
 
 Do not say “QA Automation requires X in Japan” because one JD says X. Say “this sampled posting
 requires X” and keep its source/date. A recurring pattern across several sources may be summarized
@@ -110,12 +111,13 @@ For each role hypothesis normalize a small set of meaningful requirements. Use:
 - `preferred`: explicitly optional/preferred in the source;
 - `context`: role context worth understanding but not a pass/fail requirement.
 
-Then map candidate evidence with two separate relations.
+Then map candidate evidence with explicit relations.
 
 ### Direct evidence
 
-`direct_evidence_ids` means confirmed evidence demonstrates the requirement closely enough to be
-compared directly. Only direct confirmed evidence may produce `Matched`.
+`direct_evidence_ids` means confirmed evidence with `relation: demonstrates` demonstrates the
+requirement closely enough to be compared directly. Only direct, sufficiently confident user or
+observed evidence may produce `Matched`.
 
 Example:
 
@@ -127,8 +129,9 @@ Evidence: confirmed work event showing the user designed requirement-based test 
 
 ### Transfer hypothesis
 
-`transfer_evidence_ids` means confirmed evidence may transfer, but does **not** demonstrate the
-requirement itself. It requires both a rationale and a verification question.
+`transfer_evidence_ids` also references `relation: demonstrates` evidence, but means that evidence may
+transfer without demonstrating the target requirement itself. It requires both a rationale and a
+verification question.
 
 Example:
 
@@ -146,13 +149,18 @@ Never convert a transfer hypothesis to `Matched` because the rationale sounds pl
 
 Silence is `Unknown`.
 
-Use `candidate_absence_confirmed: true` only after comparable candidate-side evidence is explicitly
-confirmed absent. This is the only normal path to `Missing` when no direct evidence exists.
+A confirmed gap needs provenance too. Record an explicit candidate statement as evidence with
+`relation: absence`, then cite it through `absence_evidence_ids`. Only confirmed, sufficiently
+confident user or observed absence evidence may produce `Missing`.
 
-“I do not see Selenium in the resume” is not confirmed absence.
+“I do not see Selenium in the resume” is not absence evidence.
 
-“I have never implemented automated tests” can support confirmed absence for a requirement that is
-actually comparable to that statement.
+“I have never implemented automated tests” may be recorded as candidate evidence for the capability
+`automated test implementation`, with `relation: absence`, the conversation/source reference and
+observation date. Until that evidence exists, the requirement stays `Unknown`.
+
+A bare boolean such as `candidate_absence_confirmed: true` is invalid because it cannot show where
+the purported confirmation came from.
 
 ## Deterministic input
 
@@ -163,10 +171,20 @@ candidate:
   evidence:
     - id: event-test-design
       capability: test design
+      relation: demonstrates
       state: Confirmed
       source_type: user
       source_ref: vault:event:test-design
       observed_at: 2026-08-01
+      confidence: high
+      provenance: user
+    - id: statement-no-automation
+      capability: automated test implementation
+      relation: absence
+      state: Confirmed
+      source_type: user
+      source_ref: conversation:2026-09-12:no-automation
+      observed_at: 2026-09-12
       confidence: high
       provenance: user
 
@@ -191,11 +209,16 @@ role_candidates:
         verification_question: Which automated test code have you implemented and maintained?
 ```
 
-Run:
+The deterministic wrapper ships with this Skill. Resolve the directory containing this Skill's
+`SKILL.md` from the host's `skill-open` result; do not assume the process working directory is the
+repository root. Then run:
 
 ```bash
-python scripts/role_transition.py scenario.yml --text
+python "<job-seeker-agent-skill-dir>/scripts/role_transition.py" scenario.yml --text
 ```
+
+The wrapper resolves `_shared/role_transition.py` from the same installed package/plugin tree, so the
+same command contract works in a repository checkout, plugin install, or packaged wheel.
 
 The engine uses exactly three requirement states from the repository-wide contract:
 
@@ -207,7 +230,7 @@ and four role-level exploration states:
 
 - `evidence_supported`: every sourced **core** requirement has direct confirmed evidence;
 - `needs_validation`: at least one sourced core requirement is still `Unknown`;
-- `confirmed_core_gap`: at least one sourced core requirement is explicitly `Missing`;
+- `confirmed_core_gap`: at least one sourced core requirement has confirmed absence evidence;
 - `insufficient_role_evidence`: no core requirement was sourced, so V1 refuses to characterize the role.
 
 These are **exploration states**, not employability tiers, hiring predictions, or role rankings.
@@ -225,7 +248,7 @@ Directly demonstrated
 - [requirement] ← [confirmed evidence]
 
 Confirmed gap
-- [requirement] ← [explicit confirmed absence]
+- [requirement] ← [confirmed absence evidence + provenance]
 
 Unknown
 - [requirement] ← [what evidence is still needed]
