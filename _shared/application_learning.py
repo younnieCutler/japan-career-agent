@@ -11,7 +11,7 @@ classes:
 - recurring pre-application diagnostic gaps captured from matching;
 - repeated candidate self-observations.
 
-LLM theme proposals may be stored, but only a user-confirmed classification participates in a
+LLM theme proposals may be stored, but only the latest user decision for a theme participates in a
 pattern. Nothing here promotes a pattern into `rules.yml` automatically.
 """
 
@@ -352,6 +352,23 @@ def _project_close(
     pipeline_store.mutate(path, apply)
 
 
+def _projection_needs_begin(
+    path: Path,
+    *,
+    company_slug: str,
+    start_stage: int,
+    channel: str,
+) -> bool:
+    """Detect an interrupted/missing begin projection without wiping legitimate later progress."""
+    entry = _current_company_entry(pipeline_store.load(path), company_slug)
+    if entry is None or entry.get("closed") is True:
+        return True
+    current_stage = entry.get("stage")
+    if not isinstance(current_stage, int) or current_stage < start_stage:
+        return True
+    return entry.get("channel") != channel
+
+
 def begin_application(
     *,
     workspace: str | Path | None,
@@ -376,28 +393,27 @@ def begin_application(
     application_id = application_id or _application_id(company_slug, position_title, opened_at)
     _nonempty(application_id, "application_id")
     path = applications_path(workspace)
+    created = False
+
+    identity = {
+        "id": application_id,
+        "company_slug": company_slug,
+        "company_name": company_name,
+        "position_title": position_title,
+        "role_family": role_family,
+        "channel": channel,
+        "opened_at": opened_at,
+        "start_stage": stage,
+    }
 
     def apply(data: dict[str, Any]) -> dict[str, Any]:
+        nonlocal created
         existing = next((one for one in data["applications"] if one.get("id") == application_id), None)
-        expected = {
-            "id": application_id,
-            "company_slug": company_slug,
-            "company_name": company_name,
-            "position_title": position_title,
-            "role_family": role_family,
-            "channel": channel,
-            "opened_at": opened_at,
-            "start_stage": stage,
-            "closed_at": None,
-            "reached_stage": None,
-            "closed_reason": None,
-            "match_snapshot": None,
-            "observations": [],
-            "classifications": [],
-        }
         if existing is not None:
-            if existing != expected:
-                raise ValueError(f"application id {application_id!r} already exists with different data")
+            if any(existing.get(key) != value for key, value in identity.items()):
+                raise ValueError(f"application id {application_id!r} already exists with different identity")
+            if existing.get("closed_at") is not None:
+                raise ValueError(f"application {application_id!r} is already closed")
             return data
         active_same_company = next(
             (
@@ -410,18 +426,34 @@ def begin_application(
             raise ValueError(
                 f"company {company_slug!r} already has open application {active_same_company['id']!r}"
             )
-        data["applications"].append(expected)
+        data["applications"].append({
+            **identity,
+            "closed_at": None,
+            "reached_stage": None,
+            "closed_reason": None,
+            "match_snapshot": None,
+            "observations": [],
+            "classifications": [],
+        })
+        created = True
         return data
 
     data = _mutate_store(path, apply)
-    _project_begin(
-        pipeline_path(workspace),
+    projection = pipeline_path(workspace)
+    if created or _projection_needs_begin(
+        projection,
         company_slug=company_slug,
-        company_name=company_name,
-        stage=stage,
+        start_stage=stage,
         channel=channel,
-        opened_at=opened_at,
-    )
+    ):
+        _project_begin(
+            projection,
+            company_slug=company_slug,
+            company_name=company_name,
+            stage=stage,
+            channel=channel,
+            opened_at=opened_at,
+        )
     return _find_application(data, application_id)
 
 
@@ -618,14 +650,23 @@ def _theme_key(value: str) -> str:
 
 
 def _confirmed_themes(application: dict[str, Any]) -> dict[str, list[str]]:
-    """Return observation id -> user-confirmed themes. LLM proposals never enter analysis."""
-    themes: dict[str, list[str]] = defaultdict(list)
+    """Return effective user-confirmed themes; the latest user decision per theme wins."""
+    decisions: dict[tuple[str, str], tuple[str, str]] = {}
     for classification in application.get("classifications") or []:
-        if classification.get("state") != "confirmed" or classification.get("source") != "user":
+        if classification.get("source") != "user":
+            continue
+        state = classification.get("state")
+        if state not in {"confirmed", "rejected"}:
             continue
         observation_id = str(classification.get("observation_id") or "")
         theme = str(classification.get("theme") or "").strip()
-        if observation_id and theme and theme not in themes[observation_id]:
+        if not observation_id or not theme:
+            continue
+        decisions[(observation_id, _theme_key(theme))] = (state, theme)
+
+    themes: dict[str, list[str]] = defaultdict(list)
+    for (observation_id, _), (state, theme) in decisions.items():
+        if state == "confirmed":
             themes[observation_id].append(theme)
     return dict(themes)
 
