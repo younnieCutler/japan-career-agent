@@ -37,6 +37,8 @@ class TransitionAdminTests(unittest.TestCase):
             "employment_end_date": "2026-09-30",
             "new_employment_start_date": "2026-10-01",
             "new_contract_conclusion_date": "2026-09-15",
+            "new_employment_insurance_enrollment": True,
+            "new_social_insurance_enrollment": True,
             "unemployment_benefit_planned": False,
             "resident_tax_mode": "continue_special_collection",
             "health_insurance_after_exit": "new_employer_immediate",
@@ -51,6 +53,7 @@ class TransitionAdminTests(unittest.TestCase):
         self.assertEqual(rows["withholding_slip"]["state"], "required")
         self.assertEqual(rows["withholding_slip"]["deadline"], "2026-10-30")
         self.assertEqual(rows["employment_insurance_number"]["state"], "required")
+        self.assertEqual(rows["pension_identifier"]["state"], "required")
         self.assertEqual(rows["retirement_certificate"]["state"], "recommended")
         self.assertEqual(rows["resident_tax_special_collection_handoff"]["state"], "required")
         self.assertEqual(
@@ -69,7 +72,47 @@ class TransitionAdminTests(unittest.TestCase):
             rows["immigration_status_specific_transition_verification"]["state"],
             "not_applicable",
         )
+        self.assertEqual(
+            rows["immigration_additional_transition_verification"]["state"],
+            "not_applicable",
+        )
         self.assertEqual(rows["immigration_unmapped_status_verification"]["state"], "not_applicable")
+
+    def test_insurance_identifiers_require_confirmed_new_enrollment(self) -> None:
+        rows = by_id(
+            project(
+                self.scenario(
+                    new_employment_insurance_enrollment=None,
+                    new_social_insurance_enrollment=None,
+                ),
+                registry=self.registry,
+                as_of=dt.date(2026, 9, 12),
+            )
+        )
+        self.assertEqual(rows["employment_insurance_number"]["state"], "unknown")
+        self.assertIn(
+            "new_employment_insurance_enrollment",
+            rows["employment_insurance_number"]["missing_inputs"],
+        )
+        self.assertEqual(rows["pension_identifier"]["state"], "unknown")
+        self.assertIn(
+            "new_social_insurance_enrollment",
+            rows["pension_identifier"]["missing_inputs"],
+        )
+
+    def test_confirmed_non_enrollment_does_not_require_identifiers(self) -> None:
+        rows = by_id(
+            project(
+                self.scenario(
+                    new_employment_insurance_enrollment=False,
+                    new_social_insurance_enrollment=False,
+                ),
+                registry=self.registry,
+                as_of=dt.date(2026, 9, 12),
+            )
+        )
+        self.assertEqual(rows["employment_insurance_number"]["state"], "not_applicable")
+        self.assertEqual(rows["pension_identifier"]["state"], "not_applicable")
 
     def test_unrestricted_status_does_not_receive_work_status_notifications(self) -> None:
         rows = by_id(
@@ -85,6 +128,7 @@ class TransitionAdminTests(unittest.TestCase):
             "immigration_activity_leave_notification",
             "immigration_activity_transfer_notification",
             "immigration_status_specific_transition_verification",
+            "immigration_additional_transition_verification",
             "immigration_unmapped_status_verification",
             "work_qualification_certificate",
             "residence_status_change_verification",
@@ -162,7 +206,7 @@ class TransitionAdminTests(unittest.TestCase):
     def test_activity_institution_status_uses_leave_and_transfer_tasks(self) -> None:
         rows = by_id(
             project(
-                self.scenario(residence_status="企業内転勤"),
+                self.scenario(residence_status="教授"),
                 registry=self.registry,
                 as_of=dt.date(2026, 9, 12),
             )
@@ -171,6 +215,31 @@ class TransitionAdminTests(unittest.TestCase):
         self.assertEqual(rows["immigration_activity_transfer_notification"]["state"], "required")
         self.assertEqual(rows["immigration_contract_end_notification"]["state"], "not_applicable")
         self.assertEqual(rows["work_qualification_certificate"]["state"], "not_applicable")
+        self.assertEqual(
+            rows["immigration_additional_transition_verification"]["state"],
+            "not_applicable",
+        )
+
+    def test_special_transition_status_keeps_notification_and_adds_verification(self) -> None:
+        cases = (
+            ("特定技能", "immigration_contract_end_notification"),
+            ("企業内転勤", "immigration_activity_leave_notification"),
+            ("技能実習", "immigration_activity_leave_notification"),
+        )
+        for status, notification_task in cases:
+            with self.subTest(status=status):
+                rows = by_id(
+                    project(
+                        self.scenario(residence_status=status),
+                        registry=self.registry,
+                        as_of=dt.date(2026, 9, 12),
+                    )
+                )
+                self.assertEqual(rows[notification_task]["state"], "required")
+                self.assertEqual(
+                    rows["immigration_additional_transition_verification"]["state"],
+                    "required",
+                )
 
     def test_highly_skilled_and_entertainer_require_status_specific_review(self) -> None:
         for status in ("高度専門職１号イ", "興行"):
