@@ -19,11 +19,6 @@ ROOT = Path(__file__).resolve().parent.parent
 # Tests the matrix deliberately does not run, and where they run instead. A path listed here must
 # still exist and must still be absent from the matrix, so a stale exemption is itself a failure.
 EXEMPT: dict[str, str] = {
-    "scripts/test_agent_observation_pack.py": (
-        "runs as a dedicated test-workflow step on every supported Python/OS matrix entry before "
-        "the canonical repository matrix; keeping it outside run_all_checks avoids making the "
-        "agent-facing output wrapper part of the canonical pass/fail runner it wraps"
-    ),
     "scripts/test_release_install.py": (
         "needs an unpacked release bundle (`--bundle`); the release and test workflows build one "
         "and invoke it directly after `run_all_checks.py`"
