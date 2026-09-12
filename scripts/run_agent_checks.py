@@ -37,7 +37,7 @@ def main() -> int:
             command=(sys.executable, "scripts/run_all_checks.py"),
             cwd=ROOT,
             store=arguments.store,
-            threshold_bytes=0,
+            threshold_bytes=sys.maxsize if arguments.no_pack_success else 0,
             always_pack=not arguments.no_pack_success,
         )
     except ObservationPackError as exc:
