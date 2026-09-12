@@ -27,6 +27,10 @@ residence_status_groups:
     - 高度専門職２号ロ
     - 高度専門職２号ハ
     - 興行
+  additional_transition_review:
+    - 特定技能
+    - 技能実習
+    - 企業内転勤
   unrestricted_work_status:
     - 永住者
     - 日本人の配偶者等
@@ -44,6 +48,12 @@ sources:
     authority: 東京ハローワーク
     source_type: official_guidance
     url: https://jsite.mhlw.go.jp/tokyo-hellowork/kakushu_jouhou/koyouhoken/koyouhoken/QA/hihokensya_qa.html
+    observed_at: "2026-09-12"
+    review_by: "2027-09-12"
+  mhlw_employment_insurance_scope:
+    authority: 厚生労働省
+    source_type: official_guidance
+    url: https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000147331.html
     observed_at: "2026-09-12"
     review_by: "2027-09-12"
   mhlw_retirement_certificate:
@@ -94,6 +104,18 @@ sources:
     url: https://www.moj.go.jp/isa/content/930001663.pdf
     observed_at: "2026-09-12"
     review_by: "2027-09-12"
+  isa_specified_skilled_worker:
+    authority: 出入国在留管理庁
+    source_type: official_guidance
+    url: https://www.moj.go.jp/isa/applications/status/specifiedskilledworker
+    observed_at: "2026-09-12"
+    review_by: "2027-09-12"
+  isa_status_list:
+    authority: 出入国在留管理庁
+    source_type: official_guidance
+    url: https://www.moj.go.jp/isa/applications/status/qaq5.html
+    observed_at: "2026-09-12"
+    review_by: "2027-09-12"
   isa_work_qualification:
     authority: 出入国在留管理庁
     source_type: official_guidance
@@ -130,9 +152,14 @@ tasks:
     owner: user
     user_action: confirm_identifier
     requiredness: required
-    required_inputs: [new_employment_start_date]
-    source_ids: [hello_work_insurance_number]
-    guidance: 転職後も同じ被保険者番号を使用する。物理的な証書そのものより既存番号の確認を優先する。
+    required_inputs: [new_employment_insurance_enrollment]
+    applies_if:
+      all:
+        - field: new_employment_insurance_enrollment
+          op: eq
+          value: true
+    source_ids: [hello_work_insurance_number, mhlw_employment_insurance_scope]
+    guidance: 新勤務先で雇用保険の被保険者になることが確認できた場合に既存の被保険者番号を確認する。入社日だけで加入対象と推測しない。
 
   - id: retirement_certificate
     label_ja: 退職証明書
@@ -201,9 +228,14 @@ tasks:
     owner: user
     user_action: confirm_identifier
     requiredness: required
-    required_inputs: [new_employment_start_date]
+    required_inputs: [new_social_insurance_enrollment]
+    applies_if:
+      all:
+        - field: new_social_insurance_enrollment
+          op: eq
+          value: true
     source_ids: [pension_identifier]
-    guidance: 厚生年金適用事業所への転職後の加入手続は新勤務先が行う。前勤務先から新たに発行してもらうexit documentではない。
+    guidance: 新勤務先が厚生年金保険の適用を受け、加入予定であることが確認できた場合にマイナンバー又は基礎年金番号の確認資料を提出する。入社日だけで加入対象と推測しない。
 
   - id: immigration_contract_end_notification
     label_ja: 所属（契約）機関に関する届出・契約終了
@@ -305,6 +337,22 @@ tasks:
     source_ids: [isa_affiliation_notification, isa_contract_institution, isa_highly_skilled_job_change]
     guidance: 高度専門職は指定機関変更に伴う在留資格変更が必要となる場合があり、興行は契約機関届出の対象が契約に基づく活動に限定される。V1では一般ルールを自動適用せず、在留資格固有の現行手続を確認する。
 
+  - id: immigration_additional_transition_verification
+    label_ja: 在留資格固有の追加転職手続確認
+    category: immigration
+    phase: before_transition
+    owner: user
+    user_action: verify_with_immigration
+    requiredness: required
+    required_inputs: [residence_status]
+    applies_if:
+      all:
+        - field: residence_status
+          op: in_group
+          value: additional_transition_review
+    source_ids: [isa_affiliation_notification, isa_specified_skilled_worker, isa_status_list]
+    guidance: 特定技能は所属機関変更時に在留資格変更許可申請が必要と案内されている。技能実習と企業内転勤も活動・所属先に固有の前提があるため、14日以内の所属機関届出だけで転職手続が完了すると扱わず、在留資格固有の現行手続を別途確認する。
+
   - id: immigration_unmapped_status_verification
     label_ja: 在留資格別の転職手続確認
     category: immigration
@@ -321,6 +369,7 @@ tasks:
             - contract_institution
             - activity_institution
             - status_specific_review
+            - additional_transition_review
             - unrestricted_work_status
     source_ids: [isa_affiliation_notification, isa_status_change]
     guidance: V1の自動判定対象外の在留資格。就労可否・所属機関届出・在留資格変更の要否を個別に確認し、対象外と推測しない。
