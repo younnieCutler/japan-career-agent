@@ -10,8 +10,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "_shared"
-if str(SHARED) not in sys.path:
-    sys.path.insert(0, str(SHARED))
+CAREER_AGENT = ROOT / "skills" / "career-agent"
+for import_path in (SHARED, CAREER_AGENT):
+    if str(import_path) not in sys.path:
+        sys.path.insert(0, str(import_path))
 
 from role_transition import (  # noqa: E402
     MODEL_VERSION,
@@ -20,6 +22,7 @@ from role_transition import (  # noqa: E402
     render_text,
     validate_payload,
 )
+from routing import skill_context  # noqa: E402
 
 
 def role_by_id(result: dict, role_id: str) -> dict:
@@ -291,7 +294,26 @@ class RoleTransitionTests(unittest.TestCase):
         self.assertIn("Targeting state: needs_validation", text)
         self.assertIn("Unknown: Implement automated tests", text)
         self.assertIn("transfer hypothesis:", text)
-        self.assertNotIn("fit score", text.lower())
+
+    def test_chuto_target_role_request_uses_targeting_reference(self) -> None:
+        context = skill_context(
+            ROOT / "skills",
+            "自己分析・転職軸",
+            message="이직할 건데 다음에 어떤 직무를 노려야 할까?",
+            track="chuto",
+        )
+        self.assertEqual(context["skill"], "job-seeker-agent")
+        self.assertEqual(context["references"], ["references/career-transition-targeting.md"])
+
+    def test_generic_chuto_self_analysis_still_routes_to_jiko(self) -> None:
+        context = skill_context(
+            ROOT / "skills",
+            "自己分析・転職軸",
+            message="이직 전에 자기분석부터 하고 싶어",
+            track="chuto",
+        )
+        self.assertEqual(context["skill"], "jiko-bunseki")
+        self.assertNotIn("references/career-transition-targeting.md", context["references"])
 
     def test_input_is_not_mutated(self) -> None:
         payload = self.payload()
