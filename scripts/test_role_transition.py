@@ -440,6 +440,16 @@ class RoleTransitionTests(unittest.TestCase):
         self.assertEqual(context["skill"], "job-seeker-agent")
         self.assertEqual(context["references"], ["references/shokumukeireki-saigensei.md"])
 
+    def test_generic_role_wording_in_resume_request_does_not_hijack_routing(self) -> None:
+        context = skill_context(
+            ROOT / "skills",
+            "職務経歴書・自己PR",
+            message="What role should I put on my resume?",
+            track="chuto",
+        )
+        self.assertEqual(context["skill"], "job-seeker-agent")
+        self.assertEqual(context["references"], ["references/shokumukeireki-saigensei.md"])
+
     def test_generic_chuto_self_analysis_still_routes_to_jiko(self) -> None:
         context = skill_context(
             ROOT / "skills",
