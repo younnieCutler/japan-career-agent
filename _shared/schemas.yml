@@ -9,6 +9,8 @@
 #   PIPELINE:          kigyou-bunseki / matching-simulator / tenshoku-strategy / company-battlecard (writers),
 #                      CLAUDE.md onboarding + tenshoku-strategy STEP 6 (readers),
 #                      scripts/status_bar.py + career-agent (readers — status bar, calibrate, rules)
+#   APPLICATIONS:      _shared/application_learning.py via tenshoku-strategy job_search_learning.py (writer),
+#                      tenshoku-strategy STEP 6 learning report (reader)
 #   RULES:             career-agent (writer, on user approval), scripts/status_bar.py (reader)
 
 schema_version: "2.5"
@@ -46,7 +48,9 @@ schema_version: "2.5"
 # constraint on purpose: adding a type would newly reject historical records that hold a different
 # shape. The schema's job is to stop shape drift; value rules stay in the Python validators that
 # already own them (`_shared/pipeline_store.py`, `_shared/self_analysis_profile.py`,
-# `skills/career-agent/validation.py`).
+# `skills/career-agent/validation.py`). `data/applications.yml` is intentionally validated by its
+# owning `_shared/application_learning.py`; its human contract is documented below rather than added
+# to this legacy shared JSON-Schema catalog in V1.
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://github.com/younnieCutler/japan-career-agent/shared-schemas"
 $defs:
@@ -732,23 +736,28 @@ match_history_entry:
 # ─────────────────────────────────────────────
 # PIPELINE
 # File: data/pipeline.yml (CWD-relative, per Output Contract / Rule C)
-# The per-company job-search state hub. One entry per company, keyed by slug.
+# The current per-company job-search state hub. One entry per company, keyed by slug. It is a
+# projection, not the canonical history of multiple applications to the same company.
 # Written by: kigyou-bunseki (entry + kyujin_legitimacy),
 #             matching-simulator (match_model_version, decision_status, match_conflicts,
 #                                 match_required_gaps, match_unknowns; interest_* only on explicit user instruction),
 #             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines,
-#             closed_reason + agent_feedback on お見送り), company-battlecard (history event),
+#             legacy outcome fields where still used), company-battlecard (history event),
+#             _shared/application_learning.py (begin/close projection for the current application),
 #             career-agent `approve` of a company event (stage, next_action, deadline, history —
 #             it owns none of the other fields and never overwrites them)
-# Read by:    CLAUDE.md onboarding (session-resume kanban), tenshoku-strategy STEP 6
-#             (funnel / pattern analysis; renders career-docs/applications.md as a view),
+# Read by:    CLAUDE.md onboarding (session-resume kanban), tenshoku-strategy STEP 6 current tracking,
+#             _shared/application_learning.py when freezing a closing match snapshot,
 #             scripts/status_bar.py, scripts/calibrate.py, scripts/legacy_calibrate.py (legacy only)
 #
-# This is the ONLY per-company state store in the suite. The Career Vault keeps the agent's flow
-# state (track, stage, deadlines, event ledger); it deliberately does not mirror the company list.
+# This is the ONLY current per-company state store in the suite. The Career Vault keeps the agent's
+# flow state (track, stage, deadlines, event ledger); `data/applications.yml` separately owns
+# application-level outcome/learning history and may contain multiple records for one company.
 #
 # Upsert rules (all writers): read the whole file → modify → rewrite. Match entries by `slug`.
-# Never delete an entry — closed entries feed funnel analysis. Set `closed: true` instead.
+# Never delete a company entry. `closed: true` describes the currently projected application;
+# starting a later application to the same company may reset application-scoped fields and set
+# `closed: false` while the older immutable outcome remains in `data/applications.yml`.
 # Every write follows Rule C: create data/ in the invocation directory if missing, then print
 # the absolute path and verify the file exists.
 # ─────────────────────────────────────────────
@@ -759,7 +768,7 @@ pipeline:
       name:          "string: display name"
       stage:         "integer 0–7: CLAUDE.md Japan 転職 Market Stage Map"
       status:        "string: free-text detail (e.g., '一次面接 scheduled 2026-07-10')"
-      channel:       "string: site | agent | scout | referral | null"
+      channel:       "string: site | agent | scout | referral | direct | unknown | null"
       kyujin_legitimacy: "string: green (信頼度高) | yellow (要注意) | red (要確認) — kigyou-bunseki 求人の真正性 tiers | null"
 
       # ── Match result (evidence_based_v3) ─────────────────────────────
@@ -846,18 +855,15 @@ pipeline:
 
       next_action:   "string | null"
       deadline:      "string YYYY-MM-DD: nearest date — 面接日, 回答期限, … | null"
-      closed:        "boolean: true on 内定承諾 / 内定辞退 / お見送り / 自ら見送り"
-      closed_reason: "string | null — coarse label: お見送り | 内定辞退 | 自己見送り | 内定承諾"
-      agent_feedback: "string | null — VERBATIM CA/RA rejection feedback text (原文, in its original
-                        language). Populate ONLY when channel is agent | scout — a real recruiter
-                        relays the company's actual reason. site | referral rarely yield real reasons
-                        (定型 お祈りメール); leave null. This is the raw source for the 面接遂行品質
-                        blocker tier in tenshoku-strategy senko-tracking §3."
+      closed:        "boolean: whether the currently projected application is closed"
+      closed_reason: "string | null — legacy/current projection label; structured outcome history lives in applications.yml"
+      agent_feedback: "string | null — legacy coarse feedback field. Preserve existing values; new
+                        Job Search Learning Loop feedback is written as typed observations in
+                        data/applications.yml instead of depending on this field."
 
-      # ── Outcome record (v1.7) ────────────────────────────────────────
-      # Written by tenshoku-strategy STEP 6 when an entry closes. Without these the suite
-      # stores legacy forecast labels it can never use for v3. Required before `closed: true`
-      # may be set when an outcome record is being created.
+      # ── Legacy/coarse outcome compatibility ──────────────────────────
+      # Existing pipeline workspaces may carry these fields and scripts/calibrate.py still reads
+      # them. New Job Search Learning Loop records do not use them as canonical learning evidence.
       predicted_tier:    "legacy_v1. string: A | B | C | D | F | null — grade at application time,
                             frozen. Derived from the legacy match_score, so it exists only on entries
                             created before evidence_based_v3. FROZEN: no new value is written, and no
@@ -866,13 +872,12 @@ pipeline:
                             scores the OLD grade, not the v3 diagnosis. evidence_based_v3 deliberately
                             produces nothing to calibrate against a hiring outcome: it is a
                             diagnostic, not an outcome model."
-      reached_stage:     "integer 0–7 | null — the furthest stage actually reached. Compared
-                            against predicted_tier only in the explicit legacy viewer."
-      feedback_obtained: "boolean — whether a real rejection reason was obtained (agent_feedback
-                            non-null and not a form letter). Route-vs-learning join key."
-      root_cause:        "string | null — ONE coarse label, reused verbatim across companies so it
-                            can be counted (e.g. '数値なしエピソード', 'PREP構造欠如', '企業理解不足').
-                            Frequency across entries is the promotion key for data/rules.yml."
+      reached_stage:     "integer 0–7 | null — current/legacy projection value. Closed application
+                            history is frozen separately in data/applications.yml for new learning records."
+      feedback_obtained: "boolean | null — legacy coarse flag. New structured feedback presence is
+                            derived from typed observations in data/applications.yml."
+      root_cause:        "string | null — legacy coarse label used only by scripts/calibrate.py and
+                            its explicit historical rules path. New learning evidence does not write it."
 
       # ── Measurement-only fields (v1.7) ───────────────────────────────
       # These record variables the PRD proposed turning into rules. The supporting evidence was
@@ -912,6 +917,59 @@ pipeline:
           # Legacy entries may contain id; readers accept it, writers use event_id.
 
 # ─────────────────────────────────────────────
+# APPLICATIONS — Job Search Learning Loop V1
+# File: data/applications.yml (CWD-relative workspace state)
+# Owner/validator: _shared/application_learning.py
+# Shipped writer/reader CLI: skills/tenshoku-strategy/job_search_learning.py
+#
+# This is canonical application-outcome/learning history, not a second company kanban and not the
+# durable GUI Application-case store. One company may have multiple application ids over time.
+# Identity and closed outcome fields are immutable for a record; observations/classifications append.
+# The analyzer keeps direct feedback, candidate self-observation, and matching gaps separate and
+# never converts repeated evidence into a hiring probability or automatic rules.yml write.
+# ─────────────────────────────────────────────
+application_learning_store:
+  schema_version: "string: currently 1.0"
+  applications:
+    - id:             "string: unique application id"
+      company_slug:   "string: joins the current data/pipeline.yml company projection"
+      company_name:   "string: display name captured at application begin"
+      position_title: "string: concrete applied position"
+      role_family:    "string | null: user-confirmed family when available"
+      channel:        "string: site | agent | scout | referral | direct | unknown"
+      opened_at:      "string: YYYY-MM-DD"
+      start_stage:    "integer 0–7"
+      closed_at:      "string YYYY-MM-DD | null"
+      reached_stage:  "integer 0–7 | null"
+      closed_reason:  "string | null — coarse user-confirmed outcome label; not inferred root cause"
+      match_snapshot:
+        decision_status: "proceed | review | conflict | null"
+        match_model_version: "string | null"
+        required_gaps: "list[string] — recurring gaps remain diagnostic, not causal rejection evidence"
+        unknowns: "list[string]"
+        conflicts: "list[string]"
+        jd_digest: "string | null"
+        jd_requirements: "list | null — frozen normalized requirements from the current projection"
+      observations:
+        - id:          "string: unique within application"
+          kind:        "employer_feedback | recruiter_feedback | candidate_observation"
+          text:        "string: raw/fidelity-preserved observation"
+          observed_at: "string: ISO date or datetime"
+          source_ref:  "string: provenance reference"
+          stage:       "integer 0–7 | null"
+      classifications:
+        - id:             "string: unique within application"
+          observation_id: "string: must resolve within observations"
+          theme:          "string: proposed/confirmed normalized theme"
+          state:          "proposed | confirmed | rejected"
+          source:         "llm | user — only user may confirm/reject"
+          classified_at:  "string: ISO date or datetime"
+
+# Classification events are append-only. For the same observation and normalized theme, the latest
+# user confirmed/rejected decision is the effective state; an LLM proposal never carries analytical
+# weight by itself. Closed outcome fields do not change when later feedback is appended.
+
+# ─────────────────────────────────────────────
 # RULES
 # File: data/rules.yml (CWD-relative, per Output Contract / Rule C)
 # The user's own standing rules, re-surfaced by the status bar before every interview.
@@ -927,6 +985,10 @@ pipeline:
 # Skills may READ this file. Skills may NOT write, edit, or retire rules — that path
 # runs through career-agent with user approval, so the agent cannot quietly relax a
 # constraint it keeps failing.
+#
+# IMPORTANT: this promotion contract applies to the legacy `root_cause`/calibrate path. Job Search
+# Learning Loop V1 stops at `eligible_for_review` and does not feed structured application evidence
+# into this global rule store automatically.
 # ─────────────────────────────────────────────
 rules:
   - id:           "string: short slug"
@@ -936,6 +998,6 @@ rules:
     source:       "string: self_authored | derived_from_rejections | observed_workflow
                      observed_workflow is written by scripts/calibrate.py when one root_cause
                      repeats across entries. It is derived, so it obeys the two-entry threshold."
-    supported_by: "list of strings: pipeline slugs backing this rule. Length >= 2 required to
+    supported_by: "list of strings: pipeline slugs backing this legacy rule path. Length >= 2 required to
                      move derived_from_rejections rules to `active`. Empty for self_authored."
     created:      "string: YYYY-MM-DD"

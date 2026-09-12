@@ -9,12 +9,24 @@ is supplied.
 | `data/candidate_profile.yml` | `job-seeker-agent` | matching and strategy skills |
 | `data/company_profiles/{slug}.yml` | research/hiring skills | matching and comparison |
 | `data/match_history.md` | matching skill | user review |
-| `data/pipeline.yml` | domain skills and approved career events | status bar, tracking, calibration |
+| `data/pipeline.yml` | domain skills and approved career events | status bar, current tracking, legacy calibration |
+| `data/applications.yml` | `_shared/application_learning.py` via shipped `job_search_learning.py` | tenshoku-strategy learning report |
 
 The Vault stores personal canonical flow state: track, stage, deadlines, and event ledger. The
-workspace pipeline is the per-company projection. Approval projects confirmed stage/action/deadline
-history but does not overwrite domain-owned decision, channel, legitimacy, interest, outcome, or
-frozen legacy fields.
+workspace pipeline is the **current per-company projection**. Approval projects confirmed
+stage/action/deadline history but does not overwrite domain-owned decision, channel, legitimacy,
+interest, outcome, or frozen legacy fields.
+
+`data/applications.yml` is a different workspace concern: it is the canonical application-outcome
+and learning history for Job Search Learning Loop V1. One company can have multiple application ids.
+Starting a later application may reset application-scoped fields in that company's `pipeline.yml`
+projection, while the older closed application remains immutable in `applications.yml`; feedback
+arriving later appends observation/classification evidence instead of rewriting the outcome.
+
+This does not replace the durable GUI `03-active/gui/cases/*.json` Application case store. GUI cases
+organize a JD, selected evidence, document kinds, and source references for an active user project;
+`applications.yml` records outcome/learning evidence, and `pipeline.yml` remains the current company
+kanban. They are separate stores with separate ownership and must not silently mirror each other.
 
 Resumable GUI 棚卸し sessions and drafts are transient workflow material under
 `01-capture/gui/{sessions,drafts}` and use the existing atomic writer. They are not canonical
@@ -26,7 +38,7 @@ Durable GUI case and artifact metadata use the existing `03-active` Vault direct
 `03-active/gui/cases/*.json` and `03-active/gui/artifacts/*.json`; artifact bodies are below
 `03-active/gui/artifacts/career-docs/` with digest-named filenames. These records are not a second
 evidence ledger: archive/delete is a metadata tombstone, artifact updates create a new version, and
-none of these operations changes `02-state` or `data/pipeline.yml`.
+none of these operations changes `02-state`, `data/pipeline.yml`, or `data/applications.yml`.
 
 `interest_level` is recorded independently and is not a priority signal. No skill combines it with
 deadline, stage, or fit. Rules are read-only to domain skills and are promoted only through

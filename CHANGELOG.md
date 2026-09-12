@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.36.0] - 2026-09-12
+
+- Add application-level Job Search Learning Loop history in `data/applications.yml`, keeping repeated applications to one company separate from the current `data/pipeline.yml` projection and freezing closed outcome and matching snapshots.
+- Keep direct employer/recruiter feedback, candidate self-observation, and recurring pre-application matching gaps as independent evidence classes; LLM theme proposals carry no analytical weight until user-confirmed, and repeated direct feedback requires two distinct employers.
+- Preserve `Unknown` and causal boundaries: recurring gaps and stage concentration never become inferred rejection causes, V1 stops at `eligible_for_review`, and structured learning patterns are never promoted automatically into `data/rules.yml`.
+
 ## [2.35.0] - 2026-09-12
 
 - Add evidence-backed mid-career target-role exploration between self-analysis and JD-specific matching, using source-backed role hypotheses instead of fit scores, hiring probabilities, or a hardcoded transition graph.

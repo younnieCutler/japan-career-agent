@@ -25,7 +25,8 @@ Domain           models · validation · persistence · vault · routing · prop
                  private_store · ux · localization
                  execution_plans
                                     ▼
-Local data       Career Vault · event ledger · judgment ledger · private store · data/pipeline.yml
+Local data       Career Vault · event ledger · judgment ledger · private store
+                 data/pipeline.yml · data/applications.yml
 ```
 
 The local GUI is a peer entrypoint, not a CLI frontend. `career-agent ui` has one directional
@@ -45,6 +46,13 @@ entrypoint bridge that launches `gui.server`.
 `gui.cases` and `gui.artifacts` modules are adapters: they never import persistence or Vault
 directly. Case/archive/delete and artifact version operations are metadata-only; the canonical
 ledger and the company-scoped `data/pipeline.yml` projection remain separate.
+
+`_shared/application_learning.py` owns the workspace `data/applications.yml` application-outcome and
+learning history. This is deliberately separate from durable GUI Application case metadata:
+`case_store.py` organizes JD/evidence/document work, `applications.yml` freezes application identity,
+outcome and matching snapshots plus append-only learning evidence, and `pipeline.yml` remains the
+current per-company projection. Reapplying to the same company may reset application-scoped pipeline
+fields without rewriting an older application outcome.
 
 `case_store.context_relationship()` is the application-owned source of truth for whether a career
 context is employment-like or non-work. Both strict writes and GUI projections call it, so company,

@@ -38,6 +38,7 @@ CONSOLE_SCRIPTS = ("japan-career-agent", "career-agent")
 REQUIRED_MEMBERS = (
     f"{PACKAGE_NAME}/cli.py",
     f"{PACKAGE_NAME}/_shared/pipeline_store.py",
+    f"{PACKAGE_NAME}/_shared/application_learning.py",
     f"{PACKAGE_NAME}/skills/career-agent/runtime.py",
     f"{PACKAGE_NAME}/skills/career-agent/references/routing.yml",
     f"{PACKAGE_NAME}/skills/career-agent/templates/standard-chuto.html",
@@ -50,6 +51,7 @@ REQUIRED_MEMBERS = (
     f"{PACKAGE_NAME}/skills/career-agent/gui/static/app/app.js",
     f"{PACKAGE_NAME}/skills/career-agent/gui/static/app/app.css",
     f"{PACKAGE_NAME}/skills/career-agent/sessions.py",
+    f"{PACKAGE_NAME}/skills/tenshoku-strategy/job_search_learning.py",
 )
 # Skill-First Gate C: every domain Skill's SKILL.md must ship, or `skill-open` for it in an
 # installed CLI would name a Skill with nothing on disk to point a host at. Kept as a literal
@@ -258,6 +260,25 @@ def install_and_smoke(requirement: str, root: Path, *, inherit_site_packages: bo
     guided = _run_json([agent, "guided", "--vault", str(vault), "--format", "json"], cwd=workspace)
     if guided.get("mode") != "guided" or not guided.get("guided", {}).get("available_actions"):
         raise RuntimeError("guided returned no actions from the installed wheel")
+
+    # The learning loop is a shipped Skill-local executable that imports the relocated `_shared`
+    # tree. Execute the installed copy from an unrelated cwd so a repository checkout cannot mask a
+    # packaging error in either the CLI or its deterministic core.
+    site = Path(sysconfig.get_paths(vars={"base": str(venv), "platbase": str(venv)})["purelib"])
+    learning_cli = site / PACKAGE_NAME / "skills" / "tenshoku-strategy" / "job_search_learning.py"
+    learning_report = _run_json(
+        [
+            str(_executable(venv, "python")),
+            str(learning_cli),
+            "--workspace",
+            str(workspace),
+            "report",
+            "--json",
+        ],
+        cwd=workspace,
+    )
+    if learning_report.get("model_version") != "learning_loop_v1":
+        raise RuntimeError("job-search learning loop did not run from the installed wheel")
 
     templates = _run(
         [
