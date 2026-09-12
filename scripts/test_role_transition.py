@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import copy
+import json
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -446,6 +449,22 @@ class RoleTransitionTests(unittest.TestCase):
         )
         self.assertEqual(context["skill"], "jiko-bunseki")
         self.assertNotIn("references/career-transition-targeting.md", context["references"])
+
+    def test_shipped_skill_wrapper_runs_from_unrelated_cwd(self) -> None:
+        wrapper = ROOT / "skills" / "job-seeker-agent" / "scripts" / "role_transition.py"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            completed = subprocess.run(
+                [sys.executable, str(wrapper)],
+                cwd=temp_dir,
+                input=json.dumps(self.payload()),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result["model_version"], MODEL_VERSION)
 
     def test_input_is_not_mutated(self) -> None:
         payload = self.payload()
