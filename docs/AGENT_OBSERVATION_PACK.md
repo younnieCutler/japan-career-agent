@@ -9,7 +9,7 @@ evidence needed to debug or review a failure.
 For a full repository verification pass during agent-driven development, prefer:
 
 ```bash
-python scripts/run_agent_checks.py
+python tools/run_agent_checks.py
 ```
 
 It runs the unchanged canonical matrix:
@@ -26,18 +26,20 @@ A successful run is retained by default because it can be useful as release evid
 retaining a successful run while still preserving failures:
 
 ```bash
-python scripts/run_agent_checks.py --no-pack-success
+python tools/run_agent_checks.py --no-pack-success
 ```
 
 CI and release workflows continue to use `scripts/run_all_checks.py` directly. The observation pack
-is an agent-facing presentation/storage layer, not a new source of pass/fail truth.
+is an agent-facing presentation/storage layer, not a new source of pass/fail truth. The implementation
+lives under `tools/`, not `scripts/`, because it is repository-development infrastructure and is not
+part of the product runtime, wheel, npm bootstrapper, or product release version.
 
 ## Generic command packing
 
 Any noisy local command can be run through the generic entry point:
 
 ```bash
-python scripts/agent_observation_pack.py run \
+python tools/agent_observation_pack.py run \
   --label "focused routing tests" \
   -- python skills/career-agent/test_routing.py
 ```
@@ -52,8 +54,8 @@ error rather than a Python traceback.
 A receipt such as `obs-0123456789abcdef01234567` can be recalled in bounded windows:
 
 ```bash
-python scripts/agent_observation_pack.py show obs-0123456789abcdef01234567
-python scripts/agent_observation_pack.py show obs-0123456789abcdef01234567 --stream stderr --start-line 120 --lines 40
+python tools/agent_observation_pack.py show obs-0123456789abcdef01234567
+python tools/agent_observation_pack.py show obs-0123456789abcdef01234567 --stream stderr --start-line 120 --lines 40
 ```
 
 The archive stores stdout and stderr as base64-encoded raw bytes and records SHA-256, byte count,
