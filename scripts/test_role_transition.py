@@ -41,6 +41,7 @@ class RoleTransitionTests(unittest.TestCase):
                     {
                         "id": "ev-test-design",
                         "capability": "test design",
+                        "relation": "demonstrates",
                         "state": "Confirmed",
                         "source_type": "user",
                         "source_ref": "vault:event:test-design",
@@ -51,6 +52,7 @@ class RoleTransitionTests(unittest.TestCase):
                     {
                         "id": "ev-stakeholder",
                         "capability": "stakeholder coordination",
+                        "relation": "demonstrates",
                         "state": "Confirmed",
                         "source_type": "user",
                         "source_ref": "vault:event:stakeholder",
@@ -61,11 +63,34 @@ class RoleTransitionTests(unittest.TestCase):
                     {
                         "id": "ev-automation-memory",
                         "capability": "test automation",
+                        "relation": "demonstrates",
                         "state": "Low Confidence",
                         "source_type": "user",
                         "source_ref": "conversation:2026-09-12",
                         "observed_at": "2026-09-12",
                         "confidence": "low",
+                        "provenance": "user",
+                    },
+                    {
+                        "id": "ev-no-automation",
+                        "capability": "automated test implementation",
+                        "relation": "absence",
+                        "state": "Confirmed",
+                        "source_type": "user",
+                        "source_ref": "conversation:2026-09-12:no-automation",
+                        "observed_at": "2026-09-12",
+                        "confidence": "high",
+                        "provenance": "user",
+                    },
+                    {
+                        "id": "ev-no-ci",
+                        "capability": "CI test operation",
+                        "relation": "absence",
+                        "state": "Confirmed",
+                        "source_type": "user",
+                        "source_ref": "conversation:2026-09-12:no-ci",
+                        "observed_at": "2026-09-12",
+                        "confidence": "high",
                         "provenance": "user",
                     },
                 ]
@@ -116,7 +141,7 @@ class RoleTransitionTests(unittest.TestCase):
                             "text": "Operate tests in CI",
                             "kind": "preferred",
                             "source_refs": ["jd-a"],
-                            "candidate_absence_confirmed": True,
+                            "absence_evidence_ids": ["ev-no-ci"],
                         },
                     ],
                 },
@@ -190,14 +215,47 @@ class RoleTransitionTests(unittest.TestCase):
         requirement.pop("transfer_evidence_ids")
         requirement.pop("transfer_rationale")
         requirement.pop("verification_question")
-        requirement["candidate_absence_confirmed"] = True
+        requirement["absence_evidence_ids"] = ["ev-no-automation"]
         result = evaluate(payload)
         role = role_by_id(result, "qa-automation")
         self.assertEqual(requirement_by_id(role, "req-automation")["state"], "Missing")
         self.assertEqual(role["targeting_state"], "confirmed_core_gap")
+        self.assertEqual(
+            role["confirmed_gaps"],
+            [{"requirement_id": "req-automation", "evidence_ids": ["ev-no-automation"]}],
+        )
+
+    def test_unconfirmed_absence_evidence_stays_unknown(self) -> None:
+        payload = self.payload()
+        absence = next(
+            item for item in payload["candidate"]["evidence"] if item["id"] == "ev-no-automation"
+        )
+        absence["state"] = "Low Confidence"
+        absence["confidence"] = "low"
+        requirement = payload["role_candidates"][0]["requirements"][1]
+        requirement.pop("transfer_evidence_ids")
+        requirement.pop("transfer_rationale")
+        requirement.pop("verification_question")
+        requirement["absence_evidence_ids"] = ["ev-no-automation"]
+        evaluated = requirement_by_id(role_by_id(evaluate(payload), "qa-automation"), "req-automation")
+        self.assertEqual(evaluated["state"], "Unknown")
+        self.assertEqual(evaluated["reason"], "candidate_absence_evidence_not_confirmed")
 
     def test_preferred_gap_does_not_override_supported_core(self) -> None:
         payload = self.payload()
+        payload["candidate"]["evidence"].append(
+            {
+                "id": "ev-no-optional-tool",
+                "capability": "optional tool experience",
+                "relation": "absence",
+                "state": "Confirmed",
+                "source_type": "user",
+                "source_ref": "conversation:2026-09-12:no-optional-tool",
+                "observed_at": "2026-09-12",
+                "confidence": "high",
+                "provenance": "user",
+            }
+        )
         payload["role_candidates"] = [payload["role_candidates"][1]]
         payload["role_candidates"][0]["requirements"].append(
             {
@@ -205,7 +263,7 @@ class RoleTransitionTests(unittest.TestCase):
                 "text": "Experience with a specific optional tool",
                 "kind": "preferred",
                 "source_refs": ["jd-b"],
-                "candidate_absence_confirmed": True,
+                "absence_evidence_ids": ["ev-no-optional-tool"],
             }
         )
         role = role_by_id(evaluate(payload), "qa-manual")
@@ -280,6 +338,24 @@ class RoleTransitionTests(unittest.TestCase):
         transfer = requirement_by_id(automation, "req-automation")["transfer_hypothesis"]
         self.assertEqual(transfer["status"], "hypothesis_basis_unconfirmed")
 
+    def test_absence_relation_cannot_be_used_as_direct_evidence(self) -> None:
+        payload = self.payload()
+        payload["role_candidates"][0]["requirements"][0]["direct_evidence_ids"] = ["ev-no-ci"]
+        with self.assertRaises(RoleTransitionError):
+            validate_payload(payload)
+
+    def test_demonstrates_relation_cannot_be_used_as_absence_evidence(self) -> None:
+        payload = self.payload()
+        payload["role_candidates"][0]["requirements"][0]["absence_evidence_ids"] = ["ev-test-design"]
+        with self.assertRaises(RoleTransitionError):
+            validate_payload(payload)
+
+    def test_bare_confirmed_absence_boolean_is_rejected(self) -> None:
+        payload = self.payload()
+        payload["role_candidates"][0]["requirements"][0]["candidate_absence_confirmed"] = True
+        with self.assertRaises(RoleTransitionError):
+            validate_payload(payload)
+
     def test_role_without_core_requirements_is_insufficient(self) -> None:
         payload = self.payload()
         payload["role_candidates"] = [payload["role_candidates"][1]]
@@ -307,10 +383,10 @@ class RoleTransitionTests(unittest.TestCase):
         with self.assertRaises(RoleTransitionError):
             validate_payload(payload)
 
-    def test_direct_evidence_and_confirmed_absence_conflict_is_rejected(self) -> None:
+    def test_direct_evidence_and_absence_evidence_conflict_is_rejected(self) -> None:
         payload = self.payload()
         requirement = payload["role_candidates"][0]["requirements"][0]
-        requirement["candidate_absence_confirmed"] = True
+        requirement["absence_evidence_ids"] = ["ev-test-design"]
         with self.assertRaises(RoleTransitionError):
             validate_payload(payload)
 
