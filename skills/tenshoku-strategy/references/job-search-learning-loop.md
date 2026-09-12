@@ -7,8 +7,10 @@ hiring forecast and not an automatic diagnosis of why a company rejected the can
 ## Source-of-truth boundary
 
 - `data/pipeline.yml` remains the current per-company kanban/projection.
-- `data/applications.yml` is the canonical application-level history owned by
+- `data/applications.yml` is the canonical application-outcome and learning history owned by
   `_shared/application_learning.py`.
+- Durable Vault `03-active/gui/cases/*.json` Application cases organize JD/evidence/document metadata;
+  they are not outcome history and are not mirrored into `applications.yml`.
 - One company may therefore have several application ids over time without overwriting an older
   outcome.
 - A closed application's outcome fields are immutable. Feedback that arrives later is appended as a
@@ -75,8 +77,7 @@ python skills/tenshoku-strategy/job_search_learning.py --workspace "$CAREER_WORK
   --state proposed --source llm --classified-at '<ISO date/datetime>'
 ```
 
-Only the user may confirm or reject a theme. A user-confirmed classification is append-only and is the
-only classification the deterministic analyzer counts:
+Only the user may confirm or reject a theme:
 
 ```bash
 python skills/tenshoku-strategy/job_search_learning.py --workspace "$CAREER_WORKSPACE" classify \
@@ -84,23 +85,28 @@ python skills/tenshoku-strategy/job_search_learning.py --workspace "$CAREER_WORK
   --state confirmed --source user --classified-at '<ISO date/datetime>'
 ```
 
-Do not silently normalize two different themes into the same theme. If wording differs materially,
-show it to the user and ask whether they represent the same observation before confirmation.
+Classification events are append-only, but the effective state is not "confirmed forever". For the
+same observation and normalized theme, the latest **user** `confirmed` or `rejected` decision wins.
+A later user rejection therefore removes an earlier confirmation from deterministic pattern analysis;
+LLM `proposed` events never override a user decision and never count by themselves.
+
+Do not silently normalize two materially different themes into one. Case and whitespace differences
+normalize for identity, but different wording/meaning must be shown to the user before confirmation.
 
 ## Deterministic pattern classes
 
 The report keeps these independent:
 
-1. **Repeated direct feedback** — the same user-confirmed theme from at least two distinct employers.
-   Two applications to the same employer do not satisfy this threshold.
+1. **Repeated direct feedback** — the same effective user-confirmed theme from at least two distinct
+   employers. Two applications to the same employer do not satisfy this threshold.
 2. **Recurring diagnostic gap** — the same matching `required_gap` in at least two applications.
    This remains `causal_conclusion: unknown`, even when direct feedback happens to support the same
    theme.
-3. **Repeated self-observation** — the same user-confirmed candidate observation in at least two
-   applications. Employer confirmation remains a separate evidence class.
+3. **Repeated self-observation** — the same effective user-confirmed candidate observation in at least
+   two applications. Employer confirmation remains a separate evidence class.
 4. **Reached-stage observations** — descriptive counts only after at least three closed applications.
 5. **Unknown / unclassified** — no direct feedback, or direct feedback whose theme the user has not
-   confirmed.
+   effectively confirmed.
 
 Never combine these into a score, probability, grade, or candidate trait.
 
