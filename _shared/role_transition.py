@@ -40,6 +40,9 @@ SOURCE_TYPES = {
     "heuristic",
     "unknown",
 }
+ROLE_SOURCE_TYPES = {"official_framework", "job_posting", "company_public_source"}
+DIRECT_CANDIDATE_SOURCE_TYPES = {"user", "observed"}
+USABLE_CONFIDENCE_LEVELS = {"high", "medium"}
 CONFIDENCE_LEVELS = {"high", "medium", "low", "unknown"}
 PROVENANCE_TYPES = {
     "official_framework",
@@ -117,19 +120,23 @@ def _validate_role_source(source: dict[str, Any], role_id: str, index: int) -> N
     prefix = f"role_candidates[{role_id}].sources[{index}]"
     _text(source.get("id"), f"{prefix}.id")
     source_type = source.get("source_type")
-    if source_type not in SOURCE_TYPES:
-        raise RoleTransitionError(f"{prefix}.source_type: unsupported {source_type!r}")
+    if source_type not in ROLE_SOURCE_TYPES:
+        raise RoleTransitionError(
+            f"{prefix}.source_type: expected one of {sorted(ROLE_SOURCE_TYPES)}, got {source_type!r}"
+        )
     state = source.get("state", "Confirmed")
     if state not in EVIDENCE_STATES:
         raise RoleTransitionError(f"{prefix}.state: unsupported {state!r}")
     _text(source.get("source_ref"), f"{prefix}.source_ref")
-    _optional_text(source.get("observed_at"), f"{prefix}.observed_at")
+    _text(source.get("observed_at"), f"{prefix}.observed_at")
     confidence = source.get("confidence", "unknown")
     if confidence not in CONFIDENCE_LEVELS:
         raise RoleTransitionError(f"{prefix}.confidence: unsupported {confidence!r}")
     provenance = source.get("provenance", source_type)
-    if provenance not in PROVENANCE_TYPES:
-        raise RoleTransitionError(f"{prefix}.provenance: unsupported {provenance!r}")
+    if provenance != source_type:
+        raise RoleTransitionError(
+            f"{prefix}.provenance: expected {source_type!r} for role source, got {provenance!r}"
+        )
 
 
 def _validate_requirement(
@@ -226,7 +233,19 @@ def validate_payload(payload: Any) -> dict[str, Any]:
 
 
 def _source_is_confirmed(source: dict[str, Any]) -> bool:
-    return source.get("state", "Confirmed") == "Confirmed"
+    return (
+        source.get("state", "Confirmed") == "Confirmed"
+        and source.get("confidence", "unknown") in USABLE_CONFIDENCE_LEVELS
+    )
+
+
+def _candidate_evidence_is_direct(evidence: dict[str, Any]) -> bool:
+    return (
+        evidence.get("state") == "Confirmed"
+        and evidence.get("confidence", "unknown") in USABLE_CONFIDENCE_LEVELS
+        and evidence.get("source_type") in DIRECT_CANDIDATE_SOURCE_TYPES
+        and evidence.get("provenance") in DIRECT_CANDIDATE_SOURCE_TYPES
+    )
 
 
 def _requirement_result(
@@ -240,17 +259,17 @@ def _requirement_result(
     transfer_ids = list(requirement.get("transfer_evidence_ids", []))
 
     unconfirmed_sources = [source_id for source_id in source_refs if not _source_is_confirmed(sources[source_id])]
-    direct_states = {evidence[evidence_id]["state"] for evidence_id in direct_ids}
+    direct_usable = all(_candidate_evidence_is_direct(evidence[evidence_id]) for evidence_id in direct_ids)
 
     if unconfirmed_sources:
         state = "Unknown"
         reason = "role_source_not_confirmed"
-    elif direct_ids and direct_states == {"Confirmed"}:
+    elif direct_ids and direct_usable:
         state = "Matched"
         reason = "direct_confirmed_evidence"
     elif direct_ids:
         state = "Unknown"
-        reason = "candidate_evidence_not_confirmed"
+        reason = "candidate_evidence_not_direct_confirmed"
     elif requirement.get("candidate_absence_confirmed", False):
         state = "Missing"
         reason = "candidate_absence_confirmed"
@@ -260,11 +279,13 @@ def _requirement_result(
 
     transfer = None
     if transfer_ids:
-        transfer_states = {evidence[evidence_id]["state"] for evidence_id in transfer_ids}
+        transfer_usable = all(
+            _candidate_evidence_is_direct(evidence[evidence_id]) for evidence_id in transfer_ids
+        )
         transfer = {
             "status": (
                 "hypothesis_with_confirmed_basis"
-                if transfer_states == {"Confirmed"}
+                if transfer_usable
                 else "hypothesis_basis_unconfirmed"
             ),
             "evidence_ids": transfer_ids,
