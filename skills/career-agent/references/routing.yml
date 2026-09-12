@@ -89,6 +89,10 @@ message_context_exclusion:
 # First matching entry selects one reference for a chuto message. Keep phrases specific:
 # generic interview, research, and document requests continue to use the stage fallback below.
 message_context:
+  - id: career_transition_targeting
+    skill: job-seeker-agent
+    reference: references/career-transition-targeting.md
+    terms: ["キャリアチェンジ先", "次の職種", "狙う職種", "目指す職種", "target role", "adjacent role", "role to target", "어떤 직무", "무슨 직무", "노릴 직무", "다음 직무", "직무 전환"]
   - id: market_salary
     skill: tenshoku-strategy
     reference: references/market-positioning-2025-2026.md
