@@ -22,6 +22,7 @@ from typing import Any
 MODEL_VERSION = "evidence_based_role_transition_v1"
 
 EVIDENCE_STATES = {"Confirmed", "Unknown", "Contradictory", "Stale", "Low Confidence"}
+EVIDENCE_RELATIONS = {"demonstrates", "absence"}
 REQUIREMENT_STATES = {"Matched", "Missing", "Unknown"}
 REQUIREMENT_KINDS = {"core", "preferred", "context"}
 TARGETING_STATES = {
@@ -96,24 +97,30 @@ def _unique_ids(items: list[dict[str, Any]], label: str) -> dict[str, dict[str, 
 
 
 def _validate_evidence(item: dict[str, Any], index: int) -> None:
-    _text(item.get("id"), f"candidate.evidence[{index}].id")
-    _text(item.get("capability"), f"candidate.evidence[{index}].capability")
+    prefix = f"candidate.evidence[{index}]"
+    _text(item.get("id"), f"{prefix}.id")
+    _text(item.get("capability"), f"{prefix}.capability")
+    relation = item.get("relation", "demonstrates")
+    if relation not in EVIDENCE_RELATIONS:
+        raise RoleTransitionError(
+            f"{prefix}.relation: expected one of {sorted(EVIDENCE_RELATIONS)}, got {relation!r}"
+        )
     state = item.get("state")
     if state not in EVIDENCE_STATES:
         raise RoleTransitionError(
-            f"candidate.evidence[{index}].state: expected one of {sorted(EVIDENCE_STATES)}, got {state!r}"
+            f"{prefix}.state: expected one of {sorted(EVIDENCE_STATES)}, got {state!r}"
         )
     source_type = item.get("source_type", "unknown")
     if source_type not in SOURCE_TYPES:
-        raise RoleTransitionError(f"candidate.evidence[{index}].source_type: unsupported {source_type!r}")
+        raise RoleTransitionError(f"{prefix}.source_type: unsupported {source_type!r}")
     confidence = item.get("confidence", "unknown")
     if confidence not in CONFIDENCE_LEVELS:
-        raise RoleTransitionError(f"candidate.evidence[{index}].confidence: unsupported {confidence!r}")
+        raise RoleTransitionError(f"{prefix}.confidence: unsupported {confidence!r}")
     provenance = item.get("provenance", "unknown")
     if provenance not in PROVENANCE_TYPES:
-        raise RoleTransitionError(f"candidate.evidence[{index}].provenance: unsupported {provenance!r}")
-    _text(item.get("source_ref"), f"candidate.evidence[{index}].source_ref")
-    _optional_text(item.get("observed_at"), f"candidate.evidence[{index}].observed_at")
+        raise RoleTransitionError(f"{prefix}.provenance: unsupported {provenance!r}")
+    _text(item.get("source_ref"), f"{prefix}.source_ref")
+    _optional_text(item.get("observed_at"), f"{prefix}.observed_at")
 
 
 def _validate_role_source(source: dict[str, Any], role_id: str, index: int) -> None:
@@ -145,7 +152,7 @@ def _validate_requirement(
     role_id: str,
     index: int,
     source_ids: set[str],
-    evidence_ids: set[str],
+    evidence_by_id: dict[str, dict[str, Any]],
 ) -> None:
     prefix = f"role_candidates[{role_id}].requirements[{index}]"
     _text(requirement.get("id"), f"{prefix}.id")
@@ -163,18 +170,38 @@ def _validate_requirement(
 
     direct_ids = _list(requirement.get("direct_evidence_ids", []), f"{prefix}.direct_evidence_ids")
     transfer_ids = _list(requirement.get("transfer_evidence_ids", []), f"{prefix}.transfer_evidence_ids")
+    absence_ids = _list(requirement.get("absence_evidence_ids", []), f"{prefix}.absence_evidence_ids")
     direct = {_text(ref, f"{prefix}.direct_evidence_ids") for ref in direct_ids}
     transfer = {_text(ref, f"{prefix}.transfer_evidence_ids") for ref in transfer_ids}
-    unknown_evidence = sorted((direct | transfer) - evidence_ids)
+    absence = {_text(ref, f"{prefix}.absence_evidence_ids") for ref in absence_ids}
+    unknown_evidence = sorted((direct | transfer | absence) - set(evidence_by_id))
     if unknown_evidence:
         raise RoleTransitionError(f"{prefix}: unknown candidate evidence id(s) {unknown_evidence}")
-
-    absent = requirement.get("candidate_absence_confirmed", False)
-    if not isinstance(absent, bool):
-        raise RoleTransitionError(f"{prefix}.candidate_absence_confirmed: expected boolean")
-    if absent and direct:
+    if absence & (direct | transfer):
         raise RoleTransitionError(
-            f"{prefix}: direct evidence and candidate_absence_confirmed cannot both be set"
+            f"{prefix}: absence evidence cannot also be direct or transfer evidence"
+        )
+    wrong_direct = sorted(
+        evidence_id
+        for evidence_id in direct | transfer
+        if evidence_by_id[evidence_id].get("relation", "demonstrates") != "demonstrates"
+    )
+    if wrong_direct:
+        raise RoleTransitionError(
+            f"{prefix}: direct/transfer evidence must use relation 'demonstrates': {wrong_direct}"
+        )
+    wrong_absence = sorted(
+        evidence_id
+        for evidence_id in absence
+        if evidence_by_id[evidence_id].get("relation", "demonstrates") != "absence"
+    )
+    if wrong_absence:
+        raise RoleTransitionError(
+            f"{prefix}: absence evidence must use relation 'absence': {wrong_absence}"
+        )
+    if "candidate_absence_confirmed" in requirement:
+        raise RoleTransitionError(
+            f"{prefix}.candidate_absence_confirmed: unsupported; use absence_evidence_ids with provenance"
         )
 
     if transfer:
@@ -227,7 +254,7 @@ def validate_payload(payload: Any) -> dict[str, Any]:
                 role_id=role_id,
                 index=index,
                 source_ids=set(source_by_id),
-                evidence_ids=set(evidence_by_id),
+                evidence_by_id=evidence_by_id,
             )
     return data
 
@@ -239,9 +266,12 @@ def _source_is_confirmed(source: dict[str, Any]) -> bool:
     )
 
 
-def _candidate_evidence_is_direct(evidence: dict[str, Any]) -> bool:
+def _candidate_evidence_is_usable(
+    evidence: dict[str, Any], *, relation: str = "demonstrates"
+) -> bool:
     return (
-        evidence.get("state") == "Confirmed"
+        evidence.get("relation", "demonstrates") == relation
+        and evidence.get("state") == "Confirmed"
         and evidence.get("confidence", "unknown") in USABLE_CONFIDENCE_LEVELS
         and evidence.get("source_type") in DIRECT_CANDIDATE_SOURCE_TYPES
         and evidence.get("provenance") in DIRECT_CANDIDATE_SOURCE_TYPES
@@ -257,22 +287,32 @@ def _requirement_result(
     source_refs = list(requirement["source_refs"])
     direct_ids = list(requirement.get("direct_evidence_ids", []))
     transfer_ids = list(requirement.get("transfer_evidence_ids", []))
+    absence_ids = list(requirement.get("absence_evidence_ids", []))
 
     unconfirmed_sources = [source_id for source_id in source_refs if not _source_is_confirmed(sources[source_id])]
-    direct_usable = all(_candidate_evidence_is_direct(evidence[evidence_id]) for evidence_id in direct_ids)
+    direct_usable = bool(direct_ids) and all(
+        _candidate_evidence_is_usable(evidence[evidence_id]) for evidence_id in direct_ids
+    )
+    absence_usable = bool(absence_ids) and all(
+        _candidate_evidence_is_usable(evidence[evidence_id], relation="absence")
+        for evidence_id in absence_ids
+    )
 
     if unconfirmed_sources:
         state = "Unknown"
         reason = "role_source_not_confirmed"
-    elif direct_ids and direct_usable:
+    elif direct_usable:
         state = "Matched"
         reason = "direct_confirmed_evidence"
     elif direct_ids:
         state = "Unknown"
         reason = "candidate_evidence_not_direct_confirmed"
-    elif requirement.get("candidate_absence_confirmed", False):
+    elif absence_usable:
         state = "Missing"
-        reason = "candidate_absence_confirmed"
+        reason = "confirmed_absence_evidence"
+    elif absence_ids:
+        state = "Unknown"
+        reason = "candidate_absence_evidence_not_confirmed"
     else:
         state = "Unknown"
         reason = "no_comparable_confirmed_evidence"
@@ -280,7 +320,7 @@ def _requirement_result(
     transfer = None
     if transfer_ids:
         transfer_usable = all(
-            _candidate_evidence_is_direct(evidence[evidence_id]) for evidence_id in transfer_ids
+            _candidate_evidence_is_usable(evidence[evidence_id]) for evidence_id in transfer_ids
         )
         transfer = {
             "status": (
@@ -302,6 +342,7 @@ def _requirement_result(
         "reason": reason,
         "source_refs": source_refs,
         "direct_evidence_ids": direct_ids,
+        "absence_evidence_ids": absence_ids,
         "transfer_hypothesis": transfer,
     }
 
@@ -352,7 +393,12 @@ def evaluate(payload: Any) -> dict[str, Any]:
                     if item["state"] == "Matched"
                 ],
                 "confirmed_gaps": [
-                    item["id"] for item in requirement_results if item["state"] == "Missing"
+                    {
+                        "requirement_id": item["id"],
+                        "evidence_ids": item["absence_evidence_ids"],
+                    }
+                    for item in requirement_results
+                    if item["state"] == "Missing"
                 ],
                 "unknowns": [
                     item["id"] for item in requirement_results if item["state"] == "Unknown"
