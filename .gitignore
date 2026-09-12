@@ -33,9 +33,10 @@
 !/.claude-plugin/
 !/.codex-plugin/
 
-# Exception: Shared infrastructure
+# Exception: Shared infrastructure and repo-local development tooling
 !/_shared/
 !/scripts/
+!/tools/
 !/hooks/
 
 # Exception: distribution launchers (Python wheel entry point, npm bootstrapper)
