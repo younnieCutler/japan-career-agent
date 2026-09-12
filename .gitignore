@@ -76,6 +76,10 @@ career-docs/
 # Career Agent local event ledger and snapshots
 /career-home/
 
+# Local command-output archives created by the agent observation pack. These can contain build
+# logs, test output, or other sensitive local evidence and must never be committed.
+/.agent-observations/
+
 # OS and other generated files (still in ignore list)
 .DS_Store
 .DS_Store?
