@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.34.0] - 2026-09-12
+
+- Add a source-backed deterministic Transition Administration registry and projection for resignation documents and identifiers, resident-tax employer handoff, conditional unemployment and health-insurance documents, and user-owned immigration notifications.
+- Route `tenshoku-strategy` through the projection so `退職時にもらう書類` is separated by owner, trigger, deadline, applicability, missing inputs, official source, and `Unknown` instead of emitted as one generic checklist.
+- Add regression coverage for the 9/30 → 10/1 `技術・人文知識・国際業務` case, unrestricted/status-specific/unmapped residence statuses, missing contract dates, gap cases, changed activity, stale sources, and the bounded rule DSL.
+
 ## [2.33.0] - 2026-09-11
 
 - Complete the Japanese career knowledge program by revalidating the remaining market guidance, promoting eleven scoped knowledge items only after recorded semantic scenario review, and keeping market claims separate from personal candidate evidence.
@@ -673,8 +679,8 @@
 - Answer a JD with requirements and the evidence behind them first, and primary experience
   candidates second. No score, no total, no ordering by keyword count — a requirement is
   supported when recorded behaviour matches what it asks for, not when a word repeats.
-- Add `primary_project_ids` to the per-company selection. A project may be the headline because
-  it is the story a reader follows; the work events under it are what makes it checkable, and a
+- Add `primary_project_ids` to the per-company selection. A project may be the headline because it
+  is the story a reader follows; the work events under it are what makes it checkable, and a
   project title alone supports nothing.
 - Add `maintenance-check`: situations worth mentioning, or none. Everything it reports is
   triggered by something in the record — notes piling up on one project, a closed project with no
@@ -776,7 +782,7 @@
 
 ## [1.22.0] - 2026-08-08
 
-- Match 학チカ and 학チ카 everywhere. The two spellings of one word were split across the track and
+- Match 학チ카 and 学チ카 everywhere. The two spellings of one word were split across the track and
   document lexicons, so a message using either reached only one of them.
 - Drop four terms that a bare form already in the same list subsumes — 연봉 시세, new graduate,
   interview prep, and resignation — across seven sites. Behaviour is unchanged by substring
@@ -787,13 +793,13 @@
 ## [1.21.0] - 2026-08-08
 
 - Add `routing-eval-v2`: 134 held-out and 26 development routing fixtures, replacing v1's 56 and
-  26. v1 stays readable and digest-pinned so its recorded results remain reproducible.
+  26. v1 stays readable and digest-pinned so their recorded results remain reproducible.
 - Rebalance the benchmark's languages. v1 was 66% Japanese, so a Korean or English regression was
   largely invisible; v2 is 76/43/41 across Japanese, Korean, and English, enforced by a test.
 - Double the axes that carry the safety contract rather than inflating uniformly — negation,
-  unmatched, generic interview and research, ambiguity, and both track boundaries.
-- Scope the experiment log to one benchmark version: a v1 best counts 56 cases and a v2 best
-  counts 134, so comparing a candidate across versions is meaningless rather than merely noisy.
+  unmatched, generic interview and research, ambiguity, non-capture, and both track boundaries.
+- Scope the experiment log to one benchmark version: a v1 best counts 56 cases and a v2 best counts
+  134, so comparing a candidate across versions is meaningless rather than merely noisy.
 
 ## [1.20.0] - 2026-08-08
 
@@ -838,10 +844,10 @@
   and the task the user wants to start, then route to the existing domain skill for that task.
 - Read a stated graduation year (`27卒`) back into the question with the `setup` command that would
   record it, instead of writing an unapproved career fact.
-- Separate applying to a posting from reviewing one: `応募`/`지원`/`apply` routes to the application
-  workflow, while a bare `求人`/`공고`/`JD` routes to job-seeker-agent evidence review. A message
-  that names a more specific task alongside `応募` (interview, company research, offer, or exit) now
-  resolves as that task, not as a bare application.
+- Separate applying to a posting from reviewing one: `応募`/`지원`/`apply` routes to the
+  application workflow, while a bare `求人`/`공고`/`JD` routes to job-seeker-agent evidence review.
+  A message that names a more specific task alongside `応募` (interview, company research, offer,
+  or exit) now resolves as that task, not as a bare application.
 - Route "I don't know what to do" to self-analysis without treating it as a recommendation, and only
   when the message names no more specific task.
 - Classify `第二新卒` as a `chuto` mid-career hire. It contains `新卒` as a substring and was being
@@ -876,18 +882,20 @@
 ## [1.17.0] - 2026-08-06
 
 - Localize Career Agent human UX in Korean, Japanese, and English.
-- Follow the latest chat message language immediately, with profile-language fallback for message-free commands.
-- Distinguish event confirmation from heartbeat review and keep heartbeat approval queue-only (`applied: false`).
+- Follow the latest chat message language immediately, with profile-language fallback for
+  message-free commands.
+- Distinguish event confirmation from heartbeat review and keep heartbeat approval queue-only
+  (`applied: false`).
 - Add locale-catalog completeness and language/terminology regression coverage.
 
 ## [1.16.1] - 2026-08-06
 
 - `job-seeker-agent` states the `Missing` / `Unknown` boundary in `SKILL.md` itself. The rule is not
   new — `_shared/decision_philosophy.md` already keeps absence of evidence at `Unknown`, and
-  `references/evaluation_rules.md` already leaves a one-sided gap `Unknown` until the missing side is
-  confirmed. It was only reachable through a lazily-routed reference, so a run that did not load it
-  saw "one-sided evidence stays `Unknown`" and "a missing core skill is a `Missing` requirement"
-  two lines apart with nothing choosing between them.
+  `references/evaluation_rules.md` already leaves a one-sided gap `Unknown` until the missing side
+  is confirmed. It was only reachable through a lazily-routed reference, so a run that did not
+  load it saw "one-sided evidence stays `Unknown`" and "a missing core skill is a `Missing`
+  requirement" two lines apart with nothing choosing between them.
 - `Missing` now names its precondition: comparable **confirmed candidate evidence** that does not
   meet a confirmed JD requirement. Silence in a resume or profile is not that evidence, so a
   requirement the candidate has said nothing about stays `Unknown` until they confirm it.
