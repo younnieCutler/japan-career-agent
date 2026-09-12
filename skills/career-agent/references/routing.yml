@@ -92,7 +92,7 @@ message_context:
   - id: career_transition_targeting
     skill: job-seeker-agent
     reference: references/career-transition-targeting.md
-    terms: ["キャリアチェンジ先", "次に目指す職種", "次の職種は", "次の職種を", "狙う職種を", "どの職種", "どんな職種", "職種を変え", "which target role", "what target role", "target role should i", "role should i target", "role to target next", "which adjacent role", "what adjacent role", "what role should i", "which role should i", "career path should i", "어떤 직무를", "어떤 직무가", "무슨 직무를", "무슨 직무가", "노릴 직무", "다음 직무는", "다음 직무를", "직무 전환"]
+    terms: ["キャリアチェンジ先", "次に目指す職種", "次の職種は", "次の職種を", "狙う職種を", "職種を変え", "which target role", "what target role", "target role should i pursue", "target role should i aim for", "role should i target next", "role to target next", "which adjacent role", "what adjacent role", "next career role", "next role should i target", "노릴 직무", "다음 직무는", "다음 직무를", "직무 전환", "전환할 직무", "다음에 노릴 직무"]
   - id: market_salary
     skill: tenshoku-strategy
     reference: references/market-positioning-2025-2026.md
