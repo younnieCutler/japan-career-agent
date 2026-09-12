@@ -23,6 +23,7 @@ CHECKS = (
     ("transition administration", (PYTHON, "scripts/check_transition_admin.py")),
     ("transition administration tests", (PYTHON, "scripts/test_transition_admin.py")),
     ("role transition tests", (PYTHON, "scripts/test_role_transition.py")),
+    ("job-search learning tests", (PYTHON, "scripts/test_job_search_learning.py")),
     ("context budget", (PYTHON, "scripts/check_context_budget.py")),
     ("reference paths", (PYTHON, "scripts/check_reference_paths.py")),
     # This list is explicit on purpose, so a forgotten line is the way a test stops running.
