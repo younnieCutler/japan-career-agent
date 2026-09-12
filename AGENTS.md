@@ -95,12 +95,10 @@ entry point. `scripts/check_agent_context.py` and `scripts/check_reference_paths
 user runs `python scripts/check_action.py <slug> <id>`. Active rules are read-only to domain
 skills. An unchecked interview action keeps `interview-prep generation BLOCKED` for that company.
 
-Before committing, read `.agents/PRE_COMMIT_CHECKLIST.md` when present and never commit it. During
-agent-driven local iteration, prefer `python scripts/run_agent_checks.py`: it runs the unchanged
-canonical matrix, preserves the exact full stdout/stderr under the gitignored
-`.agent-observations/` store, and returns a bounded receipt with a recall handle. CI/release truth
-remains `python scripts/run_all_checks.py`; the compact wrapper never skips, reorders, retries, or
-reinterprets checks. See `docs/AGENT_OBSERVATION_PACK.md` for exact recall and security rules.
+Before committing, read `.agents/PRE_COMMIT_CHECKLIST.md` when present and never commit it. For
+agent-driven local verification, prefer `python scripts/run_agent_checks.py`; it runs the same
+matrix and gives a recallable compact receipt. CI/release truth remains
+`python scripts/run_all_checks.py`. See `docs/AGENT_OBSERVATION_PACK.md` for storage/security rules.
 
 The canonical matrix covers data-contract readers/writers, existing-state transitions, KO/JA/EN
 routing, Windows behavior, compatibility, retry safety, a lifecycle smoke test,
