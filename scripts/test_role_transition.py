@@ -221,6 +221,35 @@ class RoleTransitionTests(unittest.TestCase):
             self.assertEqual(requirement["state"], "Unknown")
             self.assertEqual(requirement["reason"], "role_source_not_confirmed")
 
+    def test_low_confidence_role_source_forces_unknown(self) -> None:
+        payload = self.payload()
+        payload["role_candidates"][1]["sources"][0]["confidence"] = "low"
+        role = role_by_id(evaluate(payload), "qa-manual")
+        self.assertEqual(role["targeting_state"], "needs_validation")
+        for requirement in role["requirements"]:
+            self.assertEqual(requirement["state"], "Unknown")
+            self.assertEqual(requirement["reason"], "role_source_not_confirmed")
+
+    def test_role_source_must_be_public_role_evidence(self) -> None:
+        payload = self.payload()
+        source = payload["role_candidates"][0]["sources"][0]
+        source["source_type"] = "heuristic"
+        source["provenance"] = "heuristic"
+        with self.assertRaises(RoleTransitionError):
+            validate_payload(payload)
+
+    def test_role_source_requires_observation_date(self) -> None:
+        payload = self.payload()
+        payload["role_candidates"][0]["sources"][0].pop("observed_at")
+        with self.assertRaises(RoleTransitionError):
+            validate_payload(payload)
+
+    def test_role_source_provenance_must_match_source_type(self) -> None:
+        payload = self.payload()
+        payload["role_candidates"][0]["sources"][0]["provenance"] = "job_posting"
+        with self.assertRaises(RoleTransitionError):
+            validate_payload(payload)
+
     def test_low_confidence_candidate_evidence_cannot_match(self) -> None:
         payload = self.payload()
         payload["role_candidates"][0]["requirements"][1] = {
@@ -233,11 +262,28 @@ class RoleTransitionTests(unittest.TestCase):
         role = role_by_id(evaluate(payload), "qa-automation")
         requirement = requirement_by_id(role, "req-automation")
         self.assertEqual(requirement["state"], "Unknown")
-        self.assertEqual(requirement["reason"], "candidate_evidence_not_confirmed")
+        self.assertEqual(requirement["reason"], "candidate_evidence_not_direct_confirmed")
+
+    def test_heuristic_candidate_evidence_cannot_match_or_confirm_transfer(self) -> None:
+        payload = self.payload()
+        evidence = payload["candidate"]["evidence"][0]
+        evidence["source_type"] = "heuristic"
+        evidence["provenance"] = "heuristic"
+        result = evaluate(payload)
+
+        manual = role_by_id(result, "qa-manual")
+        direct = requirement_by_id(manual, "req-manual-design")
+        self.assertEqual(direct["state"], "Unknown")
+        self.assertEqual(direct["reason"], "candidate_evidence_not_direct_confirmed")
+
+        automation = role_by_id(result, "qa-automation")
+        transfer = requirement_by_id(automation, "req-automation")["transfer_hypothesis"]
+        self.assertEqual(transfer["status"], "hypothesis_basis_unconfirmed")
 
     def test_role_without_core_requirements_is_insufficient(self) -> None:
         payload = self.payload()
-        payload["role_candidates"][1]["requirements"] = [
+        payload["role_candidates"] = [payload["role_candidates"][1]]
+        payload["role_candidates"][0]["requirements"] = [
             {
                 "id": "req-preferred",
                 "text": "Optional domain experience",
