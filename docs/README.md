@@ -38,6 +38,7 @@ the later sections are reference and history.
 | [`ARCHITECTURE_BOUNDARIES.md`](ARCHITECTURE_BOUNDARIES.md) | The module-layer rules the boundary check enforces, and how to add a command |
 | [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md) | Why Host/LLM output stays a proposal while Python owns canonical state and invariants |
 | [`PRIVATE_CAREER_DATA_PRD.md`](PRIVATE_CAREER_DATA_PRD.md) | The private career data store, personal timeline and fresh-context design |
+| [`AGENT_OBSERVATION_PACK.md`](AGENT_OBSERVATION_PACK.md) | How coding agents compact long local command output while preserving exact recallable evidence |
 
 ## Maintainer
 
