@@ -37,8 +37,8 @@ in [`_shared/agent_context/development.md`](_shared/agent_context/development.md
 - `data/pipeline.yml` is the current per-company workspace projection; `_shared/pipeline_store.py`
   owns its lock/atomic writes. `data/applications.yml` is separate application-outcome/learning
   history owned by `_shared/application_learning.py` and the shipped `job_search_learning.py` CLI.
-- Canonical Vault JSON/TOML/rewritten JSONL state uses the atomic writer in
-  `skills/career-agent/career_agent.py`. TOML remains the human-editable source of truth; JSON is
+- Canonical Vault JSON/TOML/rewritten JSONL state uses the atomic writers in
+  `skills/career-agent/persistence.py`. TOML remains the human-editable source of truth; JSON is
   a replaceable cache/snapshot. Append-only JSONL keeps its append semantics.
 - `scripts/status_bar.py` is a local-first deterministic `<career_status>` projection. It may do
   one detached 24-hour manifest version check, never sends career data, and must show every gate
