@@ -142,6 +142,47 @@ def test_begin_resets_old_application_scoped_matching_state() -> None:
             assert field not in entry, (field, entry)
 
 
+def test_begin_rerun_preserves_progress_and_heals_missing_projection() -> None:
+    with workspace() as tmp:
+        root = Path(tmp)
+        app = begin(root, "acme", "SRE", role="SRE", stage=2, application_id="app-1")
+        observation = learning.add_observation(
+            workspace=root,
+            application_id=app["id"],
+            kind="candidate_observation",
+            text="system design answer was rushed",
+            observed_at="2026-09-03",
+            source_ref="user:self-report",
+            stage=3,
+        )
+        pipeline_store.update_company(
+            learning.pipeline_path(root),
+            "acme",
+            {
+                "stage": 4,
+                "match_model_version": "evidence_based_v3",
+                "decision_status": "review",
+                "match_required_gaps": ["production operation"],
+            },
+        )
+
+        rerun = begin(root, "acme", "SRE", role="SRE", stage=2, application_id="app-1")
+        assert rerun["observations"][0]["id"] == observation["id"]
+        entry = pipeline_store.load(learning.pipeline_path(root))["companies"][0]
+        assert entry["stage"] == 4
+        assert entry["match_required_gaps"] == ["production operation"]
+
+        # If the second half of a cross-file begin was interrupted, rerunning begin can recreate
+        # the missing current projection without duplicating or clearing the application history.
+        learning.pipeline_path(root).unlink()
+        healed = begin(root, "acme", "SRE", role="SRE", stage=2, application_id="app-1")
+        assert healed["observations"][0]["id"] == observation["id"]
+        entry = pipeline_store.load(learning.pipeline_path(root))["companies"][0]
+        assert entry["stage"] == 2
+        assert entry["channel"] == "direct"
+        assert entry["closed"] is False
+
+
 def test_close_freezes_matching_snapshot() -> None:
     with workspace() as tmp:
         root = Path(tmp)
@@ -251,6 +292,43 @@ def test_llm_cannot_confirm_or_reject_theme() -> None:
             assert "only the user" in str(exc)
         else:
             raise AssertionError("LLM confirmation must be rejected")
+
+
+def test_latest_user_rejection_cancels_prior_theme_confirmation() -> None:
+    with workspace() as tmp:
+        root = Path(tmp)
+        first = begin(root, "a", "SRE", application_id="app-a")
+        observation, _ = observe_and_confirm(
+            root,
+            first["id"],
+            kind="employer_feedback",
+            theme="team leadership",
+            observed_at="2026-09-01T10:00:00+09:00",
+        )
+        learning.classify_observation(
+            workspace=root,
+            application_id=first["id"],
+            observation_id=observation["id"],
+            theme="TEAM   LEADERSHIP",
+            state="rejected",
+            source="user",
+            classified_at="2026-09-01T10:05:00+09:00",
+        )
+        close(root, first["id"], stage=4, day="2026-09-01")
+
+        second = begin(root, "b", "SRE", day="2026-09-02", application_id="app-b")
+        observe_and_confirm(
+            root,
+            second["id"],
+            kind="employer_feedback",
+            theme="team leadership",
+            observed_at="2026-09-02T10:00:00+09:00",
+        )
+        close(root, second["id"], stage=4, day="2026-09-02")
+
+        result = learning.analyze(learning.load_store(learning.applications_path(root)))
+        assert result["repeated_direct_feedback"] == []
+        assert "app-a" in result["unknowns"]["direct_feedback_without_user_confirmed_theme"]
 
 
 def test_two_applications_same_employer_do_not_become_repeated_direct_feedback() -> None:
@@ -375,7 +453,7 @@ def test_unknown_feedback_is_preserved_instead_of_inferred() -> None:
     with workspace() as tmp:
         root = Path(tmp)
         for index, slug in enumerate(("a", "b", "c"), start=1):
-            app = begin(root, slug, "QA", application_id=f"app-{index}")
+            app = begin(root, slug, "QA", stage=index, application_id=f"app-{index}")
             close(root, app["id"], stage=index, day=f"2026-09-0{index}")
         result = learning.analyze(learning.load_store(learning.applications_path(root)))
         assert result["unknowns"]["no_direct_feedback"] == ["app-1", "app-2", "app-3"]
