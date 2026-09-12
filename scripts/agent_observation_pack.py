@@ -25,7 +25,8 @@ from typing import Sequence
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_STORE = ROOT / ".agent-observations"
 SCHEMA_VERSION = 1
-HANDLE_RE = re.compile(r"^obs-[0-9a-f]{16}$")
+HANDLE_HEX_LENGTH = 24
+HANDLE_RE = re.compile(rf"^obs-[0-9a-f]{{{HANDLE_HEX_LENGTH}}}$")
 DEFAULT_EXCERPT_LINES = 16
 DEFAULT_PACK_THRESHOLD_BYTES = 8 * 1024
 
@@ -74,7 +75,7 @@ def _handle(label: str, command: Sequence[str], returncode: int, stdout: bytes, 
             stderr,
         ]
     )
-    return f"obs-{identity[:16]}"
+    return f"obs-{identity[:HANDLE_HEX_LENGTH]}"
 
 
 def _line_count(data: bytes) -> int:
@@ -274,13 +275,18 @@ def run_command(
     """Run a command with captured raw streams and pack it when the policy says evidence matters."""
     if not command:
         raise ObservationPackError("command must not be empty")
-    result = subprocess.run(
-        [str(argument) for argument in command],
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
+    normalized_command = tuple(str(argument) for argument in command)
+    try:
+        result = subprocess.run(
+            list(normalized_command),
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    except OSError as exc:
+        program = normalized_command[0]
+        raise ObservationPackError(f"could not start command {program!r}: {exc}") from exc
     stdout = bytes(result.stdout or b"")
     stderr = bytes(result.stderr or b"")
     if always_pack or should_pack(
@@ -291,7 +297,7 @@ def run_command(
     ):
         return archive_observation(
             label=label,
-            command=command,
+            command=normalized_command,
             returncode=result.returncode,
             stdout=stdout,
             stderr=stderr,
@@ -300,7 +306,7 @@ def run_command(
     return ObservationReceipt(
         handle=None,
         label=label,
-        command=tuple(str(argument) for argument in command),
+        command=normalized_command,
         returncode=result.returncode,
         stdout=stdout,
         stderr=stderr,
