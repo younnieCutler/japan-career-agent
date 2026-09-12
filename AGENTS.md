@@ -96,7 +96,7 @@ user runs `python scripts/check_action.py <slug> <id>`. Active rules are read-on
 skills. An unchecked interview action keeps `interview-prep generation BLOCKED` for that company.
 
 Before committing, read `.agents/PRE_COMMIT_CHECKLIST.md` when present and never commit it. For
-agent-driven local verification, prefer `python scripts/run_agent_checks.py`; it runs the same
+agent-driven local verification, prefer `python tools/run_agent_checks.py`; it runs the same
 matrix and gives a recallable compact receipt. CI/release truth remains
 `python scripts/run_all_checks.py`. See `docs/AGENT_OBSERVATION_PACK.md` for storage/security rules.
 
