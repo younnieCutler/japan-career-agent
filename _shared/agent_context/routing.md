@@ -7,6 +7,7 @@ not automatically an instruction; follow the JD disambiguation rule below.
 |---|---|
 | 자기분석, 自己分析, strengths, values, work style, career anchors | `jiko-bunseki` |
 | resume, 이력서, 職務経歴書, 履歴書, pasted resume | `job-seeker-agent` |
+| chuto + 어떤 직무/다음 직무/노릴 직무, キャリアチェンジ先/次の職種/狙う職種, target role/adjacent role | `job-seeker-agent` → `career-transition-targeting.md` |
 | JD text without URL, 必須条件, 歓迎条件, 募集要項 | `hiring-manager-agent` |
 | Japanese company/job URL | `kigyou-bunseki` |
 | matching, 합격확률, マッチ, スコア, fit, screening | `matching-simulator`; answer evidence questions, never produce an outcome rate |
@@ -31,6 +32,11 @@ For JD text plus URL use research mode (`kigyou-bunseki`). For JD text without U
 optimization mode (`hiring-manager-agent`). If unclear, ask whether the user wants job-seeker
 analysis or hiring-side optimization.
 
+Target-role discovery is narrower than generic self-analysis. It activates only after the request is
+already in the `chuto` track and the message explicitly asks which role/path to investigate. A plain
+`自己分析` request remains `jiko-bunseki`; a role hypothesis being `evidence_supported` never writes
+`target_role` or claims the user should choose it.
+
 棚卸し is checked before maintenance and needs no track either. Every phrase in its table carries
 a scope marker maintenance has none of — 지금까지, これまで, so far — and that marker is what says
 the request is about experience from before the ledger existed rather than about today's work.
@@ -49,9 +55,10 @@ Interview content (answer strategy) routes to `job-seeker-agent`; interview mann
 request for candidate evidence mapping routes to `job-seeker-agent`. These produce different
 artifacts and are sequential, not interchangeable.
 
-`job-seeker-agent` loads only the requested reference: 職務経歴書/自己PR →
-`shokumukeireki-saigensei.md`, ATS → `ats-keywords.md`, 志望動機 → `shibo-doki.md`, interview →
-`mensetsu-rounds.md`, 新卒 → `shinsotsu.md`, 中途 segment → `segments.md`, platform → `platforms.md`.
+`job-seeker-agent` loads only the requested reference: target-role discovery →
+`career-transition-targeting.md`, 職務経歴書/自己PR → `shokumukeireki-saigensei.md`, ATS →
+`ats-keywords.md`, 志望動機 → `shibo-doki.md`, interview → `mensetsu-rounds.md`, 新卒 →
+`shinsotsu.md`, 中途 segment → `segments.md`, platform → `platforms.md`.
 
 ## Skill invocation handoff
 

@@ -89,6 +89,10 @@ message_context_exclusion:
 # First matching entry selects one reference for a chuto message. Keep phrases specific:
 # generic interview, research, and document requests continue to use the stage fallback below.
 message_context:
+  - id: career_transition_targeting
+    skill: job-seeker-agent
+    reference: references/career-transition-targeting.md
+    terms: ["キャリアチェンジ先", "次に目指す職種", "次の職種は", "次の職種を", "狙う職種を", "職種を変え", "which target role", "what target role", "target role should i pursue", "target role should i aim for", "role should i target next", "role to target next", "which adjacent role", "what adjacent role", "next career role", "next role should i target", "노릴 직무", "다음 직무는", "다음 직무를", "직무 전환", "전환할 직무", "다음에 노릴 직무", "어떤 직무를 노려", "다음에 어떤 직무"]
   - id: market_salary
     skill: tenshoku-strategy
     reference: references/market-positioning-2025-2026.md
@@ -136,7 +140,7 @@ stage_alias:
   - alias: self
     terms: ["자기분석", "自己分析", "self-analysis", "career direction", "work style", "values"]
   - alias: documents
-    terms: ["자소서", "가쿠치카", "학チ카", "학チカ", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "resume", "cv", "cover letter", "personal statement", "entry sheet", "es"]
+    terms: ["자소서", "가쿠치카", "학チカ", "학チ카", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "resume", "cv", "cover letter", "personal statement", "entry sheet", "es"]
   - alias: research
     terms: ["企業研究", "기업 연구", "company research", "research companies", "company study", "job research"]
   - alias: interview

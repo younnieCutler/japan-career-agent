@@ -6,8 +6,8 @@ pass-rate or recruiter-score prediction because the skill must not produce one.
 Four of these cases now have runnable fixtures under `fixtures/judge/`, scored against
 [`rubric.md`](rubric.md) by [`judge.md`](judge.md): case 3 → `no-metrics-achievement`,
 case 8 → `conflict-interest-offset`, cases 1+6 → `stale-ja-resume-ko-request`,
-case 2 → `jd-embedded-instruction`. Cases 4, 5, and 7 stay prose-only for now. The judged scores
-are advisory and block nothing — see [`docs/LLM_JUDGE_PILOT.md`](../../../docs/LLM_JUDGE_PILOT.md).
+case 2 → `jd-embedded-instruction`. Cases 4, 5, 7, 9, and 10 stay prose-only for now. The judged
+scores are advisory and block nothing — see [`docs/LLM_JUDGE_PILOT.md`](../../../docs/LLM_JUDGE_PILOT.md).
 
 ## Case 1: language and track
 
@@ -51,3 +51,19 @@ An old profile containing `spi3` or a 1–5 portable skill is readable. A new pr
 
 Give a confirmed hard conflict and high candidate interest. The objective result remains `Conflict`;
 the output explains the risk and records the user's choice without saying `do not apply`.
+
+## Case 9: target-role discovery without ranking
+
+Give confirmed work events but no settled `target_role`, and ask which adjacent role to investigate.
+The Skill loads `career-transition-targeting.md`, builds only a small set of source-backed role
+hypotheses, and compares them independently. The output contains no fit score, probability, hidden
+rank, `near/adjacent/stretch` band, or automatic target selection. `target_role` remains unchanged
+until the user explicitly chooses one.
+
+## Case 10: transfer hypothesis is not direct evidence
+
+Give confirmed manual test-design evidence and a sampled QA Automation posting that requires automated
+test implementation. The Skill may explain why test design could transfer, but the automation
+requirement remains `Unknown` until direct implementation evidence is confirmed. If the user explicitly
+confirms they have never implemented automated tests, the requirement may become `Missing`; resume
+silence alone must not do so.

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.35.0] - 2026-09-12
+
+- Add evidence-backed mid-career target-role exploration between self-analysis and JD-specific matching, using source-backed role hypotheses instead of fit scores, hiring probabilities, or a hardcoded transition graph.
+- Keep direct evidence, transfer hypotheses, confirmed gaps, and `Unknown` separate; transfer evidence never becomes `Matched`, silence never becomes `Missing`, and exploratory roles never write `target_role` without explicit user choice.
+- Route explicit chuto target-role discovery to the new lazy workflow while preserving document and self-analysis fallbacks, with regression coverage against target-role wording hijacking resume requests.
+
 ## [2.34.0] - 2026-09-12
 
 - Add a source-backed deterministic Transition Administration registry and projection for resignation documents and identifiers, resident-tax employer handoff, conditional unemployment and health-insurance documents, and user-owned immigration notifications.
@@ -110,7 +116,7 @@
 
 - Stop selecting a reference the message has already ruled out. Reference routing read the whole
   message as one bag of words, so a sentence that named a topic in order to dispose of it — refusing
-  it, contrasting it against what was actually wanted, or reporting it already finished — still
+  it, contrasting it against what was actually wanted instead, or reporting it already finished — still
   returned that topic's reference, and the request that followed never got a turn. Route matching is
   now scoped to the clauses that are not closing their own subject out, driven by a generic marker
   table in `references/routing.yml` rather than a rule per route. This closed all seven critical
@@ -484,7 +490,7 @@
   stated and what works without them stated too.
 - Add `docs/CAPABILITY_MATRIX.md`, `docs/ARCHITECTURE_BOUNDARIES.md` and
   `docs/MAINTAINER_RUNBOOK.md`. The matrix is checked, not asserted: every `core` row names a
-  command `build_parser()` defines, and `scripts/check_capability_matrix.py` fails the build if one
+  command `build_parser()` actually defines, and `scripts/check_capability_matrix.py` fails the build if one
   does not. Rows that are not equal say so rather than being smoothed over.
 - Enforce the three READMEs' shape, not just their contents. `check_readme_consistency.py` was
   substring-only, so a section added to one language passed; it now compares heading-level sequences
@@ -508,8 +514,7 @@
 - Install without a plugin host. `pyproject.toml` builds a wheel, so `uvx japan-career-agent` and
   `pipx install japan-career-agent` now reach the same runtime the plugin ships. The wheel keeps
   `_shared/` and `skills/career-agent/` in their existing relative positions rather than converting
-  them into packages, so the runtime modules are shipped unmodified and the plugin path is
-  unaffected.
+  them into packages, so the runtime modules are shipped unmodified and the plugin path is unaffected.
 - Add `npx japan-career-agent` as a discovery channel. The npm package contains an installer and no
   runtime: it locates `uv` or `pipx`, installs the same version of the same PyPI package, and hands
   over. It deliberately does not fall back to `pip install`, which would modify an interpreter the
