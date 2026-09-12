@@ -201,9 +201,7 @@ The old `root_cause`, `agent_feedback`, and `feedback_obtained` fields plus `scr
 readable compatibility paths for historical workspaces; do not use them as the canonical model for new
 learning records.
 
-For application portfolio observations, show raw counts and warn when the sample is small. Do not infer
-a causal reason from stage concentration, route, or silence and never impose a fixed application mix
-such as `3:2:5`.
+For application portfolio observations, show raw counts and warn when the sample is small. Do not infer a causal reason from stage concentration, route, or silence and never impose a fixed application mix such as `3:2:5`.
 
 It does not map `Proceed`, `Review`, or `Conflict` to a hiring outcome. Old `predicted_tier` history is
 read only through `python scripts/legacy_calibrate.py --legacy-experimental` and is never mixed with
