@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agent_observation_pack as pack  # noqa: E402
 import run_agent_checks  # noqa: E402
 
+DUMMY_HANDLE = "obs-0123456789abcdef01234567"
+
 
 class ArchiveContractTests(unittest.TestCase):
     def test_raw_streams_round_trip_exactly(self) -> None:
@@ -59,6 +61,7 @@ class ArchiveContractTests(unittest.TestCase):
                 store=store,
             )
         self.assertEqual(first.handle, second.handle)
+        self.assertRegex(first.handle or "", r"^obs-[0-9a-f]{24}$")
 
     def test_label_is_part_of_the_content_identity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -110,7 +113,7 @@ class ArchiveContractTests(unittest.TestCase):
 class ReceiptTests(unittest.TestCase):
     def test_failure_receipt_quotes_exact_stderr_tail(self) -> None:
         receipt = pack.ObservationReceipt(
-            handle="obs-0123456789abcdef",
+            handle=DUMMY_HANDLE,
             label="failing check",
             command=("cmd",),
             returncode=2,
@@ -171,6 +174,11 @@ class CommandExecutionTests(unittest.TestCase):
             self.assertIsNone(receipt.handle)
             self.assertEqual(list(Path(directory).iterdir()), [])
 
+    @mock.patch.object(pack.subprocess, "run", side_effect=FileNotFoundError("missing executable"))
+    def test_command_start_failure_is_a_bounded_pack_error(self, _run: mock.Mock) -> None:
+        with self.assertRaisesRegex(pack.ObservationPackError, "could not start command 'missing'"):
+            pack.run_command(label="start failure", command=("missing",))
+
 
 class AgentCheckWrapperTests(unittest.TestCase):
     @mock.patch.object(run_agent_checks, "run_command")
@@ -193,7 +201,7 @@ class AgentCheckWrapperTests(unittest.TestCase):
     @mock.patch.object(run_agent_checks, "run_command")
     def test_default_wrapper_packs_success_for_exact_recall(self, run: mock.Mock) -> None:
         run.return_value = pack.ObservationReceipt(
-            handle="obs-0123456789abcdef",
+            handle=DUMMY_HANDLE,
             label="repository verification matrix",
             command=(sys.executable, "scripts/run_all_checks.py"),
             returncode=0,
