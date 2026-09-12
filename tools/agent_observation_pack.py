@@ -49,10 +49,6 @@ class ObservationReceipt:
     def total_bytes(self) -> int:
         return len(self.stdout) + len(self.stderr)
 
-    @property
-    def preferred_stream(self) -> str:
-        return "stderr" if self.stderr else "stdout"
-
 
 def _framed_digest(parts: Sequence[bytes]) -> str:
     """Hash length-framed bytes so concatenation cannot create ambiguous identities."""
@@ -113,6 +109,7 @@ def _safe_chmod(path: Path, mode: int) -> None:
     try:
         path.chmod(mode)
     except OSError:
+        # Best effort only: Windows and some filesystems do not expose POSIX mode semantics.
         pass
 
 
@@ -135,29 +132,34 @@ def archive_observation(
         stderr=stderr,
     )
     handle = str(record["handle"])
-    store.mkdir(parents=True, exist_ok=True)
-    _safe_chmod(store, 0o700)
-    path = store / f"{handle}.json"
+    try:
+        store.mkdir(parents=True, exist_ok=True)
+        _safe_chmod(store, 0o700)
+        path = store / f"{handle}.json"
+        serialized = (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
 
-    serialized = (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
-    if path.exists():
-        existing = path.read_bytes()
-        if existing != serialized:
-            raise ObservationPackError(f"content-address collision or corrupted observation: {handle}")
-    else:
-        descriptor, temporary_name = tempfile.mkstemp(prefix=f".{handle}.", suffix=".tmp", dir=store)
-        temporary = Path(temporary_name)
-        try:
-            with os.fdopen(descriptor, "wb") as handle_file:
-                handle_file.write(serialized)
-                handle_file.flush()
-                os.fsync(handle_file.fileno())
-            _safe_chmod(temporary, 0o600)
-            os.replace(temporary, path)
-            _safe_chmod(path, 0o600)
-        finally:
-            if temporary.exists():
-                temporary.unlink()
+        if path.exists():
+            existing = path.read_bytes()
+            if existing != serialized:
+                raise ObservationPackError(f"content-address collision or corrupted observation: {handle}")
+        else:
+            descriptor, temporary_name = tempfile.mkstemp(prefix=f".{handle}.", suffix=".tmp", dir=store)
+            temporary = Path(temporary_name)
+            try:
+                with os.fdopen(descriptor, "wb") as handle_file:
+                    handle_file.write(serialized)
+                    handle_file.flush()
+                    os.fsync(handle_file.fileno())
+                _safe_chmod(temporary, 0o600)
+                os.replace(temporary, path)
+                _safe_chmod(path, 0o600)
+            finally:
+                if temporary.exists():
+                    temporary.unlink()
+    except ObservationPackError:
+        raise
+    except OSError as exc:
+        raise ObservationPackError(f"cannot write observation {handle}: {exc}") from exc
 
     return ObservationReceipt(
         handle=handle,
@@ -312,10 +314,24 @@ def run_command(
     )
 
 
+def _append_exact_tail(
+    lines: list[str], *, stream_name: str, data: bytes, excerpt_lines: int
+) -> None:
+    if not data:
+        return
+    start, end, excerpt = tail_window(data, lines=excerpt_lines)
+    if not excerpt:
+        return
+    lines.append(f"exact {stream_name} lines {start}-{end}:")
+    lines.extend(f"  {line}" for line in excerpt)
+
+
 def format_compact_receipt(
     receipt: ObservationReceipt, *, excerpt_lines: int = DEFAULT_EXCERPT_LINES
 ) -> str:
-    """Return a bounded receipt; any quoted output is copied directly from the archived stream."""
+    """Return a bounded receipt; any quoted output is copied directly from the archived streams."""
+    if excerpt_lines < 1:
+        raise ObservationPackError("excerpt_lines must be >= 1")
     if receipt.returncode == 0:
         if receipt.handle:
             return (
@@ -330,15 +346,15 @@ def format_compact_receipt(
             f"full evidence: {receipt.handle} ({receipt.total_bytes} bytes); "
             f"recall: python tools/agent_observation_pack.py show {receipt.handle}"
         )
-    stream_name, stream = select_stream(receipt.stdout, receipt.stderr, "auto")
-    start, end, excerpt = tail_window(stream, lines=excerpt_lines)
-    if excerpt:
-        lines.append(f"exact {stream_name} lines {start}-{end}:")
-        lines.extend(f"  {line}" for line in excerpt)
-    elif receipt.stdout or receipt.stderr:
-        lines.append("command produced non-text output; use the observation handle for the raw archive")
-    else:
+    if not receipt.stdout and not receipt.stderr:
         lines.append("command produced no stdout/stderr")
+    else:
+        _append_exact_tail(
+            lines, stream_name="stderr", data=receipt.stderr, excerpt_lines=excerpt_lines
+        )
+        _append_exact_tail(
+            lines, stream_name="stdout", data=receipt.stdout, excerpt_lines=excerpt_lines
+        )
     return "\n".join(lines)
 
 
