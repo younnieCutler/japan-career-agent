@@ -2,9 +2,9 @@
 """Pack large or failed agent-facing command output without losing the original evidence.
 
 The archive is local-only under ``.agent-observations/``. Each observation is content-addressed by
-its command, exit code, stdout, and stderr. The compact receipt shown to an agent is deliberately
-not a semantic summary: failure excerpts are exact lines from the archived stream, and the full
-raw bytes remain recallable by handle.
+its label, command, exit code, stdout, and stderr. The compact receipt shown to an agent is
+deliberately not a semantic summary: failure excerpts are exact lines from the archived stream,
+and the full raw bytes remain recallable by handle.
 """
 
 from __future__ import annotations
@@ -62,10 +62,17 @@ def _framed_digest(parts: Sequence[bytes]) -> str:
     return digest.hexdigest()
 
 
-def _handle(command: Sequence[str], returncode: int, stdout: bytes, stderr: bytes) -> str:
+def _handle(label: str, command: Sequence[str], returncode: int, stdout: bytes, stderr: bytes) -> str:
     command_bytes = [argument.encode("utf-8") for argument in command]
     identity = _framed_digest(
-        [b"agent-observation-pack-v1", *command_bytes, str(returncode).encode("ascii"), stdout, stderr]
+        [
+            b"agent-observation-pack-v1",
+            label.encode("utf-8"),
+            *command_bytes,
+            str(returncode).encode("ascii"),
+            stdout,
+            stderr,
+        ]
     )
     return f"obs-{identity[:16]}"
 
@@ -83,7 +90,7 @@ def _sha256(data: bytes) -> str:
 def _record(
     *, label: str, command: Sequence[str], returncode: int, stdout: bytes, stderr: bytes
 ) -> dict[str, object]:
-    handle = _handle(command, returncode, stdout, stderr)
+    handle = _handle(label, command, returncode, stdout, stderr)
     return {
         "version": SCHEMA_VERSION,
         "handle": handle,
@@ -169,23 +176,32 @@ def _decode_record(path: Path) -> tuple[dict[str, object], bytes, bytes]:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ObservationPackError(f"cannot read observation {path.name}: {exc}") from exc
+    if not isinstance(record, dict):
+        raise ObservationPackError(f"invalid observation record {path.name}: expected an object")
     if record.get("version") != SCHEMA_VERSION:
         raise ObservationPackError(
             f"unsupported observation schema {record.get('version')!r}; expected {SCHEMA_VERSION}"
         )
+    if not isinstance(record.get("label"), str) or not isinstance(record.get("command"), list):
+        raise ObservationPackError(f"invalid observation record {path.name}: label/command shape")
     try:
         stdout = base64.b64decode(str(record["stdout_b64"]), validate=True)
         stderr = base64.b64decode(str(record["stderr_b64"]), validate=True)
+        label = str(record["label"])
         command = tuple(str(value) for value in record["command"])
         returncode = int(record["returncode"])
     except (KeyError, TypeError, ValueError) as exc:
         raise ObservationPackError(f"invalid observation record {path.name}: {exc}") from exc
 
-    expected_handle = _handle(command, returncode, stdout, stderr)
+    expected_handle = _handle(label, command, returncode, stdout, stderr)
     if record.get("handle") != expected_handle or path.name != f"{expected_handle}.json":
         raise ObservationPackError(f"observation identity mismatch: {path.name}")
     if record.get("stdout_sha256") != _sha256(stdout) or record.get("stderr_sha256") != _sha256(stderr):
         raise ObservationPackError(f"observation digest mismatch: {path.name}")
+    if record.get("stdout_bytes") != len(stdout) or record.get("stderr_bytes") != len(stderr):
+        raise ObservationPackError(f"observation byte-count mismatch: {path.name}")
+    if record.get("stdout_lines") != _line_count(stdout) or record.get("stderr_lines") != _line_count(stderr):
+        raise ObservationPackError(f"observation line-count mismatch: {path.name}")
     return record, stdout, stderr
 
 
