@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -13,11 +14,58 @@ from agent_observation_pack import (  # noqa: E402
     DEFAULT_EXCERPT_LINES,
     DEFAULT_STORE,
     ObservationPackError,
+    ObservationReceipt,
+    archive_observation,
     format_compact_receipt,
-    run_command,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
+LABEL = "repository verification matrix"
+COMMAND = (sys.executable, "scripts/run_all_checks.py")
+
+
+def _run_canonical(*, store: Path, pack_success: bool) -> ObservationReceipt:
+    """Run the canonical matrix first, then persist its observation on a best-effort basis."""
+    try:
+        result = subprocess.run(
+            list(COMMAND),
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    except OSError as exc:
+        raise ObservationPackError(f"could not start canonical matrix: {exc}") from exc
+
+    stdout = bytes(result.stdout or b"")
+    stderr = bytes(result.stderr or b"")
+    receipt = ObservationReceipt(
+        handle=None,
+        label=LABEL,
+        command=COMMAND,
+        returncode=result.returncode,
+        stdout=stdout,
+        stderr=stderr,
+        path=None,
+    )
+
+    if result.returncode == 0 and not pack_success:
+        return receipt
+
+    try:
+        return archive_observation(
+            label=LABEL,
+            command=COMMAND,
+            returncode=result.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            store=store,
+        )
+    except ObservationPackError as exc:
+        # The canonical command has already completed. Persistence is presentation/debugging only
+        # and must never replace the command's pass/fail truth with an observation-layer exit code.
+        print(f"agent-checks: observation archive failed: {exc}", file=sys.stderr)
+        return receipt
 
 
 def main() -> int:
@@ -32,15 +80,12 @@ def main() -> int:
     arguments = parser.parse_args()
 
     try:
-        receipt = run_command(
-            label="repository verification matrix",
-            command=(sys.executable, "scripts/run_all_checks.py"),
-            cwd=ROOT,
+        receipt = _run_canonical(
             store=arguments.store,
-            threshold_bytes=sys.maxsize if arguments.no_pack_success else 0,
-            always_pack=not arguments.no_pack_success,
+            pack_success=not arguments.no_pack_success,
         )
     except ObservationPackError as exc:
+        # No canonical result exists when the command itself could not be started.
         print(f"agent-checks: {exc}", file=sys.stderr)
         return 2
 
