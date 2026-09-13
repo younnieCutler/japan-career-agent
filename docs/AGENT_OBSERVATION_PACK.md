@@ -1,7 +1,7 @@
 # Agent observation pack
 
 This repository has a local, opt-in observation pack for coding-agent development loops. Its goal
-is narrow: reduce repeated model context spent on long command output **without** hiding the exact
+is narrow: reduce repeated model context spent on long command output **without** losing the raw
 evidence needed to debug or review a failure.
 
 ## Default agent workflow
@@ -21,6 +21,12 @@ python scripts/run_all_checks.py
 but captures the matrix stdout/stderr locally and returns a compact receipt. The wrapper preserves
 the canonical exit code. It does not skip tests, change their order, retry failures, or reinterpret
 a result.
+
+Persistence happens only after the canonical command has completed. If the observation archive is
+read-only, full, or otherwise unavailable, the wrapper prints `observation archive failed` to stderr,
+falls back to an unpacked receipt, and returns the canonical command's original exit code. An archive
+failure therefore cannot turn a canonical `0`, `1`, `7`, or other completed result into an
+observation-layer result.
 
 A successful run is retained by default because it can be useful as release evidence. To avoid
 retaining a successful run while still preserving failures:
@@ -44,12 +50,12 @@ python tools/agent_observation_pack.py run \
   -- python skills/career-agent/test_routing.py
 ```
 
-A failed command always produces a handle and an exact bounded tail excerpt. A successful command
-is packed only when its combined stdout/stderr reaches the default 8 KiB threshold, unless
+A failed command is eligible for retention and a bounded display excerpt. A successful command is
+packed only when its combined stdout/stderr reaches the default 8 KiB threshold, unless
 `--always-pack` is supplied. A command that cannot be started returns a bounded observation-pack
 error rather than a Python traceback.
 
-## Exact recall
+## Raw-byte archive and bounded display recall
 
 A receipt such as `obs-0123456789abcdef01234567` can be recalled in bounded windows:
 
@@ -60,9 +66,14 @@ python tools/agent_observation_pack.py show obs-0123456789abcdef01234567 --strea
 
 The archive stores stdout and stderr as base64-encoded raw bytes and records SHA-256, byte count,
 and line count for each stream. A read verifies the content-derived 96-bit handle prefix and those
-recorded properties before displaying anything. The compact failure excerpt is copied directly from
-the archived stream; there is no LLM summarizer and no generated causal explanation. A stored-file
-collision is also checked against the complete serialized record before reuse.
+recorded properties before displaying anything. The archived bytes are the exact captured evidence.
+A stored-file collision is also checked against the complete serialized record before reuse.
+
+Display excerpts are intentionally text projections, not byte-for-byte renderings. For terminal
+presentation the tool decodes archived bytes as UTF-8 with replacement for invalid byte sequences;
+therefore `�` may appear even though the raw archive still preserves the original bytes. The reported
+line window identifies the selected lines of that decoded display. There is no LLM summarizer and no
+generated causal explanation.
 
 Invalid handles are rejected before path construction, so a handle cannot escape the archive
 root. Writes use a temporary file followed by atomic replacement. On POSIX systems the directory
@@ -103,5 +114,5 @@ large command observations.
 
 This is not a general model-context compressor, not an automatic semantic log summarizer, and not a
 replacement for the canonical repository matrix. It does not patch Claude Code, Codex, Pi, or any
-other host. It only gives repository-aware coding agents a smaller default observation with exact,
-local recall when they need the full evidence.
+other host. It only gives repository-aware coding agents a smaller default observation backed by a
+verified raw-byte local archive when they need the full evidence.
