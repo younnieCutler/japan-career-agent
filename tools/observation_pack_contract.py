@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -111,7 +113,7 @@ class ArchiveContractTests(unittest.TestCase):
 
 
 class ReceiptTests(unittest.TestCase):
-    def test_failure_receipt_quotes_exact_stderr_tail(self) -> None:
+    def test_failure_receipt_quotes_bounded_display_tail(self) -> None:
         receipt = pack.ObservationReceipt(
             handle=DUMMY_HANDLE,
             label="failing check",
@@ -126,6 +128,8 @@ class ReceiptTests(unittest.TestCase):
         self.assertIn("  two", text)
         self.assertIn("  three", text)
         self.assertNotIn("  one", text)
+        self.assertIn("exact stdout lines 1-1", text)
+        self.assertIn("  stdout line", text)
 
     def test_line_window_is_one_indexed_and_bounded(self) -> None:
         start, end, lines = pack.line_window(b"a\nb\nc\nd\n", start_line=2, lines=2)
@@ -181,39 +185,84 @@ class CommandExecutionTests(unittest.TestCase):
 
 
 class AgentCheckWrapperTests(unittest.TestCase):
-    @mock.patch.object(run_agent_checks, "run_command")
-    def test_no_pack_success_uses_a_nonzero_suppression_threshold(self, run: mock.Mock) -> None:
-        run.return_value = pack.ObservationReceipt(
-            handle=None,
-            label="repository verification matrix",
-            command=(sys.executable, "scripts/run_all_checks.py"),
-            returncode=0,
-            stdout=b"ok",
-            stderr=b"",
-            path=None,
+    @mock.patch.object(run_agent_checks, "archive_observation")
+    @mock.patch.object(run_agent_checks.subprocess, "run")
+    def test_no_pack_success_skips_archive(
+        self, run: mock.Mock, archive: mock.Mock
+    ) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            args=list(run_agent_checks.COMMAND), returncode=0, stdout=b"ok\n", stderr=b""
         )
         with mock.patch.object(sys, "argv", ["run_agent_checks.py", "--no-pack-success"]):
             self.assertEqual(run_agent_checks.main(), 0)
-        kwargs = run.call_args.kwargs
-        self.assertEqual(kwargs["threshold_bytes"], sys.maxsize)
-        self.assertFalse(kwargs["always_pack"])
+        archive.assert_not_called()
 
-    @mock.patch.object(run_agent_checks, "run_command")
-    def test_default_wrapper_packs_success_for_exact_recall(self, run: mock.Mock) -> None:
-        run.return_value = pack.ObservationReceipt(
+    @mock.patch.object(run_agent_checks, "archive_observation")
+    @mock.patch.object(run_agent_checks.subprocess, "run")
+    def test_default_wrapper_packs_success(
+        self, run: mock.Mock, archive: mock.Mock
+    ) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            args=list(run_agent_checks.COMMAND), returncode=0, stdout=b"ok\n", stderr=b""
+        )
+        archive.return_value = pack.ObservationReceipt(
             handle=DUMMY_HANDLE,
-            label="repository verification matrix",
-            command=(sys.executable, "scripts/run_all_checks.py"),
+            label=run_agent_checks.LABEL,
+            command=run_agent_checks.COMMAND,
             returncode=0,
-            stdout=b"ok",
+            stdout=b"ok\n",
             stderr=b"",
             path=Path("dummy"),
         )
         with mock.patch.object(sys, "argv", ["run_agent_checks.py"]):
             self.assertEqual(run_agent_checks.main(), 0)
-        kwargs = run.call_args.kwargs
-        self.assertEqual(kwargs["threshold_bytes"], 0)
-        self.assertTrue(kwargs["always_pack"])
+        archive.assert_called_once()
+
+    @mock.patch.object(
+        run_agent_checks,
+        "archive_observation",
+        side_effect=pack.ObservationPackError("read-only store"),
+    )
+    @mock.patch.object(run_agent_checks.subprocess, "run")
+    def test_archive_failure_preserves_success_exit_code(
+        self, run: mock.Mock, _archive: mock.Mock
+    ) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            args=list(run_agent_checks.COMMAND), returncode=0, stdout=b"ok\n", stderr=b""
+        )
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        with (
+            mock.patch.object(sys, "argv", ["run_agent_checks.py"]),
+            redirect_stderr(stderr),
+            redirect_stdout(stdout),
+        ):
+            self.assertEqual(run_agent_checks.main(), 0)
+        self.assertIn("observation archive failed", stderr.getvalue())
+        self.assertIn("ok repository verification matrix", stdout.getvalue())
+
+    @mock.patch.object(
+        run_agent_checks,
+        "archive_observation",
+        side_effect=pack.ObservationPackError("disk full"),
+    )
+    @mock.patch.object(run_agent_checks.subprocess, "run")
+    def test_archive_failure_preserves_nonzero_exit_code(
+        self, run: mock.Mock, _archive: mock.Mock
+    ) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            args=list(run_agent_checks.COMMAND), returncode=7, stdout=b"failed\n", stderr=b""
+        )
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        with (
+            mock.patch.object(sys, "argv", ["run_agent_checks.py", "--no-pack-success"]),
+            redirect_stderr(stderr),
+            redirect_stdout(stdout),
+        ):
+            self.assertEqual(run_agent_checks.main(), 7)
+        self.assertIn("observation archive failed", stderr.getvalue())
+        self.assertIn("FAILED repository verification matrix (exit 7)", stdout.getvalue())
 
 
 if __name__ == "__main__":
