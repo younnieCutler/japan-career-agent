@@ -1,8 +1,8 @@
-"""KO/JA/EN coverage for the three intent lexicons, and the collisions they must not cause.
+"""KO/JA/EN coverage for career-mode intents and the canonical lifecycle boundary.
 
-The maintenance, opportunity-review and active-search tables sit beside the four routing tables
-that were already there. The tests below check both directions: the new phrases fire when they
-should, and every stage the old tables owned still resolves the way it did.
+Maintenance, inventory, opportunity review and active-search declarations remain independent from
+market-stage routing. The tests below pin that separation while allowing the chuto stage vocabulary
+to evolve deliberately.
 """
 
 import sys
@@ -106,38 +106,36 @@ class ActiveSearchIntentTests(unittest.TestCase):
                 self.assertFalse(career_agent.active_search_intent(message))
 
 
-class NoRegressionInTheOlderTablesTests(unittest.TestCase):
-    """The four original tables must behave exactly as before the intent tables were added."""
-
-    def test_stage_routing_is_unchanged_for_maintenance_vocabulary(self) -> None:
-        # These messages now match `maintenance`, but `stage_for` never reads that table, so a
-        # caller that ignores the intent still gets the same stage it always did.
+class LifecycleSeparationTests(unittest.TestCase):
+    def test_stage_routing_remains_independent_from_maintenance_intent(self) -> None:
         cases = (
-            ("이력서 정리해줘", "chuto", "職務経歴書・自己PR"),
-            ("職務経歴書を書きたい", "chuto", "職務経歴書・自己PR"),
-            ("この求人に応募できるか", "chuto", "応募・書類選考"),
-            ("面接の準備をしたい", "chuto", "面接"),
+            ("이력서 정리해줘", "chuto", "応募基盤・職務経歴書"),
+            ("職務経歴書を書きたい", "chuto", "応募基盤・職務経歴書"),
+            ("この求人に応募できるか", "chuto", "企業研究・JD分析"),
+            ("面接の準備をしたい", "chuto", "面接・選考"),
+            ("入社準備をしたい", "chuto", "入社準備・オンボーディング"),
         )
         for message, track, expected in cases:
             with self.subTest(message=message):
                 self.assertEqual(career_agent.stage_for(message, track), expected)
 
-    def test_the_known_korean_document_gap_is_unchanged(self) -> None:
-        # Pre-existing and out of scope here: `경력기술서` is in the chuto flow_phase table but not
-        # in the `documents` stage alias, so it falls through to the self-analysis default. Pinned
-        # so that closing the gap later is a deliberate lexicon change with a benchmark behind it,
-        # not an accident of some other edit.
-        self.assertEqual(career_agent.stage_for("경력기술서 정리해줘", "chuto"), "自己分析・転職軸")
+    def test_korean_career_document_term_is_a_base_document_signal(self) -> None:
+        self.assertEqual(
+            career_agent.stage_for("경력기술서 정리해줘", "chuto"), "応募基盤・職務経歴書"
+        )
 
-    def test_track_inference_is_unchanged(self) -> None:
+    def test_spi_name_alone_does_not_infer_a_hiring_track(self) -> None:
+        self.assertIsNone(career_agent.infer_track("SPI3対策をしたい"))
+        self.assertIsNone(career_agent.infer_track("적성검사 준비하고 싶어"))
+        self.assertEqual(career_agent.infer_track("中途でSPI3対策をしたい"), "chuto")
+        self.assertEqual(career_agent.infer_track("新卒でSPI3対策をしたい"), "shinsotsu")
+
+    def test_track_inference_for_maintenance_is_unchanged(self) -> None:
         self.assertEqual(career_agent.infer_track("이직 생각은 없는데 경력은 정리해두고 싶어"), "chuto")
         self.assertIsNone(career_agent.infer_track("오늘 한 일 기록해줘"))
         self.assertIsNone(career_agent.infer_track("今日やった仕事を記録して"))
 
     def test_no_intent_phrase_is_a_substring_of_a_stage_alias_term(self) -> None:
-        # The failure this guards against is silent: a fragment like 経歴 would make every
-        # 職務経歴書 request read as a maintenance note. Applied to every intent table, so a new
-        # one cannot reintroduce the same class of collision.
         alias_terms = [
             term.lower()
             for group in career_agent.ROUTING["stage_alias"]
@@ -183,8 +181,6 @@ class TanaoroshiIntentTests(unittest.TestCase):
                 self.assertTrue(career_agent.tanaoroshi_intent(message))
 
     def test_ordinary_upkeep_is_not_an_inventory(self) -> None:
-        # The distinguishing signal is scope. Without 지금까지 / これまで / so far, the request is
-        # about today's work and belongs to maintenance.
         for message in (
             "오늘 한 일 기록해줘",
             "업무일지 남겨줘",
@@ -211,9 +207,7 @@ class TanaoroshiIntentTests(unittest.TestCase):
         self.assertTrue(career_agent.tanaoroshi_intent(message))
         self.assertFalse(career_agent.active_search_intent(message))
 
-    def test_stage_routing_is_unchanged_for_inventory_vocabulary(self) -> None:
-        # `stage_for` never reads the intent tables, so a caller that ignores the intent still gets
-        # the stage it always did.
+    def test_stage_routing_for_inventory_stays_at_direction(self) -> None:
         self.assertEqual(
             career_agent.stage_for("これまでの経験を整理したい", "chuto"), "自己分析・転職軸"
         )
