@@ -1,6 +1,6 @@
 [metadata]
 title = "Japan career flow reference"
-reviewed_on = "2026-08-01"
+reviewed_on = "2026-09-15"
 review_due = "2027-03-01"
 maintainer = "manual review only"
 sources = [
@@ -47,29 +47,44 @@ scope = "Japanese mid-career job change"
 [[chuto.phases]]
 id = "preparation"
 label = "自己分析・転職軸"
-purpose = "Define the target and factual transition reason before applying."
+purpose = "Recover relevant evidence, define the target direction, and keep factual transition reasons separate from hypotheses."
 
 [[chuto.phases]]
-id = "documents"
-label = "職務経歴書"
-purpose = "Prepare evidence-backed documents matched to a role."
+id = "base_documents"
+label = "応募基盤・職務経歴書"
+purpose = "Prepare a reusable evidence-backed candidate profile and base documents before tailoring to one employer."
 
 [[chuto.phases]]
-id = "application"
+id = "opportunity_discovery"
+label = "求人探索・候補整理"
+purpose = "Discover current public opportunities, preserve provenance, and let the user choose which postings enter deeper review."
+
+[[chuto.phases]]
+id = "opportunity_analysis"
+label = "企業研究・JD分析"
+purpose = "Research the company and posting, then diagnose requirements against confirmed candidate evidence without a fit score."
+
+[[chuto.phases]]
+id = "application_selection"
 label = "応募・書類選考"
-purpose = "Review fit and application requirements; never submit automatically."
+purpose = "Tailor the application package, record the application when the user starts it, and keep selection tracking active through closure."
 
 [[chuto.phases]]
 id = "interview"
-label = "面接"
-purpose = "Prepare factual answers, questions, and post-interview feedback."
+label = "面接・選考"
+purpose = "Prepare evidence-backed answers, practise against the actual interview context when known, and record feedback or unknown reasons after each outcome."
 
 [[chuto.phases]]
 id = "offer"
-label = "内定・条件確認"
-purpose = "Review compensation, role, and terms as a checklist, not legal advice."
+label = "内定・条件交渉"
+purpose = "Review written conditions, deadlines, compensation, role scope, and trade-offs before the user accepts or declines."
 
 [[chuto.phases]]
-id = "exit_onboarding"
-label = "退職・入社準備"
-purpose = "Plan resignation and onboarding after the user decides to proceed."
+id = "exit"
+label = "退職・引き継ぎ"
+purpose = "Plan resignation, handover, and applicable transition administration only after the user decides to proceed."
+
+[[chuto.phases]]
+id = "onboarding"
+label = "入社準備・オンボーディング"
+purpose = "Verify joining documents, applicable authorization/tax/insurance handoffs, and the first 90 days without inventing employer requirements."
