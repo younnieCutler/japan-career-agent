@@ -1,10 +1,10 @@
 ---
 name: mock-interviewer
 description: >
-  Simulates realistic Japanese interviewers (1st round tech lead, 2nd round HR, final round executive)
-  to stress-test candidate's resume, 退職理由, 志望動機, and STAR stories via adaptive deep-dive
-  questioning across three probe families (深掘り).
-  Identifies undefendable claims, fake metrics, and emotional disconnects before actual interviews.
+  Stress-tests a candidate's resume, 退職理由, 志望動機, and interview stories against the actual
+  Japanese interview context when the round/interviewer is known, or a clearly labelled generic
+  persona when it is not. Uses adaptive 深掘り to identify undefendable claims, fake metrics, and
+  contradictions before an actual interview without assuming a universal round sequence.
 
   Use when:
   - "practice interview", "mock interview", "면접 연습", "面接対策", "深掘り 対策"
@@ -22,12 +22,20 @@ The goal is not to encourage, but to find weak points, undefendable metrics, and
 
 ---
 
-## Execution Gate (check before starting a session)
+## Session Entry — actual invitation first
 
-If `<career_status>` reports unchecked action items for the company being practised for, do not run
-the mock interview yet. Show the items and ask the user to complete them first
-(`python3 scripts/check_action.py <slug> <id>`). Practising around an unfinished checklist rehearses
-the same gap the checklist was written to close.
+Load `references/session-routing.md` when the user asks for interview practice. Extract the actual
+round, interviewer function, format, duration, and stated focus only when the invitation or recruiter
+message supplies them. If they are known, simulate that situation. Do not overwrite it with a generic
+`1st = field lead / 2nd = HR / final = executive` sequence.
+
+Unchecked company action items do **not** automatically block practice. Surface an unfinished item
+when it materially changes the requested session, but continue with the evidence already usable.
+Stop only when the requested practice itself is undefined or would require unsafe invention, for
+example the target role is unknown for a role-specific session, the user wants to rehearse an
+unconfirmed factual claim as fact, or confidential evidence would be exposed without an approved
+abstraction. An unknown interviewer, incomplete company research, or another non-critical checklist
+item narrows the session; it does not cancel it.
 
 Read `data/rules.yml` if present. Any `status: active` rule is a phrase the user has already decided
 never to say — treat a violation during practice as a finding, quoting the rule verbatim.
@@ -70,21 +78,26 @@ Detect the user's language preferences for UI, but the **interview practice ques
 
 ---
 
-## Interviewer Personas (3 Rounds)
+## Interviewer Context and Fallback Personas
 
-When starting a session, ask the user which interviewer persona to simulate:
+Use the actual invitation/recruiter information first. The fallback personas below are practice
+options only when the real interviewer context is unknown; they are not a claim about the employer's
+round order. Ask the user which generic focus is useful when no actual context is available:
 
-1. **1st Round — Tech / Field Lead (現場リーダー・課長)**
+1. **Field / Technical Lead (現場リーダー・技術責任者)**
    - Focus: Hard skills, specific technical implementation details, daily workflow, problem-solving process.
-   - Favorite question: 「具体的にどうやってその課題を特定し、なぜその技術を選んだのですか？」
+   - Example probe: 「具体的にどうやってその課題を特定し、なぜその技術を選んだのですか？」
 
-2. **2nd Round — HR / Department Manager (人事・部長)**
-   - Focus: Portable Skills, team communication, 退職理由, 転職軸, retention risk (定着性).
-   - Favorite question: 「前職で最も葛藤があった場面と、それをどう乗り越えたか教えてください。」
+2. **HR / People Manager (人事・部門マネージャー)**
+   - Focus: Team communication, 退職理由, 転職軸, working conditions, and career consistency.
+   - Example probe: 「前職で最も葛藤があった場面と、それをどう乗り越えたか教えてください。」
 
-3. **Final Round — Executive / Board Member (役員・社長)**
-   - Focus: Company mission fit, 志望動機, 5-year career vision, decision-making consistency, character & value fit.
-   - Favorite question: 「なぜ他社ではなく、今、当社なのですか？ 当社のバリューで最も共感する部分は？」
+3. **Executive / Business Leader (役員・事業責任者)**
+   - Focus: Company/role motivation, decision consistency, business context, and longer-term direction.
+   - Example probe: 「なぜ他社ではなく、今、当社なのですか？」
+
+Never label one of these as the employer's actual first/second/final round unless the supplied process
+says so.
 
 ---
 
@@ -217,7 +230,7 @@ After the default question budget, or when the user asks to stop, provide a **De
   Interview Defense Assessment (深掘り 耐性)
 ═══════════════════════════════════════
 
-[Persona] ○○ Round Interviewer
+[Persona] actual interviewer context or labelled fallback
 
 ━━━ Defense Breakdown ━━━
 1. Fact & Role Defense: [Pass / Weak / Failed]

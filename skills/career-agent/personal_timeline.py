@@ -437,17 +437,20 @@ STAGE_CATEGORIES: dict[str, frozenset[str]] = {
     ),
     "内々定・内定・入社準備": frozenset({"compensation", "employment"}),
     "自己分析・転職軸": frozenset({"employment", "role", "skill"}),
-    "職務経歴書・自己PR": frozenset(
+    "応募基盤・職務経歴書": frozenset(
         {"employment", "role", "skill", "portfolio", "certification", "language", "education"}
     ),
+    "求人探索・候補整理": frozenset(),
+    "企業研究・JD分析": frozenset(),
     "応募・書類選考": frozenset(
         {"employment", "role", "skill", "portfolio", "certification", "language", "education"}
     ),
-    "面接": frozenset(
+    "面接・選考": frozenset(
         {"employment", "role", "skill", "portfolio", "certification", "language", "education"}
     ),
     "内定・条件交渉": frozenset({"compensation", "employment"}),
-    "退職・入社準備": frozenset({"employment", "compensation"}),
+    "退職・引き継ぎ": frozenset({"employment", "compensation"}),
+    "入社準備・オンボーディング": frozenset({"employment", "compensation"}),
 }
 
 # Section 12.1: the personal path is capped exactly as the Vault path is. An uncapped "current facts

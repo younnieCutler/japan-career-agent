@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.37.0] - 2026-09-16
+
+- Align the mid-career Career Agent with one canonical lifecycle from direction and base documents through opportunity discovery, company/JD analysis, application, interview, offer, exit, and onboarding while preserving the existing 0–7 pipeline projection.
+- Route the existing specialist Skills into the real selection flow without adding Skills: target-specific documents use `career-document`, formal JD diagnosis uses `matching-simulator`, interview practice uses `mock-interviewer`, and application tracking/learning runs continuously while an application is open.
+- Make interview practice prefer actual invitation/interviewer evidence before labelled fallback personas, and make aptitude-test preparation identify the actual provider/test before using SPI3 guidance; preserve `Unknown`, provenance, and the no-hiring-prediction boundary.
+
 ## [2.36.0] - 2026-09-12
 
 - Add application-level Job Search Learning Loop history in `data/applications.yml`, keeping repeated applications to one company separate from the current `data/pipeline.yml` projection and freezing closed outcome and matching snapshots.
@@ -509,8 +515,6 @@
 
 - Rename the project to `japan-career-agent`. The old name described the work as recruiting, which
   is what the other side of the table does; what this actually holds is one person's career record.
-  The repository, the plugin, the marketplace entry and the release product name all move together,
-  because a name that is right in one manifest and stale in another is worse than either name alone.
 - Keep every artefact published under the old name verifiable. `verify_release.py` accepts both
   product names, permanently: a bundle someone already downloaded cannot be re-stamped, and a
   verifier that rejects it would stop checking the very releases still in circulation.
@@ -561,10 +565,6 @@
   and the same evidence never exists twice to appear in two views. Not every experience is a
   project: regular operations, an improvement, an incident, a thesis and a part-time shift are
   experiences too.
-- Add `add-context`, `contexts` and `experiences`. The last is the 棚卸し view: contexts, the
-  experiences under them, the evidence under those, and the gaps named one by one. There is no
-  completion percentage, because the question it answers is whether a decision can quote the
-  user's own experience, and a number would hide which part is missing.
 - Normalize the target JD onto the pipeline entry it already belongs to (`schema_version` 2.5):
   `jd_source`, `jd_observed_at`, `jd_digest` and `jd_requirements`, each requirement carrying the
   posting's own words, whether the JD called it required or preferred, and the confirmed event ids
@@ -667,7 +667,7 @@
 ## [1.24.0] - 2026-08-10
 
 - Add PROJECT as the context a work event happened in. It is another type on the same ledger, not
-  a second store, so durability, the approval gate, and append-only history come with it. A
+  a second store, so durability, the approval gate and append-only history come with it. A
   project's current state is a projection over its events: later non-null fields win and the rest
   keep what an earlier event said, which is how a record actually gets filled in — named in one
   turn, given a role in another, closed in a third.
@@ -675,8 +675,8 @@
   one canonical event appears in several project timelines while existing once; the same work is
   never recorded twice to make it show up in two places. `--none` records general work, and no
   project question ever blocks a capture: a work event with no project is valid.
-- Add `work_date` to the work-event payload, at month or day precision. `occurred_at` remains what
-  it was — when the note was captured — so writing up last June's project today can now say June
+- Add `work_date` to the work-event payload, at month or day precision. `occurred_at` remains what it
+  was — when the note was captured — so writing up last June's project today can now say June
   without changing an existing meaning. Absent stays Unknown and nothing guesses a date.
 - Add `weekly-review`: the period's work grouped by project, with the gaps worth asking about
   ranked by what changes how the record reads later. It windows on capture time, so a note written
@@ -1373,7 +1373,7 @@
 - Corrected the shinsotsu setup recovery command to request `--graduation-year` instead of
   reopening track selection.
 - Added a fresh-vault Quickstart E2E regression covering setup, chat proposal, metadata lookup,
-  evidence-backed approval, status, and workspace projection.
+  evidence-backed approval, status, workspace projection.
 - Aligned the synthetic pipeline fixture with its confirmed conflict diagnosis and made forbidden
   outcome-field checks recursive.
 - Made numeric evidence retry guidance executable as a quoted CLI-shaped command.

@@ -18,20 +18,22 @@ class EnglishRoutingTests(unittest.TestCase):
         cases = (
             ("I need self-analysis", "自己分析・転職軸"),
             ("Help me understand my work style", "自己分析・転職軸"),
-            ("Please improve my resume", "職務経歴書・自己PR"),
-            ("I need a CV", "職務経歴書・自己PR"),
-            ("Draft my cover letter", "職務経歴書・自己PR"),
-            ("Prepare an entry sheet", "職務経歴書・自己PR"),
-            ("I want to research companies", "業界研究・企業研究"),
-            ("Let's do company research", "業界研究・企業研究"),
-            ("I need job research", "業界研究・企業研究"),
-            ("Help me prepare for an interview", "面接"),
-            ("Interview prep for tomorrow", "面接"),
+            ("Please improve my resume", "応募基盤・職務経歴書"),
+            ("I need a CV", "応募基盤・職務経歴書"),
+            ("Draft my cover letter", "応募基盤・職務経歴書"),
+            ("Prepare an entry sheet", "応募基盤・職務経歴書"),
+            ("Find open roles for me", "求人探索・候補整理"),
+            ("Search job postings", "求人探索・候補整理"),
+            ("I want to research companies", "企業研究・JD分析"),
+            ("Let's do company research", "企業研究・JD分析"),
+            ("I need job research", "企業研究・JD分析"),
+            ("Help me prepare for an interview", "面接・選考"),
+            ("Interview prep for tomorrow", "面接・選考"),
             ("I received a job offer", "内定・条件交渉"),
             ("Schedule the offer meeting", "内定・条件交渉"),
-            ("I need to resign", "退職・入社準備"),
-            ("My start date is set", "退職・入社準備"),
-            ("Onboarding plan", "退職・入社準備"),
+            ("I need to resign", "退職・引き継ぎ"),
+            ("My start date is set", "入社準備・オンボーディング"),
+            ("Onboarding plan", "入社準備・オンボーディング"),
             ("I want a career change", "自己分析・転職軸"),
             ("I'm a mid-career hire", "自己分析・転職軸"),
         )
@@ -43,24 +45,37 @@ class EnglishRoutingTests(unittest.TestCase):
         self.assertEqual(career_agent.infer_track("I'm a new graduate"), "shinsotsu")
         self.assertEqual(career_agent.infer_track("I'm a mid-career hire"), "chuto")
         self.assertEqual(career_agent.infer_track("I am graduating soon"), "shinsotsu")
+        self.assertIsNone(career_agent.infer_track("SPI3 practice"))
 
     def test_flow_aliases_cover_common_english_requests(self) -> None:
         reference = career_agent.load_flow_reference()
         cases = (
-            ("I am updating my resume", "documents"),
-            ("I am writing my CV", "documents"),
-            ("I want to apply", "application"),
-            ("My application is in screening", "application"),
+            ("I am updating my resume", "base_documents"),
+            ("I am writing my CV", "base_documents"),
+            ("Find open roles for me", "opportunity_discovery"),
+            ("Review this job posting", "opportunity_analysis"),
+            ("I want to apply", "application_selection"),
+            ("My application is in screening", "application_selection"),
             ("I have an interview next week", "interview"),
             ("I need interview prep", "interview"),
             ("I need salary negotiation for this offer", "offer"),
             ("The compensation is under review", "offer"),
-            ("I plan to resign", "exit_onboarding"),
-            ("My onboarding starts next month", "exit_onboarding"),
+            ("I plan to resign", "exit"),
+            ("My onboarding starts next month", "onboarding"),
         )
         for message, expected in cases:
             with self.subTest(message=message):
-                self.assertEqual(career_agent.flow_phase_for(message, "chuto", {}, {}, reference), expected)
+                self.assertEqual(
+                    career_agent.flow_phase_for(message, "chuto", {}, {}, reference), expected
+                )
+
+    def test_flow_reference_is_the_runtime_chuto_contract(self) -> None:
+        reference = career_agent.load_flow_reference()
+        labels = tuple(phase["label"] for phase in reference["chuto"]["phases"])
+        self.assertEqual(labels, career_agent.CHUTO_STAGES)
+        self.assertEqual(career_agent.PIPELINE_STAGE["求人探索・候補整理"], 2)
+        self.assertEqual(career_agent.PIPELINE_STAGE["企業研究・JD分析"], 2)
+        self.assertEqual(career_agent.PIPELINE_STAGE["入社準備・オンボーディング"], 7)
 
     def test_chuto_messages_select_one_tenshoku_reference(self) -> None:
         skills_root = ROOT / "skills"
@@ -75,6 +90,7 @@ class EnglishRoutingTests(unittest.TestCase):
             ("退職理由を面接向けに整理したいです", "references/taishoku-riyu-reframing.md"),
             ("内定への回答期限を確認したいです", "references/naitei-taiou.md"),
             ("選考状況を一覧で追跡したいです", "references/senko-tracking.md"),
+            ("面接フィードバックを次の応募に活かしたい", "references/job-search-learning-loop.md"),
         )
         for message, reference in cases:
             with self.subTest(message=message):
@@ -84,6 +100,38 @@ class EnglishRoutingTests(unittest.TestCase):
                 self.assertEqual(context["skill"], "tenshoku-strategy")
                 self.assertEqual(context["references"], [reference])
                 self.assertTrue((skills_root / context["skill"] / reference).is_file())
+
+    def test_specialized_existing_skills_are_on_the_main_routes(self) -> None:
+        skills_root = ROOT / "skills"
+        cases = (
+            (
+                "このJD向けの職務経歴書を作りたい",
+                "career-document",
+                "references/targeted-application.md",
+            ),
+            (
+                "このJDと自分の経験を比較したい",
+                "matching-simulator",
+                "references/evaluation_perspectives.md",
+            ),
+            (
+                "面接練習をしたい",
+                "mock-interviewer",
+                "references/session-routing.md",
+            ),
+            (
+                "中途のSPI3対策をしたい",
+                "job-seeker-agent",
+                "references/tekisei-kensa.md",
+            ),
+        )
+        for message, skill, reference in cases:
+            with self.subTest(message=message):
+                stage = career_agent.stage_for(message, "chuto")
+                context = career_agent.skill_context(skills_root, stage, message, "chuto")
+                self.assertEqual(context["skill"], skill)
+                self.assertEqual(context["references"], [reference])
+                self.assertTrue((skills_root / skill / reference).is_file())
 
     def test_message_context_precedence_is_ordered(self) -> None:
         skills_root = ROOT / "skills"
@@ -100,7 +148,7 @@ class EnglishRoutingTests(unittest.TestCase):
                 )
                 self.assertEqual(context["references"], [reference])
 
-    def test_message_context_preserves_existing_fallbacks_and_track_boundary(self) -> None:
+    def test_message_context_preserves_fallbacks_and_track_boundary(self) -> None:
         skills_root = ROOT / "skills"
         offer_stage = "内定・条件交渉"
         old_call = career_agent.skill_context(skills_root, offer_stage)
@@ -110,9 +158,9 @@ class EnglishRoutingTests(unittest.TestCase):
             old_call,
         )
         cases = (
-            ("面接の回答内容を準備したい", "面接", "chuto", "job-seeker-agent"),
-            ("企業研究を進めたい", "業界研究・企業研究", "chuto", "kigyou-bunseki"),
-            ("職務経歴書を直したい", "職務経歴書・自己PR", "chuto", "job-seeker-agent"),
+            ("面接の回答内容を準備したい", "面接・選考", "chuto", "job-seeker-agent"),
+            ("企業研究を進めたい", "企業研究・JD分析", "chuto", "kigyou-bunseki"),
+            ("職務経歴書を直したい", "応募基盤・職務経歴書", "chuto", "job-seeker-agent"),
             ("年収交渉をしたい", "内々定・内定・入社準備", "shinsotsu", "job-seeker-agent"),
         )
         for message, stage, track, skill in cases:
@@ -151,7 +199,6 @@ class OnboardingSignalTests(unittest.TestCase):
             ("2027年卒", 2027),
             ("2027년 졸업 예정", 2027),
             ("class of 2027", 2027),
-            # A year is a claim about the future; someone who already graduated has not made it.
             ("既卒です", None),
             ("第二新卒で転職したい", None),
             ("1999卒", None),
@@ -164,34 +211,37 @@ class OnboardingSignalTests(unittest.TestCase):
         self.assertEqual(career_agent.infer_track("27卒です"), "shinsotsu")
         self.assertEqual(career_agent.infer_track("就活を始めたい"), "shinsotsu")
         self.assertIsNone(career_agent.infer_track("売上を30%改善した"))
+        self.assertIsNone(career_agent.infer_track("SPI3対策をしたい"))
 
     def test_second_new_graduate_is_a_mid_career_hire(self) -> None:
-        # 第二新卒 contains 新卒 as a substring but describes someone already working.
         for message in ("第二新卒で転職したい", "第二新卒です", "第2新卒"):
             with self.subTest(message=message):
                 self.assertEqual(career_agent.infer_track(message), "chuto")
-        self.assertEqual(career_agent.stage_for("第二新卒で職務経歴書を作りたい", "chuto"), "職務経歴書・自己PR")
-        # The plain term must keep working.
+        self.assertEqual(
+            career_agent.stage_for("第二新卒で職務経歴書を作りたい", "chuto"),
+            "応募基盤・職務経歴書",
+        )
         self.assertEqual(career_agent.infer_track("新卒で就活を始めたい"), "shinsotsu")
 
     def test_explicit_stage_alias_ignores_track_only_signals(self) -> None:
-        # "I am job hunting mid-career" says which track, not which task.
         self.assertIsNone(career_agent.explicit_stage_alias("일본에서 이직 준비를 시작하고 싶어"))
         self.assertIsNone(career_agent.explicit_stage_alias("売上を30%改善した"))
         self.assertEqual(career_agent.explicit_stage_alias("職務経歴書を整理したい"), "documents")
+        self.assertEqual(career_agent.explicit_stage_alias("求人を探したい"), "discover")
         self.assertEqual(career_agent.explicit_stage_alias("무슨 직무를 해야 할지 모르겠어"), "self")
-        # A specific task outranks the fall-through direction group.
         self.assertEqual(career_agent.explicit_stage_alias("면접 준비를 어떻게 할지 모르겠어"), "interview")
 
     def test_applying_and_reviewing_a_posting_are_separate_stages(self) -> None:
-        self.assertEqual(career_agent.stage_for("この求人に応募できるか見たい", "chuto"), "応募・書類選考")
-        self.assertEqual(career_agent.stage_for("このJDと私の経験を比較したい", "chuto"), "職務経歴書・自己PR")
+        self.assertEqual(
+            career_agent.stage_for("この求人に応募できるか見たい", "chuto"), "企業研究・JD分析"
+        )
+        self.assertEqual(
+            career_agent.stage_for("このJDと私の経験を比較したい", "chuto"), "企業研究・JD分析"
+        )
+        self.assertEqual(career_agent.stage_for("応募したい", "chuto"), "応募・書類選考")
         self.assertEqual(career_agent.stage_for("이 공고에 지원하고 싶어", "shinsotsu"), "ES・履歴書")
 
     def test_a_more_specific_task_named_alongside_apply_wins(self) -> None:
-        # "応募" alone is the application workflow, but a message that names interview, research,
-        # offer, or exit work alongside it is asking about that more specific task, not a bare
-        # application. apply must lose to every one of those, and only win against a bare JD.
         cases = (
             ("応募面接", "interview"),
             ("지원 면접 준비", "interview"),
@@ -199,29 +249,19 @@ class OnboardingSignalTests(unittest.TestCase):
             ("応募して企業研究もしたい", "research"),
             ("応募と内定条件", "offer"),
             ("応募して退職準備をしたい", "exit"),
-            ("この求人に応募できるか見たい", "apply"),
+            ("応募して入社準備を確認したい", "onboarding"),
         )
         for message, expected in cases:
             with self.subTest(message=message):
                 self.assertEqual(career_agent.explicit_stage_alias(message), expected)
 
     def test_a_clause_that_closes_a_topic_out_does_not_select_its_reference(self) -> None:
-        """The clause naming a topic to dispose of it must not outrank the clause asking for help.
-
-        Reading the message as one bag of words returned the reference the user had just ruled out,
-        which the benchmark scores as a critical failure: the answer addresses a question that is
-        closed. All three closing forms are checked, because each one leaves the topic's own
-        keywords in the sentence and only the surrounding clause says they no longer apply.
-        """
         skills_root = ROOT / "skills"
         cases = (
-            # Refused outright.
             ("年収交渉は不要です。入社手続きだけ確認したいです", "references/nyusha-teichaku.md"),
             ("연봉 협상은 하지 않습니다. 입사 절차만 알고 싶어요", "references/nyusha-teichaku.md"),
             ("I am not sending a thank-you email; I need the handover plan", "references/enman-taishoku.md"),
-            # Contrasted against what is actually wanted.
             ("円満退職の話ではなく、入社書類を進めたいです", "references/nyusha-teichaku.md"),
-            # Already settled, so its reference answers a closed question.
             ("市場年収は調べ済みです。年収交渉の進め方を教えてください", "references/nenshu-koushou.md"),
         )
         for message, reference in cases:
@@ -232,11 +272,6 @@ class OnboardingSignalTests(unittest.TestCase):
                 self.assertEqual(context["references"], [reference])
 
     def test_an_exclusion_marker_only_scopes_to_its_own_clause(self) -> None:
-        """A marker anywhere in the message must not veto a topic raised in a different clause.
-
-        Dropping the whole message on one marker would be the easy over-fix and would silently
-        disable message-context routing for any sentence containing a negation.
-        """
         skills_root = ROOT / "skills"
         message = "すぐ転職するつもりはありません。ただ市場年収の相場は知っておきたいです"
         context = career_agent.skill_context(
