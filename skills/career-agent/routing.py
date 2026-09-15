@@ -263,16 +263,32 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
             track = "chuto"
         if alias == "shinsotsu":
             track = "shinsotsu"
-        candidates = CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES
-        return {
-            "self": candidates[0],
-            "documents": candidates[1],
-            "research": candidates[2],
-            "apply": candidates[3],
-            "interview": candidates[4 if track == "chuto" else 5],
-            "offer": candidates[5 if track == "chuto" else 6],
-            "exit": candidates[6],
-        }.get(alias, candidates[0])
+        if track == "chuto":
+            stage_by_alias = {
+                "self": "自己分析・転職軸",
+                "documents": "応募基盤・職務経歴書",
+                "discover": "求人探索・候補整理",
+                "research": "企業研究・JD分析",
+                "apply": "応募・書類選考",
+                "interview": "面接・選考",
+                "offer": "内定・条件交渉",
+                "exit": "退職・引き継ぎ",
+                "onboarding": "入社準備・オンボーディング",
+                "chuto": "自己分析・転職軸",
+            }
+        else:
+            stage_by_alias = {
+                "self": SHINSOTSU_STAGES[0],
+                "documents": SHINSOTSU_STAGES[1],
+                "research": SHINSOTSU_STAGES[2],
+                "apply": SHINSOTSU_STAGES[3],
+                "interview": SHINSOTSU_STAGES[5],
+                "offer": SHINSOTSU_STAGES[6],
+                "exit": SHINSOTSU_STAGES[6],
+                "onboarding": SHINSOTSU_STAGES[6],
+                "shinsotsu": SHINSOTSU_STAGES[0],
+            }
+        return stage_by_alias.get(alias, stage_by_alias["self"])
     candidates = CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES
     if current_stage in candidates:
         return current_stage
@@ -389,6 +405,13 @@ def load_flow_reference() -> dict[str, Any]:
     reference = read_toml(FLOW_REFERENCE)
     if not reference.get("metadata") or not reference.get("shinsotsu") or not reference.get("chuto"):
         raise CareerError(f"invalid career flow reference: {FLOW_REFERENCE}")
+    chuto_labels = tuple(
+        str(phase.get("label"))
+        for phase in reference.get("chuto", {}).get("phases", [])
+        if isinstance(phase, dict) and phase.get("label")
+    )
+    if chuto_labels != CHUTO_STAGES:
+        raise CareerError("career flow reference chuto labels drift from models.CHUTO_STAGES")
     return reference
 
 
