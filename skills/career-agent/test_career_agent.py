@@ -158,7 +158,7 @@ class CareerAgentTests(unittest.TestCase):
         self.assertTrue(pipeline_path.is_file())
         pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8")) or {}
         self.assertEqual(pipeline["companies"][0]["name"], company)
-        self.assertEqual(pipeline["companies"][0]["stage"], 4)  # 面接 → market stage 4
+        self.assertEqual(pipeline["companies"][0]["stage"], 4)  # 面接・選考 → market stage 4
         proposal_rows = read_jsonl(fresh_vault / "02-state" / "proposals.jsonl")
         self.assertEqual(proposal_rows[0]["event"]["status"], "draft")
         self.assertEqual(proposal_rows[0]["resolution"]["approved_event_id"], approved_payload["event"]["id"])
@@ -265,7 +265,7 @@ class CareerAgentTests(unittest.TestCase):
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "転職の面接を準備したい"))
         self.assertEqual(proposed["track"], "chuto")
-        self.assertEqual(proposed["stage"], "面接")
+        self.assertEqual(proposed["stage"], "面接・選考")
         self.assertEqual(proposed["flow_phase"], "interview")
         self.assertEqual(proposed["language"], "ja")
         proposal_id = proposed["proposal"]["id"]
@@ -638,8 +638,14 @@ class CareerAgentTests(unittest.TestCase):
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "中途の面接を準備する"))
         approved = output(run(self.vault, "approve", proposed["proposal"]["id"], "--evidence", "中途の面接を準備する"))
         state_path = self.vault / "02-state" / "career-state.toml"
-        state_path.write_text(state_path.read_text(encoding="utf-8").replace('stage = "面接"', 'stage = "退職・入社準備"'), encoding="utf-8")
-        self.assertEqual(output(run(self.vault, "status"))["state"]["stage"], "退職・入社準備")
+        state_path.write_text(
+            state_path.read_text(encoding="utf-8").replace(
+                'stage = "面接・選考"', 'stage = "退職・入社準備"'
+            ),
+            encoding="utf-8",
+        )
+        # Legacy state remains readable but is projected through the canonical lifecycle.
+        self.assertEqual(output(run(self.vault, "status"))["state"]["stage"], "退職・引き継ぎ")
         restored = output(run(self.vault, "restore-state", approved["version"]))
         self.assertTrue(restored["restored"])
         self.assertEqual(restored["state"]["last_event_id"], approved["event"]["id"])
@@ -653,7 +659,7 @@ class CareerAgentTests(unittest.TestCase):
 
         restored = output(run(self.vault, "restore-state", early["version"]))
         self.assertTrue(restored["ledger_retained"])
-        self.assertEqual(restored["state"]["stage"], "職務経歴書・自己PR")
+        self.assertEqual(restored["state"]["stage"], "応募基盤・職務経歴書")
         # The later event is still in the ledger and still drives heartbeat. This is the documented
         # limitation of restore-state; if it ever stops being true, the docstring is wrong.
         status_after = output(run(self.vault, "status"))
@@ -662,15 +668,15 @@ class CareerAgentTests(unittest.TestCase):
         self.assertEqual(actions[0]["stage"], "内定・条件交渉")
 
     def test_japanese_exit_keywords_route_to_exit_stage(self) -> None:
-        # STAGE_ALIASES had 퇴직/입사 (Korean) but not 退職/入社 (Japanese), so a Japanese
-        # resignation message fell through to the self-analysis default instead of the exit stage.
+        # Japanese resignation and joining phrases must select distinct canonical phases.
         self.set_profile(track="chuto", target_role="Platform Engineer", career_status="active")
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "退職届を提出した。円満退職したい。"))
-        self.assertEqual(proposed["stage"], "退職・入社準備")
-        self.assertEqual(proposed["flow_phase"], "exit_onboarding")
+        self.assertEqual(proposed["stage"], "退職・引き継ぎ")
+        self.assertEqual(proposed["flow_phase"], "exit")
 
         proposed = output(run(self.vault, "run", "--mode", "chat", "--message", "入社日が決まった"))
-        self.assertEqual(proposed["stage"], "退職・入社準備")
+        self.assertEqual(proposed["stage"], "入社準備・オンボーディング")
+        self.assertEqual(proposed["flow_phase"], "onboarding")
 
     def test_english_research_message_routes_to_research_stage(self) -> None:
         # "es" (meant to catch the ES/entry-sheet abbreviation) must not match as a bare substring
@@ -679,7 +685,7 @@ class CareerAgentTests(unittest.TestCase):
         import career_agent
 
         stage = career_agent.stage_for("I want to research companies", "chuto")
-        self.assertEqual(stage, "業界研究・企業研究")
+        self.assertEqual(stage, "企業研究・JD分析")
 
     def test_flow_phase_does_not_stick_after_a_confirmed_event(self) -> None:
         # flow_phase_for() used to check state.flow_phase before the message, so once any event
@@ -691,7 +697,7 @@ class CareerAgentTests(unittest.TestCase):
         output(run(self.vault, "approve", offer["proposal"]["id"], "--evidence", "内定をもらった"))
 
         resignation = output(run(self.vault, "run", "--mode", "chat", "--message", "退職届を提出した"))
-        self.assertEqual(resignation["flow_phase"], "exit_onboarding")
+        self.assertEqual(resignation["flow_phase"], "exit")
 
     def test_approve_failure_logs_trajectory(self) -> None:
         self.set_profile(track="chuto", target_role="Data Engineer", career_status="active")
