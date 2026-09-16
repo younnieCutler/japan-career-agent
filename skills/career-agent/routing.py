@@ -14,21 +14,13 @@ from models import (
     SKILL_EXECUTION,
     TRACKS,
     CareerError,
+    canonical_stage,
 )
 from persistence import read_toml
 
 
 FLOW_REFERENCE = Path(__file__).resolve().parent / "references" / "japan-career-flow.toml"
 ROUTING_REFERENCE = Path(__file__).resolve().parent / "references" / "routing.yml"
-
-# Old persisted chuto states remain readable after the lifecycle split. The aliases are input
-# compatibility only: new outputs always use the canonical CHUTO_STAGES labels.
-_LEGACY_CHUTO_STAGE = {
-    "職務経歴書・自己PR": "応募基盤・職務経歴書",
-    "業界研究・企業研究": "企業研究・JD分析",
-    "面接": "面接・選考",
-    "退職・入社準備": "退職・引き継ぎ",
-}
 
 # Specific message-context routes also own a lifecycle position. This keeps a target-specific
 # document from being reported as base-document preparation and keeps a mock interview inside the
@@ -229,9 +221,7 @@ def explicit_stage_alias(message: str) -> str | None:
 
 
 def _canonical_current_stage(stage: str | None, track: str) -> str | None:
-    if track == "chuto" and stage in _LEGACY_CHUTO_STAGE:
-        return _LEGACY_CHUTO_STAGE[stage]
-    return stage
+    return canonical_stage(stage, track)
 
 
 def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
