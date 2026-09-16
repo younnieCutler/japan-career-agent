@@ -144,7 +144,7 @@ message_context:
   - id: onboarding
     skill: tenshoku-strategy
     reference: references/nyusha-teichaku.md
-    terms: ["入社手続き", "入社書類", "入社準備", "onboarding paperwork", "joining procedures", "입사 절차"]
+    terms: ["入社手続き", "入社書類", "入社準備", "入社日", "onboarding paperwork", "joining procedures", "입사 절차"]
   - id: offer_handling
     skill: tenshoku-strategy
     reference: references/naitei-taiou.md
@@ -170,7 +170,7 @@ stage_alias:
   - alias: offer
     terms: ["내정", "内定", "job offer", "offer meeting"]
   - alias: onboarding
-    terms: ["입사 절차", "입사 준비", "入社手続き", "入社書類", "入社準備", "joining procedures", "onboarding paperwork", "onboarding", "start date"]
+    terms: ["입사 절차", "입사 준비", "入社手続き", "入社書類", "入社準備", "入社日", "joining procedures", "onboarding paperwork", "onboarding", "start date"]
   - alias: exit
     terms: ["퇴직", "퇴사", "退職", "resign", "resignation", "인수인계", "引き継ぎ"]
   # Applying is distinct from merely reviewing a posting. Specific document, match, interview,
@@ -326,6 +326,7 @@ transition:
   - "退職の引き継ぎ"
   - "入社手続き"
   - "入社書類"
+  - "入社日"
   - "resignation letter"
   - "notice period"
   - "handover plan"
@@ -405,6 +406,6 @@ flow_phase:
     - id: offer
       terms: ["오퍼", "연봉", "内定", "オファー", "条件", "offer", "salary", "compensation", "conditions"]
     - id: onboarding
-      terms: ["입사 절차", "입사 준비", "入社手続き", "入社書類", "入社準備", "joining", "onboarding", "start date"]
+      terms: ["입사 절차", "입사 준비", "入社手続き", "入社書類", "入社準備", "入社日", "joining", "onboarding", "start date"]
     - id: exit
       terms: ["퇴직", "퇴사", "退職", "resign", "resignation", "인수인계", "引き継ぎ"]
