@@ -26,7 +26,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from models import UNTRUSTED_DATA_MARKER, CareerError
+from models import LEGACY_CHUTO_STAGE_ALIASES, UNTRUSTED_DATA_MARKER, CareerError
 from validation import iso_date, validate_event
 
 # How many conflicting records a `conflict` field lists. Not the context cap -- that is
@@ -475,13 +475,16 @@ def select_personal_context(
     about the person still receive the shape of every document they own. `private-list` and
     `personal-context --historical` are the explicit paths.
     """
-    if stage is not None and stage not in STAGE_CATEGORIES:
+    resolved_stage = stage
+    if resolved_stage is not None and resolved_stage not in STAGE_CATEGORIES:
+        resolved_stage = LEGACY_CHUTO_STAGE_ALIASES.get(resolved_stage, resolved_stage)
+    if resolved_stage is not None and resolved_stage not in STAGE_CATEGORIES:
         # Fail closed here, not only at the CLI. A missing map entry would otherwise mean "no
         # category filter", so an unrecognized stage widens the selection to the whole profile --
         # and this function is a public boundary symbol, reachable without going through argparse.
         raise CareerError(f"personal context stage is not recognized: {stage!r}")
     projection = project(events, as_of)
-    allowed = STAGE_CATEGORIES[stage] if stage else frozenset()
+    allowed = STAGE_CATEGORIES[resolved_stage] if resolved_stage else frozenset()
     facts: list[dict[str, Any]] = []
     withheld = {"conflict": 0, "unknown": 0}
     for category, keys in projection.items():
@@ -499,7 +502,7 @@ def select_personal_context(
     facts.sort(key=lambda fact: fact["effective_from"] or "", reverse=True)
     return {
         "as_of": projection["as_of"],
-        "selected_for": {"stage": stage},
+        "selected_for": {"stage": resolved_stage},
         "facts": facts[:MAX_CONTEXT_FACTS],
         "withheld": withheld,
         "capped_at": MAX_CONTEXT_FACTS,
