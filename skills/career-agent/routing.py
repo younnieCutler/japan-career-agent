@@ -79,6 +79,15 @@ ROUTING = load_routing()
 _WORD_BOUNDARY_TERMS = {"es", "jd"}
 _CLAUSE_BOUNDARY = re.compile(r"[。．.!?！？、,;；\n]+")
 _TRACK_ONLY_ALIASES = {"chuto", "shinsotsu"}
+_WEAK_RESEARCH_TERMS = {
+    "求人",
+    "공고",
+    "구인",
+    "jd",
+    "job description",
+    "job posting",
+    "job ad",
+}
 _GRADUATION_PATTERNS = (
     re.compile(r"(?<!第二新)(?<!既)(?<!\d)(\d{2}|\d{4})\s*年?卒"),
     re.compile(r"(\d{4})\s*(?:년\s*졸업|년도\s*졸업)"),
@@ -220,6 +229,29 @@ def explicit_stage_alias(message: str) -> str | None:
     return matched_stage_alias(message, skip_track_aliases=True)
 
 
+def _stage_alias_terms(alias: str) -> tuple[str, ...]:
+    for group in ROUTING["stage_alias"]:
+        if str(group["alias"]) == alias:
+            return tuple(str(term) for term in group["terms"])
+    return ()
+
+
+def _apply_overrides_weak_research(message: str) -> bool:
+    """Treat a posting noun as context, not research intent, when the user explicitly applies."""
+    lowered = normalized_message(message)
+    apply_terms = _stage_alias_terms("apply")
+    if not any(term_present(term.lower(), lowered) for term in apply_terms):
+        return False
+    matched_research = [
+        term
+        for term in _stage_alias_terms("research")
+        if term_present(term.lower(), lowered)
+    ]
+    return bool(matched_research) and all(
+        term.casefold() in _WEAK_RESEARCH_TERMS for term in matched_research
+    )
+
+
 def _canonical_current_stage(stage: str | None, track: str) -> str | None:
     return canonical_stage(stage, track)
 
@@ -231,6 +263,8 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
             return _MESSAGE_CONTEXT_STAGE[str(route["id"])]
 
     alias = matched_stage_alias(message)
+    if alias == "research" and _apply_overrides_weak_research(message):
+        alias = "apply"
     if alias is not None:
         if alias == "chuto":
             track = "chuto"
