@@ -119,6 +119,18 @@ class LifecycleSeparationTests(unittest.TestCase):
             with self.subTest(message=message):
                 self.assertEqual(career_agent.stage_for(message, track), expected)
 
+    def test_transition_intent_routes_without_stage_alias_overlap(self) -> None:
+        cases = (
+            ("인수인계 준비를 하고 싶어", "退職・引き継ぎ"),
+            ("입사 준비를 확인하고 싶어", "入社準備・オンボーディング"),
+            ("入社手続きを確認したい", "入社準備・オンボーディング"),
+            ("onboarding paperwork checklist", "入社準備・オンボーディング"),
+        )
+        for message, expected in cases:
+            with self.subTest(message=message):
+                self.assertTrue(career_agent.transition_intent(message))
+                self.assertEqual(career_agent.stage_for(message, "chuto"), expected)
+
     def test_korean_career_document_term_is_a_base_document_signal(self) -> None:
         self.assertEqual(
             career_agent.stage_for("경력기술서 정리해줘", "chuto"), "応募基盤・職務経歴書"
