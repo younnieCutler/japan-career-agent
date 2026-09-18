@@ -81,6 +81,8 @@ class EnglishRoutingTests(unittest.TestCase):
         skills_root = ROOT / "skills"
         cases = (
             ("年収交渉をしたいが、まだオファーはありません", "references/nenshu-koushou.md"),
+            ("給与のレンジをどう交渉すればいいのか分かりません", "references/nenshu-koushou.md"),
+            ("How should I approach compensation talks with the recruiter?", "references/nenshu-koushou.md"),
             ("書面のオファーと口頭説明が矛盾しています", "references/roudou-joken-review.md"),
             ("面接のお礼を送りたいが、話題のメモがありません", "references/mensetsu-follow.md"),
             ("退職したいが就業規則の予告期間は不明です", "references/enman-taishoku.md"),
@@ -115,7 +117,7 @@ class EnglishRoutingTests(unittest.TestCase):
                 "references/evaluation_perspectives.md",
             ),
             (
-                "面接練習をしたい",
+                "面接の練習をしたい",
                 "mock-interviewer",
                 "references/session-routing.md",
             ),
