@@ -116,28 +116,28 @@ class OnboardingTests(unittest.TestCase):
     def test_resume_intent_routes_directly_to_job_seeker_agent(self) -> None:
         self.set_profile(track="chuto", career_status="onboarding")
         result = self.chat("職務経歴書を整理したい")
-        self.assertEqual(result["stage"], "職務経歴書・自己PR")
+        self.assertEqual(result["stage"], "応募基盤・職務経歴書")
         self.assertEqual(result["skill"]["skill"], "job-seeker-agent")
         self.assertNotIn("question", result)
 
-    # Scenario 6 -- applying and reviewing a posting are different intents.
+    # Scenario 6 -- deciding whether a JD matches and actually starting an application are different intents.
     def test_application_and_posting_review_route_to_different_skills(self) -> None:
         self.set_profile(track="chuto", career_status="onboarding")
-        applying = self.chat("この求人に応募できるか見たい")
+        applying = self.chat("この求人に応募したい")
         self.assertEqual(applying["stage"], "応募・書類選考")
-        self.assertEqual(applying["skill"]["skill"], "matching-simulator")
+        self.assertEqual(applying["skill"]["skill"], "career-document")
 
         self.set_profile(track="chuto", career_status="onboarding")
         reviewing = self.chat("このJDと私の経験を比較したい")
-        self.assertEqual(reviewing["stage"], "職務経歴書・自己PR")
-        self.assertEqual(reviewing["skill"]["skill"], "job-seeker-agent")
+        self.assertEqual(reviewing["stage"], "企業研究・JD分析")
+        self.assertEqual(reviewing["skill"]["skill"], "matching-simulator")
 
     # Scenario 7 -- a confirmed field is never asked for again.
     def test_confirmed_track_is_not_asked_again_during_onboarding(self) -> None:
         self.set_profile(track="chuto", career_status="onboarding")
         result = self.chat("面接の準備をしたい")
         self.assertEqual(result["track"], "chuto")
-        self.assertEqual(result["stage"], "面接")
+        self.assertEqual(result["stage"], "面接・選考")
         self.assertNotIn("question", result)
 
     # Scenario 8 -- an existing workflow outranks a re-declared onboarding status.
@@ -150,7 +150,7 @@ class OnboardingTests(unittest.TestCase):
 
         result = self.chat("売上を30%改善した")
         self.assertNotIn("question", result)
-        self.assertEqual(result["stage"], "面接")
+        self.assertEqual(result["stage"], "面接・選考")
         self.assertIsNotNone(result.get("proposal"))
 
     def test_chat_has_no_workspace_input_and_cannot_see_data_pipeline_yml(self) -> None:
