@@ -239,7 +239,13 @@ class OnboardingSignalTests(unittest.TestCase):
             career_agent.stage_for("このJDと私の経験を比較したい", "chuto"), "企業研究・JD分析"
         )
         self.assertEqual(career_agent.stage_for("応募したい", "chuto"), "応募・書類選考")
-        self.assertEqual(career_agent.stage_for("이 공고에 지원하고 싶어", "shinsotsu"), "ES・履歴書")
+        for message in (
+            "이 공고에 지원하고 싶어",
+            "この求人に応募したい",
+            "I want to apply for this job posting",
+        ):
+            with self.subTest(message=message):
+                self.assertEqual(career_agent.stage_for(message, "shinsotsu"), "ES・履歴書")
 
     def test_a_more_specific_task_named_alongside_apply_wins(self) -> None:
         cases = (
