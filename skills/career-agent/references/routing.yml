@@ -100,7 +100,7 @@ message_context:
   - id: jd_evidence_match
     skill: matching-simulator
     reference: references/evaluation_perspectives.md
-    terms: ["このJDと自分", "この求人に応募できるか", "要件と自分の経験", "JD와 내 경력", "이 공고에 지원해도", "요구사항과 내 경험", "match this JD", "compare me with this JD", "do I meet this job"]
+    terms: ["このJDと自分", "このJDと私", "JDと私の経験", "この求人に応募できるか", "要件と自分の経験", "JD와 내 경력", "이 공고에 지원해도", "요구사항과 내 경험", "match this JD", "compare me with this JD", "do I meet this job"]
   - id: interview_practice
     skill: mock-interviewer
     reference: references/session-routing.md
