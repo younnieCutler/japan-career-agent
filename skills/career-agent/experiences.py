@@ -21,6 +21,7 @@ from models import (
     TRACKS,
     UNTRUSTED_DATA_MARKER,
     WORK_EVENT_TYPE,
+    canonical_stage,
 )
 from monthly import monthly_career_projection
 from persistence import read_jsonl
@@ -92,7 +93,7 @@ def run_context(
     track = requested_track or state.get("track") or profile.get("track")
     if track not in TRACKS:
         raise CareerError("shared context requires profile.track or --track")
-    stage = requested_stage or state.get("stage")
+    stage = canonical_stage(requested_stage or state.get("stage"), track)
     if stage is not None and stage not in SHINSOTSU_STAGES + CHUTO_STAGES:
         raise CareerError("shared context stage is not recognized")
     career_context, career_event = latest_career_context(home)

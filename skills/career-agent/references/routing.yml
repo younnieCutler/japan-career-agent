@@ -5,9 +5,9 @@
 
 track:
   # "卒" alone is deliberately absent: infer_track() is substring matching, so it would classify
-  # 既卒 and 第二新卒 as shinsotsu. The "27卒" case is handled by routing.py's bounded
-  # graduation_signal() regex instead.
-  shinsotsu: ["新卒", "신졸", "학チカ", "학チ카", "学チカ", "졸업", "graduat", "new grad", "spi3", "学生", "就活", "취활"]
+  # 既卒 and 第二新卒 as shinsotsu. SPI3 is also deliberately absent: both new-graduate and mid-career
+  # processes may use aptitude tests, so the test name alone cannot establish a track.
+  shinsotsu: ["新卒", "신졸", "학チカ", "학チ카", "学チカ", "졸업", "graduat", "new grad", "学生", "就活", "취활"]
   chuto: ["中途", "중途", "경력채용", "경력 채용", "転職", "이직", "직장", "職務経歴書", "career change", "mid-career"]
 
 # A clause that closes its own subject out must not select that subject's reference. Naming a topic
@@ -93,6 +93,26 @@ message_context:
     skill: job-seeker-agent
     reference: references/career-transition-targeting.md
     terms: ["キャリアチェンジ先", "次に目指す職種", "次の職種は", "次の職種を", "狙う職種を", "職種を変え", "which target role", "what target role", "target role should i pursue", "target role should i aim for", "role should i target next", "role to target next", "which adjacent role", "what adjacent role", "next career role", "next role should i target", "노릴 직무", "다음 직무는", "다음 직무를", "직무 전환", "전환할 직무", "다음에 노릴 직무", "어떤 직무를 노려", "다음에 어떤 직무"]
+  - id: targeted_application_document
+    skill: career-document
+    reference: references/targeted-application.md
+    terms: ["この求人向けの職務経歴書", "このJD向けの職務経歴書", "応募先ごとの職務経歴書", "이 JD용 경력기술서", "이 회사용 경력기술서", "이 공고용 이력서", "tailor my resume to this posting", "resume for this JD", "resume for this company"]
+  - id: jd_evidence_match
+    skill: matching-simulator
+    reference: references/evaluation_perspectives.md
+    terms: ["このJDと自分", "このJDと私", "JDと私の経験", "この求人に応募できるか", "要件と自分の経験", "JD와 내 경력", "이 공고에 지원해도", "요구사항과 내 경험", "match this JD", "compare me with this JD", "do I meet this job"]
+  - id: interview_practice
+    skill: mock-interviewer
+    reference: references/session-routing.md
+    terms: ["面接練習", "面接の練習", "模擬面接", "深掘り対策", "深掘り 対策", "면접 연습", "모의 면접", "mock interview", "practice interview", "interview practice"]
+  - id: aptitude_test
+    skill: job-seeker-agent
+    reference: references/tekisei-kensa.md
+    terms: ["適性検査", "SPI3", "SPI対策", "적성검사", "인적성", "aptitude test", "spi practice"]
+  - id: application_learning
+    skill: tenshoku-strategy
+    reference: references/job-search-learning-loop.md
+    terms: ["選考結果を振り返", "応募結果を振り返", "不採用理由", "面接フィードバック", "탈락 이유", "지원 결과 복기", "면접 피드백", "application feedback", "rejection feedback", "job search learning"]
   - id: market_salary
     skill: tenshoku-strategy
     reference: references/market-positioning-2025-2026.md
@@ -112,7 +132,7 @@ message_context:
   - id: salary_negotiation
     skill: tenshoku-strategy
     reference: references/nenshu-koushou.md
-    terms: ["年収交渉", "給与交渉", "salary negotiation", "negotiate salary", "연봉 협상"]
+    terms: ["年収交渉", "給与交渉", "給与のレンジ", "salary negotiation", "negotiate salary", "salary talks", "compensation talks", "compensation negotiation", "pay negotiation", "연봉 협상"]
   - id: interview_manner
     skill: tenshoku-strategy
     reference: references/mensetsu-manner.md
@@ -124,7 +144,7 @@ message_context:
   - id: onboarding
     skill: tenshoku-strategy
     reference: references/nyusha-teichaku.md
-    terms: ["入社手続き", "入社書類", "入社準備", "onboarding paperwork", "joining procedures", "입사 절차"]
+    terms: ["入社手続き", "入社書類", "入社準備", "入社日", "onboarding paperwork", "joining procedures", "입사 절차"]
   - id: offer_handling
     skill: tenshoku-strategy
     reference: references/naitei-taiou.md
@@ -141,25 +161,22 @@ stage_alias:
     terms: ["자기분석", "自己分析", "self-analysis", "career direction", "work style", "values"]
   - alias: documents
     terms: ["자소서", "가쿠치카", "학チカ", "학チ카", "学チカ", "자기pr", "自己pr", "이력서", "履歴書", "職務経歴書", "resume", "cv", "cover letter", "personal statement", "entry sheet", "es"]
+  - alias: discover
+    terms: ["求人探索", "求人検索", "求人を探", "ポジションを探", "채용공고 찾", "공고 찾아", "포지션 찾아", "find job postings", "find open roles", "search job postings"]
   - alias: research
-    terms: ["企業研究", "기업 연구", "company research", "research companies", "company study", "job research"]
+    terms: ["企業研究", "기업 연구", "company research", "research companies", "company study", "job research", "求人", "공고", "구인", "jd", "job description", "job posting", "job ad"]
   - alias: interview
     terms: ["면접", "面接", "interview"]
   - alias: offer
     terms: ["내정", "内定", "job offer", "offer meeting"]
+  - alias: onboarding
+    terms: ["入社準備", "joining procedures", "onboarding", "start date"]
   - alias: exit
-    terms: ["퇴직", "입사", "退職", "入社", "resign", "joining", "onboarding", "start date"]
-  # Applying and reviewing a posting are different intents. "応募/지원" is the application workflow
-  # (chuto 応募・書類選考 → matching-simulator); a bare 求人/JD is an evidence review of that posting
-  # against the user's own history (chuto 職務経歴書・自己PR → job-seeker-agent). apply sits after
-  # every other specific-task group (documents, research, interview, offer, exit): a message naming
-  # one of those alongside "応募" means that more specific task, not a bare application. It still
-  # comes before the bare-JD documents group below, so "この求人に応募できるか" resolves as an
-  # application rather than a document review.
+    terms: ["퇴직", "퇴사", "退職", "resign", "resignation", "引き継ぎ"]
+  # Applying is distinct from merely reviewing a posting. Specific document, match, interview,
+  # offer, exit, and onboarding terms appear earlier and therefore keep their specialized route.
   - alias: apply
     terms: ["応募", "응모", "지원", "apply for", "apply to", "application"]
-  - alias: documents
-    terms: ["求人", "공고", "구인", "jd", "job description", "job posting", "job ad"]
   - alias: chuto
     terms: ["転職", "중途", "career change", "mid-career"]
   - alias: shinsotsu
@@ -309,10 +326,34 @@ transition:
   - "退職の引き継ぎ"
   - "入社手続き"
   - "入社書類"
+  - "入社日"
   - "resignation letter"
   - "notice period"
   - "handover plan"
   - "onboarding paperwork"
+
+# Classify every transition-intent phrase into a lifecycle stage without duplicating those
+# phrases in stage_alias. This keeps "a decided move is being carried out" separate from generic
+# stage vocabulary while still letting stage_for() route exact resignation/onboarding requests.
+transition_stage:
+  exit:
+    - "퇴사 통보"
+    - "퇴직서"
+    - "사직서"
+    - "인수인계"
+    - "退職届"
+    - "円満退職"
+    - "退職の引き継ぎ"
+    - "resignation letter"
+    - "notice period"
+    - "handover plan"
+  onboarding:
+    - "입사 절차"
+    - "입사 준비"
+    - "入社手続き"
+    - "入社書類"
+    - "入社日"
+    - "onboarding paperwork"
 
 # Declaring an active search. The runtime only ever reads this back as a suggested
 # `set-job-search on`; nothing here writes the flag.
@@ -375,13 +416,19 @@ flow_phase:
     - id: offer_onboarding
       terms: ["내정", "입사", "内々定", "内定", "入社"]
   chuto:
-    - id: documents
+    - id: base_documents
       terms: ["職務経歴書", "경력기술서", "이력서", "resume", "cv", "career history", "work history"]
-    - id: application
+    - id: opportunity_discovery
+      terms: ["求人探索", "求人検索", "求人を探", "채용공고 찾", "공고 찾아", "find job postings", "find open roles", "search job postings"]
+    - id: opportunity_analysis
+      terms: ["企業研究", "求人", "JD", "기업 연구", "공고", "job description", "job posting", "company research"]
+    - id: application_selection
       terms: ["지원", "応募", "서류", "書類", "apply", "application", "applied", "screening", "documents"]
     - id: interview
       terms: ["면접", "面接", "interview"]
     - id: offer
       terms: ["오퍼", "연봉", "内定", "オファー", "条件", "offer", "salary", "compensation", "conditions"]
-    - id: exit_onboarding
-      terms: ["퇴직", "입사", "退職", "入社", "resign", "joining", "onboarding", "start date"]
+    - id: onboarding
+      terms: ["입사 절차", "입사 준비", "入社手続き", "入社書類", "入社準備", "入社日", "joining", "onboarding", "start date"]
+    - id: exit
+      terms: ["퇴직", "퇴사", "退職", "resign", "resignation", "인수인계", "引き継ぎ"]

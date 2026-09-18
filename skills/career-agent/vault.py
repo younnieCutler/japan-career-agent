@@ -20,6 +20,7 @@ from models import (
     UNTRUSTED_DATA_MARKER,
     VAULT_DIRECTORIES,
     CareerError,
+    canonical_stage,
     default_state,
     normalized_state,
 )
@@ -166,12 +167,23 @@ def context_eligible(note: dict[str, Any], track: str, stage: str, as_of: str) -
     if track not in metadata_values(note.get("agent_scope")) | {"both"}:
         return False
     stages = metadata_values(note.get("agent_stage"))
-    return not stages or stage in stages or "all" in stages
+    requested_stage = canonical_stage(stage, track)
+    compatible_stages = {
+        canonical_stage(item, track) or item
+        for item in stages
+        if item != "all"
+    }
+    return not stages or requested_stage in compatible_stages or "all" in stages
 
 
 def select_context(vault: Path, track: str, stage: str, as_of: str) -> list[dict[str, Any]]:
     """Return metadata only; note bodies are deliberately never persisted or returned."""
-    eligible = [note for note in index_vault_notes(vault) if context_eligible(note, track, stage, as_of)]
+    selected_stage = canonical_stage(stage, track) or stage
+    eligible = [
+        note
+        for note in index_vault_notes(vault)
+        if context_eligible(note, track, selected_stage, as_of)
+    ]
     eligible.sort(key=lambda note: note["date"] or "", reverse=True)
     selected = [
         {
@@ -181,7 +193,7 @@ def select_context(vault: Path, track: str, stage: str, as_of: str) -> list[dict
             "description": note["description"],
             "headings": note["headings"],
             "source_type": note["source_type"],
-            "selected_for": {"track": track, "stage": stage},
+            "selected_for": {"track": track, "stage": selected_stage},
             "data_trust": UNTRUSTED_DATA_MARKER,
             "instruction_authority": "none",
         }

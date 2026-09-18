@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.37.0] - 2026-09-16
+
+- Align the mid-career Career Agent with one canonical lifecycle from direction and base documents through opportunity discovery, company/JD analysis, application, interview, offer, exit, and onboarding while preserving the existing 0–7 pipeline projection.
+- Route the existing specialist Skills into the real selection flow without adding Skills: target-specific documents use `career-document`, formal JD diagnosis uses `matching-simulator`, interview practice uses `mock-interviewer`, and application tracking/learning runs continuously while an application is open.
+- Make interview practice prefer actual invitation/interviewer evidence before labelled fallback personas, and make aptitude-test preparation identify the actual provider/test before using SPI3 guidance; preserve `Unknown`, provenance, and the no-hiring-prediction boundary.
+
 ## [2.36.0] - 2026-09-12
 
 - Add application-level Job Search Learning Loop history in `data/applications.yml`, keeping repeated applications to one company separate from the current `data/pipeline.yml` projection and freezing closed outcome and matching snapshots.

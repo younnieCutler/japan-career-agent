@@ -14,12 +14,23 @@ from models import (
     SKILL_EXECUTION,
     TRACKS,
     CareerError,
+    canonical_stage,
 )
 from persistence import read_toml
 
 
 FLOW_REFERENCE = Path(__file__).resolve().parent / "references" / "japan-career-flow.toml"
 ROUTING_REFERENCE = Path(__file__).resolve().parent / "references" / "routing.yml"
+
+# Specific message-context routes also own a lifecycle position. This keeps a target-specific
+# document from being reported as base-document preparation and keeps a mock interview inside the
+# active selection stage. Routes not listed here keep normal stage-alias behavior.
+_MESSAGE_CONTEXT_STAGE = {
+    "targeted_application_document": "応募・書類選考",
+    "jd_evidence_match": "企業研究・JD分析",
+    "interview_practice": "面接・選考",
+    "aptitude_test": "応募・書類選考",
+}
 
 
 def _phrase_list(value: Any) -> bool:
@@ -42,6 +53,25 @@ def load_routing() -> dict[str, Any]:
         or not _phrase_list(data.get("maintenance"))
         or not _phrase_list(data.get("opportunity_review"))
         or not _phrase_list(data.get("transition"))
+        or not isinstance(data.get("transition_stage"), dict)
+        or set(data.get("transition_stage", {})) != {"exit", "onboarding"}
+        or not _phrase_list(data.get("transition_stage", {}).get("exit"))
+        or not _phrase_list(data.get("transition_stage", {}).get("onboarding"))
+        or len(
+            data.get("transition_stage", {}).get("exit", [])
+            + data.get("transition_stage", {}).get("onboarding", [])
+        )
+        != len(
+            set(
+                data.get("transition_stage", {}).get("exit", [])
+                + data.get("transition_stage", {}).get("onboarding", [])
+            )
+        )
+        or set(
+            data.get("transition_stage", {}).get("exit", [])
+            + data.get("transition_stage", {}).get("onboarding", [])
+        )
+        != set(data.get("transition", []))
         or not _phrase_list(data.get("review_closed"))
         or not isinstance(data.get("active_search"), dict)
         or not _phrase_list(data.get("active_search", {}).get("terms"))
@@ -65,49 +95,40 @@ def load_routing() -> dict[str, Any]:
 
 ROUTING = load_routing()
 
-# Short ASCII tokens where a plain substring match false-positives inside unrelated English words
-# (e.g. "es" — meant to catch the ES/entry-sheet abbreviation — also matches inside "research",
-# "yes", "best"). Everything else, including intentional stems like "graduat", still matches as a
-# substring.
 _WORD_BOUNDARY_TERMS = {"es", "jd"}
-
-# Clause boundaries for exclusion scoping. Both sentence enders and the CJK/ASCII comma are included:
-# joining a disposed-of topic to the request that follows it with a comma is as common as ending the
-# sentence, and the two forms have to scope the same way.
 _CLAUSE_BOUNDARY = re.compile(r"[。．.!?！？、,;；\n]+")
-
-# Alias groups that only say which track the user is on. They are a legitimate stage fallback, but
-# they are not a statement about what the user wants to do next, so onboarding must not read them
-# as a resolved intent.
 _TRACK_ONLY_ALIASES = {"chuto", "shinsotsu"}
-
-# "27卒" / "2027卒" / "2027年卒" / "class of 2027". The lookbehinds keep 既卒 and 第二新卒 out: those
-# describe someone who already graduated, and reading a graduation year out of them would invent a
-# fact the message never stated.
+_WEAK_RESEARCH_TERMS = {
+    "求人",
+    "공고",
+    "구인",
+    "jd",
+    "job description",
+    "job posting",
+    "job ad",
+}
 _GRADUATION_PATTERNS = (
     re.compile(r"(?<!第二新)(?<!既)(?<!\d)(\d{2}|\d{4})\s*年?卒"),
     re.compile(r"(\d{4})\s*(?:년\s*졸업|년도\s*졸업)"),
     re.compile(r"class of\s*(\d{4})", re.I),
     re.compile(r"(\d{4})\s*graduat", re.I),
 )
-
-
-# 第二新卒 is a 中途 hire, not a new graduate, but it contains 新卒 as a substring and every keyword
-# lookup here is substring matching. Rewriting it to 中途 before any lookup keeps the lexicon honest
-# without adding a negative-term mechanism that every future group would have to know about.
 _SECOND_NEW_GRADUATE = re.compile(r"第\s*[二2]\s*新卒")
+_KOREAN_CAREER_DOCUMENT = re.compile(r"경력기술서")
 
 
 def normalized_message(message: str) -> str:
-    """Lowercased message with expressions that read as their own opposite rewritten."""
-    return _SECOND_NEW_GRADUATE.sub("中途", message.lower())
+    """Lowercased message with bounded vocabulary aliases normalized."""
+    lowered = message.lower()
+    lowered = _SECOND_NEW_GRADUATE.sub("中途", lowered)
+    # 경력기술서 is the ordinary Korean label for the same artifact as 職務経歴書. Normalizing the
+    # noun keeps track and stage routing consistent without making a broad fragment such as 경력 a
+    # routing term.
+    return _KOREAN_CAREER_DOCUMENT.sub("職務経歴書", lowered)
 
 
 def term_present(term: str, lowered: str) -> bool:
     if term in _WORD_BOUNDARY_TERMS:
-        # The boundary is ASCII letters/digits, not `\b`. `\b` treats CJK as word characters, so
-        # "このJDと" would count as one word and the term would never match inside a Japanese or
-        # Korean sentence, which is exactly where these abbreviations show up.
         return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", lowered) is not None
     return term in lowered
 
@@ -122,12 +143,7 @@ def language_for(message: str) -> str:
 
 
 def graduation_signal(message: str) -> int | None:
-    """The graduation year a message states outright, or None.
-
-    This is a reading of what the user wrote, never a stored fact: the caller may only put it in a
-    question for the user to confirm. A year outside 2000-2099 is treated as no signal rather than
-    guessed at.
-    """
+    """The graduation year a message states outright, or None."""
     for pattern in _GRADUATION_PATTERNS:
         match = pattern.search(message)
         if not match:
@@ -147,34 +163,22 @@ def infer_track(message: str, requested: str | None = None) -> str | None:
         return "shinsotsu"
     if any(term_present(term.lower(), lowered) for term in ROUTING["track"]["chuto"]):
         return "chuto"
-    # "27卒" states a graduation year and nothing else, but only a new graduate describes
-    # themselves that way. The lexicon cannot carry it: a bare "卒" substring would swallow
-    # 既卒 and 第二新卒 too.
     if graduation_signal(message) is not None:
         return "shinsotsu"
     return None
 
 
 def _open_clauses(message: str) -> tuple[str, ...]:
-    """The clauses of a message that are not closing their own subject out.
-
-    Reference selection used to read the message as one bag of words, so a sentence that names a
-    topic only to dispose of it -- refusing it, contrasting it against what is wanted instead, or
-    reporting it already finished -- still handed back that topic's reference, and the request that
-    followed never got a turn. The marker binds to the clause it sits in, which is why the clause
-    and not the message is what gets dropped: vetoing the whole message would lose the second half
-    along with the first.
-
-    Splitting on punctuation is deliberately coarse. A clause that is merely too long carries its
-    marker with it and stays excluded; a missed split can only fall back to the previous behaviour
-    for that one message, never select a reference the user has ruled out.
-    """
-    lowered = message.lower()
+    """Return clauses that are not explicitly closing their own topic out."""
+    lowered = normalized_message(message)
     clauses: list[str] = []
     for clause in _CLAUSE_BOUNDARY.split(lowered):
         if not clause.strip():
             continue
-        if any(term_present(marker.lower(), clause) for marker in ROUTING["message_context_exclusion"]):
+        if any(
+            term_present(marker.lower(), clause)
+            for marker in ROUTING["message_context_exclusion"]
+        ):
             continue
         clauses.append(clause)
     return tuple(clauses)
@@ -185,49 +189,52 @@ def _any_term(message: str, terms: list[str]) -> bool:
     return any(term_present(term.lower(), lowered) for term in terms)
 
 
-def tanaoroshi_intent(message: str) -> bool:
-    """Whether the message asks to go back over experience from before the system saw it.
+def _matched_message_context(message: str) -> dict[str, Any] | None:
+    clauses = _open_clauses(message)
+    return next(
+        (
+            item
+            for item in ROUTING["message_context"]
+            if any(
+                term_present(term.lower(), clause)
+                for clause in clauses
+                for term in item["terms"]
+            )
+        ),
+        None,
+    )
 
-    Checked ahead of `maintenance_intent`, because every phrase in this table carries a scope
-    marker the maintenance vocabulary does not -- 지금까지, これまで, so far. "지금까지 경력을
-    정리하고 싶어" matches both tables read as bags of words; only one of them is what the user
-    asked for, and it is the one that says how far back to go.
-    """
+
+def tanaoroshi_intent(message: str) -> bool:
     return _any_term(message, ROUTING["tanaoroshi"])
 
 
 def maintenance_intent(message: str) -> bool:
-    """Whether the message asks to record career evidence rather than move a job search along.
-
-    This is deliberately independent of track and stage. Someone writing down what they did at
-    work this quarter is in no hiring market and at no step of a transition, and asking them to
-    pick one before their note can be saved is the friction the maintenance path exists to remove.
-    """
     return _any_term(message, ROUTING["maintenance"])
 
 
 def opportunity_review_intent(message: str) -> bool:
-    """Whether the message is looking at one opportunity without declaring a search."""
     return _any_term(message, ROUTING["opportunity_review"])
 
 
 def transition_intent(message: str) -> bool:
-    """Whether the message is carrying out a move the user has already decided on."""
     return _any_term(message, ROUTING["transition"])
 
 
+def _transition_stage_alias(message: str) -> str | None:
+    matches = [
+        alias
+        for alias in ("exit", "onboarding")
+        if _any_term(message, ROUTING["transition_stage"][alias])
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def review_closed_intent(message: str) -> bool:
-    """Whether the message closes an opportunity out and returns to plain career upkeep."""
     return _any_term(message, ROUTING["review_closed"])
 
 
 def active_search_intent(message: str) -> bool:
-    """Whether the message declares an active search outright.
-
-    A negation wins over every term: "이직 준비 시작할 생각은 없어" contains the whole phrase and
-    means its opposite. Even a true answer only ever produces a suggested `set-job-search on` for
-    the user to run — nothing here writes the flag.
-    """
     if _any_term(message, ROUTING["active_search"]["negation"]):
         return False
     return _any_term(message, ROUTING["active_search"]["terms"])
@@ -246,36 +253,85 @@ def matched_stage_alias(message: str, *, skip_track_aliases: bool = False) -> st
 
 
 def explicit_stage_alias(message: str) -> str | None:
-    """The intent this message states outright, or None when it states none.
+    """The explicit stage intent stated in the message, if any."""
+    return matched_stage_alias(message, skip_track_aliases=True) or _transition_stage_alias(message)
 
-    `stage_for()` always returns a stage, falling back to the current or first stage, so it cannot
-    answer "did the user actually say what they want?". Onboarding needs that question answered
-    before it decides whether to route or ask. Track aliases are excluded: "이직 준비 중" resolves
-    the track and says nothing about the next task.
-    """
-    return matched_stage_alias(message, skip_track_aliases=True)
+
+def _stage_alias_terms(alias: str) -> tuple[str, ...]:
+    for group in ROUTING["stage_alias"]:
+        if str(group["alias"]) == alias:
+            return tuple(str(term) for term in group["terms"])
+    return ()
+
+
+def _apply_overrides_weak_research(message: str) -> bool:
+    """Treat a posting noun as context, not research intent, when the user explicitly applies."""
+    lowered = normalized_message(message)
+    apply_terms = _stage_alias_terms("apply")
+    if not any(term_present(term.lower(), lowered) for term in apply_terms):
+        return False
+    matched_research = [
+        term
+        for term in _stage_alias_terms("research")
+        if term_present(term.lower(), lowered)
+    ]
+    return bool(matched_research) and all(
+        term.casefold() in _WEAK_RESEARCH_TERMS for term in matched_research
+    )
+
+
+def _canonical_current_stage(stage: str | None, track: str) -> str | None:
+    return canonical_stage(stage, track)
 
 
 def stage_for(message: str, track: str, current_stage: str | None = None) -> str:
+    if track == "chuto":
+        route = _matched_message_context(message)
+        if route and route.get("id") in _MESSAGE_CONTEXT_STAGE:
+            return _MESSAGE_CONTEXT_STAGE[str(route["id"])]
+
     alias = matched_stage_alias(message)
+    if alias is None:
+        alias = _transition_stage_alias(message)
+    if alias == "research" and _apply_overrides_weak_research(message):
+        alias = "apply"
     if alias is not None:
         if alias == "chuto":
             track = "chuto"
         if alias == "shinsotsu":
             track = "shinsotsu"
-        candidates = CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES
-        return {
-            "self": candidates[0],
-            "documents": candidates[1],
-            "research": candidates[2],
-            "apply": candidates[3],
-            "interview": candidates[4 if track == "chuto" else 5],
-            "offer": candidates[5 if track == "chuto" else 6],
-            "exit": candidates[6],
-        }.get(alias, candidates[0])
+        if track == "chuto":
+            stage_by_alias = {
+                "self": "自己分析・転職軸",
+                "documents": "応募基盤・職務経歴書",
+                "discover": "求人探索・候補整理",
+                "research": "企業研究・JD分析",
+                "apply": "応募・書類選考",
+                "interview": "面接・選考",
+                "offer": "内定・条件交渉",
+                "exit": "退職・引き継ぎ",
+                "onboarding": "入社準備・オンボーディング",
+                "chuto": "自己分析・転職軸",
+            }
+        else:
+            stage_by_alias = {
+                "self": SHINSOTSU_STAGES[0],
+                "documents": SHINSOTSU_STAGES[1],
+                "discover": SHINSOTSU_STAGES[2],
+                "research": SHINSOTSU_STAGES[2],
+                "apply": SHINSOTSU_STAGES[3],
+                "interview": SHINSOTSU_STAGES[5],
+                "offer": SHINSOTSU_STAGES[6],
+                "exit": SHINSOTSU_STAGES[6],
+                "onboarding": SHINSOTSU_STAGES[6],
+                "shinsotsu": SHINSOTSU_STAGES[0],
+            }
+        return stage_by_alias.get(alias, stage_by_alias["self"])
+
     candidates = CHUTO_STAGES if track == "chuto" else SHINSOTSU_STAGES
-    if current_stage in candidates:
-        return current_stage
+    canonical_current = _canonical_current_stage(current_stage, track)
+    if canonical_current in candidates:
+        return str(canonical_current)
     return candidates[0]
 
 
@@ -286,17 +342,11 @@ def skill_context(
     track: str | None = None,
     skill_override: str | None = None,
 ) -> dict[str, Any]:
+    resolved_stage = _canonical_current_stage(stage, track or "")
     route = None
     if message and track == "chuto" and not skill_override:
-        clauses = _open_clauses(message)
-        route = next((
-            item for item in ROUTING["message_context"]
-            if any(term_present(term.lower(), clause) for clause in clauses for term in item["terms"])
-        ), None)
-    # A maintenance turn has no stage to look up, so the caller names the skill directly. The rest
-    # of this function -- the SKILL.md read, the description parse, the missing-file answer -- is
-    # the same for it as for every routed turn.
-    skill_name = skill_override or (route["skill"] if route else SKILL_BY_STAGE.get(stage))
+        route = _matched_message_context(message)
+    skill_name = skill_override or (route["skill"] if route else SKILL_BY_STAGE.get(resolved_stage))
     if not skill_name:
         return {}
     skill_path = skills_root / skill_name / "SKILL.md"
@@ -319,7 +369,8 @@ def skill_context(
         references = [reference]
     else:
         references = [
-            name for name in REFERENCE_BY_STAGE.get(stage, ())
+            name
+            for name in REFERENCE_BY_STAGE.get(resolved_stage, ())
             if (skill_path.parent / name).exists()
         ]
     return {
@@ -338,39 +389,12 @@ def select_skill(
     track: str | None = None,
     skill_override: str | None = None,
 ) -> dict[str, Any]:
-    """The Skill this turn would use, with a status that says so is all this claims.
-
-    This wraps `skill_context()` unchanged -- the discovery, the description parse, the reference
-    resolution are exactly what they were -- and adds the fields that make the difference between
-    "selected" and "run" legible to a caller: `status`, `invocation` (always `None` here, because
-    selecting a Skill is not calling it), `execution` (whether the Skill can even run without a
-    host), and `invoke_with` (the `skill-open` command that actually starts one, omitted when the
-    Skill has no SKILL.md on disk right now -- `skill-open` would only fail with "unknown skill"
-    for it, via the same `skill_registry.discover()` that skips directories with no SKILL.md).
-    A selection is a plan, not a promise it happened. `act.skill` and `result["skill"]` in
-    `proposals.run_chat()` both take this same dict, so a caller comparing the two for equality
-    still sees one.
-
-    `invoke_with` for a `host_required` or `hybrid` Skill carries a literal `HOST` placeholder
-    rather than defaulting to `--entrypoint cli`: this function has no way to know which host is
-    actually running it, and a copy-pasteable command that silently records `entrypoint: cli` for
-    work a host actually did -- or, for `host_required`, silently closes as `unsupported` -- would
-    look like an answer instead of a broken command. `argparse` rejects the placeholder outright if
-    a caller runs it unedited, which is the point -- it forces choosing a real value instead of
-    quietly degrading. `HOST` (not `<claude|codex>`) because it carries no shell metacharacter: a
-    caller who pastes the whole command into an actual shell hits the same argparse rejection a
-    caller who passes it as an argv list does, instead of the shell redirecting or piping on `<`/`>`/
-    `|` before argparse ever runs. `deterministic` Skills get no hint -- they run inside this CLI
-    process, so `--entrypoint cli`'s default is already true for them.
-    """
+    """The Skill this turn would use, without claiming that selection means execution."""
     context = skill_context(skills_root, stage, message, track, skill_override)
     if not context:
         return context
     skill_name = context["skill"]
     if skill_name not in SKILL_EXECUTION:
-        # `skill_registry.discover()` raises on exactly this gap; a lookup here that silently
-        # returned `execution: None` for the same missing entry would just move the failure
-        # somewhere quieter.
         raise CareerError(f"skill '{skill_name}' has no entry in models.SKILL_EXECUTION")
     execution = SKILL_EXECUTION[skill_name]
     selection = {
@@ -389,6 +413,13 @@ def load_flow_reference() -> dict[str, Any]:
     reference = read_toml(FLOW_REFERENCE)
     if not reference.get("metadata") or not reference.get("shinsotsu") or not reference.get("chuto"):
         raise CareerError(f"invalid career flow reference: {FLOW_REFERENCE}")
+    chuto_labels = tuple(
+        str(phase.get("label"))
+        for phase in reference.get("chuto", {}).get("phases", [])
+        if isinstance(phase, dict) and phase.get("label")
+    )
+    if chuto_labels != CHUTO_STAGES:
+        raise CareerError("career flow reference chuto labels drift from models.CHUTO_STAGES")
     return reference
 
 
@@ -397,10 +428,26 @@ def flow_phase_ids(reference: dict[str, Any], track: str) -> set[str]:
     return {str(phase.get("id")) for phase in phases if isinstance(phase, dict) and phase.get("id")}
 
 
-def flow_phase_for(message: str, track: str, state: dict[str, Any], profile: dict[str, Any], reference: dict[str, Any]) -> str:
-    # Message signal comes first: a new explicit signal must be allowed to move the phase.
+def flow_phase_for(
+    message: str,
+    track: str,
+    state: dict[str, Any],
+    profile: dict[str, Any],
+    reference: dict[str, Any],
+) -> str:
     allowed = flow_phase_ids(reference, track)
-    lowered = message.lower()
+    if track == "chuto":
+        route = _matched_message_context(message)
+        route_phase = {
+            "targeted_application_document": "application_selection",
+            "jd_evidence_match": "opportunity_analysis",
+            "interview_practice": "interview",
+            "aptitude_test": "application_selection",
+        }.get(str(route.get("id"))) if route else None
+        if route_phase in allowed:
+            return str(route_phase)
+
+    lowered = normalized_message(message)
     for signal in ROUTING["flow_phase"][track]:
         if any(term_present(term.lower(), lowered) for term in signal["terms"]) and signal["id"] in allowed:
             return signal["id"]

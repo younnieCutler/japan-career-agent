@@ -57,8 +57,14 @@ BENCHMARKS = {
         "dev": FIXTURE_DIR / "routing_eval_v3_dev.yml",
         "holdout": FIXTURE_DIR / "routing_eval_v3_holdout.yml",
     },
+    # v4 keeps v3 frozen and updates only the intentional mid-career lifecycle contract:
+    # canonical stage names plus specialized Skill handoffs introduced by lifecycle v2.
+    "routing-eval-v4": {
+        "dev": FIXTURE_DIR / "routing_eval_v4_dev.yml",
+        "holdout": FIXTURE_DIR / "routing_eval_v4_holdout.yml",
+    },
 }
-BENCHMARK_VERSION = "routing-eval-v3"
+BENCHMARK_VERSION = "routing-eval-v4"
 FIXTURE_PATHS = BENCHMARKS[BENCHMARK_VERSION]
 
 # The production surface a candidate is allowed to mutate. Everything the evaluator reads to make

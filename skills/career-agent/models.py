@@ -251,6 +251,8 @@ def document_evidence_ids(evidence: Any) -> list[str]:
         if document_id and document_id not in seen:
             seen.append(document_id)
     return seen
+
+
 def job_search_of(profile: dict[str, Any]) -> str:
     """The user's declared job-search intent, `off` until they say otherwise.
 
@@ -282,60 +284,103 @@ SHINSOTSU_STAGES = (
     "書類選考・面接",
     "内々定・内定・入社準備",
 )
+# Canonical chuto lifecycle. These labels are mirrored in japan-career-flow.toml and checked by
+# lifecycle/routing tests. Stage count is allowed to differ from the coarser 0-7 pipeline scale:
+# discovery and company/JD analysis are two user-visible steps that both project to market stage 2.
 CHUTO_STAGES = (
     "自己分析・転職軸",
-    "職務経歴書・自己PR",
-    "業界研究・企業研究",
+    "応募基盤・職務経歴書",
+    "求人探索・候補整理",
+    "企業研究・JD分析",
     "応募・書類選考",
-    "面接",
+    "面接・選考",
     "内定・条件交渉",
-    "退職・入社準備",
+    "退職・引き継ぎ",
+    "入社準備・オンボーディング",
 )
-# Agent stage → the 0–7 Japan market stage map stored in data/pipeline.yml.
+# Old chuto labels stay readable without remaining valid output labels. `業界研究・企業研究`
+# is also a current shinsotsu label, so canonicalization only applies to it when the track is
+# explicitly chuto. A combined legacy exit/onboarding state maps to exit, the conservative earlier
+# phase, rather than silently advancing a user into onboarding.
+LEGACY_CHUTO_STAGE_ALIASES = {
+    "職務経歴書・自己PR": "応募基盤・職務経歴書",
+    "業界研究・企業研究": "企業研究・JD分析",
+    "面接": "面接・選考",
+    "退職・入社準備": "退職・引き継ぎ",
+}
+
+
+def canonical_stage(stage: str | None, track: str | None) -> str | None:
+    """Return the canonical lifecycle label for a persisted/requested stage.
+
+    This is read compatibility only. It never rewrites an existing Vault by itself, and callers
+    that subsequently persist state naturally write the canonical label. With an unknown track,
+    only aliases that cannot be a current shinsotsu label are normalized.
+    """
+    if stage is None:
+        return None
+    if track == "chuto":
+        return LEGACY_CHUTO_STAGE_ALIASES.get(stage, stage)
+    if track is None and stage not in SHINSOTSU_STAGES:
+        return LEGACY_CHUTO_STAGE_ALIASES.get(stage, stage)
+    return stage
+
+
+# Agent stage → the 0–7 Japan market stage map stored in data/pipeline.yml. Legacy keys remain as
+# input compatibility for historical events and external callers; new routing emits canonical keys.
 PIPELINE_STAGE = {
     "自己分析・就活軸": 0,
     "自己分析・転職軸": 0,
     "学チカ・自己PR素材": 1,
+    "応募基盤・職務経歴書": 1,
     "職務経歴書・自己PR": 1,
     "ES・履歴書": 1,
+    "求人探索・候補整理": 2,
+    "企業研究・JD分析": 2,
     "業界研究・企業研究": 2,
     "応募・書類選考": 3,
     "適性検査（SPI3）": 3,
+    "面接・選考": 4,
     "面接": 4,
     "書類選考・面接": 4,
     "内定・条件交渉": 5,
     "内々定・内定・入社準備": 5,
+    "退職・引き継ぎ": 6,
     "退職・入社準備": 6,
+    "入社準備・オンボーディング": 7,
 }
 SKILL_BY_STAGE = {
     "自己分析・就活軸": "jiko-bunseki",
     "自己分析・転職軸": "jiko-bunseki",
     "学チカ・自己PR素材": "job-seeker-agent",
-    "職務経歴書・自己PR": "job-seeker-agent",
-    "業界研究・企業研究": "kigyou-bunseki",
+    "応募基盤・職務経歴書": "job-seeker-agent",
+    "求人探索・候補整理": "career-agent",
+    "企業研究・JD分析": "kigyou-bunseki",
     "ES・履歴書": "job-seeker-agent",
     "適性検査（SPI3）": "job-seeker-agent",
     "書類選考・面接": "job-seeker-agent",
-    "応募・書類選考": "matching-simulator",
-    "面接": "job-seeker-agent",
+    "応募・書類選考": "career-document",
+    "面接・選考": "job-seeker-agent",
     "内々定・内定・入社準備": "job-seeker-agent",
     "内定・条件交渉": "tenshoku-strategy",
-    "退職・入社準備": "tenshoku-strategy",
+    "退職・引き継ぎ": "tenshoku-strategy",
+    "入社準備・オンボーディング": "tenshoku-strategy",
 }
 REFERENCE_BY_STAGE = {
     "自己分析・就活軸": ("references/questions.md",),
     "自己分析・転職軸": ("references/questions.md",),
     "学チカ・自己PR素材": ("references/shinsotsu.md",),
-    "職務経歴書・自己PR": ("references/shokumukeireki-saigensei.md",),
-    "業界研究・企業研究": ("references/frameworks.md",),
+    "応募基盤・職務経歴書": ("references/shokumukeireki-saigensei.md",),
+    "求人探索・候補整理": ("references/opportunity-discovery.md",),
+    "企業研究・JD分析": ("references/frameworks.md",),
     "ES・履歴書": ("references/shinsotsu.md",),
-    "適性検査（SPI3）": ("references/frameworks.md",),
+    "適性検査（SPI3）": ("references/tekisei-kensa.md",),
     "書類選考・面接": ("references/mensetsu-rounds.md",),
-    "応募・書類選考": ("references/senko-tracking.md",),
-    "面接": ("references/mensetsu-rounds.md",),
+    "面接・選考": ("references/mensetsu-rounds.md",),
     "内々定・内定・入社準備": ("references/naitei-taiou.md",),
     "内定・条件交渉": ("references/naitei-taiou.md",),
-    "退職・入社準備": ("references/nyusha-teichaku.md",),
+    "退職・引き継ぎ": ("references/enman-taishoku.md",),
+    "入社準備・オンボーディング": ("references/nyusha-teichaku.md",),
 }
 REQUIRED_EVENT_FIELDS = (
     "id",
@@ -554,4 +599,6 @@ def normalized_state(value: dict[str, Any]) -> CareerState:
     for key in ("track", "stage", "flow_phase", "last_event_id", "updated_at", "version"):
         if state.get(key) == "":
             state[key] = None
+    if isinstance(state.get("stage"), str):
+        state["stage"] = canonical_stage(state["stage"], state.get("track"))
     return state

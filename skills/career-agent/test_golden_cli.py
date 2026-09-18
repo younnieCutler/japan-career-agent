@@ -125,7 +125,7 @@ class GoldenCliTests(unittest.TestCase):
                     "mode": "chat",
                     "language": "ja",
                     "track": "chuto",
-                    "stage": "面接",
+                    "stage": "面接・選考",
                     "flow_phase": "interview",
                     "proposal_kind": "event",
                     "proposal_status": "pending",
@@ -185,7 +185,7 @@ class GoldenCliTests(unittest.TestCase):
                     "event_count": 1,
                     "pending_proposals": 0,
                     "state_track": "chuto",
-                    "state_stage": "面接",
+                    "state_stage": "面接・選考",
                 },
             )
 
