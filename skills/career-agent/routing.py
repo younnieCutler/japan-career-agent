@@ -53,6 +53,25 @@ def load_routing() -> dict[str, Any]:
         or not _phrase_list(data.get("maintenance"))
         or not _phrase_list(data.get("opportunity_review"))
         or not _phrase_list(data.get("transition"))
+        or not isinstance(data.get("transition_stage"), dict)
+        or set(data.get("transition_stage", {})) != {"exit", "onboarding"}
+        or not _phrase_list(data.get("transition_stage", {}).get("exit"))
+        or not _phrase_list(data.get("transition_stage", {}).get("onboarding"))
+        or len(
+            data.get("transition_stage", {}).get("exit", [])
+            + data.get("transition_stage", {}).get("onboarding", [])
+        )
+        != len(
+            set(
+                data.get("transition_stage", {}).get("exit", [])
+                + data.get("transition_stage", {}).get("onboarding", [])
+            )
+        )
+        or set(
+            data.get("transition_stage", {}).get("exit", [])
+            + data.get("transition_stage", {}).get("onboarding", [])
+        )
+        != set(data.get("transition", []))
         or not _phrase_list(data.get("review_closed"))
         or not isinstance(data.get("active_search"), dict)
         or not _phrase_list(data.get("active_search", {}).get("terms"))
@@ -202,6 +221,15 @@ def transition_intent(message: str) -> bool:
     return _any_term(message, ROUTING["transition"])
 
 
+def _transition_stage_alias(message: str) -> str | None:
+    matches = [
+        alias
+        for alias in ("exit", "onboarding")
+        if _any_term(message, ROUTING["transition_stage"][alias])
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def review_closed_intent(message: str) -> bool:
     return _any_term(message, ROUTING["review_closed"])
 
@@ -226,7 +254,7 @@ def matched_stage_alias(message: str, *, skip_track_aliases: bool = False) -> st
 
 def explicit_stage_alias(message: str) -> str | None:
     """The explicit stage intent stated in the message, if any."""
-    return matched_stage_alias(message, skip_track_aliases=True)
+    return matched_stage_alias(message, skip_track_aliases=True) or _transition_stage_alias(message)
 
 
 def _stage_alias_terms(alias: str) -> tuple[str, ...]:
@@ -263,6 +291,8 @@ def stage_for(message: str, track: str, current_stage: str | None = None) -> str
             return _MESSAGE_CONTEXT_STAGE[str(route["id"])]
 
     alias = matched_stage_alias(message)
+    if alias is None:
+        alias = _transition_stage_alias(message)
     if alias == "research" and _apply_overrides_weak_research(message):
         alias = "apply"
     if alias is not None:
