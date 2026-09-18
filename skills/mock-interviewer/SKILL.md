@@ -3,8 +3,9 @@ name: mock-interviewer
 description: >
   Stress-tests a candidate's resume, 退職理由, 志望動機, and interview stories against the actual
   Japanese interview context when the round/interviewer is known, or a clearly labelled generic
-  persona when it is not. Uses adaptive 深掘り to identify undefendable claims, fake metrics, and
-  contradictions before an actual interview without assuming a universal round sequence.
+  persona when it is not. Uses an adaptive deep-dive method with 3 probe families to identify
+  undefendable claims, fake metrics, and contradictions before an actual interview without assuming
+  a universal round sequence.
 
   Use when:
   - "practice interview", "mock interview", "면접 연습", "面接対策", "深掘り 対策"
