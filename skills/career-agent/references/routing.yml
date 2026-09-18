@@ -104,7 +104,7 @@ message_context:
   - id: interview_practice
     skill: mock-interviewer
     reference: references/session-routing.md
-    terms: ["面接練習", "模擬面接", "深掘り対策", "深掘り 対策", "면접 연습", "모의 면접", "mock interview", "practice interview", "interview practice"]
+    terms: ["面接練習", "面接の練習", "模擬面接", "深掘り対策", "深掘り 対策", "면접 연습", "모의 면접", "mock interview", "practice interview", "interview practice"]
   - id: aptitude_test
     skill: job-seeker-agent
     reference: references/tekisei-kensa.md
@@ -132,7 +132,7 @@ message_context:
   - id: salary_negotiation
     skill: tenshoku-strategy
     reference: references/nenshu-koushou.md
-    terms: ["年収交渉", "給与交渉", "salary negotiation", "negotiate salary", "연봉 협상"]
+    terms: ["年収交渉", "給与交渉", "給与のレンジ", "salary negotiation", "negotiate salary", "salary talks", "compensation talks", "compensation negotiation", "pay negotiation", "연봉 협상"]
   - id: interview_manner
     skill: tenshoku-strategy
     reference: references/mensetsu-manner.md
