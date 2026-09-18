@@ -170,9 +170,9 @@ stage_alias:
   - alias: offer
     terms: ["내정", "内定", "job offer", "offer meeting"]
   - alias: onboarding
-    terms: ["입사 절차", "입사 준비", "入社手続き", "入社書類", "入社準備", "入社日", "joining procedures", "onboarding paperwork", "onboarding", "start date"]
+    terms: ["入社準備", "joining procedures", "onboarding", "start date"]
   - alias: exit
-    terms: ["퇴직", "퇴사", "退職", "resign", "resignation", "인수인계", "引き継ぎ"]
+    terms: ["퇴직", "퇴사", "退職", "resign", "resignation", "引き継ぎ"]
   # Applying is distinct from merely reviewing a posting. Specific document, match, interview,
   # offer, exit, and onboarding terms appear earlier and therefore keep their specialized route.
   - alias: apply
@@ -331,6 +331,29 @@ transition:
   - "notice period"
   - "handover plan"
   - "onboarding paperwork"
+
+# Classify every transition-intent phrase into a lifecycle stage without duplicating those
+# phrases in stage_alias. This keeps "a decided move is being carried out" separate from generic
+# stage vocabulary while still letting stage_for() route exact resignation/onboarding requests.
+transition_stage:
+  exit:
+    - "퇴사 통보"
+    - "퇴직서"
+    - "사직서"
+    - "인수인계"
+    - "退職届"
+    - "円満退職"
+    - "退職の引き継ぎ"
+    - "resignation letter"
+    - "notice period"
+    - "handover plan"
+  onboarding:
+    - "입사 절차"
+    - "입사 준비"
+    - "入社手続き"
+    - "入社書類"
+    - "入社日"
+    - "onboarding paperwork"
 
 # Declaring an active search. The runtime only ever reads this back as a suggested
 # `set-job-search on`; nothing here writes the flag.
