@@ -133,7 +133,7 @@ def test_job_seeker_references_are_lazy_routed() -> None:
     skill = (ROOT / "skills" / "job-seeker-agent" / "SKILL.md").read_text(encoding="utf-8")
     assert "Do not load every file under" in skill
     for route in (
-        "職務経歴書, resume rewrite, 自己PR",
+        "職務経歴書, base resume rewrite, 自己PR",
         "ATS, scout/search keywords",
         "志望動機, why this company/role",
         "면접, 面接 content, round-specific answers",
