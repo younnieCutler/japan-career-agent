@@ -9,7 +9,6 @@ and a non-event for a reader of somebody's existing Vault.
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 import tempfile

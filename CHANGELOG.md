@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.0] - 2026-11-01
+
+- Shrink the repository back to its skill-first architecture: remove the local HTTP GUI (`skills/career-agent/gui/`, `frontend/`, `design-preview/`), the Career Vault/event-ledger/approval/private-store/session/case/judgment runtime (`skills/career-agent/`), the continuous work-log skill (`skills/career-maintenance/`), and the standalone npm/PyPI CLI wrappers (`packaging/`).
+- Extract pure deterministic document projection, validation, and HTML rendering into `_shared/document.py`, `_shared/render.py`, `_shared/localization.py`, and `scripts/document.py`, backed by workspace YAML state (`data/evidence.yml`, `data/pipeline.yml`, `data/applications.yml`, `data/profile.yml`, `data/rules.yml`).
+- Preserve all 16 core and quality skills, `matching_v3`, `transition_admin`, `career_knowledge`, `pipeline_store`, `application_learning`, `schema_contract`, and the read-only `status_bar.py` hook.
+
 ## [2.37.0] - 2026-09-16
 
 - Align the mid-career Career Agent with one canonical lifecycle from direction and base documents through opportunity discovery, company/JD analysis, application, interview, offer, exit, and onboarding while preserving the existing 0–7 pipeline projection.

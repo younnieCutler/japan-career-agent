@@ -7,7 +7,6 @@ Run: python3 scripts/test_pipeline_integration.py
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 import tempfile
