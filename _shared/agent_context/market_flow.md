@@ -1,19 +1,14 @@
 # Japan career market flow
 
-Use stages as a planning map, not as a prediction model. The canonical chuto lifecycle labels are
-also defined in `skills/career-agent/references/japan-career-flow.toml` and are regression-checked
-against the runtime vocabulary. Company-specific progress lives in `data/pipeline.yml`.
-No universal duration or pass rate is asserted here; time-sensitive external claims belong in
-`_shared/career_claims.yml` and must be reverified.
-
-`career-maintenance` is continuous and sits outside this linear planning map: recording work evidence
-does not imply job-search intent.
+Use stages as a planning map, not as a prediction model. Company-specific progress lives in
+`data/pipeline.yml`. No universal duration or pass rate is asserted here; time-sensitive external
+claims belong in `_shared/career_claims.yml` and must be reverified.
 
 | Pipeline stage | Canonical chuto stage | Evidence-based planning use | Primary Skill / handoff |
 |---|---|---|---|
 | 0 | 自己分析・転職軸 | recover/confirm career evidence, values, target direction, and unknowns | `career-tanaoroshi`, `jiko-bunseki`, `job-seeker-agent` target-role exploration |
 | 1 | 応募基盤・職務経歴書 | prepare a reusable candidate profile and base documents | `job-seeker-agent` |
-| 2 | 求人探索・候補整理 | discover current public opportunities and let the user choose which enter review | deterministic `career-agent discover` |
+| 2 | 求人探索・候補整理 | discover current public opportunities and let the user choose which enter review | `kigyou-bunseki`, `tenshoku-strategy` |
 | 2 | 企業研究・JD分析 | keep company/JD facts separate from hypotheses and compare requirements with confirmed evidence | `kigyou-bunseki`, `matching-simulator` |
 | 3 | 応募・書類選考 | tailor the target-specific package; once an application starts, track it through closure | `career-document`; `tenshoku-strategy` tracking is cross-cutting |
 | 4 | 面接・選考 | prepare factual answers, practise against the actual invitation when known, and record outcomes/feedback | `job-seeker-agent`, `mock-interviewer`, `tenshoku-strategy` tracking |

@@ -17,8 +17,6 @@
 
 | ドキュメント | 扱う内容 |
 |---|---|
-| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md)（英語） | 4-skill 分割の run identity と routing 判断ルール |
-| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md)（英語） | Judgment と Approval を分離する理由、L0-L3 影響度モデル、Human-first reveal 契約 |
 | [`_shared/decision_philosophy.md`](../_shared/decision_philosophy.md)（英語） | 根拠・`Unknown`・確認済み conflict がその挙動である理由 |
 | [`_shared/schemas.yml`](../_shared/schemas.yml) | canonical な profile・pipeline・rules スキーマ |
 | [`_shared/career_claims.yml`](../_shared/career_claims.yml) | 時点で変わる外部 claim と失効 |
@@ -28,7 +26,7 @@
 | ドキュメント | 扱う内容 |
 |---|---|
 | [`ARCHITECTURE_BOUNDARIES.md`](ARCHITECTURE_BOUNDARIES.md)（英語） | スキル、共有モジュール、決定的なスクリプトの責務境界 |
-| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md)（英語） | Host/LLM 出力を提案にとどめ、Python が決定的な状態と不変条件を所有する理由 |
+| [`AGENT_OBSERVATION_PACK.md`](AGENT_OBSERVATION_PACK.md)（英語） | コーディングエージェントが長いローカルコマンド出力を圧縮し、正確な根拠を保持する方法 |
 
 ## メンテナ
 
@@ -60,5 +58,8 @@ python scripts/run_all_checks.py
 
 | ドキュメント | 扱う内容 |
 |---|---|
+| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md)（英語） | v3 以前の決定的ランタイムと確率的 Host 分離の設計記録 |
+| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md)（英語） | v3 以前の L0–L3 Human Oversight と判断台帳の設計記録 |
+| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md)（英語） | 4-skill 分割の run identity と routing 判断ルール |
 | [`LLM_JUDGE_PILOT.md`](LLM_JUDGE_PILOT.md)（韓国語） | `job-seeker-agent` の LLM-as-judge パイロットと、採用しなかった理由 |
 | [`LLM_JUDGE_V2_AUTORESEARCH.md`](LLM_JUDGE_V2_AUTORESEARCH.md)（韓国語） | v2 固定コーパス judge 実験と暫定的な結果 |

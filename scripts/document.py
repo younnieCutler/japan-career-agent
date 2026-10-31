@@ -250,6 +250,34 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _format_text(result: dict[str, Any]) -> str:
+    mode = result.get("mode") or ("document-check" if "pass" in result else "document-model")
+    if mode == "document-render":
+        lines = [
+            f"Rendered ({result.get('template')}): {result.get('output_path')}",
+            f"Manifest: {result.get('manifest_path')}",
+            f"Unchanged: {result.get('unchanged')}",
+        ]
+        for item in result.get("outdated_documents") or []:
+            lines.append(f"Outdated: {item.get('manifest')} ({', '.join(item.get('reasons') or [])})")
+        return "\n".join(lines)
+    if "pass" in result:
+        status = "PASS" if result.get("pass") else "FAIL"
+        lines = [f"Fidelity gate: {status} (checked_slots={result.get('checked_slots', 0)})"]
+        for violation in result.get("violations") or []:
+            lines.append(f"- [{violation.get('rule')}] {violation.get('slot')}: {violation.get('reason')}")
+        return "\n".join(lines)
+    target = result.get("target") or {}
+    entries = result.get("entries") or []
+    unknowns = result.get("unknowns") or []
+    return "\n".join(
+        [
+            f"Document model ({result.get('document_type')}): {target.get('company') or target.get('slug')}",
+            f"Entries: {len(entries)} | Unknowns: {len(unknowns)}",
+        ]
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -274,6 +302,9 @@ def main(argv: list[str] | None = None) -> int:
                 humanized_path=args.humanized,
             )
     except CareerError as exc:
+        if getattr(args, "format", "json") == "text":
+            print(f"error ({exc.code or 'DOCUMENT_ERROR'}): {exc}")
+            return 1
         payload = {
             "ok": False,
             "error": str(exc),
@@ -283,7 +314,10 @@ def main(argv: list[str] | None = None) -> int:
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    if getattr(args, "format", "json") == "text":
+        print(_format_text(result))
+    else:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok", True) else 1
 
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Block a commit that stages a probable personal career document.
 #
-# Enable once per clone (docs/PRIVATE_CAREER_DATA_PRD.md section 15.3):
+# Enable once per clone:
 #
 #     git config core.hooksPath .githooks
 #

@@ -17,8 +17,6 @@
 
 | 문서 | 다루는 내용 |
 |---|---|
-| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) (영어) | 4-skill 분리의 run identity와 routing 결정 규칙 |
-| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) (영어) | Judgment와 Approval을 분리하는 이유, L0-L3 영향도 모델, Human-first reveal 계약 |
 | [`_shared/decision_philosophy.md`](../_shared/decision_philosophy.md) (영어) | 근거·`Unknown`·확인된 conflict가 그렇게 동작하는 이유 |
 | [`_shared/schemas.yml`](../_shared/schemas.yml) | canonical profile·pipeline·rules 스키마 |
 | [`_shared/career_claims.yml`](../_shared/career_claims.yml) | 시점에 따라 바뀌는 외부 claim과 만료 |
@@ -28,7 +26,7 @@
 | 문서 | 다루는 내용 |
 |---|---|
 | [`ARCHITECTURE_BOUNDARIES.md`](ARCHITECTURE_BOUNDARIES.md) (영어) | 스킬, 공유 모듈, 결정적 스크립트의 책임 경계 |
-| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md) (영어) | Host/LLM 출력은 제안으로 남고 Python이 결정적 상태와 불변식을 소유하는 이유 |
+| [`AGENT_OBSERVATION_PACK.md`](AGENT_OBSERVATION_PACK.md) (영어) | 코딩 에이전트가 긴 로컬 명령 출력을 압축하고 원문 근거를 보존하는 방법 |
 
 ## 메인테이너
 
@@ -60,5 +58,8 @@ python scripts/run_all_checks.py
 
 | 문서 | 다루는 내용 |
 |---|---|
+| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md) (영어) | v3 이전 결정적 런타임과 확률적 Host 분리 설계 기록 |
+| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) (영어) | v3 이전 L0–L3 Human Oversight 및 판단 원장 설계 기록 |
+| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) (영어) | 4-skill 분리의 run identity와 routing 결정 규칙 |
 | [`LLM_JUDGE_PILOT.md`](LLM_JUDGE_PILOT.md) (한국어) | `job-seeker-agent` LLM-as-judge 파일럿과 채택하지 않은 이유 |
 | [`LLM_JUDGE_V2_AUTORESEARCH.md`](LLM_JUDGE_V2_AUTORESEARCH.md) (한국어) | v2 고정 corpus judge 실험과 잠정 결과 |

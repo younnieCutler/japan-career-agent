@@ -46,8 +46,8 @@ Any noisy local command can be run through the generic entry point:
 
 ```bash
 python tools/agent_observation_pack.py run \
-  --label "focused routing tests" \
-  -- python skills/career-agent/test_routing.py
+  --label "focused document tests" \
+  -- python _shared/test_document.py
 ```
 
 A failed command is eligible for retention and a bounded display excerpt. A successful command is

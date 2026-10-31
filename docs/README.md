@@ -15,8 +15,6 @@ the later sections are reference and history.
 
 | Document | What it answers |
 |---|---|
-| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) | Run identity and the routing decision rule behind the four-skill split |
-| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) | Why judgment is separate from approval, the L0-L3 impact model, and the human-first reveal contract |
 | [`_shared/decision_philosophy.md`](../_shared/decision_philosophy.md) | Why evidence, `Unknown` and confirmed conflicts behave the way they do |
 | [`_shared/schemas.yml`](../_shared/schemas.yml) | The canonical profile, pipeline and rules schemas |
 | [`_shared/career_claims.yml`](../_shared/career_claims.yml) | Time-sensitive external claims and their expiry |
@@ -25,10 +23,7 @@ the later sections are reference and history.
 
 | Document | What it answers |
 |---|---|
-| Document | What it answers |
-|---|---|
 | [`ARCHITECTURE_BOUNDARIES.md`](ARCHITECTURE_BOUNDARIES.md) | How the skills, shared modules, and deterministic scripts fit together |
-| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md) | Why Host/LLM output stays a proposal while Python owns deterministic state and invariants |
 | [`AGENT_OBSERVATION_PACK.md`](AGENT_OBSERVATION_PACK.md) | How coding agents compact long local command output while preserving exact recallable evidence |
 
 ## Maintainer
@@ -61,5 +56,8 @@ code, not because they describe current behaviour.
 
 | Document | What it answers |
 |---|---|
+| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md) | Pre-v3 design record on deterministic runtime vs probabilistic Host |
+| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) | Pre-v3 design record on L0–L3 human-oversight and judgment ledger |
+| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) | Run identity and the routing decision rule behind the four-skill split |
 | [`LLM_JUDGE_PILOT.md`](LLM_JUDGE_PILOT.md) | The LLM-as-judge pilot on `job-seeker-agent`, and why it was not adopted |
 | [`LLM_JUDGE_V2_AUTORESEARCH.md`](LLM_JUDGE_V2_AUTORESEARCH.md) | The v2 fixed-corpus judge experiment and its provisional result |

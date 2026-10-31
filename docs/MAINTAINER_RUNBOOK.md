@@ -143,28 +143,13 @@ Actions → release → Run workflow → publish: true
 
 In order: verify → build bundle → verify bundle → smoke-test bundle → upload artifact → create or
 verify the annotated tag → `check_release_tag.py` → `check_release_consistency.py --require-tag` →
-GitHub Release with generated notes → stage the verified wheel → PyPI via Trusted Publishing (OIDC,
-`skip-existing: true`) → npm with provenance.
+GitHub Release with generated notes.
 
-The npm step is skipped gracefully when `NPM_TOKEN` is absent, so PyPI can succeed alone. That is a
-partial release; see §8.
+## 7. Release and marketplace verification
 
-The wheel that reaches PyPI is the one `verify_release.py` already checked, not a rebuild. A rebuild
-would be a second artifact nobody verified.
-
-## 7. Registry and marketplace verification
-
-The workflow's `verify-published` job already does the substantive check: it installs the published
-PyPI distribution, runs the same smoke as the local wheel check, asserts the installed tree carries
-the GUI bundle and all eighteen Skill manifests, and then runs the README's own quick-start commands
-against the published npm entry point. Read its log before doing anything by hand — that job exists
-because a published wheel once shipped one Skill and no GUI while every repository check was green.
-
-To confirm by hand, or to check a release published before that job existed:
+To confirm the published release by hand:
 
 ```bash
-python scripts/test_pyproject_install.py --pypi X.Y.Z   # the same assertions, on demand
-npm view japan-career-agent version
 gh release view vX.Y.Z --json tagName,assets
 ```
 
@@ -184,16 +169,14 @@ tells a user which one they will get.
 
 ## 8. Failed publish recovery
 
-The tag and the GitHub Release are created before publishing, so a registry failure leaves a real
-tag pointing at a verified commit. Do not delete it and do not re-tag.
+The tag and the GitHub Release are created by the release workflow. If a release fails after tagging,
+do not delete the tag and do not re-tag.
 
 | Failure | What happened | Do |
 |---|---|---|
-| PyPI rejected the upload | Nothing published | Fix the cause, re-dispatch `publish` on the same commit. `skip-existing: true` makes this safe. |
-| PyPI succeeded, npm failed | Half the release is live | Re-dispatch on the same commit. PyPI skips, npm retries. |
-| Both succeeded, the artefact is wrong | Published and immutable | **Do not yank and reuse the version.** Fix forward with a new patch version. A version that ever resolved to one artefact must never resolve to another. |
+| Release upload failed after tagging | Tag exists, assets incomplete | Re-dispatch `publish` on the same commit, or release a new patch version. |
+| Published artefact is wrong | Published and immutable | **Do not reuse the version.** Fix forward with a new patch version. A version that ever resolved to one artefact must never resolve to another. |
 | The tag exists on the wrong commit | The gate refuses to reuse it | Release a new patch version. Moving a published tag breaks every checksum anyone recorded. |
-| The npm bootstrapper pins a version PyPI does not have | `npx` installs nothing | Publish the PyPI version, or patch `packaging/npm/package.json` and release again. `test_npm_bootstrapper.py` pins the two together. |
 
 Verify any bundle, including one someone else downloaded:
 
@@ -213,9 +196,6 @@ Three surfaces are permanent, not transitional:
 - `verify_release.py` accepts both product names.
 - `JAPAN_RECRUIT_NO_UPDATE_CHECK` still disables the update check alongside `JAPAN_CAREER_NO_UPDATE_CHECK`.
 - The `wheel` key in a release manifest is optional, so 2.0.x bundles still verify.
-
-`runtime.__all__` is the Python import surface. Removing a name from it is a breaking change; see
-[`ARCHITECTURE_BOUNDARIES.md`](ARCHITECTURE_BOUNDARIES.md).
 
 Deprecating anything: keep it working for one minor version with a `CHANGELOG.md` entry naming the
 replacement, then remove it in the next minor with a second entry. Never in a patch.
@@ -263,13 +243,3 @@ shaped. Then remove it from `main` and add the pattern to the guard so the same 
 
 **If a secret was committed:** rotate it first. Removing the commit is the second step and does not
 substitute for the first.
-
-`docs/PRIVATE_CAREER_DATA_PRD.md` §13.3 has the store's own boundaries.
-
-## 12. Restore-state semantics
-
-`restore-state` is not undo. It replaces the current state snapshot and leaves `events.jsonl`,
-`proposals.jsonl` and `data/pipeline.yml` exactly as they were, because the ledger is append-only:
-a restore that also rewound it would delete history the user approved.
-
-Tell users this in those words. "Rollback" invites them to expect the approvals to disappear too.
