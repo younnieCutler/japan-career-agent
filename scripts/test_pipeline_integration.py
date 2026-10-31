@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
-"""End-to-end check that approve(), status_bar.py, check_action.py and workflow observation reporting agree on
+"""End-to-end check that scripts/pipeline.py, status_bar.py, check_action.py, and calibrate.py agree on
 data/pipeline.yml's shape.
-
-Each component's own unit tests build their fixtures by hand, so a root-schema mismatch between
-career_agent.py's writer and the other three readers passed every unit test while silently
-hiding every company career-agent ever wrote from status_bar, check_action and calibrate. This
-test wires the real CLI to the real reader functions instead of a hand-built fixture, so a future
-shape mismatch fails here instead of only in a user's actual vault.
 
 Run: python3 scripts/test_pipeline_integration.py
 """
@@ -19,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "skills" / "career-agent" / "career_agent.py"
+SCRIPT = ROOT / "scripts" / "pipeline.py"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / "_shared"))
@@ -30,36 +24,40 @@ import calibrate  # noqa: E402
 import pipeline_store  # noqa: E402
 
 
-def run_agent(vault: Path, cwd: Path, command: str, *args: str) -> dict:
+def run_pipeline_cli(cwd: Path, *args: str) -> str:
     result = subprocess.run(
-        [sys.executable, str(SCRIPT), command, "--vault", str(vault), *args],
+        [sys.executable, str(SCRIPT), *args],
         text=True, encoding="utf-8", capture_output=True, check=False, cwd=str(cwd),
     )
     if result.returncode != 0:
-        raise AssertionError(result.stderr)
-    import json
-    return json.loads(result.stdout)
+        raise AssertionError(result.stderr or result.stdout)
+    return result.stdout
 
 
 def test_approve_then_status_bar_check_action_calibrate_agree():
     with tempfile.TemporaryDirectory() as tmp:
-        vault = Path(tmp) / "vault"
         workdir = Path(tmp) / "work"
         unrelated = Path(tmp) / "unrelated"
         workdir.mkdir()
         unrelated.mkdir()
-        run_agent(vault, workdir, "init")
 
-        proposed = run_agent(vault, workdir, "run", "--mode", "chat", "--track", "chuto",
-                              "--message", "内定をもらった")
-        run_agent(vault, unrelated, "approve", proposed["proposal"]["id"],
-                  "--workspace", str(workdir), "--evidence", "内定をもらった", "--company", "GAO")
+        run_pipeline_cli(
+            unrelated,
+            "--workspace",
+            str(workdir),
+            "upsert",
+            "gao",
+            "--json",
+            '{"name":"GAO","stage":6}',
+            "--history",
+            "内定をもらった",
+        )
 
         path = workdir / "data" / "pipeline.yml"
         assert not (unrelated / "data" / "pipeline.yml").exists()
         pipeline = status_bar.load_yaml(path)
 
-        # status_bar must see the company career-agent just wrote.
+        # status_bar must see the company pipeline.py just wrote.
         active = status_bar.active_companies(pipeline)
         assert any(c["slug"] == "gao" for c in active), pipeline
 

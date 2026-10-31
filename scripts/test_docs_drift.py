@@ -25,12 +25,7 @@ NEEDED = (
     "README_ko.md",
     "README_ja.md",
     "docs",
-    # Whole directory: the docs link to scripts by path, so a partial copy would report the
-    # missing ones as broken links.
     "scripts",
-    "packaging/npm/README.md",
-    # Whole directories: the Gate D rule imports execution_plans, which pulls the runtime core, and
-    # that reaches into _shared. Listing individual modules here would just track those imports.
     "_shared",
     "skills",
     "CONTRIBUTING.md",
@@ -109,21 +104,11 @@ class DocsDriftTests(unittest.TestCase):
             "README.md",
             "Rebuild contexts, experiences and evidence from before you installed this, "
             "from documents you already have | `career-tanaoroshi` |",
-            "moved into the paragraph above | `career-agent` |",
+            "moved into the paragraph above | `jiko-bunseki` |",
         )
         result = _run(self.workspace)
         self.assertEqual(result.returncode, 1)
         self.assertIn("career-tanaoroshi", result.stdout)
-
-    def test_a_gate_d_root_the_policy_does_not_support_is_caught(self) -> None:
-        self._edit(
-            "_shared/agent_context/orchestration.md",
-            "`tenshoku-strategy`;",
-            "`tenshoku-strategy`, and `mock-interviewer`;",
-        )
-        result = _run(self.workspace)
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("execution_plans supports", result.stdout)
 
     def test_a_stale_check_count_is_caught(self) -> None:
         """The exact failure this rule was written for: the runbook fell twenty checks behind."""
@@ -144,7 +129,7 @@ class DocsDriftTests(unittest.TestCase):
         self.assertIn("breaks on PyPI", result.stdout)
 
     def test_a_docs_link_that_resolves_to_nothing_is_caught(self) -> None:
-        self._edit("docs/README.md", "(cli-reference.md)", "(cli-reference-renamed.md)")
+        self._edit("docs/README.md", "(upgrading.md)", "(upgrading-renamed.md)")
         result = _run(self.workspace)
         self.assertEqual(result.returncode, 1)
         self.assertIn("resolves to nothing", result.stdout)

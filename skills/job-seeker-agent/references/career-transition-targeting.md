@@ -34,16 +34,10 @@ user chooses which role(s) to investigate or adopt as target_role
 
 ## Evidence boundary
 
-When `CAREER_VAULT` is active, start from:
-
-```bash
-career-agent context --vault "$CAREER_VAULT"
-career-agent evidence-pool --vault "$CAREER_VAULT"
-```
-
-Use only confirmed work events and confirmed personal context returned by those interfaces. Never
-read Vault note bodies directly. A job title, course name, intention to learn, self-analysis score,
-or MBTI label is not evidence that the user can perform a target-role requirement.
+Start from `./data/evidence.yml` and `./data/candidate_profile.yml` when present. Use only confirmed
+work events and confirmed personal context. A job title, course name, intention to learn,
+self-analysis score, or MBTI label is not evidence that the user can perform a target-role
+requirement.
 
 `recommended_role_clusters` from `jiko-bunseki` may seed hypotheses only. It never makes a role more
 likely, more suitable, or `Matched`.

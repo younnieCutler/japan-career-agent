@@ -21,8 +21,8 @@ This skill follows [`../../_shared/decision_philosophy.md`](../../_shared/decisi
 
 It is the last expression layer before rendering, and it is the narrowest one. It rewrites
 sentences. It does not decide what the sentences are about — that was settled by
-`career-agent document-model` from confirmed evidence, and it is checked afterwards by
-`career-agent document-check`.
+`scripts/document.py model` from confirmed evidence, and it is checked afterwards by
+`scripts/document.py check`.
 
 The one rule:
 
@@ -61,7 +61,7 @@ serves the reader.
 What is measured: whether a protected claim moved, whether the structure survived, and how much of
 the result the user still has to fix by hand.
 
-And what the checker behind this skill does *not* establish: `career-agent document-check`
+And what the checker behind this skill does *not* establish: `scripts/document.py check`
 enumerates its rules, so it catches the escalations, invented numbers and misattributions on its
 lists and cannot prove that no wording anywhere shifted a claim by a degree. Passing it means no
 known violation is present, not that the Japanese has been verified faithful. The rules in this
@@ -103,16 +103,9 @@ lines or between slots.
 
 ### STEP 3 — Hand back for checking
 
-Return the same slot keys with new text. The caller runs `career-agent document-check`, which
+Return the same slot keys with new text. The caller runs `python3 scripts/document.py check`, which
 compares the result against the evidence *and* against what it replaced. A failure is a refusal:
 nothing is rendered.
-
-### Gate D handoff
-
-When this Skill is the child step after `career-document`, the Host runs the existing
-`career-agent document-check` against the humanized output and renders only after that check passes.
-The Host then reports the checked artifact paths to the following `verify` step. This is a flat plan
-handoff; this Skill does not invoke `verify` or any other Skill.
 
 ## What to fix
 
@@ -227,11 +220,11 @@ No commentary in the payload. Anything worth telling the user goes in the reply,
 
 ## Persistence
 
-This skill writes no state. It does not touch the Career Vault, the pipeline, or any canonical
-record; the text it returns is only rendered after `career-agent document-check` passes.
+This skill writes no state. It does not touch `./data/evidence.yml`, the pipeline, or any canonical
+record; the text it returns is only rendered after `python3 scripts/document.py check` passes.
 
 ## Related references
 
 - `../career-document/SKILL.md`: the workflow that calls this one, before and after
-- `../career-agent/SKILL.md`: the runtime that owns the model, the gate and the renderer
+- `../../scripts/document.py`: the deterministic CLI that owns the model, the gate, and the renderer
 - `../../_shared/decision_philosophy.md`: the repository-wide decision contract

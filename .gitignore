@@ -39,19 +39,8 @@
 !/tools/
 !/hooks/
 
-# Exception: distribution launchers (Python wheel entry point, npm bootstrapper)
-!/packaging/
-!/packaging/**
-
 # Exception: Skill folders
 !/skills/
-
-# Exception: GUI frontend source. Its build output is written into
-# `skills/career-agent/gui/static/app/`, which the wheel already ships, so a user installing with
-# `uvx` never needs Node. `node_modules/` and `dist/` stay ignored by the rules further down.
-!/frontend/
-!/frontend/**
-/frontend/node_modules/
 
 # jiko-bunseki writes personal self-analysis output — keep runtime output out of git
 /skills/jiko-bunseki/data/
@@ -68,14 +57,11 @@
 /data/company_profiles/*.yml
 /data/pipeline.yml
 
-# Generated recruiter-facing documents and their manifests. `document-render` writes here by
+# Generated recruiter-facing documents and their manifests. `scripts/document.py render` writes here by
 # default, relative to CWD, and a rendered 職務経歴書 is the user's real career history plus the
 # employer names they chose to show one company. The manifest beside it carries the same
-# provenance. Any depth: the runtime writes `career-docs/<company-slug>/`.
+# provenance. Any depth: the CLI writes `career-docs/<company-slug>/`.
 career-docs/
-
-# Career Agent local event ledger and snapshots
-/career-home/
 
 # Local command-output archives created by the agent observation pack. These can contain build
 # logs, test output, or other sensitive local evidence and must never be committed.
@@ -109,14 +95,14 @@ data/*.lock
 tmp/
 *.webp
 
-# --- Personal career document guard (docs/PRIVATE_CAREER_DATA_PRD.md §15.0) ---
+# --- Personal career document guard ---
 # Layer 1 of defense in depth: stop the ordinary accident of dropping a real resume, payslip,
 # or certificate into a source directory. The rules below deliberately sit AFTER the `!/docs/`,
 # `!/skills/`, `!/scripts/` re-inclusions above, because the last matching pattern wins — those
 # re-included directories are exactly where an ignore rule is still needed.
 #
 # This layer does NOT cover `git add -f`, files that are already tracked, or generically named
-# files. Those are `scripts/check_private_data.py` (§15.2) and the commit hook (§15.3).
+# files. Those are `scripts/check_private_data.py` and the commit hook.
 
 # Document formats that carry personal career data. No such file is tracked today.
 *.pdf

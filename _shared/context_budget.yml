@@ -30,7 +30,7 @@ tier0:
     - legacy_v1
     - "`_shared/agent_context/development.md`"
     - "`scripts/check_context_budget.py`"
-    - "`skills/career-agent/career_agent.py`"
+    - "`scripts/document.py`"
 
 status_bar:
   normal_max_chars: 220
@@ -47,4 +47,3 @@ lazy_context:
     - _shared/agent_context/persistence.md
     - _shared/agent_context/learning.md
     - _shared/agent_context/architecture.md
-    - _shared/agent_context/orchestration.md

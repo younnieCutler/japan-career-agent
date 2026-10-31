@@ -6,14 +6,11 @@ The repository version can be ahead of the stable marketplace channel while a re
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
 follows `main`.
 
-Source metadata is `2.37.0` while the stable marketplace ref is `v2.1.1`, because the release
+Source metadata is `3.0.0` while the stable marketplace ref is `v2.1.1`, because the release
 workflow has not published a tag for this source yet. Installing from the marketplace therefore
 gives you `2.1.1` today, and the gap closes when the next tag is published.
 
-`uvx` and `npx` do not follow this ref — they resolve the latest version published to PyPI and npm —
-but that is the version the same release workflow publishes alongside the tag, so in practice all
-three channels carry whatever the newest `vX.Y.Z` is and none of them follow `main`. An unpublished
-source version is reachable only by cloning.
+An unpublished source version is reachable only by cloning.
 
 > Both numbers in the paragraph above are read from the files that own them —
 > `pyproject.toml` and `.agents/plugins/marketplace.json` — by
@@ -39,8 +36,7 @@ claude plugin marketplace add younnieCutler/japan-career-agent
 claude plugin install japan-career-agent@japan-career-agent
 ```
 
-Nothing in your Career Vault changes: the vault path, the event ledger and every document are
-untouched by the rename. `JAPAN_RECRUIT_NO_UPDATE_CHECK=1` still disables the update check, so an
-existing opt-out stays in force alongside the new `JAPAN_CAREER_NO_UPDATE_CHECK`. Release bundles
-published under the old name remain verifiable with
+Nothing in your workspace (`data/`, `career-docs/`) changes on rename. `JAPAN_RECRUIT_NO_UPDATE_CHECK=1`
+still disables the update check, so an existing opt-out stays in force alongside the new
+`JAPAN_CAREER_NO_UPDATE_CHECK`. Release bundles published under the old name remain verifiable with
 [`scripts/verify_release.py`](../scripts/verify_release.py).

@@ -27,7 +27,6 @@ PYPROJECT = ROOT / "pyproject.toml"
 TARGETS = (
     ROOT / ".claude-plugin" / "plugin.json",
     ROOT / ".codex-plugin" / "plugin.json",
-    ROOT / "packaging" / "npm" / "package.json",
 )
 # Rewriting one line keeps indentation, key order and the trailing newline as they are; a
 # json.loads/json.dumps round trip reformats the whole file and buries the change in noise.

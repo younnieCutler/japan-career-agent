@@ -51,19 +51,30 @@ def smoke(bundle: Path) -> None:
         if not re.fullmatch(r"v\d+\.\d+\.\d+", str(source.get("ref", ""))):
             raise RuntimeError("stable marketplace source is not immutable")
 
-        vault = root / "smoke-vault"
         workspace = root / "smoke-workspace"
         workspace.mkdir()
-        script = root / "skills" / "career-agent" / "career_agent.py"
-        setup = _run(script, "setup", "--vault", str(vault), "--track", "chuto", "--target-role", "Data Engineer", cwd=workspace)
-        if setup.get("mode") != "setup":
-            raise RuntimeError("setup smoke did not return setup mode")
-        status = _run(script, "status", "--vault", str(vault), cwd=workspace)
-        if status.get("event_count") != 0 or status.get("pending_proposals") != 0:
-            raise RuntimeError("fresh status smoke is not empty")
-        guided = _run(script, "guided", "--vault", str(vault), cwd=workspace)
-        if guided.get("mode") != "guided" or not guided.get("ok"):
-            raise RuntimeError("guided smoke did not return a usable menu")
+        pipeline_script = root / "scripts" / "pipeline.py"
+        upsert_res = subprocess.run(
+            [
+                sys.executable,
+                str(pipeline_script),
+                "upsert",
+                "acme-corp",
+                "--json",
+                '{"name":"Acme Corp","stage":1}',
+            ],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        if upsert_res.returncode != 0 or "upsert: acme-corp" not in upsert_res.stdout:
+            raise RuntimeError(f"pipeline upsert smoke failed: {upsert_res.stderr or upsert_res.stdout}")
+        doc_script = root / "scripts" / "document.py"
+        model = _run(doc_script, "model", "acme-corp", cwd=workspace)
+        if model.get("mode") != "document-model" or not model.get("ok"):
+            raise RuntimeError("document model smoke did not return document-model")
 
 
 def main() -> int:

@@ -13,10 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "_shared"
-CAREER_AGENT = ROOT / "skills" / "career-agent"
-for import_path in (SHARED, CAREER_AGENT):
-    if str(import_path) not in sys.path:
-        sys.path.insert(0, str(import_path))
+if str(SHARED) not in sys.path:
+    sys.path.insert(0, str(SHARED))
 
 from role_transition import (  # noqa: E402
     MODEL_VERSION,
@@ -25,7 +23,6 @@ from role_transition import (  # noqa: E402
     render_text,
     validate_payload,
 )
-from routing import skill_context  # noqa: E402
 
 
 def role_by_id(result: dict, role_id: str) -> dict:
@@ -420,45 +417,11 @@ class RoleTransitionTests(unittest.TestCase):
         self.assertIn("Unknown: Implement automated tests", text)
         self.assertIn("transfer hypothesis:", text)
 
-    def test_chuto_target_role_request_uses_targeting_reference(self) -> None:
-        context = skill_context(
-            ROOT / "skills",
-            "自己分析・転職軸",
-            message="이직할 건데 다음에 어떤 직무를 노려야 할까?",
-            track="chuto",
-        )
-        self.assertEqual(context["skill"], "job-seeker-agent")
-        self.assertEqual(context["references"], ["references/career-transition-targeting.md"])
-
-    def test_target_role_mention_in_resume_request_does_not_hijack_routing(self) -> None:
-        context = skill_context(
-            ROOT / "skills",
-            "職務経歴書・自己PR",
-            message="target role에 맞춰 resume 수정해줘",
-            track="chuto",
-        )
-        self.assertEqual(context["skill"], "job-seeker-agent")
-        self.assertEqual(context["references"], ["references/shokumukeireki-saigensei.md"])
-
-    def test_generic_role_wording_in_resume_request_does_not_hijack_routing(self) -> None:
-        context = skill_context(
-            ROOT / "skills",
-            "職務経歴書・自己PR",
-            message="What role should I put on my resume?",
-            track="chuto",
-        )
-        self.assertEqual(context["skill"], "job-seeker-agent")
-        self.assertEqual(context["references"], ["references/shokumukeireki-saigensei.md"])
-
-    def test_generic_chuto_self_analysis_still_routes_to_jiko(self) -> None:
-        context = skill_context(
-            ROOT / "skills",
-            "自己分析・転職軸",
-            message="이직 전에 자기분석부터 하고 싶어",
-            track="chuto",
-        )
-        self.assertEqual(context["skill"], "jiko-bunseki")
-        self.assertNotIn("references/career-transition-targeting.md", context["references"])
+    def test_job_seeker_skill_links_targeting_reference(self) -> None:
+        skill_md = (ROOT / "skills" / "job-seeker-agent" / "SKILL.md").read_text(encoding="utf-8")
+        targeting_ref = ROOT / "skills" / "job-seeker-agent" / "references" / "career-transition-targeting.md"
+        self.assertTrue(targeting_ref.is_file())
+        self.assertIn("references/career-transition-targeting.md", skill_md)
 
     def test_shipped_skill_wrapper_runs_from_unrelated_cwd(self) -> None:
         wrapper = ROOT / "skills" / "job-seeker-agent" / "scripts" / "role_transition.py"

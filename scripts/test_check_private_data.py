@@ -98,8 +98,7 @@ class RepositoryCleanTest(unittest.TestCase):
         )
 
     def test_prose_about_resumes_is_not_flagged(self) -> None:
-        # The PRD itself contains "resume", "payslip", "JLPT N1" and a compensation figure.
-        self.assertIsNone(check_private_data.classify("docs/PRIVATE_CAREER_DATA_PRD.md"))
+        self.assertIsNone(check_private_data.classify("docs/README.md"))
 
     def test_schema_keys_are_not_flagged(self) -> None:
         self.assertIsNone(check_private_data.classify("_shared/schemas.yml"))
@@ -129,7 +128,6 @@ class IgnoreRuleTest(unittest.TestCase):
             # user's real history plus the employer names they chose to show one company.
             "career-docs/example-corp/shokumukeirekisho-20260810-a1b2c3d4.html",
             "career-docs/example-corp/shokumukeirekisho-20260810-a1b2c3d4.manifest.json",
-            "skills/career-agent/career-docs/anything.html",
         ):
             with self.subTest(path=relative):
                 self.assertTrue(self._ignored(relative))
@@ -139,8 +137,8 @@ class IgnoreRuleTest(unittest.TestCase):
             "examples/demo-workspace/candidate-profile.example.yml",
             "examples/resume.example.pdf",
             "scripts/recv.py",
-            "skills/career-agent/runtime.py",
-            "docs/PRIVATE_CAREER_DATA_PRD.md",
+            "scripts/document.py",
+            "docs/README.md",
         ):
             with self.subTest(path=relative):
                 self.assertFalse(self._ignored(relative))

@@ -309,10 +309,9 @@ def _report(findings: list[Finding], staged: bool) -> None:
         print(
             # ASCII only: Windows CI consoles are not guaranteed to be UTF-8, and a gate that
             # crashes while reporting a leak is worse than one that reports it plainly.
-            "\nAction: unstage it and import it into CAREER_PRIVATE_HOME instead:\n"
+            "\nAction: unstage it and store personal documents outside Git (e.g., under ./data/):\n"
             "  git restore --staged <path>\n"
-            "  python skills/career-agent/career_agent.py private-import <path> --type resume\n"
-            "If this file is a synthetic fixture, DECLARE it as one (PRD section 13.3): use the\n"
+            "If this file is a synthetic fixture, DECLARE it as one: use the\n"
             ".example. infix in the filename, or put a synthetic provenance marker in its content.\n"
             "Directory location never suppresses detection.",
             file=sys.stderr,

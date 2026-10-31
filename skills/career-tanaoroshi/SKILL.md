@@ -11,12 +11,12 @@ description: >
   "학창시절 경험을 정리해야 해" - "キャリアの棚卸しをしたい", "これまでの経験を整理したい",
   "経歴の棚卸しから始めたい", "学生時代の経験を整理したい" - "career inventory",
   "inventory my experience", "take stock of my career", "go through my past experience" -
-  A new or nearly empty Career Vault, where analysis, JD matching or a 職務経歴書 would have
-  almost nothing to stand on. The person has years of experience; the ledger does not.
+  A new or nearly empty `./data/evidence.yml`, where analysis, JD matching or a 職務経歴書 would have
+  almost nothing to stand on. The person has years of experience; the evidence file does not.
 license: MIT
 ---
 
-# キャリアの棚卸し: recovering the experience the ledger never saw
+# キャリアの棚卸し: recovering the experience the evidence file never saw
 
 This skill follows [`../../_shared/decision_philosophy.md`](../../_shared/decision_philosophy.md).
 
@@ -74,14 +74,10 @@ technology, the stakeholders, the artefacts.
 
 ### STEP 0 — See what is already there
 
-```bash
-python skills/career-agent/career_agent.py readiness --vault "$CAREER_VAULT"
-python skills/career-agent/career_agent.py experiences --vault "$CAREER_VAULT"
-```
-
-`bootstrap_suggested: true` means the ledger holds nothing to quote. Say that plainly and offer
-this workflow; do not start it unasked. If contexts and experiences already exist, do not restart
-from scratch — resume from the gaps the `experiences` view names.
+Check whether `./data/evidence.yml` already exists in the current workspace.
+If `./data/evidence.yml` is missing or empty, say that plainly and offer this workflow; do not start
+it unasked. If contexts and experiences already exist in `./data/evidence.yml`, do not restart from
+scratch — resume from the gaps in the existing entries.
 
 ### STEP 1 — Documents first, questions second
 
@@ -89,15 +85,7 @@ Ask whether the user already has a 履歴書, a 職務経歴書, an old resume, 
 notes, a self-evaluation or past interview preparation. Most people do, and every fact recovered
 from one is a question that does not have to be asked.
 
-```bash
-python skills/career-agent/career_agent.py private-import <path> --type shokumukeirekisho
-```
-
-Imported documents live in the private store, outside every Git worktree, and an event that cites
-one carries `private-document:<id>` so the provenance survives even if the original file is
-deleted.
-
-Read the document and report what it appears to contain, as **candidates**:
+Read the document the user shares and report what it appears to contain, as **candidates**:
 
 ```markdown
 문서에서 확인된 Context 후보
@@ -119,20 +107,23 @@ only the user's confirmation makes it canonical.
 ### STEP 2 — Find the contexts
 
 Ask where the experience happened, in the user's own vocabulary — 회사, 대학, 아르바이트, 인턴,
-동아리 — not in the model's. Record each one:
+동아리 — not in the model's. Once the user confirms a context, record it under `contexts` in
+`./data/evidence.yml`:
 
-```bash
-python skills/career-agent/career_agent.py add-context "회사 A" --kind company \
-  --from 2022-04 --vault "$CAREER_VAULT"
-python skills/career-agent/career_agent.py approve <proposal-id> \
-  --evidence "재직증명서" --vault "$CAREER_VAULT"
+```yaml
+contexts:
+  - id: ctx-company-a
+    label: 회사 A
+    kind: company
+    period:
+      from: "2022-04"
 ```
 
-`--kind` is required and there is no default. It is the one thing a later reader cannot recover
-from a name: "A社" reads as either an employer or a school, and reading a school as an employer
-puts coursework into a 職務経歴書 as a job.
+`kind` is required (`company`, `university`, `graduate_school`, `internship`, `part_time`, `club`,
+`volunteer`, `personal`, `open_source`). "A社" reads as either an employer or a school, and reading
+a school as an employer puts coursework into a 職務経歴書 as a job.
 
-Use `--external-label` when the honest internal name cannot leave — the decision is made once, by
+Use `external_label` when the honest internal name cannot leave — the decision is made once, by
 the user, instead of being improvised in every document.
 
 ### STEP 3 — Find the experiences inside each context
@@ -142,10 +133,17 @@ Ask what the person actually did there, and offer the shapes rather than assumin
 > 그 기간에 기억에 남는 일은 무엇이었습니까? 프로젝트였습니까, 정기적으로 하던 업무였습니까,
 > 개선 활동이었습니까, 장애 대응이었습니까?
 
-A project gets a project record; everything else is grouped by a reference the user recognises:
+A project gets a `projects` entry in `./data/evidence.yml`; everything else is grouped by
+`experience_kind` and `experience_ref` on the evidence item itself:
 
-```bash
-python skills/career-agent/career_agent.py add-project "클라우드 이전" --vault "$CAREER_VAULT"
+```yaml
+projects:
+  - id: prj-cloud-migration
+    context_id: ctx-company-a
+    title: 클라우드 이전
+    period:
+      from: "2023-01"
+      to: "2023-09"
 ```
 
 Nothing forces a project. An experience with `experience_kind: recurring_work` and
@@ -174,26 +172,32 @@ confirmed number and source; if it was not measured, describe only an observable
 frequency, process, responsibility, or artifact and leave the number `Unknown`. Never create an
 estimate, range, rounded KPI, or plausible percentage to complete the framework.
 
-Capture through the ordinary path, then fill the structured fields:
+Only after the user confirms the entry, write it under `evidence` in `./data/evidence.yml`:
 
-```bash
-python skills/career-agent/career_agent.py run --mode chat --vault "$CAREER_VAULT" \
-  --message "<what the user said>"
-python skills/career-agent/career_agent.py review-work-event <proposal-id> --vault "$CAREER_VAULT" \
-  --json '{"role": "...", "individual_contribution": "...", "context_id": "ctx-...",
-           "experience_kind": "recurring_work", "experience_ref": "월간 리포팅"}'
-python skills/career-agent/career_agent.py approve <proposal-id> --evidence "..." --vault "$CAREER_VAULT"
+```yaml
+evidence:
+  - id: evt-001
+    context_id: ctx-company-a
+    primary_project_id: prj-cloud-migration
+    status: confirmed
+    external_use: allowed
+    work_date: "2023-09"
+    role: Backend Engineer
+    direct_actions:
+      - GitHub Actionsでデプロイ自動化を実装
+    individual_contribution: 手動デプロイの自動化
+    team_result: リリース頻度が向上
+    metrics: []
+    evidence:
+      - user-confirmed
 ```
 
 ### STEP 5 — Report the state, and stop when the user wants to
 
 棚卸し does not have to finish in one sitting, and a ten-year career will not.
 
-```bash
-python skills/career-agent/career_agent.py experiences --vault "$CAREER_VAULT"
-```
-
-Report what is confirmed and what is missing side by side, and name the single next thing:
+ Inspect `./data/evidence.yml`, report what is confirmed and what is missing side by side, and name
+the single next thing:
 
 ```markdown
 ## 棚卸し 진행 상태
@@ -275,18 +279,16 @@ Every row is either confirmed or Unknown. There is no third state, no total, and
 
 ## Persistence
 
-State is written only by `career-agent`, through its approval gate. This skill creates no second
-store and writes no state of its own. Reading `readiness` or `experiences` never changes the
-ledger. A user-facing summary may be saved under `./career-docs/` relative to CWD; ask before
-overwriting, then print and verify the absolute path. Never write personal data into the skill
-installation directory.
+User-confirmed contexts, projects, and evidence are written to `./data/evidence.yml` relative to CWD
+only after explicit user confirmation. A user-facing summary may be saved under `./career-docs/`
+relative to CWD; ask before overwriting, then print and verify the absolute path. Never write
+personal data into the skill installation directory.
 
 ## Related references
 
 - `references/evidence-elicitation.md`: optional evidence-safe 3C4P question lens
-- `../career-agent/SKILL.md`: the capture → propose → approve → confirm runtime
-- `../career-maintenance/SKILL.md`: keeping the record current after this pass
 - `../jiko-bunseki/SKILL.md`: interpretation — strengths, values, patterns
 - `../job-seeker-agent/SKILL.md`: turning confirmed evidence into documents
+- `../career-document/SKILL.md`: building a JD-specific 職務経歴書 from `./data/evidence.yml`
 - `../matching-simulator/SKILL.md`: mapping a JD onto confirmed evidence
 - `../../_shared/decision_philosophy.md`: the repository-wide decision contract

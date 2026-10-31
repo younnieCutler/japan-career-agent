@@ -8,14 +8,11 @@
 あります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを参照し、`main`
 は追跡しません。
 
-現在はソースメタデータが `2.37.0` である一方、stable marketplace ref は `v2.1.1` です。この
+現在はソースメタデータが `3.0.0` である一方、stable marketplace ref は `v2.1.1` です。この
 ソースに対するタグをリリース workflow がまだ公開していないためで、marketplace から入れると今日は
 `2.1.1` が入ります。次のタグが公開されれば差は閉じます。
 
-`uvx` と `npx` はこの ref を追わず、PyPI と npm に公開された最新バージョンを解決します。ただしその
-バージョンは同じリリース workflow がタグと同時に公開するものなので、実際には三つのチャンネルすべてが
-最新の `vX.Y.Z` を指し、どれも `main` を追跡しません。まだ公開されていないソースバージョンに届く
-方法は clone だけです。
+まだ公開されていないソースバージョンに届く方法は clone だけです。
 
 > 上の段落の二つの数値は、それぞれを所有するファイル（`pyproject.toml`、
 > `.agents/plugins/marketplace.json`）から
@@ -41,7 +38,7 @@ claude plugin marketplace add younnieCutler/japan-career-agent
 claude plugin install japan-career-agent@japan-career-agent
 ```
 
-Career Vault は何も変わりません。vault のパス、event ledger、生成済みの書類はいずれも名称変更の
-影響を受けません。`JAPAN_RECRUIT_NO_UPDATE_CHECK=1` も引き続き update check を無効にするため、既存の
-設定は新しい `JAPAN_CAREER_NO_UPDATE_CHECK` と併せてそのまま有効です。旧名で公開されたリリース
-バンドルも [`scripts/verify_release.py`](../scripts/verify_release.py) で検証できます。
+ワークスペース（`data/`、`career-docs/`）や生成済みの書類はいずれも名称変更の影響を受けません。
+`JAPAN_RECRUIT_NO_UPDATE_CHECK=1` も引き続き update check を無効にするため、既存の設定は新しい
+`JAPAN_CAREER_NO_UPDATE_CHECK` と併せてそのまま有効です。旧名で公開されたリリースバンドルも
+[`scripts/verify_release.py`](../scripts/verify_release.py) で検証できます。

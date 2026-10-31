@@ -5,29 +5,12 @@ decision philosophy; `_shared/decision_philosophy.md` and `_shared/schemas.yml` 
 
 ## Ownership map
 
-- `skills/career-agent/runtime.py` and `career_agent.py`: thin CLI compatibility facade and
-  high-level orchestration; they do not own persistence, routing, proposal, lifecycle, or
-  projection algorithms.
-- `skills/career-agent/models.py` / `validation.py`: pure contracts and event/context validation.
-- `skills/career-agent/routing.py`: KO/JA/EN language, track, stage, skill-context, and flow-phase
-  routing.
-- `skills/career-agent/persistence.py`: canonical JSON/TOML/JSONL readers and atomic writers.
-- `skills/career-agent/vault.py`: Vault paths, metadata indexing, trusted-context selection, and
-  canonical Vault state facade.
-- `skills/career-agent/proposals.py`: approval-gated event/context proposal creation and listing.
-- `skills/career-agent/sessions.py`: APPLICATION-owned transient 棚卸し sessions, drafts,
-  checkpoints, and the read-only CLI session listing/migration path.
-- `skills/career-agent/lifecycle.py`: Vault locking, approval, retry-safe checkpoints, recovery,
-  and safe-stop trajectories.
-- `skills/career-agent/projection.py`: company slugs, workspace resolution, pipeline projection,
-  event-to-state projection, and legacy pipeline migration.
-- `skills/career-agent/case_store.py` / `artifact_store.py`: durable GUI Company/Application case
-  and artifact metadata under `03-active/gui/`; they organize JD/evidence/document work and do not
-  own application outcome history or alter the company-scoped pipeline schema.
-- `skills/career-agent/gui/cases.py` / `gui/artifacts.py`: GUI adapters over those owners; they do
-  not access Vault files directly.
 - `_shared/pipeline_store.py`: the lock + atomic writer for `data/pipeline.yml`; legacy fields are
-  readable but new legacy writes are rejected.
+  readable but new legacy writes are rejected. `scripts/pipeline.py` is its CLI adapter.
+- `_shared/document.py` and `_shared/render.py`: pure deterministic document model builder,
+  protected-claim fidelity gate, and HTML template renderer (`_shared/templates/`).
+  `scripts/document.py` is the CLI adapter reading `data/evidence.yml` and `data/pipeline.yml`.
+- `_shared/localization.py`: localized KO/JA/EN domain vocabulary labels for the status bar.
 - `_shared/application_learning.py`: owns `data/applications.yml`, application lifecycle snapshots,
   typed feedback/self-observation evidence, and deterministic repeated-pattern analysis. The
   Skill-local `skills/tenshoku-strategy/job_search_learning.py` is its shipped CLI adapter.
@@ -53,9 +36,9 @@ python scripts/run_all_checks.py
 The runner is the canonical local/CI verification path; it includes the repository checks used by
 CI and keeps the release/document/version gates in the same command sequence.
 
-The Ubuntu/Windows CI matrix also runs the routing, Career Agent lifecycle, matching, status bar,
-pipeline, policy, and Jiko source-contract tests. `requirements.txt` supplies runtime YAML support;
-Ruff is installed by CI for `E4,E7,E9,F` checks.
+The Ubuntu/Windows CI matrix runs the document projection/rendering, matching, status bar,
+pipeline, policy, and Jiko source-contract tests. `requirements.txt` supplies runtime YAML and
+JSON Schema support; Ruff is installed by CI for `E4,E7,E9,F` checks.
 
 ## Safe context rules
 

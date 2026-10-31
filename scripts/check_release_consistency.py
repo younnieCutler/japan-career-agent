@@ -13,9 +13,6 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = (
     ROOT / ".claude-plugin" / "plugin.json",
     ROOT / ".codex-plugin" / "plugin.json",
-    # The npm bootstrapper installs `japan-career-agent==<its own version>`. If it falls behind,
-    # `npx japan-career-agent@X` installs something that is not X, and nothing at runtime notices.
-    ROOT / "packaging" / "npm" / "package.json",
 )
 # The wheel carries the same release. `uvx japan-career-agent` and the plugin must not be able to
 # be two different builds of two different versions.

@@ -31,7 +31,6 @@ Draft one sentence, show it to the user, and retain it only after correction or 
 ## Integration
 
 Extract `career_values.must_have` and `career_values.avoid` only from explicit user statements.
-Show the exact proposed values, anchors, energy map, and theme before saving. With a Vault, use
-`career-agent propose-context` and `career-agent approve`; without one, save the user-confirmed
-profile under the invocation CWD. Unconfirmed hypotheses remain visible as drafts, never as
-canonical motivation.
+Show the exact proposed values, anchors, energy map, and theme before saving. Save the user-confirmed
+profile under the invocation CWD (`./data/self_analysis_profile.yml`). Unconfirmed hypotheses remain
+visible as drafts, never as canonical motivation.

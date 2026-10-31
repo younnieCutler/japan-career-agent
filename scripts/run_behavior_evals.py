@@ -301,10 +301,6 @@ def _matching_v3_contract(_: AdapterContext) -> Execution:
     return _run_registered_script("_shared/test_matching_v3.py")
 
 
-def _career_agent_boundary_contract(_: AdapterContext) -> Execution:
-    return _run_registered_script("scripts/test_career_agent_boundaries.py")
-
-
 def _run_replay(kind: str, context: AdapterContext) -> Execution:
     started = time.perf_counter()
     try:
@@ -325,17 +321,11 @@ def _matching_v3_replay(context: AdapterContext) -> Execution:
     return _run_replay("matching_v3", context)
 
 
-def _career_agent_replay(context: AdapterContext) -> Execution:
-    return _run_replay("career_agent", context)
-
-
 ADAPTERS: dict[str, Adapter] = {
     "mock_interviewer_contract": _mock_interviewer_contract,
     "matching_v3_contract": _matching_v3_contract,
-    "career_agent_boundary_contract": _career_agent_boundary_contract,
     "mock_interviewer_contract_replay": _mock_interviewer_contract_replay,
     "matching_v3_replay": _matching_v3_replay,
-    "career_agent_replay": _career_agent_replay,
 }
 
 

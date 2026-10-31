@@ -1,21 +1,17 @@
 """Deterministic replay adapters for critical product behavior.
 
 These adapters deliberately do not simulate an LLM. They replay explicit input fixtures through
-the deterministic matching and Career Agent paths, and run a policy-oracle contract replay for the
+the deterministic matching paths, and run a policy-oracle contract replay for the
 instruction-only interviewer without inventing a model identity.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-CAREER_AGENT = ROOT / "skills" / "career-agent" / "career_agent.py"
 UNRESOLVED = frozenset({"unprobed", "unknown", "Unknown", "user-stated-unverified", "conflict-needs-confirmation"})
 AXES = ("Ownership", "Evidence", "Decision Logic", "Motivation & Fit", "Career Consistency", "Learning")
 UNCERTAINTY_MARKERS = ("about", "around", "approximately", "i think", "mostly", "maybe", "roughly")
@@ -173,158 +169,6 @@ def _matching(path: Path) -> dict[str, Any]:
     }
 
 
-def _career_cli(vault: Path, cwd: Path, *arguments: str) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        [sys.executable, str(CAREER_AGENT), arguments[0], "--vault", str(vault), *arguments[1:]],
-        cwd=str(cwd),
-        capture_output=True,
-        check=False,
-    )
-
-
-def _json_stdout(result: subprocess.CompletedProcess[bytes]) -> dict[str, Any]:
-    if result.returncode != 0:
-        raise ReplayError("Career Agent command failed")
-    try:
-        value = json.loads(result.stdout.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ReplayError("Career Agent returned invalid JSON") from exc
-    if not isinstance(value, dict):
-        raise ReplayError("Career Agent JSON result must be an object")
-    return value
-
-
-def _jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            value = json.loads(line)
-            if isinstance(value, dict):
-                rows.append(value)
-    return rows
-
-
-def _career_approval_gate(vault: Path, workspace: Path) -> dict[str, Any]:
-    _json_stdout(_career_cli(vault, workspace, "setup", "--track", "chuto", "--target-role", "Platform Engineer"))
-    proposed = _json_stdout(
-        _career_cli(vault, workspace, "run", "--mode", "chat", "--message", "Prepare interview evidence")
-    )
-    failed = _career_cli(vault, workspace, "approve", proposed["proposal"]["id"])
-    return {
-        "approval_blocked_without_evidence": failed.returncode == 2,
-        "confirmed_event_count": len(_jsonl(vault / "02-state" / "events.jsonl")),
-        "proposal_remains_pending": bool(_jsonl(vault / "02-state" / "proposals.jsonl"))
-        and _jsonl(vault / "02-state" / "proposals.jsonl")[0].get("status") == "pending",
-    }
-
-
-def _career_approval_lifecycle(vault: Path, workspace: Path) -> dict[str, Any]:
-    _json_stdout(_career_cli(vault, workspace, "setup", "--track", "chuto", "--target-role", "Platform Engineer"))
-    proposed = _json_stdout(
-        _career_cli(vault, workspace, "run", "--mode", "chat", "--message", "Prepare interview evidence")
-    )
-    evidence = "Confirmed interview preparation evidence"
-    approved = _json_stdout(
-        _career_cli(
-            vault,
-            workspace,
-            "approve",
-            proposed["proposal"]["id"],
-            "--evidence",
-            evidence,
-            "--company",
-            "Synthetic Co",
-            "--workspace",
-            str(workspace),
-        )
-    )
-    proposals = _jsonl(vault / "02-state" / "proposals.jsonl")
-    pipeline = workspace / "data" / "pipeline.yml"
-    pipeline_text = pipeline.read_text(encoding="utf-8") if pipeline.exists() else ""
-    event = approved["event"]
-    return {
-        "proposal_event_status_is_draft": proposals[0]["event"]["status"] == "draft",
-        "confirmed_event_status": event["status"],
-        "resolution_links_confirmed_event": proposals[0]["resolution"]["approved_event_id"] == event["id"],
-        "pipeline_copies_evidence": evidence in pipeline_text,
-        "pipeline_has_event_id": event["id"] in pipeline_text,
-    }
-
-
-def _career_concurrent_approval(vault: Path, workspace: Path) -> dict[str, Any]:
-    _json_stdout(_career_cli(vault, workspace, "setup", "--track", "chuto", "--target-role", "Platform Engineer"))
-    proposed = _json_stdout(
-        _career_cli(vault, workspace, "run", "--mode", "chat", "--message", "Prepare interview evidence")
-    )
-    command = (
-        "approve",
-        proposed["proposal"]["id"],
-        "--evidence",
-        "Confirmed interview preparation evidence",
-    )
-    first = subprocess.Popen(
-        [sys.executable, str(CAREER_AGENT), command[0], "--vault", str(vault), *command[1:]],
-        cwd=str(workspace),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    second = subprocess.Popen(
-        [sys.executable, str(CAREER_AGENT), command[0], "--vault", str(vault), *command[1:]],
-        cwd=str(workspace),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    first.communicate()
-    second.communicate()
-    return {
-        "return_codes": sorted([first.returncode, second.returncode]),
-        "confirmed_event_count": len(_jsonl(vault / "02-state" / "events.jsonl")),
-    }
-
-
-def _career_context_approval(vault: Path, workspace: Path) -> dict[str, Any]:
-    _json_stdout(_career_cli(vault, workspace, "setup", "--track", "chuto", "--target-role", "Platform Engineer"))
-    source = workspace / "career-context.yml"
-    source.write_text(
-        "career_values:\n  must_have: [autonomy]\n  avoid: [unbounded overtime]\n",
-        encoding="utf-8",
-    )
-    proposed = _json_stdout(_career_cli(vault, workspace, "propose-context", "--source", str(source)))
-    before = _json_stdout(_career_cli(vault, workspace, "context", "--track", "chuto"))
-    approved = _json_stdout(_career_cli(vault, workspace, "approve", proposed["proposal"]["id"]))
-    after = _json_stdout(_career_cli(vault, workspace, "context", "--track", "chuto"))
-    return {
-        "proposal_is_not_confirmed_before_approval": before["career_context_confirmed"] is False,
-        "approved_event_type": approved["event"]["type"],
-        "confirmed_after_approval": after["career_context_confirmed"] is True,
-        "canonical_value": after["career_context"]["career_values"]["must_have"],
-    }
-
-
-def _career_agent(path: Path) -> dict[str, Any]:
-    fixture = _load_json(path)
-    _require_skill(fixture, "career-agent")
-    with tempfile.TemporaryDirectory() as temporary:
-        root = Path(temporary)
-        vault = root / "vault"
-        workspace = root / "workspace"
-        workspace.mkdir()
-        case = fixture.get("case")
-        if case == "approval_gate":
-            result = _career_approval_gate(vault, workspace)
-        elif case == "approval_lifecycle":
-            result = _career_approval_lifecycle(vault, workspace)
-        elif case == "concurrent_approval":
-            result = _career_concurrent_approval(vault, workspace)
-        elif case == "context_approval":
-            result = _career_context_approval(vault, workspace)
-        else:
-            raise ReplayError(f"unknown Career Agent replay case: {case!r}")
-    return {"case": case, **result}
-
-
 def run(kind: str, inputs: tuple[Path, ...]) -> dict[str, Any]:
     if len(inputs) != 1:
         raise ReplayError(f"{kind} replay requires exactly one fixture")
@@ -332,6 +176,4 @@ def run(kind: str, inputs: tuple[Path, ...]) -> dict[str, Any]:
         return _mock_interviewer_contract(inputs[0])
     if kind == "matching_v3":
         return _matching(inputs[0])
-    if kind == "career_agent":
-        return _career_agent(inputs[0])
     raise ReplayError(f"unknown replay kind: {kind}")
