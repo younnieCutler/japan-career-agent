@@ -35,7 +35,7 @@ If the check flags a synthetic fixture, declare it rather than weakening the det
 
 Putting a file under `examples/`, `tests/`, or `mock/` does **not** exempt it. A directory name is
 a convention, not a statement about the bytes inside, and exempting those paths would make them the
-easiest place to leak real data. See `docs/PRIVATE_CAREER_DATA_PRD.md` section 13.3.
+easiest place to leak real data.
 
 ## Verification
 
@@ -62,14 +62,12 @@ is not acceptable.
 
 ## Reference
 
-Three documents carry what is otherwise only in the checks and the commit history:
+Two documents carry what is otherwise only in the checks and the commit history:
 
-- [`docs/MAINTAINER_RUNBOOK.md`](docs/MAINTAINER_RUNBOOK.md) — verification, release, registry
-  publish, marketplace ref, failure recovery, schema migration, private-data incidents.
-- [`docs/ARCHITECTURE_BOUNDARIES.md`](docs/ARCHITECTURE_BOUNDARIES.md) — the module layers, what
-  `check_career_agent_boundaries.py` enforces, and how to add a command.
-- [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) — what works with no plugin host, what a
-  host improves, and what only a host can do.
+- [`docs/MAINTAINER_RUNBOOK.md`](docs/MAINTAINER_RUNBOOK.md) — verification, release,
+  marketplace ref, failure recovery, schema migration, private-data incidents.
+- [`docs/ARCHITECTURE_BOUNDARIES.md`](docs/ARCHITECTURE_BOUNDARIES.md) — how the skills, shared
+  modules, and deterministic scripts fit together.
 
 ## Release lifecycle
 

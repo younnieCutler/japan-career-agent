@@ -41,20 +41,15 @@ item narrows the session; it does not cancel it.
 Read `data/rules.yml` if present. Any `status: active` rule is a phrase the user has already decided
 never to say — treat a violation during practice as a finding, quoting the rule verbatim.
 
-When `CAREER_VAULT` is set, read confirmed `career_context` from `career-agent context` before practice.
-Otherwise read `data/self_analysis_profile.yml` only when `career_context_confirmed: true`. Missing or
+Read `data/self_analysis_profile.yml` only when `career_context_confirmed: true`. Missing or
 unconfirmed context is not a reason to invent a value; continue with facts the user states in-session.
 
 ## Ground the practice in confirmed evidence
 
-```bash
-python skills/career-agent/career_agent.py evidence-pool --vault "$CAREER_VAULT"
-```
-
-That returns confirmed work events grouped under their projects. When the user is practising for a
-specific company, `data/pipeline.yml` already records what they chose to lead with —
-`primary_project_ids`, `primary_experience_ids`, `supporting_experience_ids`. Build the questions
-around those: the point of practice is the answer they will actually give.
+Read `./data/evidence.yml` if present. When the user is practising for a specific company,
+`data/pipeline.yml` already records what they chose to lead with — `primary_project_ids`,
+`primary_experience_ids`, `supporting_experience_ids`. Build the questions around those: the point
+of practice is the answer they will actually give.
 
 Ask about what is recorded. "이 프로젝트에서 본인이 직접 한 일은?" is a question the evidence can
 answer; a question about a project they never recorded only teaches them to improvise.

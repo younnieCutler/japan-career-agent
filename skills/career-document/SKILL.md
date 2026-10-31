@@ -10,8 +10,8 @@ description: >
   "この求人に合わせて職務経歴書を作りたい", "応募先ごとに職務経歴書を作り直したい" -
   "generate a 職務経歴書 for this JD", "tailor my resume to this posting" -
   Regenerating an existing document after new evidence, a changed JD, or a different template.
-  Not for recovering past experience (`career-tanaoroshi`) or recording current work
-  (`career-maintenance`): both must happen before there is anything to project.
+  Not for recovering past experience (`career-tanaoroshi`): that must happen before there is
+  anything to project.
 license: MIT
 ---
 
@@ -40,13 +40,9 @@ nothing about the user, and it may never add a skill, a technology or an experie
 
 ## Before starting
 
-```bash
-python skills/career-agent/career_agent.py readiness --vault "$CAREER_VAULT"
-```
-
-`bootstrap_suggested: true` means the ledger has nothing to project. Offer
-[`../career-tanaoroshi/SKILL.md`](../career-tanaoroshi/SKILL.md) first — a document built from
-nothing is not a shorter document, it is an empty one.
+Check whether `./data/evidence.yml` exists and contains confirmed evidence. If it is missing or
+empty, offer [`../career-tanaoroshi/SKILL.md`](../career-tanaoroshi/SKILL.md) first — a document
+built from nothing is not a shorter document, it is an empty one.
 
 ## Workflow
 
@@ -66,10 +62,7 @@ responsibilities and domain knowledge → `experience`.
 
 ### STEP 2 — Map requirements onto recorded evidence
 
-```bash
-python skills/career-agent/career_agent.py evidence-pool --vault "$CAREER_VAULT"
-python skills/career-agent/career_agent.py experiences --vault "$CAREER_VAULT"
-```
+Read `./data/evidence.yml`.
 
 For each requirement: `Matched` with the confirmed event ids behind it, `Missing`, or `Unknown`.
 Nothing else. A requirement nothing supports stays unsupported — adjacent experience is never
@@ -80,7 +73,7 @@ Show the mapping and let the user correct it before storing anything.
 ### STEP 3 — Store the target and the selection
 
 ```bash
-python scripts/pipeline.py upsert <slug> --json '{
+python3 scripts/pipeline.py upsert <slug> --json '{
   "name": "Example Corp",
   "jd_source": "company careers page",
   "jd_observed_at": "2026-08-10",
@@ -96,15 +89,14 @@ python scripts/pipeline.py upsert <slug> --json '{
 }'
 ```
 
-Ids and requirement text only. The evidence itself stays in the Career Vault ledger, so a selection
+Ids and requirement text only. The evidence itself stays in `./data/evidence.yml`, so a selection
 can never edit what happened. `excluded` from a document means "not shown for this application",
 never "not true".
 
 ### STEP 4 — Generate the document model
 
 ```bash
-python skills/career-agent/career_agent.py document-model <slug> \
-  --vault "$CAREER_VAULT" --workspace . > model.json
+python3 scripts/document.py model <slug> --workspace . > model.json
 ```
 
 Deterministic and read-only. It produces slots to fill, the evidence behind each, and the claims
@@ -123,37 +115,29 @@ Save as `{"slots": {"entry:evt-...": "...", "section:summary": "...", "section:s
 ### STEP 6 — Polish, then check
 
 ```bash
-python skills/career-agent/career_agent.py document-check --model model.json --draft draft.json
+python3 scripts/document.py check --model model.json --draft draft.json
 ```
 
 Then invoke [`../humanize-japanese-career/SKILL.md`](../humanize-japanese-career/SKILL.md) and
 check the result against what it replaced:
 
 ```bash
-python skills/career-agent/career_agent.py document-check \
+python3 scripts/document.py check \
   --model model.json --draft draft.json --humanized humanized.json
 ```
 
 A violation is not a warning. Fix the sentence and check again; never adjust the evidence to make a
-sentence pass. If the evidence genuinely says more than the record shows, that is a new fact and
-goes through `career-agent` approval like every other one.
+sentence pass. If the evidence genuinely says more than the record shows, confirm that fact with the
+user and update `./data/evidence.yml` first.
 
 A clean check is a floor, not a certificate. The gate's rules are enumerated, so it establishes
 that no known protected-claim violation is present — not that every sentence has been proven
 faithful. Read the result yourself before it goes anywhere, with the evidence beside it.
 
-### Gate D handoff
-
-When this Skill is the `career-document` step of a Gate D plan, stop after STEP 5 and report the
-model plus evidence-grounded draft artifacts. Do not invoke another Skill from this SOP. The next
-plan step is `humanize-japanese-career`, which receives those artifacts and owns the post-humanize
-check and render. A direct, unplanned invocation keeps the complete STEP 6–7 workflow below for
-backward compatibility.
-
 ### STEP 7 — Render
 
 ```bash
-python skills/career-agent/career_agent.py document-render \
+python3 scripts/document.py render \
   --model model.json --draft draft.json --humanized humanized.json \
   --template standard-chuto --out ./career-docs
 ```
@@ -208,21 +192,20 @@ they may say, and it is the evidence. This workflow also never submits anything 
 
 ## Persistence
 
-Canonical evidence is written only by `career-agent`, through its approval gate; this workflow
-never writes to it. The target and the selection go to `data/pipeline.yml` via `scripts/pipeline.py`.
-Rendered documents and their manifests go under `./career-docs/` relative to CWD, which is not
-tracked by Git. Ask before overwriting, then print and verify the absolute path. Never write
-personal data into the skill installation directory.
+Confirmed evidence lives in `./data/evidence.yml`; this workflow never modifies it. The target and
+the selection go to `data/pipeline.yml` via `scripts/pipeline.py`. Rendered documents and their
+manifests go under `./career-docs/` relative to CWD, which is not tracked by Git. Ask before
+overwriting, then print and verify the absolute path. Never write personal data into the skill
+installation directory.
 
-Editing a rendered file by hand does not change the record. If an edit introduces a new fact, it
-goes through evidence approval like any other.
+Editing a rendered file by hand does not change the record. If an edit introduces a new fact, confirm
+it with the user and update `./data/evidence.yml` first.
 
 ## Related references
 
-- `../career-agent/SKILL.md`: the runtime that owns the model, the gate and the renderer
+- `../../scripts/document.py`: the deterministic CLI that owns the model, the gate, and the renderer
 - `../humanize-japanese-career/SKILL.md`: the Japanese expression layer
-- `../career-tanaoroshi/SKILL.md`: recovering evidence when the ledger is empty
-- `../career-maintenance/SKILL.md`: keeping the record current
+- `../career-tanaoroshi/SKILL.md`: recovering evidence when `./data/evidence.yml` is empty
 - `../matching-simulator/SKILL.md`: the requirement vocabulary and evidence mapping
 - `../job-seeker-agent/SKILL.md`: document writing guidance
 - `../../_shared/decision_philosophy.md`: the repository-wide decision contract

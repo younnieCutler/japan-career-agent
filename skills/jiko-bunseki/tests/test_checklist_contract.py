@@ -12,7 +12,6 @@ CHECKLIST_RUNTIME = ROOT / "skills" / "jiko-bunseki" / "checklist_runtime.js"
 SCHEMA = ROOT / "_shared" / "schemas.yml"
 MATCHING = ROOT / "_shared" / "matching_v3.py"
 PROFILE = ROOT / "_shared" / "self_analysis_profile.py"
-CAREER_AGENT = ROOT / "skills" / "career-agent" / "career_agent.py"
 
 _matching_spec = spec_from_file_location("matching_v3_contract_target", MATCHING)
 if _matching_spec is None or _matching_spec.loader is None:
@@ -166,11 +165,8 @@ def test_interest_activity_has_no_automatic_occupation_output() -> None:
 def test_value_candidates_require_confirmation_before_canonical_context() -> None:
     jiko = (ROOT / "skills" / "jiko-bunseki" / "SKILL.md").read_text(encoding="utf-8")
     questions = (ROOT / "skills" / "jiko-bunseki" / "references" / "questions.md").read_text(encoding="utf-8")
-    career_agent = CAREER_AGENT.read_text(encoding="utf-8")
     assert "require a direct user statement" in jiko
     assert "only after the user explicitly confirms" in questions
-    assert 'CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")' in career_agent
-    assert "value_candidates" not in career_agent
 
 
 def test_perceived_skill_gap_is_not_an_actual_missing_skill() -> None:
@@ -197,13 +193,6 @@ def test_raw_jiko_fields_are_not_matching_coefficients() -> None:
         assert field not in source, field
 
 
-def test_career_agent_context_allowlist_excludes_raw_reflection() -> None:
-    source = CAREER_AGENT.read_text(encoding="utf-8")
-    assert 'CAREER_CONTEXT_FIELDS = ("career_anchors", "career_theme", "energy_map", "career_values")' in source
-    for field in ("interest_activities", "behavior_tendencies", "perceived_barriers", "value_candidates"):
-        assert field not in source, field
-
-
 if __name__ == "__main__":
     test_v2_submission_has_independent_unknown_safe_controls()
     test_checklist_activity_ids_match_profile_validator()
@@ -220,5 +209,4 @@ if __name__ == "__main__":
     test_perceived_skill_gap_is_not_an_actual_missing_skill()
     test_legacy_v1_profile_is_read_only_and_not_converted()
     test_raw_jiko_fields_are_not_matching_coefficients()
-    test_career_agent_context_allowlist_excludes_raw_reflection()
-    print("OK: 16 checklist/profile contract tests passed")
+    print("OK: 15 checklist/profile contract tests passed")

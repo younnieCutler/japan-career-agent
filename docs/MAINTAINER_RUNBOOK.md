@@ -18,7 +18,7 @@ git fetch origin main            # feeds the version-bump gate; it skips cleanly
 python scripts/run_all_checks.py
 ```
 
-Expected: `All 104 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
+Expected: `All 53 repository checks passed.` and exit 0. The suite is fail-fast, so a failure names
 the check and stops; everything after it is unrun, not passing.
 
 That number is held to `len(CHECKS)` by `scripts/check_docs_drift.py`; adding a check to the matrix
@@ -58,13 +58,10 @@ Run the check that owns what you changed, then the full suite once before pushin
 
 | Changed | Run |
 |---|---|
-| `skills/career-agent/` module layout | `python scripts/check_career_agent_boundaries.py`, `python scripts/test_career_agent_boundaries.py`, `python skills/career-agent/test_boundary_imports.py` |
-| Any CLI behaviour | `python skills/career-agent/test_golden_cli.py`, `python scripts/test_e2e_career_os.py` |
+| `_shared/document.py` or `_shared/render.py` | `python _shared/test_document.py`, `python scripts/test_render.py` |
 | `_shared/schemas.yml` or a canonical writer | `python scripts/check_schema_contract.py`, `python scripts/test_schema_contract.py` |
-| User-facing wording | `python skills/career-agent/test_ux.py`, `python skills/career-agent/test_ux_regression_eval.py`, `python skills/career-agent/test_localization.py` |
 | Any README | `python scripts/check_readme_consistency.py`, `python scripts/check_release_consistency.py` |
-| `docs/CAPABILITY_MATRIX.md` | `python scripts/check_capability_matrix.py` |
-| Packaging | `python scripts/test_pyproject_install.py`, `python scripts/test_npm_bootstrapper.py` |
+| Release bundle / install smoke | `python scripts/test_release_install.py`, `python scripts/test_release_integrity.py` |
 
 ## 3. CI matrix
 

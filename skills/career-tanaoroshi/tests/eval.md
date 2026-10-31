@@ -1,8 +1,7 @@
 # career-tanaoroshi — evaluation cases
 
 Each case states an input and the behaviour that counts as correct. These are read by a reviewer,
-not executed. The executable contract lives in `skills/career-agent/test_experience.py` and
-`skills/career-agent/test_routing_intents.py`.
+not executed. The executable contract lives in `_shared/test_document.py`.
 
 ## 1. A new graduate is not an empty record
 

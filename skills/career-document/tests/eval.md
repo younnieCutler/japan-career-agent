@@ -1,7 +1,7 @@
 # career-document — evaluation cases
 
 Read by a reviewer, not executed. The executable contract is
-`skills/career-agent/test_document.py`, `test_render.py` and `scripts/test_e2e_career_os.py`.
+`_shared/test_document.py` and `scripts/test_render.py`.
 
 ## 1. Two targets, one career
 
