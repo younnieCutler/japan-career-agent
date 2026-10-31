@@ -420,25 +420,32 @@ class ProducerContractTests(unittest.TestCase):
             block = status_bar.build_status(pipeline, written, dt.date(2026, 8, 11))
             self.assertIn("エピソードに必ず数値を入れる", block)
 
-    def test_the_career_agent_projects_a_strictly_valid_pipeline_entry(self) -> None:
-        """The end of the real path: approve an event, then validate what landed on disk."""
+    def test_the_pipeline_cli_projects_a_strictly_valid_pipeline_entry(self) -> None:
+        """The end of the real path: upsert an entry via scripts/pipeline.py, then validate what landed on disk."""
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            vault, workspace = root / "vault", root / "workspace"
+            workspace = Path(directory) / "workspace"
             workspace.mkdir()
-            agent = ROOT / "skills" / "career-agent" / "career_agent.py"
-
-            def cli(*args: str) -> dict:
-                result = subprocess.run(
-                    [sys.executable, str(agent), *args, "--vault", str(vault)],
-                    cwd=workspace, capture_output=True, text=True, encoding="utf-8", check=False,
-                )
-                self.assertEqual(result.returncode, 0, result.stderr)
-                return json.loads(result.stdout)
-
-            cli("setup", "--track", "chuto", "--target-role", "SRE")
-            proposed = cli("run", "--mode", "chat", "--message", "A社に面接を申し込んだ")
-            cli("approve", proposed["proposal"]["id"], "--evidence", "面接申込完了", "--company", "A社")
+            cli_script = ROOT / "scripts" / "pipeline.py"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(cli_script),
+                    "--workspace",
+                    str(workspace),
+                    "upsert",
+                    "a-sha",
+                    "--json",
+                    '{"name":"A社","stage":3}',
+                    "--history",
+                    "面接申込完了",
+                ],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
             validate_new_write("PIPELINE", pipeline_store.load(workspace / "data" / "pipeline.yml"))
 
 

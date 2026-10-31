@@ -7,7 +7,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-from document import CareerError
+try:
+    from _shared.document import CareerError
+except ImportError:
+    from document import CareerError
 
 RENDERER_VERSION = "1"
 

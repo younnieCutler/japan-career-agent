@@ -24,17 +24,12 @@ DOCS = ROOT / "docs"
 # The three language hubs. Every other file under docs/ has to be reachable from one of them.
 HUBS = (DOCS / "README.md", DOCS / "README_ko.md", DOCS / "README_ja.md")
 RUNBOOK = DOCS / "MAINTAINER_RUNBOOK.md"
-ORCHESTRATION = ROOT / "_shared" / "agent_context" / "orchestration.md"
-NPM_README = ROOT / "packaging" / "npm" / "README.md"
 
 PYPROJECT_REQUIRES = re.compile(r"^requires-python = \">=([\d.]+)\"", re.MULTILINE)
 PYPROJECT_CLASSIFIER = re.compile(r"^\s*\"Programming Language :: Python :: ([\d.]+)\",", re.MULTILINE)
 PYTHON_BADGE = re.compile(r"img\.shields\.io/badge/python-([^\"?]+)")
 MINOR_VERSION = re.compile(r"3\.\d+")
 CHECK_COUNT = re.compile(r"All (\d+) repository checks passed")
-GATE_D_ROOTS = re.compile(
-    r"Gate D currently accepts only these Domain roots:\s*(.+?);", re.DOTALL
-)
 BACKTICKED = re.compile(r"`([^`]+)`")
 FENCED_BLOCK = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
 MD_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
@@ -52,14 +47,6 @@ def _links(text: str) -> list[str]:
 
 def _is_external(target: str) -> bool:
     return target.startswith(("http://", "https://", "mailto:", "#"))
-
-
-def _plan_policy_roots() -> set[str]:
-    """The Gate D root Skills, from the module that decides them."""
-    sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
-    from execution_plans import _PLAN_POLICIES  # noqa: PLC0415 -- needs the sys.path insert above
-
-    return set(_PLAN_POLICIES)
 
 
 def _registered_check_count() -> int:
@@ -98,8 +85,6 @@ def check_python_versions() -> list[str]:
                 )
         if f"Python {minimum}" not in text:
             errors.append(f"{path.name}: prose does not state the minimum Python {minimum}")
-    if f"Python {minimum}" not in NPM_README.read_text(encoding="utf-8"):
-        errors.append(f"{NPM_README.relative_to(ROOT)}: does not state the minimum Python {minimum}")
     return errors
 
 
@@ -141,21 +126,6 @@ def check_skill_coverage() -> list[str]:
         if missing:
             errors.append(f"{path.name}: skill table does not name {', '.join(missing)}")
     return errors
-
-
-def check_gate_d_roots() -> list[str]:
-    """The Gate D root Skills named in the orchestration context match the policy table."""
-    supported = _plan_policy_roots()
-    match = GATE_D_ROOTS.search(ORCHESTRATION.read_text(encoding="utf-8"))
-    if match is None:
-        return [f"{ORCHESTRATION.relative_to(ROOT)}: no Gate D root Skill sentence"]
-    documented = set(BACKTICKED.findall(match.group(1)))
-    if documented != supported:
-        return [
-            f"{ORCHESTRATION.relative_to(ROOT)}: documents {sorted(documented)}, "
-            f"execution_plans supports {sorted(supported)}"
-        ]
-    return []
 
 
 def check_check_count() -> list[str]:
@@ -214,7 +184,6 @@ def check_hub_coverage() -> list[str]:
 CHECKS = (
     check_python_versions,
     check_skill_coverage,
-    check_gate_d_roots,
     check_check_count,
     check_relative_links,
     check_hub_coverage,

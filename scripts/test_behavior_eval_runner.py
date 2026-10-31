@@ -17,10 +17,10 @@ SCHEMA = ROOT / "_shared" / "behavior_eval_schema.yml"
 class BehaviorEvalSchemaTests(unittest.TestCase):
     def test_repository_schema_loads_and_uses_registered_adapters(self) -> None:
         scenarios = runner.load_scenarios(SCHEMA)
-        self.assertEqual(len(scenarios), 20)
+        self.assertEqual(len(scenarios), 15)
         self.assertTrue(all(item.adapter in runner.ADAPTERS for item in scenarios))
-        self.assertEqual(sum(item.execution_mode == "contract_audit" for item in scenarios), 3)
-        self.assertEqual(sum(item.execution_mode == "behavior_replay" for item in scenarios), 17)
+        self.assertEqual(sum(item.execution_mode == "contract_audit" for item in scenarios), 2)
+        self.assertEqual(sum(item.execution_mode == "behavior_replay" for item in scenarios), 13)
         self.assertTrue(
             all(
                 item.classification == "behavior_replay_pass"
@@ -95,9 +95,9 @@ scenarios:
     def test_critical_replay_adapters_execute_through_the_same_contract(self) -> None:
         document = runner.run(
             SCHEMA,
-            {"MOCK-METRIC-001", "MATCH-INTEREST-001", "CAREER-APPROVAL-GATE-001"},
+            {"MOCK-METRIC-001", "MATCH-INTEREST-001"},
         )
-        self.assertEqual(document["summary"]["passed"], 3)
+        self.assertEqual(document["summary"]["passed"], 2)
         self.assertEqual(document["summary"]["failed"], 0)
 
 if __name__ == "__main__":

@@ -21,18 +21,20 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SHARED_ROOT = ROOT / "_shared"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 if str(SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(SHARED_ROOT))
 
 import pipeline_store  # noqa: E402
-from document import (  # noqa: E402
+from _shared.document import (  # noqa: E402
     CareerError,
     confirmed_evidence_events,
     document_model,
     fidelity_gate,
     normalize_evidence_records,
 )
-from render import (  # noqa: E402
+from _shared.render import (  # noqa: E402
     DEFAULT_TEMPLATE_ROOT,
     RENDERER_VERSION,
     manifest,

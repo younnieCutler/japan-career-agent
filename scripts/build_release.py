@@ -184,7 +184,6 @@ def build(output_dir: Path, expected_commit: str | None = None) -> dict[str, Any
         raise ReleaseBuildError("tracked sbom.cdx.json is required before release packaging")
     sbom = output_dir / "sbom.cdx.json"
     shutil.copyfile(sbom_source, sbom)
-    wheel = _build_wheel(output_dir, commit, version)
     manifest = {
         "format_version": 1,
         "product": "japan-career-agent",
@@ -195,12 +194,11 @@ def build(output_dir: Path, expected_commit: str | None = None) -> dict[str, Any
         "files": entries,
         "artifact": {"name": artifact.name, "size": artifact.stat().st_size, "sha256": _sha256_file(artifact)},
         "sbom": {"name": sbom.name, "size": sbom.stat().st_size, "sha256": _sha256_file(sbom)},
-        "wheel": {"name": wheel.name, "size": wheel.stat().st_size, "sha256": _sha256_file(wheel)},
     }
     manifest_file = output_dir / "release-manifest.json"
     manifest_file.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
     checksums = output_dir / "SHA256SUMS"
-    _write_checksums(checksums, [artifact, sbom, wheel, manifest_file])
+    _write_checksums(checksums, [artifact, sbom, manifest_file])
     return manifest
 
 
