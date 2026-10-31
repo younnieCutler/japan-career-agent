@@ -14,11 +14,11 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "skills" / "career-agent"))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "_shared"))
 
 import document  # noqa: E402
-from models import CareerError  # noqa: E402
+from document import CareerError  # noqa: E402
 
 
 def context(context_id: str, label: str, **payload) -> dict:
@@ -353,6 +353,46 @@ class TheGateIsTheSameGateEveryTimeTests(unittest.TestCase):
         self.assertTrue(all(term not in outside_the_list for term in document.ESCALATION_TERMS))
         result = document.fidelity_gate(model(), draft(**{"entry:evt-deploy": outside_the_list}))
         self.assertTrue(result["pass"])
+
+    def test_yaml_evidence_dict_builds_model_without_event_ledger(self) -> None:
+        evidence_payload = {
+            "contexts": [
+                {"id": "ctx-acme", "label": "Acme Inc.", "period": "2023-04..2026-03"}
+            ],
+            "projects": [
+                {
+                    "id": "prj-ci",
+                    "context_id": "ctx-acme",
+                    "title": "CI Automation",
+                    "period": "2024-01..2025-12",
+                }
+            ],
+            "evidence": [
+                {
+                    "id": "evt-deploy",
+                    "context_id": "ctx-acme",
+                    "project_id": "prj-ci",
+                    "status": "Confirmed",
+                    "external_use": "allowed",
+                    "role": "Backend Engineer",
+                    "work_date": "2024-01..2025-12",
+                    "direct_actions": ["GitHub Actionsでデプロイ自動化を実装"],
+                    "metrics": ["デプロイ時間を30分から5分に短縮"],
+                }
+            ],
+        }
+        built = document.document_model(
+            evidence_payload,
+            company={
+                "slug": "acme-corp",
+                "name": "Acme Corp",
+                "target_role": "Backend Engineer",
+                "primary_experience_ids": ["evt-deploy"],
+            },
+        )
+        self.assertEqual(len(built["entries"]), 1)
+        self.assertEqual(built["entries"][0]["evidence_id"], "evt-deploy")
+        self.assertIn("デプロイ時間を30分から5分に短縮", built["entries"][0]["protected_claims"]["metric"])
 
 
 if __name__ == "__main__":

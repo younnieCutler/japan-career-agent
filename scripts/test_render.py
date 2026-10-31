@@ -17,13 +17,13 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-CLI = ROOT / "skills" / "career-agent" / "career_agent.py"
-AGENT = ROOT / "skills" / "career-agent"
+ROOT = Path(__file__).resolve().parents[1]
+CLI = ROOT / "scripts" / "document.py"
+AGENT = ROOT / "_shared"
 sys.path.insert(0, str(AGENT))
 
 import render as renderer  # noqa: E402
-from models import CareerError  # noqa: E402
+from document import CareerError  # noqa: E402
 
 
 MODEL = {

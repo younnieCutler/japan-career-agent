@@ -31,9 +31,9 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-CAREER_AGENT_ROOT = Path(__file__).resolve().parent.parent / "skills" / "career-agent"
-if str(CAREER_AGENT_ROOT) not in sys.path:
-    sys.path.insert(0, str(CAREER_AGENT_ROOT))
+SHARED_ROOT = Path(__file__).resolve().parent.parent / "_shared"
+if str(SHARED_ROOT) not in sys.path:
+    sys.path.insert(0, str(SHARED_ROOT))
 
 from localization import domain_label, normalize_language  # noqa: E402
 
