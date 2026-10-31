@@ -25,7 +25,6 @@ classifiers = [
 dependencies = [
   "PyYAML>=6,<7",
   "jsonschema>=4.23,<5",
-  "pypdf>=6.16,<7",
 ]
 
 [project.urls]
