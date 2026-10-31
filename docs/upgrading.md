@@ -6,7 +6,7 @@ The repository version can be ahead of the stable marketplace channel while a re
 prepared. The stable channel always points to the latest published immutable `vX.Y.Z` tag; it never
 follows `main`.
 
-Source metadata is `3.0.0` while the stable marketplace ref is `v2.1.1`, because the release
+Source metadata is `3.0.1` while the stable marketplace ref is `v2.1.1`, because the release
 workflow has not published a tag for this source yet. Installing from the marketplace therefore
 gives you `2.1.1` today, and the gap closes when the next tag is published.
 
@@ -25,18 +25,6 @@ Clone the repository when you need to inspect or run the files directly:
 git clone https://github.com/younnieCutler/japan-career-agent.git
 ```
 
-## Upgrading from 2.0.x, when this was `japan-recruit-ai-agent`
-
-The project was renamed in 2.1.0. GitHub redirects the old repository URL, so an existing clone or
-remote keeps working, but the marketplace entry is matched by name and has to be re-added:
-
-```bash
-claude plugin marketplace remove japan-recruit-ai-agent
-claude plugin marketplace add younnieCutler/japan-career-agent
-claude plugin install japan-career-agent@japan-career-agent
-```
-
-Nothing in your workspace (`data/`, `career-docs/`) changes on rename. `JAPAN_RECRUIT_NO_UPDATE_CHECK=1`
-still disables the update check, so an existing opt-out stays in force alongside the new
-`JAPAN_CAREER_NO_UPDATE_CHECK`. Release bundles published under the old name remain verifiable with
-[`scripts/verify_release.py`](../scripts/verify_release.py).
+Workspace data lives in `./data/` (`evidence.yml`, `pipeline.yml`, `applications.yml`, `rules.yml`)
+and generated reports live in `./career-docs/`. Set `JAPAN_CAREER_NO_UPDATE_CHECK=1` to disable the
+24-hour manifest version check.

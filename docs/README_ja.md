@@ -11,7 +11,8 @@
 
 | ドキュメント | 扱う内容 |
 |---|---|
-| [`upgrading_ja.md`](upgrading_ja.md) | marketplace が入れるバージョン、ローカル fallback、旧名 `japan-recruit-ai-agent` の 2.0.x からの移行 |
+| [`OUTCOMES.md`](OUTCOMES.md)（英語） | 匿名化された実際の内定獲得事例と活用スキルチェーン |
+| [`upgrading_ja.md`](upgrading_ja.md) | marketplace が入れるバージョン、ローカル fallback、ワークスペース構成 |
 
 ## 概念と契約
 
@@ -58,8 +59,5 @@ python scripts/run_all_checks.py
 
 | ドキュメント | 扱う内容 |
 |---|---|
-| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md)（英語） | v3 以前の決定的ランタイムと確率的 Host 分離の設計記録 |
-| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md)（英語） | v3 以前の L0–L3 Human Oversight と判断台帳の設計記録 |
-| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md)（英語） | 4-skill 分割の run identity と routing 判断ルール |
 | [`LLM_JUDGE_PILOT.md`](LLM_JUDGE_PILOT.md)（韓国語） | `job-seeker-agent` の LLM-as-judge パイロットと、採用しなかった理由 |
 | [`LLM_JUDGE_V2_AUTORESEARCH.md`](LLM_JUDGE_V2_AUTORESEARCH.md)（韓国語） | v2 固定コーパス judge 実験と暫定的な結果 |

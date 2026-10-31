@@ -9,7 +9,8 @@ the later sections are reference and history.
 
 | Document | What it answers |
 |---|---|
-| [`upgrading.md`](upgrading.md) | Which version the marketplace installs, local fallback, and moving up from 2.0.x when this was `japan-recruit-ai-agent` |
+| [`OUTCOMES.md`](OUTCOMES.md) | Anonymized real-world `内定` (offer) cases and the skill chains used |
+| [`upgrading.md`](upgrading.md) | Which version the marketplace installs, local fallback, and workspace files |
 
 ## Concepts and contracts
 
@@ -56,8 +57,5 @@ code, not because they describe current behaviour.
 
 | Document | What it answers |
 |---|---|
-| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md) | Pre-v3 design record on deterministic runtime vs probabilistic Host |
-| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) | Pre-v3 design record on L0–L3 human-oversight and judgment ledger |
-| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) | Run identity and the routing decision rule behind the four-skill split |
 | [`LLM_JUDGE_PILOT.md`](LLM_JUDGE_PILOT.md) | The LLM-as-judge pilot on `job-seeker-agent`, and why it was not adopted |
 | [`LLM_JUDGE_V2_AUTORESEARCH.md`](LLM_JUDGE_V2_AUTORESEARCH.md) | The v2 fixed-corpus judge experiment and its provisional result |

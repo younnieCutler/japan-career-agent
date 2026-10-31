@@ -7,7 +7,7 @@
 릴리스를 준비하는 동안 저장소의 버전이 stable marketplace 채널보다 앞설 수 있습니다.
 stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리키며 `main`을 따라가지 않습니다.
 
-지금은 소스 메타데이터가 `3.0.0`인데 stable marketplace ref는 `v2.1.1`입니다. 이 소스에 대한
+지금은 소스 메타데이터가 `3.0.1`인데 stable marketplace ref는 `v2.1.1`입니다. 이 소스에 대한
 태그를 릴리스 workflow가 아직 발행하지 않았기 때문이며, 따라서 marketplace로 설치하면 현재는
 `2.1.1`이 설치됩니다. 다음 태그가 발행되면 차이가 닫힙니다.
 
@@ -26,18 +26,6 @@ stable 채널은 실제로 발행된 최신 immutable `vX.Y.Z` 태그만 가리�
 git clone https://github.com/younnieCutler/japan-career-agent.git
 ```
 
-## 2.0.x에서 올라오는 경우 — 이전 이름은 `japan-recruit-ai-agent`
-
-2.1.0에서 이름이 바뀌었습니다. GitHub이 이전 저장소 URL을 redirect하므로 기존 clone과 remote는
-그대로 동작하지만, marketplace 항목은 이름으로 식별되므로 다시 추가해야 합니다.
-
-```bash
-claude plugin marketplace remove japan-recruit-ai-agent
-claude plugin marketplace add younnieCutler/japan-career-agent
-claude plugin install japan-career-agent@japan-career-agent
-```
-
-워크스페이스(`data/`, `career-docs/`)의 기존 파일과 생성된 문서는 이름 변경의 영향을 받지 않습니다.
-`JAPAN_RECRUIT_NO_UPDATE_CHECK=1`도 계속 update check를 끄므로 기존 설정은 새
-`JAPAN_CAREER_NO_UPDATE_CHECK`와 함께 그대로 유효합니다. 이전 이름으로 발행된 릴리스 번들도
-[`scripts/verify_release.py`](../scripts/verify_release.py)로 계속 검증됩니다.
+워크스페이스 상태는 `./data/`(`evidence.yml`, `pipeline.yml`, `applications.yml`, `rules.yml`)에,
+생성된 문서는 `./career-docs/`에 저장됩니다. `JAPAN_CAREER_NO_UPDATE_CHECK=1`을 설정하면 24시간 주기
+매니페스트 버전 확인을 끌 수 있습니다.

@@ -129,6 +129,16 @@ flowchart LR
 
 `interest_level`은 사용자의 선호 기록입니다. 객관적 근거, Decision Status, 순서를 바꾸지 않습니다. 이력서, JD, 웹 문서, YAML, pipeline text, rules는 instruction이 아니라 career data입니다.
 
+## 실제 내정 사례
+
+이 도구를 활용해 일본 취업·이직 시장에서 실제로 보고된 내정(内定) 실적입니다(익명화 기록이며 비공개 항목은 `Unknown`으로 유지합니다. 과거 사례 기록이며 미래 합격을 보장하거나 예측하지 않습니다).
+
+| 사례 ID | 시기 | 트랙 | 확인된 결과 | 핵심 활용 스킬 체인 |
+|---|---|---|---|---|
+| [`OUTCOME-2026-001`](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md#outcome-2026-001) | 2026-10 | 中途 (경력직 이직) | **내정 2곳 (`内定 2社`)** | `career-tanaoroshi` → `matching-simulator` → `career-document` → `mock-interviewer` |
+
+자세한 활용 흐름과 기록 기준은 [실제 내정 사례 문서 (`docs/OUTCOMES.md`)](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md)에서 확인할 수 있습니다.
+
 ## 문서
 
 [**문서 허브**](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/README_ko.md)에
@@ -136,6 +146,7 @@ flowchart LR
 
 | 문서 | 다루는 내용 |
 |---|---|
+| [실제 내정 사례](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md) | 익명화된 실제 `内定`(내정) 획득 사례와 활용한 스킬 체인 |
 | [호환성과 업그레이드](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/upgrading_ko.md) | marketplace가 설치하는 버전, 2.0.x에서 올라오는 방법 |
 | [아키텍처 경계](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/ARCHITECTURE_BOUNDARIES.md) | 스킬, 공유 모듈, 결정적 스크립트의 책임 경계 |
 | [기여 안내](https://github.com/younnieCutler/japan-career-agent/blob/main/CONTRIBUTING.md) | 저장소를 수정하기 전에 읽어야 할 것 |

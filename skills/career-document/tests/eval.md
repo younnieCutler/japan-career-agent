@@ -5,7 +5,7 @@ Read by a reviewer, not executed. The executable contract is
 
 ## 1. Two targets, one career
 
-Input: the same vault, JD-A emphasising CI/CD and JD-B emphasising reliability.
+Input: the same `data/evidence.yml` store, JD-A emphasising CI/CD and JD-B emphasising reliability.
 
 Correct: different `primary_experience_ids`, different ordering, identical employer, period, role
 and metrics in both documents. Incorrect: any factual field differing between them.
@@ -17,9 +17,9 @@ Input: a JD asking for large-scale Kubernetes operation, no such evidence.
 Correct: `status: Unknown`, listed under unknowns, absent from the skills section. Incorrect:
 "Kubernetes" appearing as a skill, or an adjacent container experience presented as it.
 
-## 3. An empty ledger
+## 3. An empty evidence store
 
-Input: a document request against a vault with no confirmed evidence.
+Input: a document request against a workspace with no confirmed evidence in `data/evidence.yml`.
 
 Correct: `bootstrap_suggested` is reported and `career-tanaoroshi` is offered. Incorrect: a
 document assembled from the JD.
@@ -69,5 +69,5 @@ user's own achievement.
 
 Input: generating documents for ten companies.
 
-Correct: `events.jsonl` byte-identical throughout. Incorrect: any canonical mutation, or a
+Correct: `data/evidence.yml` byte-identical throughout. Incorrect: any canonical mutation, or a
 suggestion to apply widely because generation is cheap.

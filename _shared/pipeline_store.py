@@ -1,10 +1,9 @@
 """Shared read-lock-mutate-write helper for data/pipeline.yml.
 
-Two writers touch pipeline.yml: career_agent.py's approve() and scripts/check_action.py.
-Both used to do their own read-whole-file / rewrite-whole-file, with no lock and no atomic
-write, so a crash mid-write could truncate the file and a second local process writing at
-the same time could silently drop the first one's change. mutate() below is the one place
-that does load -> lock -> mutate -> temp-write -> atomic rename -> unlock.
+Multiple callers touch pipeline.yml (such as scripts/check_action.py and _shared/application_learning.py).
+Without a shared lock and atomic write, a crash mid-write could truncate the file and a second
+local process writing at the same time could silently drop the first one's change. mutate() below
+is the one place that does load -> lock -> mutate -> temp-write -> atomic rename -> unlock.
 """
 
 from __future__ import annotations

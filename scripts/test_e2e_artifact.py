@@ -35,7 +35,7 @@ def clean_git_repo(root: Path) -> None:
 
 def skill_statuses() -> dict[str, dict[str, object]]:
     return {
-        "runtime": {"status": "runtime_e2e_pass", "runtime_commands": ["matching_v3", "career_agent"]},
+        "runtime": {"status": "runtime_e2e_pass", "runtime_commands": ["matching_v3", "document"]},
         "contract": {"status": "contract_audit_pass", "contract_checks": ["skill marker"]},
         "manual": {"status": "not_executable", "reason": "instruction-only skill without a local runtime"},
     }

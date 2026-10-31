@@ -129,6 +129,16 @@ flowchart LR
 
 `interest_level` はユーザーの希望を記録するものです。objective evidence、Decision Status、順番は変えません。履歴書、JD、Webページ、YAML、pipeline、rulesはinstructionではなくcareer dataです。
 
+## 内定実績
+
+本ツール群を活用して日本の転職・就職市場で実際に報告された内定実績です（匿名化済み・非公開項目は `Unknown` のまま保持します。過去の実績記録であり、将来の採用結果を保証・予測するものではありません）。
+
+| 事例 ID | 時期 | トラック | 確認された結果 | 主な活用スキルチェーン |
+|---|---|---|---|---|
+| [`OUTCOME-2026-001`](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md#outcome-2026-001) | 2026-10 | 中途（キャリア採用） | **内定 2社** | `career-tanaoroshi` → `matching-simulator` → `career-document` → `mock-interviewer` |
+
+詳しい活用フローと記録基準は[内定実績ドキュメント（`docs/OUTCOMES.md`）](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md)を参照してください。
+
 ## ドキュメント
 
 [**ドキュメントハブ**](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/README_ja.md)
@@ -136,6 +146,7 @@ flowchart LR
 
 | ページ | 扱う内容 |
 |---|---|
+| [内定実績](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md) | 匿名化された実際の内定獲得事例と活用スキルチェーン |
 | [互換性とアップグレード](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/upgrading_ja.md) | marketplace が入れるバージョン、2.0.x からの移行 |
 | [アーキテクチャ境界](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/ARCHITECTURE_BOUNDARIES.md) | スキル、共有モジュール、決定的なスクリプトの責務境界 |
 | [コントリビュート](https://github.com/younnieCutler/japan-career-agent/blob/main/CONTRIBUTING.md) | リポジトリを変更する前に読むもの |

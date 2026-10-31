@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.0.1] - 2026-11-01
+
+- Add anonymized real-world offer outcomes documentation (`docs/OUTCOMES.md`) and summary tables across `README.md`, `README_ko.md`, and `README_ja.md`.
+- Remove remaining pre-v3 Career Vault, GUI, judgment-ledger, and npm/packaging references across docs, comments, and skill evaluation guides.
+
 ## [3.0.0] - 2026-11-01
 
 - Shrink the repository back to its skill-first architecture: remove the local HTTP GUI (`skills/career-agent/gui/`, `frontend/`, `design-preview/`), the Career Vault/event-ledger/approval/private-store/session/case/judgment runtime (`skills/career-agent/`), the continuous work-log skill (`skills/career-maintenance/`), and the standalone npm/PyPI CLI wrappers (`packaging/`).

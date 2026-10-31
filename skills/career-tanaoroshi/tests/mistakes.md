@@ -20,9 +20,8 @@ project boundary. `experience_kind` lists `project` as one entry among sixteen f
 
 A seminar and a release ask the same questions — role, problem, what you did, what the team got,
 what number backs it — so reusing the work-event payload was right. Reusing the work-event *type*
-was not: it would have said the user was employed at their university, and `readiness`,
-`weekly-review` and `career-maintenance` are all scoped to work and would have returned coursework
-as work history. The payload is shared; the type is not.
+was not: it would have said the user was employed at their university, and work-scoped projections
+would have returned coursework as employment history. The payload is shared; the context kind is not.
 
 ## Letting an imported document confirm facts
 

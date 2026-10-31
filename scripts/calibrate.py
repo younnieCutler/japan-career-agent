@@ -145,8 +145,8 @@ def approve_rule(pipeline: dict, cause: str, text: str, rules_path: Path) -> int
     """Promote one repeated feedback cause into data/rules.yml.
 
     Goes through `pipeline_store.mutate` (lock + atomic write, PERSIST-001/005) instead of a
-    bare `write_text`, so a crash mid-write cannot truncate rules.yml and a concurrent
-    `career_agent.py` rules read never sees a half-written file.
+    bare `write_text`, so a crash mid-write cannot truncate rules.yml and concurrent readers
+    never see a half-written file.
     """
     counts, slugs = rule_candidates(pipeline)
     if counts[cause] < PROMOTION_THRESHOLD:

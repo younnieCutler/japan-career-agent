@@ -8,7 +8,7 @@
 あります。stable チャンネルは実際に公開された最新の immutable `vX.Y.Z` タグだけを参照し、`main`
 は追跡しません。
 
-現在はソースメタデータが `3.0.0` である一方、stable marketplace ref は `v2.1.1` です。この
+現在はソースメタデータが `3.0.1` である一方、stable marketplace ref は `v2.1.1` です。この
 ソースに対するタグをリリース workflow がまだ公開していないためで、marketplace から入れると今日は
 `2.1.1` が入ります。次のタグが公開されれば差は閉じます。
 
@@ -27,18 +27,6 @@
 git clone https://github.com/younnieCutler/japan-career-agent.git
 ```
 
-## 2.0.x からの移行 — 旧名は `japan-recruit-ai-agent`
-
-2.1.0 で名称を変更しました。GitHub が旧リポジトリ URL を redirect するため既存の clone と remote は
-そのまま動きますが、marketplace の項目は名前で識別されるため追加し直す必要があります。
-
-```bash
-claude plugin marketplace remove japan-recruit-ai-agent
-claude plugin marketplace add younnieCutler/japan-career-agent
-claude plugin install japan-career-agent@japan-career-agent
-```
-
-ワークスペース（`data/`、`career-docs/`）や生成済みの書類はいずれも名称変更の影響を受けません。
-`JAPAN_RECRUIT_NO_UPDATE_CHECK=1` も引き続き update check を無効にするため、既存の設定は新しい
-`JAPAN_CAREER_NO_UPDATE_CHECK` と併せてそのまま有効です。旧名で公開されたリリースバンドルも
-[`scripts/verify_release.py`](../scripts/verify_release.py) で検証できます。
+ワークスペースの状態は `./data/`（`evidence.yml`、`pipeline.yml`、`applications.yml`、`rules.yml`）に、
+生成された書類は `./career-docs/` に保存されます。`JAPAN_CAREER_NO_UPDATE_CHECK=1` を設定すると、
+24 時間ごとのマニフェストバージョン確認を無効にできます。

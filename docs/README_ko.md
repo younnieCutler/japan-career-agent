@@ -11,7 +11,8 @@
 
 | 문서 | 다루는 내용 |
 |---|---|
-| [`upgrading_ko.md`](upgrading_ko.md) | marketplace가 설치하는 버전, 로컬 fallback, `japan-recruit-ai-agent`였던 2.0.x에서 올라오는 방법 |
+| [`OUTCOMES.md`](OUTCOMES.md) (영어) | 익명화된 실제 `内定`(내정) 획득 사례와 활용한 스킬 체인 |
+| [`upgrading_ko.md`](upgrading_ko.md) | marketplace가 설치하는 버전, 로컬 fallback, 워크스페이스 파일 구조 |
 
 ## 개념과 계약
 
@@ -58,8 +59,5 @@ python scripts/run_all_checks.py
 
 | 문서 | 다루는 내용 |
 |---|---|
-| [`DETERMINISTIC_CORE.md`](DETERMINISTIC_CORE.md) (영어) | v3 이전 결정적 런타임과 확률적 Host 분리 설계 기록 |
-| [`HUMAN_OVERSIGHT.md`](HUMAN_OVERSIGHT.md) (영어) | v3 이전 L0–L3 Human Oversight 및 판단 원장 설계 기록 |
-| [`FOUR_SKILL_EVOLUTION_DECISIONS.md`](FOUR_SKILL_EVOLUTION_DECISIONS.md) (영어) | 4-skill 분리의 run identity와 routing 결정 규칙 |
 | [`LLM_JUDGE_PILOT.md`](LLM_JUDGE_PILOT.md) (한국어) | `job-seeker-agent` LLM-as-judge 파일럿과 채택하지 않은 이유 |
 | [`LLM_JUDGE_V2_AUTORESEARCH.md`](LLM_JUDGE_V2_AUTORESEARCH.md) (한국어) | v2 고정 corpus judge 실험과 잠정 결과 |

@@ -70,7 +70,7 @@ ubuntu/3.13. Each job installs both locks, runs `run_all_checks.py`, then builds
 and smoke-tests installing from it.
 
 Windows is not a formality. Path handling, newline handling and file locking differ there, and it is
-where a change to persistence or the Vault fails first.
+where a change to persistence fails first.
 
 `.github/workflows/canary.yml` runs weekly against an external endpoint with `continue-on-error`. A
 red canary is information, not a broken build.
@@ -84,7 +84,7 @@ Bump **first**, at the start of the branch, so every intermediate commit is cons
 only the last one.
 
 `pyproject.toml` is the single source of truth. Everything else that names the version is a
-generated copy: the two plugin manifests, the npm bootstrapper and `sbom.cdx.json` are all written
+generated copy: the two plugin manifests and `sbom.cdx.json` are all written
 by `scripts/sync_version.py`, and nothing reads a version out of them. `build_release.py`,
 `build_sbom.py`, `check_version_bump.py` and `release.yml` all go through
 `sync_version.canonical_version()`.
@@ -97,7 +97,7 @@ Edit two files by hand, then run one command:
 | `CHANGELOG.md` | a new `## [X.Y.Z] - YYYY-MM-DD` heading at the top |
 
 ```bash
-python scripts/sync_version.py     # writes both plugin manifests, the npm package, and the SBOM
+python scripts/sync_version.py     # writes both plugin manifests and the SBOM
 ```
 
 One prose paragraph still moves with a release: the release-channel section in `docs/upgrading.md`

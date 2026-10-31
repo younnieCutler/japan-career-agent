@@ -16,8 +16,6 @@ on:
 
 permissions:
   contents: write
-  # PyPI Trusted Publishing and npm provenance both exchange this short-lived OIDC token for
-  # upload rights, so no long-lived registry credential has to live in this repository.
   id-token: write
 
 concurrency:

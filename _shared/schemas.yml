@@ -743,15 +743,13 @@ match_history_entry:
 #                                 match_required_gaps, match_unknowns; interest_* only on explicit user instruction),
 #             tenshoku-strategy STEP 6 / 3 / 3-2 (stage transitions, history, deadlines,
 #             legacy outcome fields where still used), company-battlecard (history event),
-#             _shared/application_learning.py (begin/close projection for the current application),
-#             career-agent `approve` of a company event (stage, next_action, deadline, history —
-#             it owns none of the other fields and never overwrites them)
+#             _shared/application_learning.py (begin/close projection for the current application)
 # Read by:    CLAUDE.md onboarding (session-resume kanban), tenshoku-strategy STEP 6 current tracking,
 #             _shared/application_learning.py when freezing a closing match snapshot,
 #             scripts/status_bar.py, scripts/calibrate.py, scripts/legacy_calibrate.py (legacy only)
 #
-# This is the ONLY current per-company state store in the suite. The Career Vault keeps the agent's
-# flow state (track, stage, deadlines, event ledger); `data/applications.yml` separately owns
+# This is the ONLY current per-company state store in the suite. `data/evidence.yml` stores
+# user-confirmed career contexts, projects, and evidence entries; `data/applications.yml` separately owns
 # application-level outcome/learning history and may contain multiple records for one company.
 #
 # Upsert rules (all writers): read the whole file → modify → rewrite. Match entries by `slug`.
@@ -789,8 +787,8 @@ pipeline:
       # Written by matching-simulator after the user reviews the mapping. A selection is per
       # company because the answer is: the same confirmed work event leads as incident response
       # for one employer and as stakeholder coordination for another. Selecting changes ordering
-      # and presentation only — the events themselves live in the Career Vault ledger, are
-      # append-only, and are never edited to fit a JD.
+      # and presentation only — the evidence entries themselves live in `data/evidence.yml`
+      # and are never edited to fit a JD.
       #
       # The user's own axes — employment_status, job_search, career_mode — are NOT copied here.
       # They belong to the person, not to an opportunity, and a per-company copy would drift.
@@ -911,9 +909,9 @@ pipeline:
             created: "string: YYYY-MM-DD",
             checked_at: "string: YYYY-MM-DD | absent — set by scripts/check_action.py when ticked" }
 
-      history:       # append-only projection log; canonical evidence remains in events.jsonl
+      history:       # append-only projection log; canonical career evidence lives in data/evidence.yml
         - { date: "YYYY-MM-DD", event: "short event title",
-            event_id: "string | optional — idempotency key for career-agent events" }
+            event_id: "string | optional — idempotency key for recorded events" }
           # Legacy entries may contain id; readers accept it, writers use event_id.
 
 # ─────────────────────────────────────────────
@@ -922,8 +920,8 @@ pipeline:
 # Owner/validator: _shared/application_learning.py
 # Shipped writer/reader CLI: skills/tenshoku-strategy/job_search_learning.py
 #
-# This is canonical application-outcome/learning history, not a second company kanban and not the
-# durable GUI Application-case store. One company may have multiple application ids over time.
+# This is canonical application-outcome/learning history, not a second company kanban.
+# One company may have multiple application ids over time.
 # Identity and closed outcome fields are immutable for a record; observations/classifications append.
 # The analyzer keeps direct feedback, candidate self-observation, and matching gaps separate and
 # never converts repeated evidence into a hiring probability or automatic rules.yml write.
@@ -974,7 +972,7 @@ application_learning_store:
 # File: data/rules.yml (CWD-relative, per Output Contract / Rule C)
 # The user's own standing rules, re-surfaced by the status bar before every interview.
 #
-# Written by: career-agent (`rules` subcommand) — ONLY on explicit user approval.
+# Written by: scripts/calibrate.py (`rules` subcommand) — ONLY on explicit user approval.
 # Read by:    scripts/status_bar.py (status bar), mock-interviewer, tenshoku-strategy
 #
 # Promotion rule: a candidate becomes `active` only when at least TWO distinct pipeline
@@ -983,7 +981,7 @@ application_learning_store:
 # `self_authored` rules skip the threshold: the user wrote them deliberately.
 #
 # Skills may READ this file. Skills may NOT write, edit, or retire rules — that path
-# runs through career-agent with user approval, so the agent cannot quietly relax a
+# requires explicit user approval, so the agent cannot quietly relax a
 # constraint it keeps failing.
 #
 # IMPORTANT: this promotion contract applies to the legacy `root_cause`/calibrate path. Job Search

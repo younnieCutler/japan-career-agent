@@ -8,7 +8,7 @@ should have happened at all, and that gap let a real hardening PR merge as an un
 changes with no CHANGELOG entry or version bump). This script closes that gap: any PR
 that touches a non-test, non-doc file under skills/, _shared/, scripts/, or hooks/ must
 also change `pyproject.toml`'s `version` field relative to the base branch. That file is the
-single source of truth; the plugin and npm manifests are generated copies and are not read here.
+single source of truth; the plugin manifests are generated copies and are not read here.
 
 Skips cleanly (exit 0) whenever there is nothing to compare against — a shallow local
 clone without `origin/main` fetched, or a push that lands exactly on `origin/main` (e.g.
@@ -110,7 +110,7 @@ def main() -> int:
             print(f"  {path}", file=sys.stderr)
         print(
             "\nBump the version in pyproject.toml, run scripts/sync_version.py to write it into "
-            "the plugin and npm manifests, add a CHANGELOG.md entry, update the release-channel "
+            "the plugin manifests, add a CHANGELOG.md entry, update the release-channel "
             "section in docs/upgrading.md (and _ko/_ja), then run "
             "scripts/check_release_consistency.py.\n"
             "If this change is genuinely docs/test-only, move it out of skills/_shared/scripts/"

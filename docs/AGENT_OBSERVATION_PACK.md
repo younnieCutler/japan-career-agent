@@ -38,7 +38,7 @@ python tools/run_agent_checks.py --no-pack-success
 CI and release workflows continue to use `scripts/run_all_checks.py` directly. The observation pack
 is an agent-facing presentation/storage layer, not a new source of pass/fail truth. The implementation
 lives under `tools/`, not `scripts/`, because it is repository-development infrastructure and is not
-part of the product runtime, wheel, npm bootstrapper, or product release version.
+part of the product runtime or product release version.
 
 ## Generic command packing
 

@@ -98,5 +98,5 @@ changed code.
 
 Any behavior change or bug fix under `skills/`, `_shared/`, `scripts/`, or `hooks/` bumps the
 canonical version in `pyproject.toml`, adds a `CHANGELOG.md` entry, then runs
-`python scripts/sync_version.py` to regenerate plugin/npm/SBOM copies. `scripts/check_version_bump.py`
+`python scripts/sync_version.py` to regenerate plugin/SBOM copies. `scripts/check_version_bump.py`
 (part of `run_all_checks.py`) enforces the bump; a genuinely docs/test-only PR is the only exception.

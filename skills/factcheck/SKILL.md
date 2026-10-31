@@ -9,7 +9,7 @@ license: MIT
 # factcheck — external claim audit
 
 This is a source audit for external claims. Confirmed personal career evidence remains governed by
-the Vault approval and provenance contracts rather than being reinterpreted here.
+the `data/evidence.yml` approval and provenance contracts rather than being reinterpreted here.
 
 ## Goal
 
@@ -30,11 +30,11 @@ visible when a source cannot be reached.
 
 - Do not invent sources, dates, quotations, market numbers, company culture, or legal conclusions.
 - Do not turn a missing source into a pass or a score.
-- Do not modify `events.jsonl`, `career-state.toml`, `data/pipeline.yml`, or a canonical profile.
+- Do not modify `data/evidence.yml`, `data/pipeline.yml`, `data/applications.yml`, or a canonical profile.
 - A blocked external source is `Unknown`, not evidence from memory.
 - This Skill is read-only and never invokes another Skill.
 
-## Gate D terminal semantics
+## Terminal semantics
 
 - All material claims are acceptable and traceable → report `completed`.
 - A material contradiction → report `blocked`; the incorrect artifact must not flow to `verify`.

@@ -9,8 +9,6 @@ hiring forecast and not an automatic diagnosis of why a company rejected the can
 - `data/pipeline.yml` remains the current per-company kanban/projection.
 - `data/applications.yml` is the canonical application-outcome and learning history owned by
   `_shared/application_learning.py`.
-- Durable Vault `03-active/gui/cases/*.json` Application cases organize JD/evidence/document metadata;
-  they are not outcome history and are not mirrored into `applications.yml`.
 - One company may therefore have several application ids over time without overwriting an older
   outcome.
 - A closed application's outcome fields are immutable. Feedback that arrives later is appended as a

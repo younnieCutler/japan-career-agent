@@ -2,7 +2,7 @@
 """Own the release version, and write it into the files that only carry a copy.
 
 `pyproject.toml` is the single source of truth. Everything else that names the release version --
-the two plugin manifests, the npm bootstrapper, the SBOM -- is a generated copy, and nothing should
+the two plugin manifests and the SBOM -- is a generated copy, and nothing should
 read a version *from* those files: doing so is what made `.claude-plugin/plugin.json` the de-facto
 master while the docs claimed pyproject was.
 

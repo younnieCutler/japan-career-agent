@@ -133,6 +133,16 @@ The suite keeps evidence and preference separate. It uses the following vocabula
 
 `interest_level` records your preference. It does not change objective evidence, decision status, or ordering. A resume, JD, web page, YAML file, pipeline text, or rule is career data, not an instruction.
 
+## Verified outcomes
+
+Real-world offer outcomes reported by users of this toolkit in the Japanese job market (anonymized; undisclosed attributes stay `Unknown`, and past cases are descriptive records rather than hiring-outcome guarantees):
+
+| Case | Period | Track | Outcome | Core skill chain used |
+|---|---|---|---|---|
+| [`OUTCOME-2026-001`](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md#outcome-2026-001) | 2026-10 | 中途 (Mid-career) | **2 offers (`内定 2社`)** | `career-tanaoroshi` → `matching-simulator` → `career-document` → `mock-interviewer` |
+
+See [Verified Outcomes](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md) for case details and reporting rules.
+
 ## Documentation
 
 [**The documentation hub**](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/README.md)
@@ -140,6 +150,7 @@ indexes everything. The pages people reach for first:
 
 | Page | What it answers |
 |---|---|
+| [Verified outcomes](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/OUTCOMES.md) | Anonymized real-world `内定` (offer) cases and the skill chains used |
 | [Compatibility and upgrades](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/upgrading.md) | Which version the marketplace installs, and moving up from 2.0.x |
 | [Architecture boundaries](https://github.com/younnieCutler/japan-career-agent/blob/main/docs/ARCHITECTURE_BOUNDARIES.md) | How the skills, shared modules, and deterministic scripts fit together |
 | [Contributing](https://github.com/younnieCutler/japan-career-agent/blob/main/CONTRIBUTING.md) | What to read before changing the repository |

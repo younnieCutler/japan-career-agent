@@ -91,7 +91,7 @@ PRs keep required internal version identities without publishing every intermedi
 Any behavior change or bug fix under `skills/`, `_shared/`, `scripts/`, or `hooks/` (a fix counts —
 this is not only for new features) bumps the version in `pyproject.toml`, adds a `CHANGELOG.md`
 entry, and then runs `python scripts/sync_version.py`, which writes that version into both plugin
-manifests, the npm package and the SBOM. `pyproject.toml` is the single source of truth; those
+manifests and the SBOM. `pyproject.toml` is the single source of truth; those
 files are generated copies and are not edited by hand.
 `scripts/check_version_bump.py` enforces this: it diffs the PR against
 `origin/main` and fails if a substantive (non-`test_*`, non-`.md`) file changed under those
